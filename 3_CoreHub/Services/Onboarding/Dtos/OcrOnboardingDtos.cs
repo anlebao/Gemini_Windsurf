@@ -47,7 +47,8 @@ public record OcrOnboardingRequest(
     Guid? ShopInstanceId = null,          // Multi-VPS routing (có thể null = default instance)
     string? ContactPhone = null,          // SĐT chủ hộ (consented trên wizard — M3 pattern)
     string? ContactEmail = null,
-    List<string>? PhotoUrls = null);      // Cloudinary URLs ảnh GPKD/biển hiệu/menu — provenance + audit
+    List<string>? PhotoUrls = null,      // Cloudinary URLs ảnh GPKD/biển hiệu/menu — provenance + audit
+    bool Unregistered = false);          // P3 (2026-11-09): chủ hộ CHƯA đăng ký HKD → force Group1 + warning pháp lý
 
 /// <summary>Kết quả: tenant đã Active (Pending → Verify) + owner credentials hiện 1 lần.</summary>
 public record OcrOnboardingResult(

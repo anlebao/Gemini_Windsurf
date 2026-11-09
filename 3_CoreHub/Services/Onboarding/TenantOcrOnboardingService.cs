@@ -47,12 +47,19 @@ public class TenantOcrOnboardingService(
         }
         else // SmallShopNoLicense
         {
-            if (request.HkdGroup is null)
+            // P3 (2026-11-09): chủ hộ CHƯA đăng ký HKD → force Group1 + cảnh báo pháp lý
+            // (warning luôn ghi khi flag bật — group gửi kèm cũng bị ghi đè thành Group1).
+            // HKDGroup vẫn bắt buộc theo domain (HouseholdBusiness cần group).
+            if (request.Unregistered)
+                warnings.Add("Tenant chưa đăng ký HKD — sysadmin lưu ý pháp lý, khuyến nghị hướng dẫn chủ hộ đăng ký.");
+            var effectiveHkdGroup = request.Unregistered ? HKDGroup.Group1 : request.HkdGroup;
+            if (effectiveHkdGroup is null)
                 throw new ArgumentException("HKDGroup bắt buộc với shop không GPKD (Case B) — quyết định sổ sách TT152.");
             if (request.BusinessType != BusinessType.HouseholdBusiness)
                 throw new ArgumentException("BusinessType phải là HouseholdBusiness với shop không GPKD (Case B).");
             if (string.IsNullOrWhiteSpace(request.SignName) && string.IsNullOrWhiteSpace(request.Name))
                 throw new ArgumentException("Tên hiệu bắt buộc với shop không GPKD (Case B).");
+            request = request with { HkdGroup = effectiveHkdGroup };
         }
 
         // ── 2. Dedup ──────────────────────────────────────────────────────

@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IHttpClientFactory HttpFactory
+@inject IConfiguration Configuration
 @inject ILogger<OcrOnboardingWizard> Logger
 
 @attribute [Authorize(Policy = "SystemAdmin")]
@@ -32,6 +33,25 @@
         <span class="ocr-step-sep">→</span>
         <span class="@StepClass(4)">5. Kết quả</span>
     </div>
+
+    <!-- P3 (2026-11-09): ảnh provenance đã upload R2 — thumbnail + xóa được -->
+    @if (_photoUrls.Count > 0)
+    {
+        <div class="ocr-photos">
+            <span class="ocr-hint">Ảnh đã lưu (@_photoUrls.Count):</span>
+            <div class="ocr-photos-strip">
+                @foreach (var p in _photoUrls)
+                {
+                    <span class="ocr-photo-thumb">
+                        <img src="@p.Url" alt="@p.Kind" loading="lazy" />
+                        <em>@p.Kind</em>
+                        <button type="button" class="ocr-photo-remove" title="Xóa ảnh"
+                                @onclick="() => RemovePhoto(p)">✕</button>
+                    </span>
+                }
+            </div>
+        </div>
+    }
 
     @if (!string.IsNullOrEmpty(_alertMessage))
     {
@@ -95,6 +115,12 @@
                                 <option value="HTX">Hợp tác xã</option>
                             </select>
                         </label>
+                        @if (_gpdkLegalForm == "HKD")
+                        {
+                            <div class="ocr-hkd-group-box">
+                                <HkdGroupHelper @bind-HkdGroup="_hkdGroupA" />
+                            </div>
+                        }
                         <label>Người đại diện / Chủ hộ
                             <input class="vanan-input" @bind="_gpdkOwner" />
                         </label>
@@ -109,17 +135,24 @@
                         <label>Tên shop <span class="ocr-req">*</span> <span class="ocr-hint">(sẽ prefill từ biển hiệu ở bước 3)</span>
                             <input class="vanan-input" @bind="_tenantName" placeholder="VD: Cà Phê ABC" />
                         </label>
-                        <label>Địa chỉ <span class="ocr-req">*</span>
+                        <label>Địa chỉ <span class="ocr-hint">(không bắt buộc nếu kinh doanh lưu động)</span>
                             <input class="vanan-input" @bind="_address" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" />
                         </label>
-                        <label>Nhóm thuế HKD (quyết định sổ sách kế toán TT152) <span class="ocr-req">*</span>
-                            <select class="vanan-select" @bind="_hkdGroup">
-                                <option value="">— Chọn nhóm —</option>
-                                <option value="1">Group 1 — Không chịu thuế GTGT, không nộp thuế TNCN (S1a)</option>
-                                <option value="2">Group 2 — Nộp thuế GTGT và TNCN (S2a–S2e)</option>
-                                <option value="3">Group 3 — Hộ kinh doanh chịu thuế khác (S3a)</option>
-                            </select>
+                        <label class="ocr-check">
+                            <input type="checkbox" @bind="_unregistered" @bind:after="OnUnregisteredChanged" />
+                            Chủ hộ <strong>CHƯA đăng ký</strong> hộ kinh doanh
                         </label>
+                        @if (_unregistered)
+                        {
+                            <div class="ocr-hint">⚠️ Sẽ tạo HKD <strong>Nhóm 1</strong> + ghi nhận cờ "chưa đăng ký" — sysadmin khuyến nghị đăng ký khi duyệt.</div>
+                        }
+                        else
+                        {
+                            <div>
+                                <div class="ocr-hint" style="font-weight:600;">Nhóm thuế HKD (quyết định sổ sách kế toán TT152) <span class="ocr-req">*</span></div>
+                                <HkdGroupHelper @bind-HkdGroup="_hkdGroup" />
+                            </div>
+                        }
                     </div>
                 </div>
             }
@@ -186,25 +219,28 @@
 
         case 3:
             <div class="ocr-section">
-                <h4>📍 Vị trí cửa hàng (GPS hiện tại của bạn)</h4>
-                @if (_lat is null)
-                {
-                    <VanAButton Variant="primary" OnClick="GetLocationAsync" Loading="_isGpsBusy">
-                        📡 Lấy vị trí hiện tại
-                    </VanAButton>
-                }
-                else
+                <h4>📍 Vị trí cửa hàng</h4>
+                <VanAButton Variant="primary" OnClick="GetLocationAsync" Loading="_isGpsBusy">
+                    📡 Lấy vị trí hiện tại (GPS)
+                </VanAButton>
+                <span class="ocr-hint"> — hoặc nhập tọa độ tay / bấm vào bản đồ bên dưới.</span>
+                <div class="ocr-form">
+                    <label>Vĩ độ (lat) <span class="ocr-req">*</span>
+                        <input class="vanan-input" type="number" step="0.000001" min="-90" max="90" @bind="_lat" />
+                    </label>
+                    <label>Kinh độ (lng) <span class="ocr-req">*</span>
+                        <input class="vanan-input" type="number" step="0.000001" min="-180" max="180" @bind="_lng" />
+                    </label>
+                </div>
+                @if (_lat is not null && _lng is not null)
                 {
                     <div class="ocr-gps-info">
                         <strong>@_lat.Value.ToString("F6"), @_lng.Value.ToString("F6")</strong>
                         @if (_accuracy > 0) { <span> · chính xác ±@Math.Round(_accuracy)m</span> }
                     </div>
                     <div id="ocrMap" class="ocr-map"></div>
-                    <div class="ocr-form">
-                        <label>Vĩ độ <input class="vanan-input" type="number" step="0.000001" @bind="_lat" /></label>
-                        <label>Kinh độ <input class="vanan-input" type="number" step="0.000001" @bind="_lng" /></label>
-                    </div>
-                    <VanAButton Variant="secondary" Size="small" OnClick="GetLocationAsync" Loading="_isGpsBusy">📡 Lấy lại</VanAButton>
+                    <div class="ocr-hint">🗺️ Bấm vào bản đồ để đặt lại vị trí chính xác.</div>
+                    <VanAButton Variant="secondary" Size="small" OnClick="GetLocationAsync" Loading="_isGpsBusy">📡 Lấy lại GPS</VanAButton>
                 }
             </div>
 
@@ -212,7 +248,10 @@
                 <h4>✅ Xác nhận thông tin</h4>
                 <div class="ocr-form">
                     <label>Tên tenant <span class="ocr-req">*</span> <input class="vanan-input" @bind="_tenantName" /></label>
-                    <label>Địa chỉ <span class="ocr-req">*</span> <input class="vanan-input" @bind="_address" /></label>
+                    <label>Địa chỉ
+                        @if (_case == OcrOnboardingCase.SmallShopNoLicense) { <span class="ocr-hint">(không bắt buộc nếu kinh doanh lưu động)</span> }
+                        <input class="vanan-input" @bind="_address" />
+                    </label>
                     @if (_case == OcrOnboardingCase.CompanyWithLicense)
                     {
                         <label>Loại hình
@@ -336,13 +375,17 @@
     private string _tenantName = string.Empty;
     private string _address = string.Empty;
     private string _businessTypeStr = "Company";
-    private string? _hkdGroup; // "1"|"2"|"3"
+    private string? _hkdGroup;   // Case B: "1"|"2"|"3" (helper)
+    private string? _hkdGroupA;  // P3: Case A HKD — helper gợi ý (thay auto-Group2)
+    private bool _unregistered;  // P3: Case B — chủ hộ CHƯA đăng ký HKD → force Group1
     private string _contactPhone = string.Empty;
     private string _contactEmail = string.Empty;
     private List<ProductRow> _productRows = [];
+    private List<PhotoEntry> _photoUrls = [];   // P3: ảnh provenance đã upload R2
     private double? _lat, _lng;
     private double _accuracy;
     private double? _lastMapLat, _lastMapLng;   // RV fix: guard init map chỉ khi coords đổi
+    private bool _uploadConfigured;             // P3: configureUpload gọi 1 lần
 
     // Busy flags
     private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isImporting;
@@ -362,6 +405,13 @@
         public decimal? Price { get; set; }
     }
 
+    /// <summary>P3: ảnh đã upload R2 (Cloudinary URL) + loại giấy tờ.</summary>
+    private sealed class PhotoEntry
+    {
+        public string Url { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;
+    }
+
     private sealed record GpdkOcrResult(
         string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
         Dictionary<string, double>? Confidence, List<string>? Warnings);
@@ -371,6 +421,37 @@
     private sealed record MenuOcrResult(List<MenuProductLine>? ProductLines, List<string>? Warnings);
 
     private sealed record MenuProductLine(string? Name, decimal? Price, int LineNo, double Confidence);
+
+    /// <summary>P3: draft autosave — fields text + productRows + photoUrls + step (KHÔNG password/ảnh blob).</summary>
+    private sealed class WizardDraft
+    {
+        public int Step { get; set; }
+        public string? Case { get; set; }
+        public string GpdkMst { get; set; } = string.Empty;
+        public string GpdkName { get; set; } = string.Empty;
+        public string GpdkAddress { get; set; } = string.Empty;
+        public string GpdkLegalForm { get; set; } = string.Empty;
+        public string GpdkOwner { get; set; } = string.Empty;
+        public double GpdkMstConf { get; set; }
+        public double GpdkNameConf { get; set; }
+        public double GpdkAddressConf { get; set; }
+        public double GpdkLegalFormConf { get; set; }
+        public string SignName { get; set; } = string.Empty;
+        public double SignNameConf { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string BusinessTypeStr { get; set; } = "Company";
+        public string? HkdGroup { get; set; }
+        public string? HkdGroupA { get; set; }
+        public bool Unregistered { get; set; }
+        public string ContactPhone { get; set; } = string.Empty;
+        public string ContactEmail { get; set; } = string.Empty;
+        public List<ProductRow> ProductRows { get; set; } = [];
+        public List<PhotoEntry> PhotoUrls { get; set; } = [];
+        public double? Lat { get; set; }
+        public double? Lng { get; set; }
+        public double Accuracy { get; set; }
+    }
 
     // ── Stepper helpers ────────────────────────────────────────────────
     private string StepClass(int step) => step == _step ? "ocr-step active" : step < _step ? "ocr-step done" : "ocr-step";
@@ -411,19 +492,49 @@
             }
             _tenantName = string.IsNullOrWhiteSpace(_tenantName) ? _gpdkName : _tenantName;
             _address = string.IsNullOrWhiteSpace(_address) ? _gpdkAddress : _address;
-            if (_gpdkLegalForm == "HKD") _businessTypeStr = "HouseholdBusiness";
+            if (_gpdkLegalForm == "HKD")
+            {
+                _businessTypeStr = "HouseholdBusiness";
+                // P3: HKD bắt buộc nhóm thuế (domain invariant) — helper gợi ý, KHÔNG auto-Group2.
+                if (string.IsNullOrWhiteSpace(_hkdGroupA))
+                {
+                    ShowAlert("GPKD là Hộ kinh doanh — chọn/gợi ý nhóm thuế HKD (bước Giấy tờ) trước khi tiếp tục.", "warning");
+                    return;
+                }
+            }
             else if (!string.IsNullOrWhiteSpace(_gpdkLegalForm)) _businessTypeStr = "Company";
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(_tenantName) || string.IsNullOrWhiteSpace(_address) || string.IsNullOrWhiteSpace(_hkdGroup))
+            // P3: địa chỉ OPTIONAL Case B (kinh doanh lưu động) — chỉ tên + nhóm thuế bắt buộc.
+            if (string.IsNullOrWhiteSpace(_tenantName))
             {
-                ShowAlert("Tên shop, địa chỉ và nhóm thuế HKD là bắt buộc.", "warning");
+                ShowAlert("Tên shop là bắt buộc.", "warning");
+                return;
+            }
+            if (!_unregistered && string.IsNullOrWhiteSpace(_hkdGroup))
+            {
+                ShowAlert("Chọn nhóm thuế HKD (hoặc tick \"chưa đăng ký\").", "warning");
                 return;
             }
         }
         _step = 2;
     }
+
+    /// <summary>P3: tick "chưa đăng ký" → ẩn helper + force Group1 phía client.</summary>
+    private void OnUnregisteredChanged()
+    {
+        if (_unregistered)
+        {
+            _hkdGroup = "1";
+        }
+        else if (_hkdGroup == "1")
+        {
+            _hkdGroup = null;   // bỏ tick → để helper gợi ý lại
+        }
+    }
+
+    private void RemovePhoto(PhotoEntry p) => _photoUrls.Remove(p);
 
     private void NextFromSignMenu()
     {
@@ -505,6 +616,27 @@
         {
             _jsRegistered = true;
             await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.register", DotNetObjectReference.Create(this));
+            // P3: public Gateway URL cho browser→Gateway image upload (fallback internal — sẽ fail trong browser nếu thiếu config)
+            var publicBase = (Configuration["Gateway:PublicBaseUrl"] ?? string.Empty).TrimEnd('/');
+            if (string.IsNullOrEmpty(publicBase))
+            {
+                publicBase = (Configuration["Gateway:BaseUrl"] ?? string.Empty).TrimEnd('/');
+                Logger.LogWarning("Gateway:PublicBaseUrl chưa config — photo upload dùng internal URL (có thể fail từ browser)");
+            }
+            await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.configureUpload", publicBase);
+            _uploadConfigured = true;
+            await RestoreDraftAsync();
+        }
+        // P3: draft autosave mỗi render (sessionStorage write rẻ) — bỏ qua sau khi submit xong
+        // và bỏ qua state rỗng (tránh prompt "khôi phục" cho draft trắng sau khi user từ chối).
+        if (_jsRegistered && _uploadConfigured && _result is null)
+        {
+            var draft = BuildDraft();
+            if (HasDraftContent(draft))
+            {
+                var draftJson = System.Text.Json.JsonSerializer.Serialize(draft);
+                await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.saveDraft", draftJson);
+            }
         }
         // RV fix 2026-10-26: chỉ init map khi coords THAY ĐỔI — trước đây gọi mỗi render
         // → L.map lần 2 ném "Map container is already initialized" → circuit chết.
@@ -531,11 +663,13 @@
         }
     }
 
+    /// <summary>P3: JS gửi kèm photoUrlsJson (JSON array string) sau khi upload R2 song song OCR.</summary>
     [JSInvokable]
-    public Task OnOcrResult(string method, string json)
+    public Task OnOcrResult(string method, string json, string? photoUrlsJson = null)
     {
         try
         {
+            CollectPhotoUrls(method, photoUrlsJson);
             var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             switch (method)
             {
@@ -597,6 +731,46 @@
         return Task.CompletedTask;
     }
 
+    /// <summary>P3: map click → cập nhật tọa độ (OnAfterRender sẽ re-init map với marker mới).</summary>
+    [JSInvokable]
+    public Task OnMapClick(double lat, double lng)
+    {
+        if (lat is >= -90 and <= 90 && lng is >= -180 and <= 180)
+        {
+            _lat = lat;
+            _lng = lng;
+            _accuracy = 0;
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>P3: gom photo URLs từ JS vào _photoUrls (dedupe theo URL, gán kind theo method OCR).</summary>
+    private void CollectPhotoUrls(string method, string? photoUrlsJson)
+    {
+        if (string.IsNullOrWhiteSpace(photoUrlsJson)) return;
+        string kind = method switch
+        {
+            "extractGpdk" => "GPKD",
+            "extractSignName" => "Biển hiệu",
+            _ => "Menu"
+        };
+        try
+        {
+            var urls = System.Text.Json.JsonSerializer.Deserialize<List<string>>(photoUrlsJson);
+            if (urls is null) return;
+            foreach (var url in urls.Where(u => !string.IsNullOrWhiteSpace(u)))
+            {
+                if (_photoUrls.All(p => p.Url != url))
+                    _photoUrls.Add(new PhotoEntry { Url = url, Kind = kind });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Photo URLs parse fail ({Method})", method);
+        }
+    }
+
     [JSInvokable]
     public Task OnOcrError(string method, string message)
     {
@@ -642,9 +816,11 @@
     // ── Submit ─────────────────────────────────────────────────────────
     private async Task SubmitAsync()
     {
-        if (_lat is null || _lng is null)
+        // P3: GPS không bắt buộc — nhập tay / map click đều được; chỉ validate range.
+        if (_lat is null || _lng is null
+            || _lat < -90 || _lat > 90 || _lng < -180 || _lng > 180)
         {
-            ShowAlert("Chưa có vị trí — bấm 'Lấy vị trí hiện tại' (hoặc nhập tay).", "warning");
+            ShowAlert("Nhập vĩ độ (-90..90) và kinh độ (-180..180) — GPS, tay, hoặc bấm vào bản đồ.", "warning");
             return;
         }
         if (_case == OcrOnboardingCase.CompanyWithLicense && !IsValidMst(_gpdkMst))
@@ -652,9 +828,16 @@
             ShowAlert("Mã số thuế phải 10 hoặc 13 chữ số.", "warning");
             return;
         }
-        if (_case == OcrOnboardingCase.SmallShopNoLicense && string.IsNullOrWhiteSpace(_hkdGroup))
+        if (_case == OcrOnboardingCase.SmallShopNoLicense && !_unregistered && string.IsNullOrWhiteSpace(_hkdGroup))
         {
-            ShowAlert("Chọn nhóm thuế HKD.", "warning");
+            ShowAlert("Chọn nhóm thuế HKD (hoặc tick \"chưa đăng ký\").", "warning");
+            return;
+        }
+        if (_case == OcrOnboardingCase.CompanyWithLicense
+            && _businessTypeStr == "HouseholdBusiness"
+            && string.IsNullOrWhiteSpace(_hkdGroupA))
+        {
+            ShowAlert("Hộ kinh doanh (GPKD) cần nhóm thuế HKD — chọn/gợi ý ở bước Giấy tờ.", "warning");
             return;
         }
 
@@ -662,14 +845,17 @@
         ShowAlert(string.Empty, "info");
         try
         {
+            var isHkd = _businessTypeStr == "HouseholdBusiness";
             var request = new OcrOnboardingRequest(
                 Case: _case!.Value,
                 Name: _tenantName.Trim(),
-                Address: _address.Trim(),
-                BusinessType: _businessTypeStr == "HouseholdBusiness" ? BusinessType.HouseholdBusiness : BusinessType.Company,
-                HkdGroup: _case == OcrOnboardingCase.SmallShopNoLicense
-                    ? (HKDGroup)int.Parse(_hkdGroup!)
-                    : (_gpdkLegalForm == "HKD" ? HKDGroup.Group2 : (HKDGroup?)null),
+                Address: string.IsNullOrWhiteSpace(_address) ? null : _address.Trim(),
+                BusinessType: isHkd ? BusinessType.HouseholdBusiness : BusinessType.Company,
+                // Case B: nhóm từ helper (hoặc "1" khi unregistered). Case A HKD: _hkdGroupA.
+                // Case A Company: null (domain invariant).
+                HkdGroup: isHkd
+                    ? (HKDGroup)int.Parse((_case == OcrOnboardingCase.SmallShopNoLicense ? _hkdGroup : _hkdGroupA) ?? "1")
+                    : null,
                 ProductLines: _productRows
                     .Where(r => !string.IsNullOrWhiteSpace(r.Name))
                     .Select(r => new OcrProductLineDto(r.Name.Trim(), r.Price, 0))
@@ -682,11 +868,14 @@
                 SignName: string.IsNullOrWhiteSpace(_signName) ? null : _signName,
                 ShopInstanceId: null,
                 ContactPhone: string.IsNullOrWhiteSpace(_contactPhone) ? null : _contactPhone.Trim(),
-                ContactEmail: string.IsNullOrWhiteSpace(_contactEmail) ? null : _contactEmail.Trim());
+                ContactEmail: string.IsNullOrWhiteSpace(_contactEmail) ? null : _contactEmail.Trim(),
+                PhotoUrls: _photoUrls.Count > 0 ? _photoUrls.Select(p => p.Url).ToList() : null,
+                Unregistered: _case == OcrOnboardingCase.SmallShopNoLicense && _unregistered);
 
             _result = await OcrOnboardingApi.ExecuteAsync(request);
             _importResult = null;
             _importStatus = string.Empty;
+            await ClearDraftAsync();   // P3: submit xong → xóa draft
             _step = 4;
         }
         catch (Exception ex)
@@ -728,19 +917,33 @@
             };
             message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            var response = await client.SendAsync(message);
-            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            // P3: 409 (tenant chưa NATS-sync sang ShopERP SQLite) → auto-retry 5 lần × 3s
+            // trước khi báo chờ — import thành công ngay khi sync xong, không cần bấm lại tay.
+            const int maxRetries = 5;
+            for (var attempt = 1; attempt <= maxRetries; attempt++)
             {
-                _importStatus = "⏳ Tenant chưa được đồng bộ sang ShopERP — chờ vài giây rồi bấm lại.";
-            }
-            else if (response.IsSuccessStatusCode)
-            {
-                _importResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
-                _importStatus = string.Empty;
-            }
-            else
-            {
-                _importStatus = $"❌ Import thất bại ({(int)response.StatusCode}) — {await response.Content.ReadAsStringAsync()}";
+                var response = await client.SendAsync(message);
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    if (attempt < maxRetries)
+                    {
+                        _importStatus = $"⏳ Tenant đang đồng bộ sang ShopERP — thử lại lần {attempt}/{maxRetries} sau 3s…";
+                        StateHasChanged();
+                        await Task.Delay(3000);
+                        continue;
+                    }
+                    _importStatus = "⏳ Tenant chưa được đồng bộ sang ShopERP sau 5 lần thử — chờ sync xong rồi bấm lại.";
+                }
+                else if (response.IsSuccessStatusCode)
+                {
+                    _importResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
+                    _importStatus = string.Empty;
+                }
+                else
+                {
+                    _importStatus = $"❌ Import thất bại ({(int)response.StatusCode}) — {await response.Content.ReadAsStringAsync()}";
+                }
+                break;
             }
         }
         catch (Exception ex)
@@ -751,6 +954,79 @@
         {
             _isImporting = false;
         }
+    }
+
+    // ── P3: draft autosave ──────────────────────────────────────────────
+    private WizardDraft BuildDraft() => new()
+    {
+        Step = _step,
+        Case = _case?.ToString(),
+        GpdkMst = _gpdkMst, GpdkName = _gpdkName, GpdkAddress = _gpdkAddress,
+        GpdkLegalForm = _gpdkLegalForm, GpdkOwner = _gpdkOwner,
+        GpdkMstConf = _gpdkMstConf, GpdkNameConf = _gpdkNameConf,
+        GpdkAddressConf = _gpdkAddressConf, GpdkLegalFormConf = _gpdkLegalFormConf,
+        SignName = _signName, SignNameConf = _signNameConf,
+        TenantName = _tenantName, Address = _address, BusinessTypeStr = _businessTypeStr,
+        HkdGroup = _hkdGroup, HkdGroupA = _hkdGroupA, Unregistered = _unregistered,
+        ContactPhone = _contactPhone, ContactEmail = _contactEmail,
+        ProductRows = [.. _productRows],
+        PhotoUrls = [.. _photoUrls],
+        Lat = _lat, Lng = _lng, Accuracy = _accuracy
+    };
+
+    /// <summary>P3: draft chỉ đáng lưu khi có nội dung — step>0 hoặc bất kỳ field nào khác rỗng.</summary>
+    private static bool HasDraftContent(WizardDraft d) =>
+        d.Step > 0 || d.Case is not null
+        || !string.IsNullOrWhiteSpace(d.TenantName) || !string.IsNullOrWhiteSpace(d.GpdkMst)
+        || !string.IsNullOrWhiteSpace(d.SignName) || d.ProductRows.Count > 0
+        || d.PhotoUrls.Count > 0 || d.Lat is not null || d.Unregistered || !string.IsNullOrWhiteSpace(d.HkdGroup);
+
+    private async Task RestoreDraftAsync()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string?>("vananOnboardingWizard.loadDraft");
+            if (string.IsNullOrWhiteSpace(json)) return;
+            var draft = System.Text.Json.JsonSerializer.Deserialize<WizardDraft>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (draft is null) return;
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                "Tìm thấy bản nháp wizard chưa hoàn thành. Khôi phục?");
+            if (!confirmed)
+            {
+                await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.clearDraft");
+                return;
+            }
+            ApplyDraft(draft);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Wizard draft restore failed — bắt đầu mới");
+        }
+    }
+
+    private void ApplyDraft(WizardDraft d)
+    {
+        _step = Math.Clamp(d.Step, 0, 3);   // step 4 = kết quả — không restore
+        _case = Enum.TryParse<OcrOnboardingCase>(d.Case, out var c) ? c : null;
+        _gpdkMst = d.GpdkMst; _gpdkName = d.GpdkName; _gpdkAddress = d.GpdkAddress;
+        _gpdkLegalForm = d.GpdkLegalForm; _gpdkOwner = d.GpdkOwner;
+        _gpdkMstConf = d.GpdkMstConf; _gpdkNameConf = d.GpdkNameConf;
+        _gpdkAddressConf = d.GpdkAddressConf; _gpdkLegalFormConf = d.GpdkLegalFormConf;
+        _signName = d.SignName; _signNameConf = d.SignNameConf;
+        _tenantName = d.TenantName; _address = d.Address; _businessTypeStr = d.BusinessTypeStr;
+        _hkdGroup = d.HkdGroup; _hkdGroupA = d.HkdGroupA; _unregistered = d.Unregistered;
+        _contactPhone = d.ContactPhone; _contactEmail = d.ContactEmail;
+        _productRows = d.ProductRows;
+        _photoUrls = d.PhotoUrls;
+        _lat = d.Lat; _lng = d.Lng; _accuracy = d.Accuracy;
+        _lastMapLat = null; _lastMapLng = null;   // coords restore → OnAfterRender init map lại
+    }
+
+    private async Task ClearDraftAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananOnboardingWizard.clearDraft"); }
+        catch { /* best-effort */ }
     }
 
     private async Task CopyAsync(string text)
@@ -769,6 +1045,9 @@
         _gpdkMst = _gpdkName = _gpdkAddress = _gpdkLegalForm = _gpdkOwner = string.Empty;
         _signName = string.Empty;
         _productRows = [];
+        _photoUrls = [];   // P3
+        _hkdGroupA = null; // P3
+        _unregistered = false; // P3
         _lat = _lng = null;
         _accuracy = 0;
         _lastMapLat = _lastMapLng = null;
@@ -777,6 +1056,7 @@
         _menuShotCount = 0;
         _cameraPendingOpen = false;
         _ = JSRuntime.InvokeVoidAsync("vananOnboardingWizard.closeCamera");
+        _ = ClearDraftAsync();   // P3: reset → xóa draft
         _hkdGroup = null;
         _alertMessage = string.Empty;
     }

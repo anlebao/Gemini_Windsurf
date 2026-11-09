@@ -260,6 +260,40 @@ public class TenantOcrOnboardingServiceTests
         count.Should().Be(2);
     }
 
+    [Fact(DisplayName = "CaseB_Unregistered_NoGroup_DefaultsGroup1_WithWarning (P3)")]
+    public async Task CaseB_Unregistered_NoGroup_DefaultsGroup1_WithWarning()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        var sut = CreateSut(scope.Context, out _);
+        SetupUserMocks(Guid.NewGuid());
+
+        var request = CaseBRequest() with { HkdGroup = null, Unregistered = true };
+        var result = await sut.ExecuteAsync(request, AdminId);
+
+        var tenant = await scope.Context.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == new TenantId(result.TenantId));
+        tenant.Should().NotBeNull();
+        tenant!.HKDGroup.Should().Be(HKDGroup.Group1);   // force Group1
+        tenant.BusinessType.Should().Be(BusinessType.HouseholdBusiness);
+        result.Warnings.Should().Contain(w => w.Contains("chưa đăng ký"));
+    }
+
+    [Fact(DisplayName = "CaseB_Unregistered_WithExplicitGroup_ForcedToGroup1_StillWarns (P3)")]
+    public async Task CaseB_Unregistered_WithExplicitGroup_ForcedToGroup1_StillWarns()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        var sut = CreateSut(scope.Context, out _);
+        SetupUserMocks(Guid.NewGuid());
+
+        var request = CaseBRequest() with { HkdGroup = HKDGroup.Group2, Unregistered = true };
+        var result = await sut.ExecuteAsync(request, AdminId);
+
+        var tenant = await scope.Context.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == new TenantId(result.TenantId));
+        tenant!.HKDGroup.Should().Be(HKDGroup.Group1);   // Unregistered force Group1 — explicit group bị ghi đè
+        result.Warnings.Should().Contain(w => w.Contains("chưa đăng ký"));
+    }
+
     [Fact(DisplayName = "CaseB_PhotoUrls_InCrawlSourcePayload")]
     public async Task CaseB_PhotoUrls_InCrawlSourcePayload()
     {

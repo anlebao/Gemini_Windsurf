@@ -1,0 +1,116 @@
+@* HKDGroup helper (P3 — 2026-11-09, port từ KhachLink P1 FR-9): gợi ý nhóm thuế
+   bằng ngôn ngữ đời thường cho wizard sysadmin /admin/onboarding-ocr.
+   Mapping đơn giản hóa TT152 — LUÔN ghi rõ "gợi ý, sysadmin xác nhận".
+   Vẫn cho chọn tay qua <details> "Tôi muốn tự chọn nhóm thuế". *@
+@namespace VanAn.ShopERP.Components.Shared
+
+<div class="hkd-helper">
+    <div class="ocr-hint" style="font-weight:600;">Gợi ý nhóm thuế (sysadmin xác nhận):</div>
+    <div class="ocr-form">
+        <label>Doanh thu ước tính mỗi tháng
+            <select class="vanan-select" value="@_revenue" @onchange="OnRevenueChanged">
+                <option value="">— Chọn —</option>
+                <option value="lt5">Dưới 5 triệu</option>
+                <option value="5-100">5 – 100 triệu</option>
+                <option value="gt100">Trên 100 triệu</option>
+                <option value="unknown">Không rõ</option>
+            </select>
+        </label>
+        <label>Bạn có đang nộp thuế GTGT không?
+            <select class="vanan-select" value="@_vat" @onchange="OnVatChanged">
+                <option value="">— Chọn —</option>
+                <option value="no">Không / không biết</option>
+                <option value="yes">Có</option>
+            </select>
+        </label>
+    </div>
+
+    @if (_suggestionGroup is not null)
+    {
+        <div class="hkd-suggestion">
+            💡 Gợi ý: <strong>@_suggestionText</strong>
+            @if (_vat == "yes")
+            {
+                <span class="ocr-hint"> — đang nộp thuế GTGT nên khả năng cao thuộc nhóm 2.</span>
+            }
+        </div>
+    }
+
+    <details class="hkd-manual">
+        <summary class="ocr-hint">Tôi muốn tự chọn nhóm thuế</summary>
+        <select class="vanan-select mt-1" value="@HkdGroup" @onchange="OnManualChanged">
+            <option value="">— Chọn nhóm —</option>
+            <option value="1">Nhóm 1 — nhỏ, không phải nộp thuế GTGT/TNCN</option>
+            <option value="2">Nhóm 2 — nộp thuế GTGT + TNCN</option>
+            <option value="3">Nhóm 3 — hộ kinh doanh chịu thuế khác</option>
+        </select>
+    </details>
+</div>
+
+@code {
+    /// <summary>"1"|"2"|"3" — bind với wizard state.</summary>
+    [Parameter] public string? HkdGroup { get; set; }
+    [Parameter] public EventCallback<string?> HkdGroupChanged { get; set; }
+
+    private string _revenue = string.Empty;
+    private string _vat = string.Empty;
+    private bool _manualOverride;
+    private string? _suggestionGroup;
+    private string _suggestionText = string.Empty;
+
+    private void OnRevenueChanged(ChangeEventArgs e)
+    {
+        _revenue = e.Value?.ToString() ?? string.Empty;
+        Recompute();
+    }
+
+    private void OnVatChanged(ChangeEventArgs e)
+    {
+        _vat = e.Value?.ToString() ?? string.Empty;
+        Recompute();
+    }
+
+    private void OnManualChanged(ChangeEventArgs e)
+    {
+        _manualOverride = true;
+        HkdGroup = e.Value?.ToString();
+        _ = HkdGroupChanged.InvokeAsync(HkdGroup);
+    }
+
+    /// <summary>
+    /// Mapping gợi ý (đơn giản hóa TT152):
+    ///   &lt;5tr → Group1 · 5-100tr / &gt;100tr / Không rõ → Group2 · Có GTGT → Group2.
+    /// </summary>
+    private void Recompute()
+    {
+        if (_revenue.Length == 0 && _vat.Length == 0)
+        {
+            _suggestionGroup = null;
+            _suggestionText = string.Empty;
+            return;
+        }
+
+        if (_vat == "yes")
+        {
+            _suggestionGroup = "2";
+            _suggestionText = "Nhóm 2 — nộp thuế GTGT + TNCN";
+        }
+        else if (_revenue == "lt5")
+        {
+            _suggestionGroup = "1";
+            _suggestionText = "Nhóm 1 — nhỏ, không phải nộp thuế GTGT/TNCN";
+        }
+        else
+        {
+            _suggestionGroup = "2";
+            _suggestionText = "Nhóm 2 — nộp thuế GTGT + TNCN";
+        }
+
+        // Auto-fill khi sysadmin chưa chọn tay — tránh bắt thao tác thêm
+        if (!_manualOverride && HkdGroup != _suggestionGroup)
+        {
+            HkdGroup = _suggestionGroup;
+            _ = HkdGroupChanged.InvokeAsync(HkdGroup);
+        }
+    }
+}

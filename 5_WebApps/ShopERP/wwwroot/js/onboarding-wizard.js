@@ -7,6 +7,7 @@ window.vananOnboardingWizard = (function () {
     'use strict';
 
     let _dotNetRef = null;
+    let _uploadBaseUrl = null;   // P3: public Gateway URL cho browser→Gateway image upload
 
     /** Blazor đăng ký DotNetObjectReference để JS gọi lại (OnOcrResult/OnOcrError). */
     function register(ref) {
@@ -14,29 +15,78 @@ window.vananOnboardingWizard = (function () {
         window.__ocrDotNetRef = ref;
     }
 
-    /** Đọc 1 ảnh (file input) → gọi vananOnboardingOcr.<method>(file) → trả kết quả về Blazor. */
+    /** P3 (2026-11-09): set public Gateway base URL (Gateway:PublicBaseUrl) —
+     *  browser fetch trực tiếp POST /api/v1/images/upload?folder=onboarding (AllowAnonymous). */
+    function configureUpload(publicGatewayBaseUrl) {
+        _uploadBaseUrl = (publicGatewayBaseUrl || '').replace(/\/+$/, '');
+    }
+
+    /** Upload 1 ảnh → Cloudinary qua Gateway. Trả URL hoặc null (fail không chặn OCR). */
+    async function _uploadPhoto(file) {
+        if (!_uploadBaseUrl || !file) return null;
+        try {
+            const form = new FormData();
+            form.append('file', file, file.name || 'capture.jpg');
+            const resp = await fetch(_uploadBaseUrl + '/api/v1/images/upload?folder=onboarding', {
+                method: 'POST',
+                body: form
+            });
+            if (!resp.ok) {
+                console.warn('[OnboardingWizard] photo upload failed:', resp.status);
+                return null;
+            }
+            const data = await resp.json();
+            return data && data.url ? data.url : null;
+        } catch (e) {
+            console.warn('[OnboardingWizard] photo upload error:', e);
+            return null;
+        }
+    }
+
+    /** Đọc 1 ảnh (file input/camera) → OCR + upload song song → trả kết quả + photoUrls về Blazor. */
     async function processFile(file, methodName) {
         if (!file) return;
         try {
-            const result = await window.vananOnboardingOcr[methodName](file);
-            await _dotNetRef.invokeMethodAsync('OnOcrResult', methodName, JSON.stringify(result));
+            const [result, photoUrl] = await Promise.all([
+                window.vananOnboardingOcr[methodName](file),
+                _uploadPhoto(file)
+            ]);
+            await _dotNetRef.invokeMethodAsync('OnOcrResult', methodName, JSON.stringify(result),
+                photoUrl ? JSON.stringify([photoUrl]) : null);
         } catch (e) {
             console.error('[OnboardingWizard] OCR fail:', e);
             await _dotNetRef.invokeMethodAsync('OnOcrError', methodName, e.message);
         }
     }
 
-    /** Đọc nhiều ảnh menu → extractMenu → trả kết quả về Blazor. */
+    /** Đọc nhiều ảnh menu → extractMenu + upload tất cả → trả kết quả + photoUrls về Blazor. */
     async function processMenuFiles(files) {
         const list = Array.from(files || []);
         if (!list.length) return;
         try {
-            const result = await window.vananOnboardingOcr.extractMenu(list);
-            await _dotNetRef.invokeMethodAsync('OnOcrResult', 'extractMenu', JSON.stringify(result));
+            const [result, urls] = await Promise.all([
+                window.vananOnboardingOcr.extractMenu(list),
+                Promise.all(list.map(_uploadPhoto))
+            ]);
+            const photoUrls = urls.filter((u) => !!u);
+            await _dotNetRef.invokeMethodAsync('OnOcrResult', 'extractMenu', JSON.stringify(result),
+                photoUrls.length ? JSON.stringify(photoUrls) : null);
         } catch (e) {
             console.error('[OnboardingWizard] Menu OCR fail:', e);
             await _dotNetRef.invokeMethodAsync('OnOcrError', 'extractMenu', e.message);
         }
+    }
+
+    // ── P3: draft autosave (sessionStorage) ──────────────────────────────
+    const DRAFT_KEY = 'ocr-wizard-draft';
+    function saveDraft(json) {
+        try { sessionStorage.setItem(DRAFT_KEY, json); } catch (e) { /* quota/private mode — best-effort */ }
+    }
+    function loadDraft() {
+        try { return sessionStorage.getItem(DRAFT_KEY); } catch (e) { return null; }
+    }
+    function clearDraft() {
+        try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) { /* best-effort */ }
     }
 
     /** Promise-based navigator.geolocation. Resolve {lat, lng, accuracy}. */
@@ -92,6 +142,12 @@ window.vananOnboardingWizard = (function () {
                 _map = mlMap;
                 _mapEngine = 'maplibre';
                 new maplibregl.Marker({ color: '#ea4335' }).setLngLat([lng, lat]).addTo(mlMap);
+                // P3: click bản đồ → set tọa độ (Blazor OnMapClick)
+                mlMap.on('click', (e) => {
+                    if (_dotNetRef && e.lngLat) {
+                        _dotNetRef.invokeMethodAsync('OnMapClick', e.lngLat.lat, e.lngLat.lng);
+                    }
+                });
                 if (accuracy > 0) {
                     // addSource/addLayer cần style đã load → chờ 'load'.
                     mlMap.once('load', () => {
@@ -119,6 +175,12 @@ window.vananOnboardingWizard = (function () {
             }).addTo(_map);
         }
         L.marker([lat, lng]).addTo(_map);
+        // P3: click bản đồ → set tọa độ (Blazor OnMapClick)
+        _map.on('click', (e) => {
+            if (_dotNetRef && e.latlng) {
+                _dotNetRef.invokeMethodAsync('OnMapClick', e.latlng.lat, e.latlng.lng);
+            }
+        });
         if (accuracy > 0) {
             L.circle([lat, lng], { radius: accuracy, color: '#2563eb', fillOpacity: 0.15 }).addTo(_map);
         }
@@ -206,5 +268,5 @@ window.vananOnboardingWizard = (function () {
         await processMenuFiles(shots);
     }
 
-    return { register, processFile, processMenuFiles, getCurrentPosition, initMap, openCamera, closeCamera, captureAndOcr, captureMenuShot, finishMenuCapture };
+    return { register, configureUpload, processFile, processMenuFiles, getCurrentPosition, initMap, openCamera, closeCamera, captureAndOcr, captureMenuShot, finishMenuCapture, saveDraft, loadDraft, clearDraft };
 })();
