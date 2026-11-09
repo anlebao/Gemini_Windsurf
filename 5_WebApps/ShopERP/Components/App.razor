@@ -41,6 +41,8 @@
     <script src="js/circuit-keepalive.js"></script>
     <!-- Admin Mobile PWA: SW registration + update toast (SRI-deadlock fix — port KhachLink pwa.js) -->
     <script src="js/pwa.js"></script>
+    <!-- Self-Serve Onboarding P2 (2026-11-09): QR generator (vananQR) cho card QR mời đăng ký -->
+    <script src="js/lib/qrcode.js"></script>
     <script>
         if (window.vananPWA && typeof window.vananPWA.registerServiceWorker === 'function') {
             window.vananPWA.registerServiceWorker();

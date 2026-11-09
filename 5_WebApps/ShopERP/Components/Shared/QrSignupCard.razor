@@ -1,0 +1,160 @@
+@* Self-Serve Onboarding P2 (2026-11-09, SRS FR-21): card "QR mời đăng ký"
+   trên /admin/onboarding-ocr — sinh deep-link /onboard?src=qr&case=..&name=..&address=..&lat=..&lng=..
+   → preview QR (vananQR, qrcode.js vendored) + Tải ảnh + Copy link.
+   Ẩn khi QrEntryEnabled=false; master SelfServeEnabled=false → cảnh báo đỏ. *@
+@using VanAn.CoreHub.Services.Onboarding
+@inject OnboardingFlagsApiClient FlagsApi
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
+@inject ILogger<QrSignupCard> Logger
+
+@if (_visible)
+{
+    <VanACard Header="QR mời đăng ký self-serve">
+        <div class="qr-signup">
+            @if (_flags is not null && !_flags.SelfServeEnabled)
+            {
+                <VanAAlert Variant="error" Message="Master switch đang TẮT — QR này sẽ dẫn tới trang /onboard thông báo đóng. Bật lại ở card 'Kênh đăng ký self-serve'." Dismissible="false" />
+            }
+
+            <div class="qr-signup-form">
+                <div class="form-group">
+                    <label for="qr-case">Loại hình</label>
+                    <select id="qr-case" class="vanan-select" @bind="_case">
+                        <option value="a">Case A — Có giấy phép kinh doanh</option>
+                        <option value="b">Case B — Cửa hàng chưa có giấy phép</option>
+                        <option value="rong">Case Rong — Bán hàng rong / chưa đăng ký</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="qr-name">Tên cửa hàng / tên hiệu</label>
+                    <input id="qr-name" class="vanan-input" @bind="_name" placeholder="VD: Cà Phê ABC" maxlength="200" />
+                </div>
+                <div class="form-group">
+                    <label for="qr-address">Địa chỉ</label>
+                    <input id="qr-address" class="vanan-input" @bind="_address" placeholder="Số nhà, đường, phường/xã, quận/huyện" maxlength="200" />
+                </div>
+                <div class="form-group">
+                    <label>Vị trí (tùy chọn — GPS hiện tại)</label>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input class="vanan-input" style="max-width:110px" @bind="_latText" placeholder="lat" />
+                        <input class="vanan-input" style="max-width:110px" @bind="_lngText" placeholder="lng" />
+                        <VanAButton Variant="outline" Size="small" OnClick="GetLocationAsync" Loading="@_isLocating">
+                            <i class="bi bi-geo-alt me-1"></i> Lấy vị trí hiện tại
+                        </VanAButton>
+                    </div>
+                </div>
+            </div>
+
+            <div class="qr-signup-preview">
+                <canvas id="qrSignupCanvas" width="256" height="256"></canvas>
+                <div class="qr-signup-url"><code>@BuildUrl()</code></div>
+                <div class="d-flex gap-2 mt-2">
+                    <VanAButton Variant="primary" Size="small" OnClick="DownloadQrAsync">
+                        <i class="bi bi-download me-1"></i> Tải ảnh QR
+                    </VanAButton>
+                    <VanAButton Variant="outline" Size="small" OnClick="CopyLinkAsync">
+                        <i class="bi bi-clipboard me-1"></i> Copy link
+                    </VanAButton>
+                </div>
+                <p class="text-muted small mt-2 mb-0">
+                    In QR này dán tại cửa hàng — khách quét mở trang đăng ký với thông tin điền sẵn.
+                    Link chỉ deep-link; tắt kênh thật là master switch.
+                </p>
+            </div>
+        </div>
+    </VanACard>
+}
+
+@code {
+    private const string CanvasId = "qrSignupCanvas";
+
+    private OnboardingFlagsDto? _flags;
+    private bool _visible = true; // false = QrEntry tắt → ẩn card hoàn toàn
+    private string _case = "a";
+    private string _name = string.Empty;
+    private string _address = string.Empty;
+    private string _latText = string.Empty;
+    private string _lngText = string.Empty;
+    private bool _isLocating;
+    private string _lastRenderedUrl = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _flags = await FlagsApi.GetFlagsAsync();
+        // QrEntry=false → ẩn card; flags null (Gateway lỗi) → vẫn hiện (fail-open cho admin tool)
+        _visible = _flags?.QrEntry ?? true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_visible) return;
+        var url = BuildUrl();
+        if (url == _lastRenderedUrl) return;
+        _lastRenderedUrl = url;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananQR.generate", CanvasId, url, 256, 256);
+        }
+        catch (Exception ex)
+        {
+            // qrcode.js chưa load (script thêm ở App.razor) hoặc JS lỗi — không chặn UI
+            Logger.LogWarning(ex, "vananQR.generate failed");
+        }
+    }
+
+    private string BuildUrl()
+    {
+        var baseUrl = (Configuration["Onboarding:OnboardUrl"] ?? "https://khachvip.online/onboard").TrimEnd('/');
+        var sb = new System.Text.StringBuilder(baseUrl);
+        sb.Append("?src=qr&case=").Append(Uri.EscapeDataString(_case));
+        if (!string.IsNullOrWhiteSpace(_name))
+            sb.Append("&name=").Append(Uri.EscapeDataString(_name.Trim()));
+        if (!string.IsNullOrWhiteSpace(_address))
+            sb.Append("&address=").Append(Uri.EscapeDataString(_address.Trim()));
+        if (double.TryParse(_latText, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lat) && lat is >= -90 and <= 90)
+            sb.Append("&lat=").Append(lat.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (double.TryParse(_lngText, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lng) && lng is >= -180 and <= 180)
+            sb.Append("&lng=").Append(lng.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return sb.ToString();
+    }
+
+    private async Task GetLocationAsync()
+    {
+        _isLocating = true;
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPoint>("vananOnboardingWizard.getCurrentPosition");
+            if (pos.lat != 0 || pos.lng != 0)
+            {
+                _latText = pos.lat.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                _lngText = pos.lng.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Geolocation failed");
+        }
+        finally
+        {
+            _isLocating = false;
+        }
+    }
+
+    private async Task DownloadQrAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananQR.download", CanvasId, "qr-dang-ky-self-serve.png"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "QR download failed"); }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", BuildUrl()); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Copy link failed"); }
+    }
+
+    /// <summary>Mirror GeoPoint của onboarding-wizard.js (camelCase JSON — pattern wizard).</summary>
+    private sealed record GeoPoint(double lat, double lng, double accuracy);
+}

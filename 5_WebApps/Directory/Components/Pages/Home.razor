@@ -79,6 +79,9 @@
             </div>
         </VanAnCard>
 
+        @* Self-Serve Onboarding P2 (FR-20): CTA đăng ký — tự ẩn theo flags *@
+        <OnboardCta Src="directory" />
+
         @if (!string.IsNullOrEmpty(_pendingAlert))
         {
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />

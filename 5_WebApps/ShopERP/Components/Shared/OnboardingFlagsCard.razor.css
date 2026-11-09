@@ -1,0 +1,8 @@
+.onboarding-flag-row {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.onboarding-flag-row:last-of-type {
+    border-bottom: none;
+}

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Onboarding;
 
 namespace VanAn.ShopERP.Services;
 
@@ -37,6 +38,48 @@ public sealed class TenantClaimApiClient : GatewayAdminApiClientBase
         var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/verify", request);
         return await SendAndReadAsync<VerifyResultApiDto>(HttpClient, req, ct)
             ?? throw new InvalidOperationException("Verify returned empty response.");
+    }
+
+    // ── Self-Serve Signup (P2, 2026-11-09) ─────────────────────────────────
+
+    /// <summary>GET /api/v1/tenants/{id}/signup-detail — hồ sơ self-serve đầy đủ (KHÔNG password).</summary>
+    public async Task<SignupDetailDto?> GetSignupDetailAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Get, $"api/v1/tenants/{tenantId}/signup-detail");
+        var resp = await HttpClient.SendAsync(req, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        if (!resp.IsSuccessStatusCode)
+        {
+            string body = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException(
+                $"Gateway API GET signup-detail failed ({(int)resp.StatusCode}): {body}");
+        }
+        return await resp.Content.ReadFromJsonAsync<SignupDetailDto>(GatewayJsonOptions, ct);
+    }
+
+    /// <summary>
+    /// POST /api/v1/tenants/{id}/verify-signup — duyệt self-serve signup.
+    /// Mặc định dùng credentials merchant tự đặt (password protected — sysadmin không thấy).
+    /// </summary>
+    public async Task<VerifySignupResult> VerifySignupAsync(Guid tenantId, VerifySignupRequest request, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/verify-signup", request);
+        return await SendAndReadAsync<VerifySignupResult>(HttpClient, req, ct)
+            ?? throw new InvalidOperationException("Verify-signup returned empty response.");
+    }
+
+    /// <summary>POST /api/v1/tenants/{id}/reject-pending — từ chối Pending tenant (bắt buộc lý do).</summary>
+    public async Task RejectPendingAsync(Guid tenantId, string reason, CancellationToken ct = default)
+    {
+        var req = await CreateRequestAsync(HttpMethod.Post, $"api/v1/tenants/{tenantId}/reject-pending",
+            new RejectPendingRequest(reason));
+        var resp = await HttpClient.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            string body = await resp.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException(
+                $"Gateway API POST reject-pending failed ({(int)resp.StatusCode}): {body}");
+        }
     }
 
     // ── Duplicates ────────────────────────────────────────────────────────
@@ -123,7 +166,16 @@ public record PendingTenantApiDto(
     string? TaxCode,
     string? Address,
     Guid? PotentialDuplicateOf,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    // Self-Serve Onboarding P2 (2026-11-09): badge nguồn + cờ cảnh báo — optional (default khi thiếu)
+    string? SourceSite = null,
+    bool HasSignupPayload = false,
+    string? SignupCase = null,
+    string? SignupSrc = null,
+    int ProductCount = 0,
+    bool Unregistered = false,
+    bool OtpVerified = false,
+    bool DuplicateWarning = false);
 
 public record VerifyTenantApiRequest(
     string OwnerUsername,

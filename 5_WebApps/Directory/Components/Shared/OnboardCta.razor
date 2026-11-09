@@ -1,0 +1,50 @@
+@* Self-Serve Onboarding P2 (2026-11-09, SRS FR-20): CTA "Đây là cửa hàng của bạn?"
+   trên Directory (timlathay.com). Tự ẩn khi directoryCta=false hoặc master
+   selfServeEnabled=false, hoặc khi flags endpoint lỗi (fail-safe).
+   Link → KhachLink /onboard?src={Src} (Onboarding:OnboardUrl config). *@
+@using VanAn.Directory.Services
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@inject OnboardingFlagsClient FlagsClient
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
+
+@if (_show)
+{
+    <VanAnCard CssClass="onboard-cta mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-shop-window text-primary" style="font-size: 2rem;"></i>
+            <div class="flex-grow-1">
+                <h5 class="mb-1">Đây là cửa hàng của bạn?</h5>
+                <p class="text-muted small mb-0">
+                    Đăng ký miễn phí để khách tìm thấy bạn trên mạng lưới TimLaThay — có giấy phép kinh doanh
+                    hoặc chưa có đều được. Xác minh trong 1-2 ngày làm việc.
+                </p>
+            </div>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoOnboard">
+                <i class="bi bi-rocket-takeoff me-1"></i> Đăng ký ngay
+            </VanAnButton>
+        </div>
+    </VanAnCard>
+}
+
+@code {
+    /// <summary>Entry channel — whitelist /onboard: directory|audit|qr|zalo|other|direct.</summary>
+    [Parameter] public string Src { get; set; } = "directory";
+
+    private bool _show;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var flags = await FlagsClient.GetFlagsAsync();
+        // Fail-safe: endpoint lỗi → ẩn CTA. directoryCta chỉ có nghĩa khi master ON.
+        _show = flags is not null && flags.SelfServeEnabled && flags.DirectoryCta;
+    }
+
+    private void GoOnboard()
+    {
+        var baseUrl = (Configuration["Onboarding:OnboardUrl"] ?? "https://khachvip.online/onboard").TrimEnd('/');
+        var src = Src is "directory" or "audit" or "qr" or "zalo" or "other" or "direct" ? Src : "directory";
+        Navigation.NavigateTo($"{baseUrl}?src={src}", forceLoad: true);
+    }
+}

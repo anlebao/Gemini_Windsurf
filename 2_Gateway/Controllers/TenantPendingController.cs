@@ -34,14 +34,75 @@ namespace VanAn.Gateway.Controllers
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync(ct);
 
-            return Ok(tenants.Select(t => new PendingTenantDto(
-                t.Id.Value,
-                t.Name,
-                t.Settings?.TaxCode,
-                t.Settings?.Address,
-                t.PotentialDuplicateOf,
-                t.CreatedAt)).ToList());
+            // Self-Serve Onboarding P2 (2026-11-09): join CrawlSource mới nhất mỗi tenant
+            // để hiển thị badge nguồn + cờ cảnh báo trên tab Pending (không parse full listing).
+            var tenantIds = tenants.Select(t => t.Id).ToList();
+            var sources = await dbContext.CrawlSources
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => tenantIds.Contains(c.TenantId))
+                .ToListAsync(ct);
+            var latestSourceByTenant = sources
+                .GroupBy(c => c.TenantId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CrawledAt).First());
+
+            return Ok(tenants.Select(t =>
+            {
+                latestSourceByTenant.TryGetValue(t.Id, out var source);
+                var selfServe = ParseSelfServeFlags(source?.RawJson);
+                return new PendingTenantDto(
+                    t.Id.Value,
+                    t.Name,
+                    t.Settings?.TaxCode,
+                    t.Settings?.Address,
+                    t.PotentialDuplicateOf,
+                    t.CreatedAt,
+                    SourceSite: source?.SourceSite,
+                    HasSignupPayload: selfServe is not null,
+                    SignupCase: selfServe?.SignupCase,
+                    SignupSrc: selfServe?.Src,
+                    ProductCount: selfServe?.ProductCount ?? 0,
+                    Unregistered: selfServe?.Unregistered ?? false,
+                    OtpVerified: selfServe?.OtpVerified ?? false,
+                    DuplicateWarning: selfServe?.DuplicateWarning ?? false);
+            }).ToList());
         }
+
+        /// <summary>
+        /// Parse nhẹ SelfServe flags từ CrawlSource.RawJson (CrawlListingDto serialize PascalCase).
+        /// Trả null khi không phải self-serve signup — KHÔNG deserialize full DTO (tránh lỗi schema cũ).
+        /// </summary>
+        private static SelfServeFlags? ParseSelfServeFlags(string? rawJson)
+        {
+            if (string.IsNullOrWhiteSpace(rawJson)) return null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(rawJson);
+                if (!doc.RootElement.TryGetProperty("SelfServe", out var ss)
+                    || ss.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    return null;
+
+                string? signupCase = ss.TryGetProperty("SignupCase", out var sc) && sc.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? sc.GetString() : null;
+                string? src = ss.TryGetProperty("Src", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? s.GetString() : null;
+                int productCount = ss.TryGetProperty("ProductLines", out var pl) && pl.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? pl.GetArrayLength() : 0;
+                bool unregistered = ss.TryGetProperty("Unregistered", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.True;
+                bool otpVerified = ss.TryGetProperty("OtpVerified", out var o) && o.ValueKind == System.Text.Json.JsonValueKind.True;
+                bool dupWarning = ss.TryGetProperty("DuplicateWarning", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.True;
+
+                return new SelfServeFlags(signupCase, src, productCount, unregistered, otpVerified, dupWarning);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return null;
+            }
+        }
+
+        private sealed record SelfServeFlags(
+            string? SignupCase, string? Src, int ProductCount,
+            bool Unregistered, bool OtpVerified, bool DuplicateWarning);
 
         /// <summary>
         /// Direct verify (bypass claim flow) — SysAdmin directly creates admin user for Pending tenant.
@@ -137,7 +198,16 @@ namespace VanAn.Gateway.Controllers
         string? TaxCode,
         string? Address,
         Guid? PotentialDuplicateOf,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+        // Self-Serve Onboarding P2 (2026-11-09): badge nguồn + cờ cảnh báo trên tab Pending
+        string? SourceSite = null,
+        bool HasSignupPayload = false,
+        string? SignupCase = null,
+        string? SignupSrc = null,
+        int ProductCount = 0,
+        bool Unregistered = false,
+        bool OtpVerified = false,
+        bool DuplicateWarning = false);
 
     public record ResolveDuplicateRequest(Guid KeepTenantId, Guid DeactivateTenantId, string Reason);
 }

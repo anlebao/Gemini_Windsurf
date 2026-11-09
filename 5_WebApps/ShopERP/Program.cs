@@ -891,6 +891,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Crawl-to-Onboard Phase 7 (2026-08-26): Claims queue + Pending + Duplicates + Crawl trigger.
             _ = builder.Services.AddScoped<Services.TenantClaimApiClient>();
+            // Self-Serve Onboarding P2 (2026-11-09): onboarding flags GET/PUT (SystemAdmin JWT).
+            _ = builder.Services.AddScoped<Services.OnboardingFlagsApiClient>();
             // Membership Infrastructure (2026-09-29): HTX review queue + member registry (Owner JWT — HtxMembershipOfficer).
             _ = builder.Services.AddScoped<Services.MembershipApiClient>();
             // 2026-10-02 (user directive): 2 luồng admin — tenant→HTX + member add/nâng cấp CTV (SystemAdmin JWT).

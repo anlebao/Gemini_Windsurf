@@ -61,6 +61,13 @@ builder.Services.AddHttpClient<VanAn.Shared.Domain.Common.IMeteringClient, Meter
     if (!string.IsNullOrEmpty(callerKey)) client.DefaultRequestHeaders.TryAddWithoutValidation("X-Metering-Key", callerKey);
 });
 
+// Self-Serve Onboarding P2 (2026-11-09): flags public endpoint — cache 60s, fail-safe ẩn CTA
+builder.Services.AddHttpClient<OnboardingFlagsClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:5001/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 // IMemoryCache — cache instance config + store data 5 phút
 builder.Services.AddMemoryCache();
 

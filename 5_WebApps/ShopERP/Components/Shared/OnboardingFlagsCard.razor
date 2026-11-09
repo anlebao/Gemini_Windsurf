@@ -1,0 +1,128 @@
+@* Self-Serve Onboarding P2 (2026-11-09, SRS FR-22): card "Kênh đăng ký self-serve"
+   trên /admin/onboarding-ocr — 4 toggles độc lập (master + directory CTA + QR + deeplink).
+   PUT /api/v1/platform/onboarding-flags qua OnboardingFlagsApiClient (SystemAdmin JWT). *@
+@using VanAn.CoreHub.Services.Onboarding
+@inject OnboardingFlagsApiClient FlagsApi
+
+<VanACard>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="mb-0">Kênh đăng ký self-serve</h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _expanded = !_expanded"
+                aria-label="@(_expanded ? "Thu gọn" : "Mở rộng")">
+            <i class="bi @(_expanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+        </button>
+    </div>
+    @if (_expanded)
+    {
+    <div class="onboarding-flags">
+        @if (_flags is null)
+        {
+            <p class="text-muted small mb-0">@(_loadFailed ? "Không tải được trạng thái kênh đăng ký." : "Đang tải...")</p>
+        }
+        else
+        {
+            @if (!_flags.SelfServeEnabled)
+            {
+                <VanAAlert Variant="error" Message="Toàn bộ kênh đăng ký self-serve đang ĐÓNG (master switch OFF) — merchant không submit được." Dismissible="false" />
+            }
+
+            <div class="onboarding-flag-row">
+                <label class="form-check-label d-flex align-items-start gap-2">
+                    <input type="checkbox" class="form-check-input mt-1" checked="@_flags.SelfServeEnabled"
+                           @onchange="e => ToggleAsync(nameof(OnboardingFlagsDto.SelfServeEnabled), e)" />
+                    <span>
+                        <strong>Mở đăng ký tự phục vụ</strong> (master switch)<br />
+                        <small class="text-muted">OFF → POST /api/v1/merchant-signups trả 503 + trang /onboard hiển thị thông báo đóng.</small>
+                    </span>
+                </label>
+            </div>
+            <div class="onboarding-flag-row">
+                <label class="form-check-label d-flex align-items-start gap-2">
+                    <input type="checkbox" class="form-check-input mt-1" checked="@_flags.DirectoryCta"
+                           @onchange="e => ToggleAsync(nameof(OnboardingFlagsDto.DirectoryCta), e)" />
+                    <span>
+                        <strong>Nút CTA trên timlathay.com</strong><br />
+                        <small class="text-muted">Hiển thị lời mời "Đây là cửa hàng của bạn?" trên Directory (chỉ có tác dụng khi master ON).</small>
+                    </span>
+                </label>
+            </div>
+            <div class="onboarding-flag-row">
+                <label class="form-check-label d-flex align-items-start gap-2">
+                    <input type="checkbox" class="form-check-input mt-1" checked="@_flags.QrEntry"
+                           @onchange="e => ToggleAsync(nameof(OnboardingFlagsDto.QrEntry), e)" />
+                    <span>
+                        <strong>QR mời đăng ký</strong><br />
+                        <small class="text-muted">Hiện card sinh QR deep-link /onboard trên trang này.</small>
+                    </span>
+                </label>
+            </div>
+            <div class="onboarding-flag-row">
+                <label class="form-check-label d-flex align-items-start gap-2">
+                    <input type="checkbox" class="form-check-input mt-1" checked="@_flags.DeeplinkPrefill"
+                           @onchange="e => ToggleAsync(nameof(OnboardingFlagsDto.DeeplinkPrefill), e)" />
+                    <span>
+                        <strong>Điền sẵn từ link chia sẻ</strong><br />
+                        <small class="text-muted">Trang /onboard đọc query params (case/name/address/...) để prefill form.</small>
+                    </span>
+                </label>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <VanAAlert Variant="@(_statusIsError ? "error" : "success")" Message="@_statusMessage" Dismissible="false" />
+            }
+        }
+    </div>
+    }
+</VanACard>
+
+@code {
+    private OnboardingFlagsDto? _flags;
+    private bool _expanded = true;
+    private bool _loadFailed;
+    private bool _saving;
+    private string _statusMessage = string.Empty;
+    private bool _statusIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _flags = await FlagsApi.GetFlagsAsync();
+        _loadFailed = _flags is null;
+    }
+
+    private async Task ToggleAsync(string property, ChangeEventArgs e)
+    {
+        if (_flags is null || _saving) return;
+        if (e.Value is not bool value) return;
+
+        var updated = new UpdateOnboardingFlagsRequest(
+            property == nameof(OnboardingFlagsDto.SelfServeEnabled) ? value : _flags.SelfServeEnabled,
+            property == nameof(OnboardingFlagsDto.DirectoryCta) ? value : _flags.DirectoryCta,
+            property == nameof(OnboardingFlagsDto.QrEntry) ? value : _flags.QrEntry,
+            property == nameof(OnboardingFlagsDto.DeeplinkPrefill) ? value : _flags.DeeplinkPrefill);
+
+        _saving = true;
+        _statusMessage = string.Empty;
+        try
+        {
+            _flags = await FlagsApi.SetFlagsAsync(updated);
+            _statusMessage = "Đã lưu — có hiệu lực ngay.";
+            _statusIsError = false;
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Lưu thất bại: {ex.Message}";
+            _statusIsError = true;
+            await LoadAsync(); // revert checkbox về state server
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

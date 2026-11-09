@@ -166,6 +166,12 @@
             }
         }
     }
+
+    @* Self-Serve Onboarding P2 (FR-20): CTA mạnh sau kết quả audit — tự ẩn theo flags *@
+    @if (_hasSearched && !_loading)
+    {
+        <OnboardCta Src="audit" />
+    }
 </div>
 
 @code {

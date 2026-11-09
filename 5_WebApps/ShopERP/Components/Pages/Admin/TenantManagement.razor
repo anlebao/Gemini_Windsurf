@@ -11,6 +11,7 @@
 @using VanAn.CoreHub.Services.Onboarding
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
+@using VanAn.Shared.DTOs
 @using VanAn.ShopERP.Services
 @using VanAn.ShopERP.Services.Accounting
 @using System.Threading.Tasks
@@ -19,6 +20,8 @@
 @inject ShopInstanceApiClient ShopInstanceApi
 @inject TenantApiClient TenantApi
 @inject TenantClaimApiClient ClaimApi
+@inject OcrOnboardingApiClient OcrOnboardingApi
+@inject IHttpClientFactory HttpFactory
 @inject MembershipAdminApiClient MembershipAdminApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
@@ -284,6 +287,7 @@
                             <th>Tên</th>
                             <th>MST</th>
                             <th>Địa chỉ</th>
+                            <th>Nguồn</th>
                             <th>Trùng lặp?</th>
                             <th>Crawl lúc</th>
                             <th>Hành động</th>
@@ -293,13 +297,49 @@
                         @foreach (var p in _pendingTenants)
                         {
                             <tr>
-                                <td><strong>@p.Name</strong></td>
+                                <td>
+                                    <strong>@p.Name</strong>
+                                    @if (p.HasSignupPayload && !string.IsNullOrEmpty(p.SignupCase))
+                                    {
+                                        <div class="small text-muted">@SignupCaseLabel(p.SignupCase)</div>
+                                    }
+                                </td>
                                 <td><code>@(p.TaxCode ?? "-")</code></td>
                                 <td>@(p.Address ?? "-")</td>
                                 <td>
+                                    @if (p.HasSignupPayload)
+                                    {
+                                        <span class="status-badge status-badge--info" title="Self-serve signup — merchant tự đăng ký">Self-serve</span>
+                                        @if (p.ProductCount > 0)
+                                        {
+                                            <div class="small text-muted">@p.ProductCount SP menu</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-badge--secondary" title="Nguồn crawl">@(p.SourceSite ?? "Crawl")</span>
+                                    }
+                                    @if (p.SignupSrc is not null)
+                                    {
+                                        <div class="small text-muted">kênh: @p.SignupSrc</div>
+                                    }
+                                    @if (p.Unregistered)
+                                    {
+                                        <span class="signup-flag-warn" title="Chưa đăng ký kinh doanh — kiểm tra pháp lý trước khi duyệt">⚠</span>
+                                    }
+                                    @if (p.DuplicateWarning)
+                                    {
+                                        <span class="signup-flag-warn" title="Tên trùng tenant khác (advisory)">⚠</span>
+                                    }
+                                    @if (p.OtpVerified)
+                                    {
+                                        <span class="signup-flag-ok" title="SĐT đã xác thực OTP">✓</span>
+                                    }
+                                </td>
+                                <td>
                                     @if (p.PotentialDuplicateOf.HasValue)
                                     {
-                                        <span class="status-badge status-suspended">Trùng MST</span>
+                                        <span class="status-badge status-badge--warning">Trùng MST</span>
                                     }
                                     else
                                     {
@@ -308,8 +348,17 @@
                                 </td>
                                 <td>@p.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                 <td class="action-cell">
+                                    @if (p.HasSignupPayload)
+                                    {
+                                        <VanAButton Variant="outline" Size="small" OnClick="() => OpenSignupDetail(p)">
+                                            <i class="bi bi-file-earmark-text me-1"></i> Hồ sơ
+                                        </VanAButton>
+                                    }
                                     <VanAButton Variant="success" Size="small" OnClick="() => OpenVerifyModal(p)">
                                         <i class="bi bi-check-circle me-1"></i> Verify
+                                    </VanAButton>
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenRejectModal(p)" title="Từ chối pending tenant">
+                                        <i class="bi bi-x-circle"></i>
                                     </VanAButton>
                                 </td>
                             </tr>
@@ -878,6 +927,284 @@
         </VanAModal>
     }
 
+    <!-- Self-Serve Onboarding P2 (2026-11-09): Signup detail modal — hồ sơ merchant tự đăng ký -->
+    @if (_showSignupDetail)
+    {
+        <VanAModal Title="@($"Hồ sơ self-serve — {_signupDetailTenantName}")" IsVisible="true" OnClose="CloseSignupDetail" Size="large">
+            <Body>
+            @if (_isLoadingSignupDetail)
+            {
+                <div class="loading-state">
+                    <VanASpinner Size="large" />
+                    <p>Đang tải hồ sơ đăng ký...</p>
+                </div>
+            }
+            else if (_signupDetail is null)
+            {
+                <VanAAlert Variant="error" Message="@_signupDetailError" Dismissible="false" />
+                <div class="modal-actions">
+                    <VanAButton Variant="outline" OnClick="CloseSignupDetail">Đóng</VanAButton>
+                </div>
+            }
+            else
+            {
+                var d = _signupDetail;
+                var ss = d.SelfServe;
+
+                @* Header badges *@
+                <div class="signup-badges mb-3">
+                    @if (ss is not null)
+                    {
+                        <span class="status-badge status-badge--info">@SignupCaseLabel(ss.SignupCase)</span>
+                        <span class="status-badge status-badge--secondary">kênh: @(ss.Src ?? "direct")</span>
+                        <span class="status-badge status-badge--secondary">@ss.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                        @if (ss.Unregistered)
+                        {
+                            <span class="status-badge status-badge--warning">⚠ Chưa đăng ký kinh doanh — kiểm tra pháp lý</span>
+                        }
+                        @if (ss.DuplicateWarning)
+                        {
+                            <span class="status-badge status-badge--warning">⚠ Tên trùng tenant khác</span>
+                        }
+                        @if (ss.OtpVerified)
+                        {
+                            <span class="status-badge status-badge--success">✓ SĐT đã OTP</span>
+                        }
+                    }
+                    @if (_signupDetailPending?.PotentialDuplicateOf is not null)
+                    {
+                        <span class="status-badge status-badge--danger">Trùng MST — phải resolve trước</span>
+                    }
+                </div>
+
+                @* Ảnh giấy tờ (presigned — có thể hết hạn) *@
+                @if (ss?.PhotoUrls is { Count: > 0 })
+                {
+                    <h6>Ảnh giấy tờ / biển hiệu (@ss.PhotoUrls.Count)</h6>
+                    @if (ss.SubmittedAt < DateTime.UtcNow.AddDays(-6))
+                    {
+                        <VanAAlert Variant="warning" Message="Ảnh đã gửi hơn 6 ngày — link có thể hết hạn, yêu cầu merchant gửi lại nếu không xem được." Dismissible="false" />
+                    }
+                    <div class="signup-photo-gallery">
+                        @foreach (var url in ss.PhotoUrls)
+                        {
+                            <a href="@url" target="_blank" rel="noopener">
+                                <img src="@url" alt="Ảnh hồ sơ" class="signup-photo-thumb" loading="lazy" />
+                            </a>
+                        }
+                    </div>
+                }
+
+                @* Thông tin tenant + liên hệ *@
+                <h6>Thông tin</h6>
+                <table class="vanan-table">
+                    <tbody>
+                        <tr><th style="width:160px">Tên</th><td><strong>@d.Name</strong></td></tr>
+                        <tr><th>Mã số thuế</th><td><code>@(d.TaxCode ?? "-")</code></td></tr>
+                        <tr><th>Địa chỉ</th><td>@(d.Address ?? "-")</td></tr>
+                        <tr><th>Loại hình</th><td>@BusinessTypeText(d.BusinessType)@(d.HkdGroup is not null ? $" — {d.HkdGroup}" : "")</td></tr>
+                        @if (d.Latitude is not null && d.Longitude is not null)
+                        {
+                            <tr><th>Vị trí</th><td>
+                                <a href="https://maps.google.com/?q=@d.Latitude,@d.Longitude" target="_blank" rel="noopener">@d.Latitude, @d.Longitude</a>
+                            </td></tr>
+                        }
+                        @if (ss is not null)
+                        {
+                            <tr><th>Người liên hệ</th><td>@ss.ContactName — @ss.ContactPhone@(string.IsNullOrWhiteSpace(ss.ContactEmail) ? "" : $" · {ss.ContactEmail}")</td></tr>
+                            @if (!string.IsNullOrWhiteSpace(ss.SignName))
+                            {
+                                <tr><th>Tên hiệu (biển)</th><td>@ss.SignName</td></tr>
+                            }
+                            @if (ss.GpdkInfo is { } g)
+                            {
+                                <tr><th>GPKD</th><td>MST: @(g.Mst ?? "-") · @(g.LegalForm ?? "-") · đại diện: @(g.Owner ?? "-")</td></tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+
+                @* Menu OCR *@
+                @if (ss?.ProductLines is { Count: > 0 })
+                {
+                    <h6>Menu OCR (@ss.ProductLines.Count món)</h6>
+                    <table class="vanan-table">
+                        <thead><tr><th>#</th><th>Tên món</th><th style="width:140px">Giá</th></tr></thead>
+                        <tbody>
+                            @foreach (var line in ss.ProductLines)
+                            {
+                                <tr>
+                                    <td>@line.LineNo</td>
+                                    <td>@line.Name</td>
+                                    <td>@(line.Price?.ToString("N0") ?? "—") đ</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @* Account — KHÔNG hiển thị password *@
+                @if (ss is not null)
+                {
+                    <h6>Tài khoản owner</h6>
+                    <p class="text-muted small mb-2">
+                        Merchant tự đặt: <code>@ss.OwnerUsername</code> — mật khẩu được bảo vệ, sysadmin không thấy.
+                        Khi duyệt sẽ dùng credentials này (có thể override bên dưới).
+                    </p>
+                }
+
+                @if (!string.IsNullOrEmpty(_signupVerifyError))
+                {
+                    <VanAAlert Variant="error" Message="@_signupVerifyError" Dismissible="false" />
+                }
+
+                @if (_signupVerifyResult is not null)
+                {
+                    @* Kết quả duyệt *@
+                    <VanAAlert Variant="success" Message="Đã duyệt — tenant chuyển Active." Dismissible="false" />
+                    <div class="verify-credentials">
+                        <p><strong>Slug cửa hàng:</strong> <code>@_signupVerifyResult.Slug</code></p>
+                        <p><strong>Owner username:</strong> <code>@_signupVerifyResult.OwnerUsername</code></p>
+                        <p class="text-muted small">
+                            @(_signupVerifyResult.UsedMerchantPassword
+                                ? "Đã dùng mật khẩu merchant tự đặt — gửi thông tin đăng nhập cho merchant (họ tự biết mật khẩu)."
+                                : "Đã dùng mật khẩu sysadmin đặt — sao chép username + gửi mật khẩu riêng cho merchant.")
+                        </p>
+                        <VanAButton Variant="outline" Size="small" OnClick="() => CopySignupCredentials()">
+                            <i class="bi bi-clipboard me-1"></i> Sao chép thông tin đăng nhập
+                        </VanAButton>
+                    </div>
+                    @if (ss?.ProductLines is { Count: > 0 })
+                    {
+                        <div class="mt-2">
+                            @if (_signupImportResult is not null)
+                            {
+                                <VanAAlert Variant="success"
+                                    Message="@($"Import xong: {_signupImportResult.Imported} thành công, {_signupImportResult.Skipped} bỏ qua/({(_signupImportResult.Errors?.Count ?? 0)} lỗi).")"
+                                    Dismissible="false" />
+                            }
+                            @if (!string.IsNullOrEmpty(_signupImportStatus))
+                            {
+                                <VanAAlert Variant="warning" Message="@_signupImportStatus" Dismissible="false" />
+                            }
+                            <VanAButton Variant="primary" Size="small" OnClick="ImportSignupProductsAsync"
+                                Loading="@_isImportingSignup" Disabled="@(_signupImportResult is not null)">
+                                <i class="bi bi-box-seam me-1"></i> Import @ss.ProductLines.Count sản phẩm từ menu
+                            </VanAButton>
+                            <span class="text-muted small ms-2">Chờ NATS sync tenant sang ShopERP — nếu báo chờ, bấm lại sau vài giây.</span>
+                        </div>
+                    }
+                    <div class="modal-actions">
+                        <VanAButton Variant="outline" OnClick="CloseSignupDetail">Đóng</VanAButton>
+                    </div>
+                }
+                else if (_signupVerifyMode && ss is not null)
+                {
+                    @* Form verify-signup *@
+                    <h6>Duyệt &amp; kích hoạt</h6>
+                    <VanAForm OnValidSubmit="HandleSignupVerifySubmit" aria-label="Verify self-serve signup">
+                        <div class="form-group">
+                            <label class="form-check-label d-flex align-items-center gap-2">
+                                <input type="checkbox" class="form-check-input" @bind="_useMerchantPassword" />
+                                Dùng mật khẩu merchant đã đặt (khuyến nghị — merchant tự biết mật khẩu)
+                            </label>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group form-group-half">
+                                <label for="signup-username">Tên đăng nhập owner</label>
+                                <input id="signup-username" class="vanan-input" @bind="_signupOwnerUsername" />
+                            </div>
+                            <div class="form-group form-group-half">
+                                <label for="signup-displayname">Tên hiển thị owner *</label>
+                                <input id="signup-displayname" class="vanan-input" @bind="_signupOwnerDisplayName" />
+                            </div>
+                        </div>
+                        @if (!_useMerchantPassword)
+                        {
+                            <div class="form-row">
+                                <div class="form-group form-group-half">
+                                    <label for="signup-password">Mật khẩu mới *</label>
+                                    <input id="signup-password" class="vanan-input" type="@(_showSignupPassword ? "text" : "password")" @bind="_signupOwnerPassword" placeholder="Tối thiểu 8 ký tự" />
+                                    <small class="text-muted">Mật khẩu chỉ dùng 1 lần để kích hoạt — merchant nên đổi sau.</small>
+                                </div>
+                                <div class="form-group form-group-half">
+                                    <label for="signup-password-confirm">Nhập lại mật khẩu *</label>
+                                    <input id="signup-password-confirm" class="vanan-input" type="password" @bind="_signupOwnerPasswordConfirm" />
+                                </div>
+                            </div>
+                        }
+                        <div class="form-group">
+                            <label for="signup-slug">URL Slug</label>
+                            <input id="signup-slug" class="vanan-input" @bind="_signupSlug" placeholder="(để trống = auto)" />
+                        </div>
+                        <div class="form-group">
+                            <label for="signup-shopinstance">ShopERP Instance *</label>
+                            @if (_shopInstances.Any())
+                            {
+                                <select id="signup-shopinstance" class="vanan-select" @bind="_signupShopInstanceId">
+                                    <option value="">-- Chọn instance --</option>
+                                    @foreach (var inst in _shopInstances)
+                                    {
+                                        <option value="@inst.Id">@inst.Label (@inst.BaseUrl)</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="text" class="vanan-input" value="Chưa có instance — tạo tại /admin/shop-instances" disabled />
+                            }
+                        </div>
+                        <div class="modal-actions">
+                            <VanAButton Variant="success" OnClick="HandleSignupVerifySubmit" Loading="@_isVerifyingSignup">Duyệt &amp; Kích hoạt</VanAButton>
+                            <VanAButton Variant="outline" OnClick="() => _signupVerifyMode = false">Quay lại</VanAButton>
+                        </div>
+                    </VanAForm>
+                }
+                else
+                {
+                    <div class="modal-actions">
+                        @if (_signupDetailPending?.PotentialDuplicateOf is null)
+                        {
+                            <VanAButton Variant="success" OnClick="() => _signupVerifyMode = true">
+                                <i class="bi bi-check-circle me-1"></i> Duyệt &amp; Kích hoạt
+                            </VanAButton>
+                        }
+                        @if (_signupDetailPending is not null)
+                        {
+                            <VanAButton Variant="outline" OnClick="() => { var p = _signupDetailPending; if (p is not null) { CloseSignupDetail(); OpenRejectModal(p); } }">
+                                <i class="bi bi-x-circle me-1"></i> Từ chối
+                            </VanAButton>
+                        }
+                        <VanAButton Variant="outline" OnClick="CloseSignupDetail">Đóng</VanAButton>
+                    </div>
+                }
+            }
+            </Body>
+        </VanAModal>
+    }
+
+    <!-- Self-Serve Onboarding P2: Reject pending modal (bắt buộc lý do) -->
+    @if (_showRejectModal && _rejectTarget is not null)
+    {
+        <VanAModal Title="@($"Từ chối tenant — {_rejectTarget.Name}")" IsVisible="true" OnClose="CloseRejectModal" Size="medium">
+            <Body>
+            <VanAAlert Variant="warning" Message="Tenant sẽ chuyển Inactive. Hành động này được ghi audit log." Dismissible="false" />
+            <div class="form-group">
+                <label>Lý do từ chối *</label>
+                <textarea class="vanan-input" rows="3" @bind="_rejectReason" placeholder="VD: Thông tin không hợp lệ, trùng lặp, không liên hệ được..."></textarea>
+            </div>
+            @if (!string.IsNullOrEmpty(_rejectError))
+            {
+                <VanAAlert Variant="error" Message="@_rejectError" Dismissible="false" />
+            }
+            <div class="modal-actions">
+                <VanAButton Variant="danger" OnClick="ConfirmRejectPending" Loading="@_isRejecting">Xác nhận từ chối</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseRejectModal">Huỷ</VanAButton>
+            </div>
+            </Body>
+        </VanAModal>
+    }
+
     <!-- Crawl-to-Onboard Phase 7: Resolve duplicate modal -->
     @if (_showResolveDuplicateModal && _selectedDuplicate is not null)
     {
@@ -939,6 +1266,16 @@
     .tenant-management-page .action-cell .vanan-button { padding: 0.25rem 0.4rem; }
     .tenant-management-page .action-cell .vanan-button__text:empty { display: none; }
     .tenant-management-page .action-cell .vanan-button .bi { font-size: 1rem; line-height: 1; }
+    /* Self-Serve Onboarding P2 (2026-11-09): pending badges + signup detail modal */
+    .signup-flag-warn { color: #b88600; margin-left: 4px; cursor: help; }
+    .signup-flag-ok { color: #198754; margin-left: 4px; cursor: help; }
+    .signup-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+    .signup-photo-gallery { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .signup-photo-thumb {
+        width: 96px; height: 96px; object-fit: cover; border-radius: 6px;
+        border: 1px solid #e5e7eb; display: block;
+    }
+    .signup-photo-thumb:hover { border-color: #2563eb; }
 </style>
 
 @* 2026-10-02 (Luồng 1 — user directive): tenant → HTX — modal upload tài liệu tùy chọn *@
@@ -1391,6 +1728,36 @@
     private string _resolveDuplicateReason = string.Empty;
     private bool _isResolving;
 
+    // ── Self-Serve Onboarding P2 (2026-11-09): signup detail + verify-signup + reject ──
+    private bool _showSignupDetail;
+    private PendingTenantApiDto? _signupDetailPending;
+    private string _signupDetailTenantName = string.Empty;
+    private SignupDetailDto? _signupDetail;
+    private bool _isLoadingSignupDetail;
+    private string _signupDetailError = string.Empty;
+    private bool _signupVerifyMode;
+    private bool _useMerchantPassword = true;
+    private string _signupOwnerUsername = string.Empty;
+    private string _signupOwnerPassword = string.Empty;
+    private string _signupOwnerPasswordConfirm = string.Empty;
+    private string _signupOwnerDisplayName = string.Empty;
+    private string _signupSlug = string.Empty;
+    private Guid? _signupShopInstanceId;
+    private bool _showSignupPassword;
+    private bool _isVerifyingSignup;
+    private string _signupVerifyError = string.Empty;
+    private VerifySignupResult? _signupVerifyResult;
+    private ProductImportResult? _signupImportResult;
+    private string _signupImportStatus = string.Empty;
+    private bool _isImportingSignup;
+
+    // Reject pending modal (self-serve + crawl — reject-pending endpoint dùng chung)
+    private bool _showRejectModal;
+    private PendingTenantApiDto? _rejectTarget;
+    private string _rejectReason = string.Empty;
+    private string _rejectError = string.Empty;
+    private bool _isRejecting;
+
     protected override async Task OnInitializedAsync()
     {
         // AM-T7: Check if already impersonating a tenant
@@ -1602,6 +1969,233 @@
             ShowAlert("error", $"Lỗi: {ex.Message}");
         }
         finally { _isResolving = false; }
+    }
+
+    // ── Self-Serve Onboarding P2: signup detail / verify-signup / reject / import ──
+
+    private static string SignupCaseLabel(string? signupCase) => signupCase switch
+    {
+        "CompanyWithLicense" => "Case A — Có GPKD",
+        "SmallShopNoLicense" => "Case B — Shop nhỏ",
+        "StreetVendorUnregistered" => "Case Rong — Bán rong",
+        _ => signupCase ?? "Self-serve"
+    };
+
+    private static string BusinessTypeText(BusinessType bt) => bt switch
+    {
+        BusinessType.HouseholdBusiness => "Hộ kinh doanh",
+        BusinessType.Company => "Doanh nghiệp",
+        _ => bt.ToString()
+    };
+
+    /// <summary>Extract message thân thiện từ exception Gateway (body {"error":"..."}).</summary>
+    private static string ExtractGatewayError(Exception ex)
+    {
+        var msg = ex.Message;
+        var idx = msg.IndexOf("{\"error\"", StringComparison.Ordinal);
+        if (idx < 0) idx = msg.IndexOf("{\"Error\"", StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(msg[idx..]);
+                if (doc.RootElement.TryGetProperty("error", out var e)) return e.GetString() ?? msg;
+                if (doc.RootElement.TryGetProperty("Error", out var e2)) return e2.GetString() ?? msg;
+            }
+            catch { /* fallthrough — trả raw message */ }
+        }
+        return msg;
+    }
+
+    private async Task OpenSignupDetail(PendingTenantApiDto p)
+    {
+        _signupDetailPending = p;
+        _signupDetailTenantName = p.Name;
+        _signupDetail = null;
+        _signupDetailError = string.Empty;
+        _isLoadingSignupDetail = true;
+        _signupVerifyMode = false;
+        _signupVerifyError = string.Empty;
+        _signupVerifyResult = null;
+        _signupImportResult = null;
+        _signupImportStatus = string.Empty;
+        _useMerchantPassword = true;
+        _showSignupDetail = true;
+
+        try
+        {
+            _signupDetail = await ClaimApi.GetSignupDetailAsync(p.Id);
+            if (_signupDetail?.SelfServe is { } ss)
+            {
+                _signupOwnerUsername = ss.OwnerUsername;
+                _signupOwnerDisplayName = _signupDetail.Name.Length > 80 ? _signupDetail.Name[..80] : _signupDetail.Name;
+                _signupSlug = GenerateSlugFromName(_signupDetail.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load signup detail for tenant {TenantId}", p.Id);
+            _signupDetailError = $"Không tải được hồ sơ: {ExtractGatewayError(ex)}";
+        }
+        finally
+        {
+            _isLoadingSignupDetail = false;
+        }
+    }
+
+    private void CloseSignupDetail()
+    {
+        _showSignupDetail = false;
+        _signupDetailPending = null;
+        _signupDetail = null;
+    }
+
+    private async Task HandleSignupVerifySubmit()
+    {
+        if (_signupDetail is null || _signupDetailPending is null) return;
+        _signupVerifyError = string.Empty;
+
+        if (!_useMerchantPassword)
+        {
+            if (string.IsNullOrWhiteSpace(_signupOwnerPassword) || _signupOwnerPassword.Length < 8)
+            { _signupVerifyError = "Mật khẩu phải có ít nhất 8 ký tự."; return; }
+            if (_signupOwnerPassword != _signupOwnerPasswordConfirm)
+            { _signupVerifyError = "Mật khẩu nhập lại không khớp."; return; }
+        }
+        if (string.IsNullOrWhiteSpace(_signupOwnerDisplayName))
+        { _signupVerifyError = "Tên hiển thị owner là bắt buộc."; return; }
+        if (!_signupShopInstanceId.HasValue || _signupShopInstanceId.Value == Guid.Empty)
+        { _signupVerifyError = "Vui lòng chọn ShopERP Instance."; return; }
+
+        _isVerifyingSignup = true;
+        try
+        {
+            var request = new VerifySignupRequest(
+                ShopInstanceId: _signupShopInstanceId,
+                Slug: string.IsNullOrWhiteSpace(_signupSlug) ? null : _signupSlug.Trim(),
+                OwnerUsername: string.IsNullOrWhiteSpace(_signupOwnerUsername) ? null : _signupOwnerUsername.Trim(),
+                OwnerPassword: _useMerchantPassword ? null : _signupOwnerPassword,
+                OwnerDisplayName: _signupOwnerDisplayName.Trim());
+
+            _signupVerifyResult = await ClaimApi.VerifySignupAsync(_signupDetail.TenantId, request);
+            ShowAlert("success", $"Tenant '{_signupDetail.Name}' đã được duyệt (slug: {_signupVerifyResult.Slug}).");
+            await LoadPendingTenants();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Verify-signup failed for tenant {TenantId}", _signupDetail.TenantId);
+            _signupVerifyError = ExtractGatewayError(ex);
+            if (ex.Message.Contains("409", StringComparison.Ordinal))
+                _signupVerifyError += " — hãy kiểm tra tab Trùng lặp để resolve trước.";
+        }
+        finally { _isVerifyingSignup = false; }
+    }
+
+    private async Task CopySignupCredentials()
+    {
+        if (_signupVerifyResult is null) return;
+        var text = $"Tên đăng nhập: {_signupVerifyResult.OwnerUsername}\nSlug cửa hàng: {_signupVerifyResult.Slug}";
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            ShowAlert("success", "Đã sao chép thông tin đăng nhập.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Clipboard copy failed");
+            ShowAlert("error", $"Không copy được — thông tin: {text}");
+        }
+    }
+
+    /// <summary>Import sản phẩm từ menu OCR sau khi tenant đã Active + NATS sync (pattern wizard).</summary>
+    private async Task ImportSignupProductsAsync()
+    {
+        if (_signupDetail?.SelfServe?.ProductLines is not { Count: > 0 } lines || _signupVerifyResult is null) return;
+        _isImportingSignup = true;
+        _signupImportStatus = string.Empty;
+        try
+        {
+            var token = await OcrOnboardingApi.MintSystemAdminTokenAsync();
+            var client = HttpFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+
+            var payload = new
+            {
+                tenantId = _signupVerifyResult.TenantId,
+                lines = lines.Select(l => new { name = l.Name, price = l.Price, lineNo = l.LineNo }).ToList(),
+                defaultCategory = "Menu"
+            };
+            using var message = new HttpRequestMessage(HttpMethod.Post, "api/products/import")
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(payload, options: new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+                })
+            };
+            message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(message);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                _signupImportStatus = "⏳ Tenant chưa được đồng bộ sang ShopERP — chờ vài giây rồi bấm lại.";
+            }
+            else if (response.IsSuccessStatusCode)
+            {
+                _signupImportResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
+            }
+            else
+            {
+                _signupImportStatus = $"❌ Import thất bại ({(int)response.StatusCode}) — {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _signupImportStatus = $"❌ Import thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _isImportingSignup = false;
+        }
+    }
+
+    // ── Reject pending (self-serve + crawl) ─────────────────────────────────
+
+    private void OpenRejectModal(PendingTenantApiDto p)
+    {
+        _rejectTarget = p;
+        _rejectReason = string.Empty;
+        _rejectError = string.Empty;
+        _showRejectModal = true;
+    }
+
+    private void CloseRejectModal()
+    {
+        _showRejectModal = false;
+        _rejectTarget = null;
+    }
+
+    private async Task ConfirmRejectPending()
+    {
+        if (_rejectTarget is null) return;
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+        { _rejectError = "Vui lòng nhập lý do từ chối."; return; }
+
+        _isRejecting = true;
+        _rejectError = string.Empty;
+        try
+        {
+            await ClaimApi.RejectPendingAsync(_rejectTarget.Id, _rejectReason.Trim());
+            ShowAlert("success", $"Tenant '{_rejectTarget.Name}' đã bị từ chối (Inactive).");
+            _showRejectModal = false;
+            _rejectTarget = null;
+            await LoadPendingTenants();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reject-pending failed for tenant {TenantId}", _rejectTarget.Id);
+            _rejectError = ExtractGatewayError(ex);
+        }
+        finally { _isRejecting = false; }
     }
 
     private sealed class VerifyForm

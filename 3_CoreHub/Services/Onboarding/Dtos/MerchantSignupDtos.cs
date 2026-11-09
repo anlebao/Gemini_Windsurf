@@ -94,7 +94,9 @@ public record SignupDetailDto(
     HKDGroup? HkdGroup,
     DateTime CreatedAt,
     bool HasSelfServePayload,
-    SelfServeDetailDto? SelfServe);
+    SelfServeDetailDto? SelfServe,
+    double? Latitude = null,    // P2 (2026-11-09): GPS từ listing — hiển thị bản đồ trong modal review
+    double? Longitude = null);
 
 /// <summary>SysAdmin verify-signup: override bất kỳ field nào (null = dùng credentials merchant).</summary>
 public record VerifySignupRequest(

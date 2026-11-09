@@ -117,7 +117,9 @@ public class MerchantSignupService(
                 selfServe.ContactName, selfServe.ContactPhone, selfServe.ContactEmail,
                 selfServe.OwnerUsername, selfServe.OtpVerified, selfServe.Unregistered,
                 selfServe.DuplicateWarning, selfServe.SignName, selfServe.GpdkInfo,
-                listing!.PhotoUrls, selfServe.SubmittedAt));
+                listing!.PhotoUrls, selfServe.SubmittedAt),
+            Latitude: listing?.Lat,
+            Longitude: listing?.Lng);
     }
 
     public async Task<VerifySignupResult> VerifySignupAsync(
