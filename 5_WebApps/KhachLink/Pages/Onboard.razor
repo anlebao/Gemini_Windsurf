@@ -1,4 +1,5 @@
 @page "/onboard"
+@layout VanAn.KhachLink.Components.Layout.OnboardLayout
 @implements IAsyncDisposable
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
@@ -12,7 +13,6 @@
 
 <PageTitle>Đăng ký cửa hàng — Vạn An</PageTitle>
 
-<OnboardLayout>
 <div class="onboard-wizard">
     @if (_closed)
     {
@@ -420,7 +420,6 @@
         </div>
     </div>
 }
-</OnboardLayout>
 
 @code {
     private const string DraftKey = "onboard-draft";

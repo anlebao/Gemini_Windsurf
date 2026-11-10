@@ -42,7 +42,7 @@
     </header>
 
     <main class="onboard-main">
-        @ChildContent
+        @(Body ?? ChildContent)
     </main>
 
     <footer class="onboard-footer">
@@ -69,6 +69,8 @@
     private KhachLinkInstanceConfig? _instanceStyle;
 
     [Parameter] public RenderFragment? ChildContent { get; set; }
+    // @layout contract — page content khi dùng @layout directive
+    [Parameter] public RenderFragment? Body { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
