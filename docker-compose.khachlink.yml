@@ -80,6 +80,10 @@ services:
       # Issue #166: Default KhachLink commerce domain for store redirect fallback
       # (tenants without their own KhachLinkInstance redirect here for /store/{slug})
       - KhachLink__DefaultDomain=${DIRECTORY_DEFAULT_KHACHLINK_DOMAIN:-diemthuong2.khachvip.online}
+      # Self-serve onboarding CTA (OnboardCta): /onboard sống trên KhachLink WASM —
+      # trỏ commerce instance cùng hệ (vanan.timlathay.com) thay vì default storefront.
+      # Override được qua DIRECTORY_ONBOARD_URL trong .env.
+      - Onboarding__OnboardUrl=${DIRECTORY_ONBOARD_URL:-https://vanan.timlathay.com/onboard}
       # Phí nền tảng P4: metering client (public route via gateway nginx; caller "directory")
       - Metering__BaseUrl=https://app2.${VANAN_DOMAIN}/admin/metering/api/
       - Metering__CallerId=directory
