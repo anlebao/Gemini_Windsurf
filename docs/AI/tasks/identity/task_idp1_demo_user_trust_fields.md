@@ -138,10 +138,10 @@ public static async Task RevokeOwnerBusinessTrustAsync(
 ```
 
 **Call sites bắt buộc (grep + wire ALL — mọi path tenant→inactive):**
-- [ ] `MerchantSignupService.RejectPendingAsync` — sau `tenant.Deactivate(...)` (verified line ~178)
-- [ ] `TenantOnboardingService` — các path admin deactivate tenant (grep `Deactivate(` trong CoreHub)
+- [x] `MerchantSignupService.RejectPendingAsync` — sau `tenant.Deactivate(...)` (verified line ~178)
+- [x] `TenantManagementService.DeactivateAsync` — wire thật 2026-11-10 (RV planning phát hiện: TenantsController `/deactivate` → ITenantManagementService.DeactivateAsync — đây là path deactivate tenant thật; card cũ ghi "TenantOnboardingService" SAI — thực tế không có method deactivate ở đó)
 - [ ] (Tương lai) AF1 §3.5 cleanup job Pending >30d — ghi nợ, thêm khi implement
-- [ ] **KHÔNG** áp dụng cho staff users — chỉ owner (staff không có `BusinessVerified`).
+- [ ] **KHÔNG** áp dụng cho staff users — chỉ owner (staff không có `BusinessVerified`). `SuspendAsync` KHÔNG downgrade (tạm ngưng ≠ chấm dứt tư cách).
 
 **Lưu ý:** `RevokeBusinessVerification` KHÔNG publish `UserUpsertedEvent` tự động — nếu cần sync downgrade xuống SQLite mirror, caller publish event riêng (quyết định lúc implement: SQLite chỉ lưu TrustLevel → sync `TrustLevel=1` qua event).
 

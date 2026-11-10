@@ -17,6 +17,7 @@ using VanAn.Shared.Domain.Aggregates.UserAggregate;
 using Xunit;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using PermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.PermissionGroup;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
 using UserTrustLevel = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTrustLevel;
@@ -179,6 +180,40 @@ public class IdentityW1ServiceTests
         var tenant = await scope.Context.Tenants.IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == new TenantId(tenantId));
         tenant!.Status.Should().Be(TenantStatus.Inactive);
+    }
+
+    // ── ID-P1: TenantManagementService.DeactivateAsync downgrade (RV planning phát hiện gap — wire thật) ──
+
+    [Fact]
+    public async Task TenantManagementDeactivate_DowngradesOwnerBusinessToContactVerified()
+    {
+        using var scope = VanAnDbContextTestFactory.Create();
+        var tenantId = new TenantId(Guid.NewGuid());
+        var tenant = Tenant.CreateCompany(tenantId, "RV Deactivate Test", new TenantSettings("a@b.vn", null, null));
+        scope.Context.Tenants.Add(tenant);
+
+        var owner = DemoUser.Create(tenantId, "owner@deact.vn", "hash", "Owner", UserRole.Owner);
+        owner.MarkBusinessVerified();
+        scope.Context.Users.Add(owner);
+        scope.Context.UserTenants.Add(new UserTenant(owner.Id, tenantId.Value, UserRole.Owner));
+        await scope.Context.SaveChangesAsync();
+
+        var svc = new TenantManagementService(
+            scope.Context,
+            Mock.Of<VanAn.CoreHub.Infrastructure.IAccountingDbContext>(),
+            Mock.Of<VanAn.CoreHub.Services.INotificationService>(),
+            Mock.Of<VanAn.CoreHub.Services.IShopInstanceService>(),
+            null,
+            NullLogger<TenantManagementService>.Instance);
+
+        await svc.DeactivateAsync(tenantId, "rv test deactivate");
+
+        var savedOwner = await scope.Context.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == owner.Id);
+        savedOwner!.TrustLevel.Should().Be(UserTrustLevel.ContactVerified);
+        var savedTenant = await scope.Context.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId);
+        savedTenant!.Status.Should().Be(TenantStatus.Inactive);
     }
 }
 

@@ -6,6 +6,7 @@ using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.CoreHub.Services
 {
@@ -159,8 +160,34 @@ namespace VanAn.CoreHub.Services
                 ?? throw new KeyNotFoundException($"Tenant {id.Value} not found.");
 
             tenant.Deactivate(reason);
+
+            // ID-P1 (REVIEW B3 — user duyệt 2026-11-10): tenant mất hiệu lực → owner BusinessVerified → ContactVerified.
+            // Suspend KHÔNG downgrade (tạm ngưng ≠ chấm dứt tư cách chủ thể).
+            await RevokeOwnerBusinessTrustAsync(id.Value, ct);
+
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("Tenant deactivated: {TenantId}. Reason: {Reason}", id.Value, reason);
+        }
+
+        /// <summary>ID-P1 (REVIEW B3): tìm owner user (UserTenant.Role==Owner) → RevokeBusinessVerification (no-op nếu không phải BusinessVerified).</summary>
+        private async Task RevokeOwnerBusinessTrustAsync(Guid tenantId, CancellationToken ct)
+        {
+            var ownerUserId = await dbContext.UserTenants
+                .IgnoreQueryFilters()
+                .Where(ut => ut.TenantIdValue == tenantId && ut.Role == UserRole.Owner)
+                .Select(ut => (Guid?)ut.UserId)
+                .FirstOrDefaultAsync(ct);
+            if (ownerUserId is null) return;
+
+            var owner = await dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == ownerUserId.Value, ct);
+            if (owner is null) return;
+
+            owner.RevokeBusinessVerification();
+            logger.LogInformation(
+                "ID-P1: revoked BusinessVerified for owner {UserId} — tenant {TenantId} inactive",
+                owner.Id, tenantId);
         }
 
         /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).
