@@ -34,10 +34,24 @@ namespace VanAn.CoreHub.Services
             if (string.IsNullOrWhiteSpace(displayName))
                 throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
 
+            // Username là định danh login GLOBAL (Login tra theo username, không theo tenant)
+            // → phải unique trên TOÀN HỆ THỐNG, không chỉ trong tenant. Trùng username
+            // tenant khác sẽ "shadow" tài khoản (vd autofill sysadmin@vanan.vn vào form
+            // verify → owner tenant chiếm login SystemAdmin — incident 2026-11-10).
+            var usernameLower = username.ToLower();
             var existing = await dbContext.Users
-                .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower() && u.TenantId == tenantId, ct);
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == usernameLower, ct);
             if (existing != null)
-                throw new InvalidOperationException("Username already exists in this tenant.");
+                throw new InvalidOperationException($"Username '{username}' đã tồn tại (tenant khác hoặc cùng tenant).");
+
+            // Platform admin (SystemAdmin) cũng là username đăng nhập — tenant user
+            // trùng tên sẽ chặn fallback PlatformUser trong Login.cshtml.cs.
+            var platformConflict = await dbContext.PlatformUsers
+                .IgnoreQueryFilters()
+                .AnyAsync(u => u.Username.ToLower() == usernameLower, ct);
+            if (platformConflict)
+                throw new InvalidOperationException($"Username '{username}' trùng tài khoản quản trị nền tảng — không được dùng.");
 
             string passwordHash;
             try

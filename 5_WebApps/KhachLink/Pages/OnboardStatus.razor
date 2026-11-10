@@ -63,9 +63,18 @@
                             Đăng nhập quản lý tại cổng chủ cửa hàng
                             <code>@OwnerPortalHost</code> bằng tên đăng nhập + mật khẩu bạn đã đặt khi đăng ký.
                         </p>
-                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">
-                            <i class="bi bi-box-arrow-in-right me-1"></i> Đi tới trang đăng nhập
-                        </VanAnButton>
+                        <div class="d-flex gap-2 justify-content-center flex-wrap">
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Đi tới trang đăng nhập
+                            </VanAnButton>
+                            @if (!string.IsNullOrEmpty(_status.Slug))
+                            {
+                                <VanAnButton Variant="ButtonVariant.Secondary"
+                                    OnClick="@(() => Navigation.NavigateTo($"/store/{_status.Slug}", forceLoad: true))">
+                                    <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                </VanAnButton>
+                            }
+                        </div>
                     </div>
                     break;
                 case "Rejected":

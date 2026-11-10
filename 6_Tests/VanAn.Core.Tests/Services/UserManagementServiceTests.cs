@@ -61,6 +61,27 @@ namespace VanAn.Tests.Services
             await act.Should().ThrowAsync<InvalidOperationException>();
         }
 
+        [Fact(DisplayName = "W6-S2b: CreateUser with username used in ANOTHER tenant throws (login resolves by username globally)")]
+        public async Task CreateUser_DuplicateUsernameAcrossTenants_Throws()
+        {
+            var otherTenant = new TenantId(Guid.NewGuid());
+            await _sut.CreateUserAsync(otherTenant, "shared@vanan.vn", "pwd", "B", UserRole.Staff);
+
+            Func<Task> act = () => _sut.CreateUserAsync(_tenantId, "shared@vanan.vn", "pwd", "A", UserRole.Staff);
+            await act.Should().ThrowAsync<InvalidOperationException>();
+        }
+
+        [Fact(DisplayName = "W6-S2c: CreateUser with platform admin username throws (would shadow SystemAdmin login)")]
+        public async Task CreateUser_PlatformUsernameConflict_Throws()
+        {
+            _db.PlatformUsers.Add(new VanAn.CoreHub.Infrastructure.Entities.PlatformUser(
+                "sysadmin@vanan.vn", "hash", "System Admin", "sysadmin@vanan.vn"));
+            await _db.SaveChangesAsync();
+
+            Func<Task> act = () => _sut.CreateUserAsync(_tenantId, "sysadmin@vanan.vn", "pwd", "A", UserRole.Staff);
+            await act.Should().ThrowAsync<InvalidOperationException>();
+        }
+
         [Fact(DisplayName = "W6-S3: ListUsers returns only tenant users")]
         public async Task ListUsers_ReturnsTenantUsers()
         {

@@ -148,6 +148,24 @@ namespace VanAn.ShopERP.Services
                 DemoUser user;
                 if (existing is null)
                 {
+                    // Username là định danh login GLOBAL — chặn insert trùng username
+                    // (tenant khác) hoặc trùng PlatformUser (vd sysadmin@vanan.vn),
+                    // vì subscriber bypass UserManagementService.CreateUserAsync.
+                    var usernameLower = username.ToLower();
+                    var usernameTaken = await dbContext.Users
+                        .IgnoreQueryFilters()
+                        .AnyAsync(u => u.Id != userId && u.Username.ToLower() == usernameLower, ct);
+                    var platformTaken = await dbContext.PlatformUsers
+                        .IgnoreQueryFilters()
+                        .AnyAsync(u => u.Username.ToLower() == usernameLower, ct);
+                    if (usernameTaken || platformTaken)
+                    {
+                        _logger.LogError(
+                            "UserSyncSubscriber: SKIP user {Username} ({UserId}) tenant {TenantId} — username đã tồn tại (tenant khác hoặc platform admin). Cần rename ở Gateway trước khi sync.",
+                            username, userId, tenantId);
+                        return;
+                    }
+
                     user = new DemoUser(tenantIdVo, username, passwordHash, displayName, role);
                     dbContext.Users.Add(user);
                     // Single-identity: giữ Id trùng PG để UserTenant/FK đồng nhất 2 DB
