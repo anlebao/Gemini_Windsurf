@@ -43,8 +43,23 @@
 
     private void GoOnboard()
     {
-        var baseUrl = (Configuration["Onboarding:OnboardUrl"] ?? "https://khachvip.online/onboard").TrimEnd('/');
+        // Issue #166-pattern fix (2026-11-09): apex khachvip.online không host KhachLink
+        // (/onboard → unreachable). Onboarding:OnboardUrl = override full-URL;
+        // fallback KhachLink:DefaultDomain (compose DIRECTORY_DEFAULT_KHACHLINK_DOMAIN)
+        // — cùng pattern Home.razor GoStore / Audit.razor GoClaim.
+        string url;
+        var configured = Configuration["Onboarding:OnboardUrl"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            url = configured.TrimEnd('/');
+        }
+        else
+        {
+            var host = Configuration["KhachLink:DefaultDomain"];
+            if (string.IsNullOrWhiteSpace(host)) host = "diemthuong2.khachvip.online";
+            url = $"https://{host}/onboard";
+        }
         var src = Src is "directory" or "audit" or "qr" or "zalo" or "other" or "direct" ? Src : "directory";
-        Navigation.NavigateTo($"{baseUrl}?src={src}", forceLoad: true);
+        Navigation.NavigateTo($"{url}?src={src}", forceLoad: true);
     }
 }

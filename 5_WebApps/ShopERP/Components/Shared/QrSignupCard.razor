@@ -105,7 +105,18 @@
 
     private string BuildUrl()
     {
-        var baseUrl = (Configuration["Onboarding:OnboardUrl"] ?? "https://khachvip.online/onboard").TrimEnd('/');
+        // Issue #166-pattern fix (2026-11-09): apex khachvip.online không host KhachLink.
+        // Onboarding:OnboardUrl = override full-URL; fallback ExternalUrls:KhachLink
+        // (compose ExternalUrls__KhachLink = canonical KhachLink domain).
+        var baseUrl = Configuration["Onboarding:OnboardUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            var khHost = Configuration["ExternalUrls:KhachLink"];
+            baseUrl = string.IsNullOrWhiteSpace(khHost)
+                ? "https://diemthuong2.khachvip.online/onboard"
+                : $"{khHost.TrimEnd('/')}/onboard";
+        }
+        baseUrl = baseUrl.TrimEnd('/');
         var sb = new System.Text.StringBuilder(baseUrl);
         sb.Append("?src=qr&case=").Append(Uri.EscapeDataString(_case));
         if (!string.IsNullOrWhiteSpace(_name))
