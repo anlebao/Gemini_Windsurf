@@ -222,6 +222,18 @@ wallet when production is Silo), you can still E2E-test the DEPLOYED code safely
    output (e.g. history entry timestamps now contain fractional seconds), NOT `grep` on the DLL
    (string literals live in the UTF-16 #US heap — see governance Pattern #13).
 
+## RV ACCOUNTS & MFA — QUY TẮC BẮT BUỘC (2026-11-10, Zero-Cost Identity W1)
+
+> MFA-1 (W1) đã thêm login 2 bước cho Owner (DemoUser `MfaEnabled=true`). RV production PHẢI tuân thủ:
+
+1. **KHÔNG bật MFA trên account dùng cho RV:** `sysadmin@vanan.vn`, `adminvanan1`, `baove@vanan.vn`, `staff@vanan.vn`, `admin@vanan.vn` — nếu account bật MFA → login UI mắc kẹt ở step 2 → toàn bộ RV spec dùng storageState cũ FAIL.
+2. **RV login path chính KHÔNG bị MFA:** `/api/platform/login` (sysadmin API — controller RIÊNG `PlatformUserLoginController`, không đi qua login page) + impersonate → storageState. Đây là path mặc định cho mọi RV sweep. Chỉ UI `/Login` (Razor page) mới có MFA step 2.
+3. **Test MFA riêng:** dùng account RV chuyên dụng có MFA + secret lưu trong RV config (`rv-mfa-auth.cjs`) — Playwright tính TOTP bằng node `otplib` (card MFA-1 §5.5). KHÔNG đụng account thật của user.
+4. **Trusted-device cookie `va_mfa_trust` (30 ngày):** sau 1 lần login MFA thành công, storageState lưu kèm cookie này → mọi spec trong context đó bỏ qua MFA. Auth script: login UI → step 2 (otplib) → `context.storageState(...)`.
+5. **Nếu lỡ bật MFA trên account RV:** tắt qua `/account/mfa` (cần mật khẩu) — owner tự tắt được; hoặc dùng storageState có `va_mfa_trust`.
+6. **W0 OtpService hardening (customer OTP):** API contract KHÔNG đổi (`/api/customer-identity/otp/send|verify` — cùng request/response). Nhưng >5 lần sai cùng SĐT/purpose → lock 5' (config `Otp:MaxAttempts`/`Otp:LockoutMinutes`). RV sweep KHÔNG spam sai OTP >5 lần cho cùng 1 SĐT.
+7. **DevLoginController** chỉ tồn tại ở DEBUG build (compile-out Release) — KHÔNG dùng được trên production; không phụ thuộc vào nó.
+
 ## CREDENTIALS (PRODUCTION VPS)
 - **ShopERP Login:** `baove@vanan.vn` (Guard) / `admin@vanan.vn` (Owner) / password: `2026@vanan`
 - **Login endpoint:** `POST /api/platform/login` (ShopERP, not Gateway)

@@ -149,6 +149,7 @@ dotnet test 6_Tests/VanAn.ShopERP.Tests --filter "FullyQualifiedName~Mfa|Login"
 - [ ] **L3 Playwright prod** (`playwright-rv-mfa.config.ts` + storageState — TOTP tính trong test bằng thư viện node `otplib` + secret từ endpoint/test-helper): sysadmin bật MFA (setup flow) → logout → login step 2 (TOTP đúng) → success · TOTP sai → fail + attempt count · trusted cookie skip · disable MFA → login 1 bước (regression) · banner user chưa setup
 - [ ] **L4 manual (user):** scan QR bằng Google Authenticator thật trên điện thoại + email fallback thật 1 lần
 - [ ] Cleanup: reset MFA account test · ghi kết quả vào project_state
+- [ ] **⚠️ QUY TẮC RV ACCOUNT (bắt buộc — xem `.devin/rules/runtime-verification.md` §RV ACCOUNTS & MFA):** KHÔNG bật MFA trên account RV (`sysadmin@vanan.vn`/`adminvanan1`/staff) — test MFA chỉ trên account RV chuyên dụng + secret trong rv config + `otplib`; storageState lưu kèm cookie `va_mfa_trust`.
 
 ## 6. RISKS / NOTES
 
