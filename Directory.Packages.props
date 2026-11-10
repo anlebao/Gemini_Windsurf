@@ -48,6 +48,8 @@
     <!-- Authentication Packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+    <!-- MFA-1 (2026-11-10): TOTP — Otp.NET 1.4.0 (MIT, stable 2023) -->
+    <PackageVersion Include="Otp.NET" Version="1.4.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="8.0.8" />

@@ -33,7 +33,10 @@
             <span class="user-header__role-badge">@_role</span>
         }
     </div>
-    <a href="/Logout" class="user-header__logout" aria-label="Đăng xuất">
+    <a href="/account/mfa" class="user-header__mfa" aria-label="Bảo mật tài khoản" title="Bảo mật tài khoản (MFA)">
+            <i class="bi bi-shield-lock"></i>
+        </a>
+        <a href="/Logout" class="user-header__logout" aria-label="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
         <span>Đăng xuất</span>
     </a>
@@ -114,6 +117,19 @@
         text-align: center;
         border-radius: 10px;
         padding: 0 4px;
+    }
+    .user-header__mfa {
+        display: flex;
+        align-items: center;
+        color: var(--vanan-primary, #007bff);
+        font-size: 1.1rem;
+        text-decoration: none;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .user-header__mfa:hover {
+        background: rgba(0, 123, 255, 0.1);
     }
     .user-header__logout {
         display: flex;

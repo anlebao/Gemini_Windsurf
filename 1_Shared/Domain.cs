@@ -822,6 +822,22 @@ namespace VanAn.Shared.Domain
         DeviceVerified = 4
     }
 
+    /// <summary>
+    /// ID-P1 (2026-11-10, user duyệt): DeviceVerified=4 > Full=3 phá ordering so sánh enum trực tiếp —
+    /// rank map: Guest=0, Social=1, DeviceVerified=1, Verified=2, Full=3.
+    /// </summary>
+    public static class IdentityLevelRank
+    {
+        public static int Rank(this IdentityLevel level) => level switch
+        {
+            IdentityLevel.Guest => 0,
+            IdentityLevel.Social or IdentityLevel.DeviceVerified => 1,
+            IdentityLevel.Verified => 2,
+            IdentityLevel.Full => 3,
+            _ => 0
+        };
+    }
+
     public record CustomerId(Guid Value);
 
     // Customer CRM Entity for Loyalty & Tier Management
@@ -875,7 +891,8 @@ namespace VanAn.Shared.Domain
 
         public void UpgradeIdentityLevel(IdentityLevel newLevel)
         {
-            if (newLevel <= IdentityLevel) return;
+            // ID-P1: so sánh qua rank (DeviceVerified=4 > Full=3 phá ordering enum trực tiếp)
+            if (newLevel.Rank() <= IdentityLevel.Rank()) return;
             IdentityLevel = newLevel;
             UpdateAudit();
         }

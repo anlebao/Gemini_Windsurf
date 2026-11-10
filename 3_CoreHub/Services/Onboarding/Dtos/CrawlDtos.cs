@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.UserAggregate;
 
 namespace VanAn.CoreHub.Services.Onboarding
 {
@@ -43,7 +44,11 @@ namespace VanAn.CoreHub.Services.Onboarding
         string? OwnerEmail = null,      // Email from owner Claim form (optional)
         Guid? ShopInstanceId = null,    // ShopERP hosting instance (Multi-VPS routing)
         string? Slug = null,            // Clean slug (null = auto-generate from name)
-        Guid ApprovedByUserId = default); // SysAdmin who approved (for TenantVerifiedEvent)
+        Guid ApprovedByUserId = default, // SysAdmin who approved (for TenantVerifiedEvent)
+        // ID-P1 (2026-11-10, user duyệt): trust hints — trailing optional (backward compat)
+        bool ContactVerified = false,           // contact (phone/email) đã qua kênh verify
+        string? VerifiedChannel = null,         // "email"|"zns"|"sms"|"otp"|"manual" — null → fallback "otp"
+        UserTrustLevel? TrustHint = null);      // override trust đích; null = suy ra từ ContactVerified + tenant Active
 
     /// <summary>
     /// Crawl-to-Onboard (2026-08-25): Result of VerifyAsync.

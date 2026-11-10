@@ -11,6 +11,7 @@ using VanAn.ShopERP.Infrastructure;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
+using UserTrustLevel = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTrustLevel;
 
 namespace VanAn.ShopERP.Services
 {
@@ -184,6 +185,14 @@ namespace VanAn.ShopERP.Services
                     {
                         if (isActive) user.Reactivate(); else user.Deactivate();
                     }
+                }
+
+                // ID-P1 (2026-11-10): sync TrustLevel (int) — optional, backward compat.
+                // Payload cũ không có field → skip (default None). KHÔNG sync PhoneNumber (PII, PG-only).
+                if (root.TryGetProperty("TrustLevel", out var trustEl)
+                    && trustEl.ValueKind == JsonValueKind.Number)
+                {
+                    user.ApplyTrustLevel((UserTrustLevel)trustEl.GetInt32());
                 }
 
                 // UserTenant mapping — login fallback tenantId + phân quyền per-tenant

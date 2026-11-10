@@ -35,6 +35,25 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasConversion(new EncryptedStringConverter(
                     DataProtectionProviderAccessor.CreateProtector("DemoUser.Email")));
 
+            // ID-P1 (2026-11-10): PII encryption cho PhoneNumber — protector RIÊNG (không cross-decrypt)
+            _ = builder.Property(e => e.PhoneNumber)
+                .HasMaxLength(500)
+                .HasConversion(new EncryptedStringConverter(
+                    DataProtectionProviderAccessor.CreateProtector("DemoUser.PhoneNumber")));
+
+            // ID-P1: trust fields — VerifiedChannel plain (provenance, không search nhu cầu → no index)
+            _ = builder.Property(e => e.PhoneVerifiedAt);
+            _ = builder.Property(e => e.VerifiedChannel).HasMaxLength(20);
+            _ = builder.Property(e => e.TrustLevel).HasConversion<int>();
+
+            // MFA-1 (2026-11-10): TOTP secret encrypted at rest — protector RIÊNG
+            _ = builder.Property(e => e.MfaSecret)
+                .HasMaxLength(500)
+                .HasConversion(new EncryptedStringConverter(
+                    DataProtectionProviderAccessor.CreateProtector("DemoUser.MfaSecret")));
+            _ = builder.Property(e => e.MfaEnabled);
+            _ = builder.Property(e => e.TrustedDeviceHash).HasMaxLength(128);
+
             // Enum conversion for UserRole
             _ = builder.Property(e => e.Role)
                 .HasConversion<int>();

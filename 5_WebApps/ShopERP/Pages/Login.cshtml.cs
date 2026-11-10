@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
+using System.Text.Json;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Interfaces;
@@ -13,7 +14,9 @@ using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using BCrypt.Net;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Pages
@@ -23,11 +26,17 @@ namespace VanAn.ShopERP.Pages
     public class LoginModel(
         IAntiforgery antiforgery,
         IVanAnDbContext dbContext,
-        IJwtTokenService jwtTokenService) : PageModel
+        IJwtTokenService jwtTokenService,
+        IMfaService mfaService) : PageModel
     {
         private readonly IAntiforgery _antiforgery = antiforgery;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
+        private readonly IMfaService _mfaService = mfaService;
+
+        // MFA-1 (2026-11-10): tên cookie trusted device + config
+        public const string TrustedMfaCookie = "va_mfa_trust";
+        private const string PendingMfaKey = "PendingMfa";
 
         [BindProperty]
         public string Username { get; set; } = string.Empty;
@@ -37,6 +46,15 @@ namespace VanAn.ShopERP.Pages
 
         [BindProperty]
         public bool RememberMe { get; set; }
+
+        // ── MFA-1 step 2 ────────────────────────────────────────────────────
+        [BindProperty]
+        public string? MfaCode { get; set; }
+
+        public bool MfaStep { get; set; }
+        public string? MfaUsername { get; set; }
+        public bool MfaEmailSent { get; set; }
+        public bool MfaEmailAvailable { get; set; }
 
         public async Task<IActionResult> OnPostAsync()
         {
@@ -73,10 +91,139 @@ namespace VanAn.ShopERP.Pages
                 .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.IsActive);
 
             // Bug fix: Fallback to user.TenantId (set during user creation) instead of hardcoded GUID.
-            // Previously: hardcoded 00000000-...-001, causing users created for other tenants to
-            // always login with the wrong tenant_id → see wrong tenant's products/orders.
             Guid tenantId = userTenant?.TenantId ?? user.TenantId.Value;
 
+            // MFA-1 (2026-11-10, user duyệt): Owner bật MFA → step 2 trước khi SignIn.
+            // Trusted cookie hợp lệ → bỏ qua step 2 (đăng nhập thẳng).
+            var trustedToken = Request.Cookies[TrustedMfaCookie];
+            if (user.MfaEnabled && user.Role == UserRole.Owner)
+            {
+                if (!await _mfaService.IsTrustedAsync(user.Id.ToString(), trustedToken))
+                {
+                    TempData[PendingMfaKey] = JsonSerializer.Serialize(new PendingMfa(user.Id, RememberMe));
+                    MfaUsername = user.Username;
+                    MfaEmailAvailable = !string.IsNullOrWhiteSpace(user.Email);
+                    MfaStep = true;
+                    return Page();
+                }
+            }
+
+            return await SignInUserAsync(user, tenantId, RememberMe);
+        }
+
+        /// <summary>MFA-1 step 2: verify TOTP hoặc email fallback → SignIn + set trusted cookie.</summary>
+        public async Task<IActionResult> OnPostMfaAsync()
+        {
+            var pending = ReadPendingMfa();
+            if (pending is null)
+            {
+                ModelState.AddModelError(string.Empty, "Phiên đăng nhập hết hạn — đăng nhập lại.");
+                return Page();
+            }
+
+            var user = await _dbContext.Users
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == pending.UserId && u.IsActive && !u.IsDeleted);
+
+            if (user is null || !user.MfaEnabled)
+            {
+                ModelState.AddModelError(string.Empty, "Tài khoản không hợp lệ.");
+                return Page();
+            }
+
+            MfaUsername = user.Username;
+            MfaEmailAvailable = !string.IsNullOrWhiteSpace(user.Email);
+            MfaStep = true;
+
+            var trustedToken = Request.Cookies[TrustedMfaCookie];
+            var result = await _mfaService.VerifyLoginAsync(user.Id.ToString(), MfaCode, trustedToken);
+
+            // Email fallback: nếu TOTP không hợp lệ, thử code email (single-use)
+            if (result == MfaVerifyResult.Invalid && !string.IsNullOrWhiteSpace(MfaCode)
+                && await _mfaService.VerifyEmailFallbackOtpAsync(user.Id.ToString(), MfaCode))
+            {
+                result = MfaVerifyResult.Success;
+            }
+
+            switch (result)
+            {
+                case MfaVerifyResult.Success:
+                {
+                    var userTenant = await _dbContext.UserTenants
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.IsActive);
+                    Guid tenantId = userTenant?.TenantId ?? user.TenantId.Value;
+
+                    // Trusted device cookie — 30 ngày (Mfa:TrustedDeviceDays)
+                    var trusted = await _mfaService.IssueTrustedTokenAsync(user.Id.ToString());
+                    var days = int.TryParse(HttpContext.RequestServices
+                        .GetService<IConfiguration>()?.GetValue<string>("Mfa:TrustedDeviceDays"), out var d) && d > 0 ? d : 30;
+                    Response.Cookies.Append(TrustedMfaCookie, trusted, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        SameSite = SameSiteMode.Lax,
+                        Secure = Request.IsHttps,
+                        Expires = DateTimeOffset.UtcNow.AddDays(days)
+                    });
+
+                    TempData.Remove(PendingMfaKey);
+                    return await SignInUserAsync(user, tenantId, pending.RememberMe);
+                }
+                case MfaVerifyResult.Locked:
+                    ModelState.AddModelError(string.Empty, "Quá nhiều lần thử sai. Vui lòng thử lại sau 15 phút.");
+                    return Page();
+                default:
+                    ModelState.AddModelError(string.Empty, "Mã xác minh không đúng hoặc đã hết hạn.");
+                    return Page();
+            }
+        }
+
+        /// <summary>MFA-1: gửi email OTP fallback (Brevo 0đ) khi mất authenticator.</summary>
+        public async Task<IActionResult> OnPostSendEmailOtpAsync()
+        {
+            var pending = ReadPendingMfa();
+            if (pending is null)
+            {
+                ModelState.AddModelError(string.Empty, "Phiên đăng nhập hết hạn — đăng nhập lại.");
+                return Page();
+            }
+
+            var user = await _dbContext.Users
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == pending.UserId && u.IsActive && !u.IsDeleted);
+
+            if (user is null || !user.MfaEnabled)
+            {
+                ModelState.AddModelError(string.Empty, "Tài khoản không hợp lệ.");
+                return Page();
+            }
+
+            MfaUsername = user.Username;
+            MfaStep = true;
+            MfaEmailAvailable = !string.IsNullOrWhiteSpace(user.Email);
+
+            if (string.IsNullOrWhiteSpace(user.Email))
+            {
+                ModelState.AddModelError(string.Empty, "Tài khoản chưa có email — liên hệ quản trị để reset MFA.");
+                return Page();
+            }
+
+            var sent = await _mfaService.SendEmailFallbackOtpAsync(user.Id.ToString());
+            if (!sent)
+            {
+                ModelState.AddModelError(string.Empty, "Không gửi được email xác minh — thử lại sau.");
+                return Page();
+            }
+
+            MfaEmailSent = true;
+            return Page();
+        }
+
+        /// <summary>SignIn DemoUser (JWT + cookie) — tách từ OnPostAsync cho MFA step 2 dùng lại.</summary>
+        private async Task<IActionResult> SignInUserAsync(DemoUser user, Guid tenantId, bool rememberMe)
+        {
             // Issue JWT token with full claims
             var jwtToken = _jwtTokenService.GenerateToken(
                 userId: user.Id,
@@ -100,8 +247,8 @@ namespace VanAn.ShopERP.Pages
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             AuthenticationProperties authProperties = new()
             {
-                IsPersistent = RememberMe,
-                ExpiresUtc = RememberMe
+                IsPersistent = rememberMe,
+                ExpiresUtc = rememberMe
                     ? DateTimeOffset.UtcNow.AddDays(30)
                     : DateTimeOffset.UtcNow.AddHours(8)
             };
@@ -112,23 +259,35 @@ namespace VanAn.ShopERP.Pages
                 authProperties);
 
             // Set JWT in HttpOnly cookie (.VanAn.Jwt) for API calls via Bearer token
-            // JWT expiry matches cookie expiry — 30 days if Remember Me, 8h otherwise
             Response.Cookies.Append(".VanAn.Jwt", jwtToken, new CookieOptions
             {
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict,
                 Secure = Request.IsHttps,
-                Expires = RememberMe
+                Expires = rememberMe
                     ? DateTimeOffset.UtcNow.AddDays(30)
                     : DateTimeOffset.UtcNow.AddHours(8)
             });
 
             // Redirect to Blazor /sitemap — single entry point for all roles
-            // Blazor Sitemap.razor handles role-based navigation (Owner, Staff, Guard, etc.)
-            // Guard users: /sitemap has link to /guard/scan (legacy Razor Page, no Blazor equivalent yet)
-            // Kitchen users: /sitemap has link to /Kitchen (legacy Razor Page, no Blazor equivalent yet)
             return Redirect("/sitemap");
         }
+
+        private PendingMfa? ReadPendingMfa()
+        {
+            var raw = TempData[PendingMfaKey] as string;
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            try
+            {
+                return JsonSerializer.Deserialize<PendingMfa>(raw);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        private sealed record PendingMfa(Guid UserId, bool RememberMe);
 
         /// <summary>
         /// Fix #3: Try to authenticate as a platform-level SystemAdmin.

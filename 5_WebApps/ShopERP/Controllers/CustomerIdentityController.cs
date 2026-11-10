@@ -294,7 +294,7 @@ namespace VanAn.ShopERP.Controllers
             if (customer.IdentityLevel >= IdentityLevel.Verified)
                 return BadRequest(new { error = "Tài khoản đã được xác thực, không cần nâng cấp.", currentLevel = customer.IdentityLevel.ToString() });
 
-            var otp = _otpService.GenerateAndStoreOtp(customer.PhoneNumber);
+            var otp = _otpService.GenerateAndStoreOtp(customer.PhoneNumber, "customer-upgrade");
             _logger.LogInformation("Upgrade OTP generated for customer {CustomerId} phone {Phone}",
                 customer.Id, MaskPhone(customer.PhoneNumber));
 
@@ -330,7 +330,7 @@ namespace VanAn.ShopERP.Controllers
             if (string.IsNullOrWhiteSpace(customer.PhoneNumber))
                 return BadRequest(new { error = "Khách hàng chưa có số điện thoại để xác thực." });
 
-            if (!_otpService.VerifyOtp(customer.PhoneNumber, request.Otp))
+            if (!_otpService.VerifyOtp(customer.PhoneNumber, request.Otp, "customer-upgrade"))
                 return BadRequest(new { error = "OTP không đúng hoặc đã hết hạn." });
 
             customer.UpgradeIdentityLevel(IdentityLevel.Verified);

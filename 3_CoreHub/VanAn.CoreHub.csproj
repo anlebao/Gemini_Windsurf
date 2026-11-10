@@ -45,6 +45,8 @@
     <PackageReference Include="WebPush" />
     <PackageReference Include="Google.Apis.Auth" />
     <PackageReference Include="UUIDNext" />
+    <!-- MFA-1 (2026-11-10): TOTP authenticator -->
+    <PackageReference Include="Otp.NET" />
   </ItemGroup>
 
   <!-- TODO: Phase 6 - Temporarily exclude Sprint 3 incomplete files to unblock migration -->

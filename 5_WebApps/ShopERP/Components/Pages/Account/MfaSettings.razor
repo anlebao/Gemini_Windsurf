@@ -1,0 +1,245 @@
+@page "/account/mfa"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using QRCoder
+@using BCrypt.Net
+@using VanAn.CoreHub.Infrastructure
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.UI.Platform.Components
+@inject IVanAnDbContext DbContext
+@inject IMfaService MfaService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ILogger<MfaSettings> Logger
+
+<PageTitle>Bảo mật tài khoản</PageTitle>
+
+<div class="mfa-settings-page" data-testid="mfa-settings-page">
+    <header class="page-header">
+        <h1><i class="bi bi-shield-lock me-2"></i>Xác thực 2 lớp (MFA)</h1>
+        <p class="text-muted small mb-0">
+            Bảo vệ tài khoản bằng ứng dụng xác thực (Google Authenticator / Authy / Microsoft Authenticator) — miễn phí, không cần SMS.
+        </p>
+    </header>
+
+    @if (_loading)
+    {
+        <VanAAlert Variant="info" Message="Đang tải..." />
+    }
+    else if (_user is null)
+    {
+        <VanAAlert Variant="warning" Message="Không xác định được tài khoản đăng nhập." />
+    }
+    else if (_user.MfaEnabled)
+    {
+        <VanACard Header="Trạng thái">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge text-bg-success fs-6"><i class="bi bi-check-circle me-1"></i>Đã bật xác thực 2 lớp</span>
+                @if (_user.TrustedDeviceHash is not null)
+                {
+                    <span class="badge text-bg-info fs-6"><i class="bi bi-laptop me-1"></i>Đã ghi nhớ 1 thiết bị</span>
+                }
+            </div>
+            <p class="text-muted small">
+                Lần đăng nhập tới sẽ yêu cầu mã 6 số từ ứng dụng xác thực (hoặc mã qua email khi mất mã).
+            </p>
+        </VanACard>
+
+        <VanACard Header="Quản lý thiết bị" class="mt-3">
+            @if (_user.TrustedDeviceHash is not null)
+            {
+                <VanAButton Variant="secondary" OnClick="RevokeTrustAsync" Loading="_busy">
+                    <i class="bi bi-laptop me-1"></i>Quên thiết bị này (yêu cầu mã khi đăng nhập lại)
+                </VanAButton>
+            }
+            else
+            {
+                <p class="text-muted small mb-0">Không có thiết bị nào được ghi nhớ.</p>
+            }
+        </VanACard>
+
+        <VanACard Header="Tắt xác thực 2 lớp" class="mt-3">
+            <p class="text-muted small">Nhập mật khẩu hiện tại để xác nhận tắt MFA.</p>
+            <div class="d-flex gap-2 align-items-start flex-wrap">
+                <input type="password" class="form-control" style="max-width:280px" placeholder="Mật khẩu hiện tại"
+                       @bind="_disablePassword" />
+                <VanAButton Variant="danger" OnClick="DisableMfaAsync" Loading="_busy" Disabled="string.IsNullOrWhiteSpace(_disablePassword)">
+                    <i class="bi bi-shield-x me-1"></i>Tắt MFA
+                </VanAButton>
+            </div>
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <VanAAlert Variant='@(_error ? "danger" : "success")' Message="@_message" class="mt-3" />
+            }
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Bật xác thực 2 lớp">
+            <ol class="small mb-3">
+                <li>Cài ứng dụng xác thực (Google Authenticator, Authy, Microsoft Authenticator...)</li>
+                <li>Quét mã QR bên dưới (hoặc nhập secret thủ công)</li>
+                <li>Nhập mã 6 số từ ứng dụng để kích hoạt</li>
+            </ol>
+
+            @if (_setup is not null)
+            {
+                <div class="text-center mb-3">
+                    <img src="@_qrImage" alt="Mã QR MFA" style="width:220px;height:220px;border:1px solid #e2e8f0;border-radius:8px" data-testid="mfa-qr" />
+                    <p class="text-muted small mt-2 mb-1">Không quét được? Nhập secret:</p>
+                    <code class="user-select-all">@_setup.Secret</code>
+                </div>
+
+                <div class="d-flex gap-2 align-items-start flex-wrap">
+                    <input type="text" inputmode="numeric" maxlength="6" class="form-control text-center" style="max-width:160px"
+                           placeholder="Mã 6 số" @bind="_code" />
+                    <VanAButton Variant="primary" OnClick="EnableMfaAsync" Loading="_busy" Disabled="_code?.Length != 6">
+                        <i class="bi bi-shield-check me-1"></i>Kích hoạt
+                    </VanAButton>
+                </div>
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <VanAAlert Variant='@(_error ? "danger" : "success")' Message="@_message" class="mt-3" />
+                }
+            }
+            else
+            {
+                <VanAButton Variant="primary" OnClick="GenerateSetupAsync" IsLoading="_busy">
+                    <i class="bi bi-qr-code me-1"></i>Tạo mã QR
+                </VanAButton>
+            }
+        </VanACard>
+    }
+</div>
+
+@code {
+    private VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser? _user;
+    private MfaSetupResult? _setup;
+    private string? _qrImage;
+    private string? _code;
+    private string? _disablePassword;
+    private string? _message;
+    private bool _error;
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var username = authState.User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(username))
+                return;
+
+            _user = await DbContext.Users
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower() && !u.IsDeleted);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "MFA settings: load user failed");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task GenerateSetupAsync()
+    {
+        _busy = true;
+        try
+        {
+            _setup = MfaService.GenerateSetup(_user!.Id.ToString(), _user.Username);
+            using var generator = new QRCodeGenerator();
+            var data = generator.CreateQrCode(_setup.OtpauthUri, QRCodeGenerator.ECCLevel.Q);
+            using var qr = new PngByteQRCode(data);
+            _qrImage = $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(20))}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task EnableMfaAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var ok = await MfaService.EnableAsync(_user!.Id.ToString(), _setup!.Secret, _code!.Trim());
+            if (!ok)
+            {
+                _error = true;
+                _message = "Mã không đúng — kiểm tra lại mã 6 số từ ứng dụng xác thực.";
+                return;
+            }
+            _error = false;
+            _message = "Đã bật xác thực 2 lớp thành công.";
+            _user = await DbContext.Users.AsNoTracking().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == _user.Id);
+        }
+        catch (Exception ex)
+        {
+            _error = true;
+            _message = ex.Message;
+            Logger.LogError(ex, "MFA enable failed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DisableMfaAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var fresh = await DbContext.Users.AsNoTracking().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == _user!.Id);
+            if (fresh is null || !global::BCrypt.Net.BCrypt.Verify(_disablePassword, fresh.PasswordHash))
+            {
+                _error = true;
+                _message = "Mật khẩu không đúng.";
+                return;
+            }
+            await MfaService.DisableAsync(_user!.Id.ToString());
+            _error = false;
+            _message = "Đã tắt xác thực 2 lớp.";
+            _user = fresh;
+            _disablePassword = null;
+        }
+        catch (Exception ex)
+        {
+            _error = true;
+            _message = ex.Message;
+            Logger.LogError(ex, "MFA disable failed");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RevokeTrustAsync()
+    {
+        _busy = true;
+        try
+        {
+            await MfaService.RevokeTrustAsync(_user!.Id.ToString());
+            _user = await DbContext.Users.AsNoTracking().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == _user.Id);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

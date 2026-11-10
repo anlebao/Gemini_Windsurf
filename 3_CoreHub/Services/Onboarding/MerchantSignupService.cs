@@ -10,6 +10,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.Shared.Domain.Common;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Services.Onboarding;
@@ -155,7 +156,10 @@ public class MerchantSignupService(
             OwnerEmail: selfServe.ContactEmail,
             ShopInstanceId: request.ShopInstanceId,
             Slug: request.Slug,
-            ApprovedByUserId: sysAdminUserId), ct);
+            ApprovedByUserId: sysAdminUserId,
+            // ID-P1 (2026-11-10): OtpVerified → ContactVerified; channel fallback "otp" cho tới khi P4 có OtpChannel
+            ContactVerified: selfServe.OtpVerified,
+            VerifiedChannel: "otp"), ct);
 
         logger.LogInformation(
             "Self-serve verify-signup: tenant {TenantId} → Active, slug {Slug}, owner {Username}, usedMerchantPassword={Used} (sysadmin {SysAdmin})",
@@ -176,11 +180,38 @@ public class MerchantSignupService(
             throw new InvalidOperationException($"Chỉ tenant Pending mới reject được (hiện {tenant.Status}).");
 
         tenant.Deactivate($"self-serve-rejected: {reason.Trim()}");
+
+        // ID-P1 (REVIEW B3 — user duyệt 2026-11-10): tenant mất hiệu lực → owner BusinessVerified → ContactVerified
+        await RevokeOwnerBusinessTrustAsync(tenantId, ct);
+
         await dbContext.SaveChangesAsync(ct);
 
         logger.LogInformation(
             "Self-serve reject-pending: tenant {TenantId} ({Name}) — reason '{Reason}' by sysadmin {SysAdmin}",
             tenantId, tenant.Name, reason.Trim(), sysAdminUserId);
+    }
+
+    // ── ID-P1 (REVIEW B3, 2026-11-10): downgrade hook — tenant→inactive → owner trust ──
+    // Owner user là người duy nhất có BusinessVerified (staff luôn None). Không xuống None —
+    // liên hệ đã verify vẫn còn giá trị. No-op nếu tenant chưa có owner (reject trước verify).
+    private async Task RevokeOwnerBusinessTrustAsync(Guid tenantId, CancellationToken ct)
+    {
+        var ownerUserId = await dbContext.UserTenants
+            .IgnoreQueryFilters()
+            .Where(ut => ut.TenantIdValue == tenantId && ut.Role == UserRole.Owner)
+            .Select(ut => (Guid?)ut.UserId)
+            .FirstOrDefaultAsync(ct);
+        if (ownerUserId is null) return;
+
+        var owner = await dbContext.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == ownerUserId.Value, ct);
+        if (owner is null) return;
+
+        owner.RevokeBusinessVerification();
+        logger.LogInformation(
+            "ID-P1: revoked BusinessVerified for owner {UserId} — tenant {TenantId} inactive",
+            owner.Id, tenantId);
     }
 
     // ── Public status lookup (anti-enumeration) ────────────────────────────

@@ -663,6 +663,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ICustomerTokenService, VanAn.ShopERP.Services.CustomerTokenService>();
 
+            // MFA-1 (2026-11-10, user duyệt): Admin MFA — TOTP + trusted device + email fallback
+            _ = builder.Services.AddScoped<CoreHub.Services.IMfaService, CoreHub.Services.MfaService>();
+
             // Tiered Auth Phase 1: Google OAuth
             _ = builder.Services.AddHttpClient<CoreHub.Services.IGoogleAuthService, CoreHub.Services.GoogleAuthService>(client =>
             {

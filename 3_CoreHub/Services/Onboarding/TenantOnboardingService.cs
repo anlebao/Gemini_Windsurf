@@ -279,6 +279,17 @@ namespace VanAn.CoreHub.Services.Onboarding
                 UserRole.Owner,
                 ct);
 
+            // 5a. ID-P1 (2026-11-10, user duyệt): populate trust/contact fields — cùng SaveChanges step 8
+            if (!string.IsNullOrWhiteSpace(req.OwnerPhone) || !string.IsNullOrWhiteSpace(req.OwnerEmail))
+                ownerUser.SetContactInfo(req.OwnerPhone, req.OwnerEmail);
+            if (req.ContactVerified)
+                ownerUser.MarkPhoneVerified(req.VerifiedChannel ?? "otp");
+            // TrustHint override trust đích; null = mặc định: tenant Active = sysadmin đã duyệt → L3
+            if (req.TrustHint is not null)
+                ownerUser.ApplyTrustLevel(req.TrustHint.Value);
+            else
+                ownerUser.MarkBusinessVerified();
+
             // 6. Assign Owner role
             await roleAssignmentService.AssignRoleToUserAsync(ownerUser.Id, tenantIdVo, UserRole.Owner, ct);
 
@@ -454,7 +465,9 @@ namespace VanAn.CoreHub.Services.Onboarding
                 PasswordHash = ownerUser.PasswordHash,
                 DisplayName = ownerUser.DisplayName,
                 Role = (int)ownerUser.Role,
-                IsActive = ownerUser.IsActive
+                IsActive = ownerUser.IsActive,
+                // ID-P1: chỉ sync TrustLevel (int) — KHÔNG sync raw PhoneNumber/PhoneVerifiedAt (PII, PG-only)
+                TrustLevel = (int)ownerUser.TrustLevel
             };
             var outboxEvent = new OutboxEvent(
                 ownerUser.TenantId,
