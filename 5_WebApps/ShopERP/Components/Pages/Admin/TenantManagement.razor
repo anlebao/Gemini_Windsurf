@@ -854,16 +854,16 @@
         <VanAModal Title="Verify Pending Tenant" IsVisible="true" OnClose="CloseVerifyModal" Size="large">
             <Body>
             <VanAAlert Type="info" Message="@GetVerifyAlertMessage()" Dismissible="false" />
-            <VanAForm OnValidSubmit="HandleVerifySubmit" aria-label="Verify pending tenant">
+            <VanAForm OnValidSubmit="HandleVerifySubmit" aria-label="Verify pending tenant" autocomplete="off">
                 <div class="form-row">
                     <div class="form-group form-group-half">
                         <label for="verify-username">Tên đăng nhập owner *</label>
-                        <input id="verify-username" class="vanan-input" @bind="_verifyForm.OwnerUsername" placeholder="owner@tenant.vn" required />
+                        <input id="verify-username" class="vanan-input" @bind="_verifyForm.OwnerUsername" placeholder="owner@tenant.vn" autocomplete="off" required />
                     </div>
                     <div class="form-group form-group-half">
                         <label for="verify-password">Mật khẩu owner *</label>
                         <div class="input-group">
-                            <input id="verify-password" class="vanan-input" type="@(_showPassword ? "text" : "password")" @bind="_verifyForm.OwnerPassword" placeholder="Tối thiểu 8 ký tự" required />
+                            <input id="verify-password" class="vanan-input" type="@(_showPassword ? "text" : "password")" @bind="_verifyForm.OwnerPassword" placeholder="Tối thiểu 8 ký tự" autocomplete="new-password" required />
                             <button type="button" class="btn btn-outline-secondary" @onclick="@(() => _showPassword = !_showPassword)">
                                 <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
                             </button>
@@ -1102,7 +1102,7 @@
                 {
                     @* Form verify-signup *@
                     <h6>Duyệt &amp; kích hoạt</h6>
-                    <VanAForm OnValidSubmit="HandleSignupVerifySubmit" aria-label="Verify self-serve signup">
+                    <VanAForm OnValidSubmit="HandleSignupVerifySubmit" aria-label="Verify self-serve signup" autocomplete="off">
                         <div class="form-group">
                             <label class="form-check-label d-flex align-items-center gap-2">
                                 <input type="checkbox" class="form-check-input" @bind="_useMerchantPassword" />
@@ -1112,7 +1112,7 @@
                         <div class="form-row">
                             <div class="form-group form-group-half">
                                 <label for="signup-username">Tên đăng nhập owner</label>
-                                <input id="signup-username" class="vanan-input" @bind="_signupOwnerUsername" />
+                                <input id="signup-username" class="vanan-input" @bind="_signupOwnerUsername" autocomplete="off" />
                             </div>
                             <div class="form-group form-group-half">
                                 <label for="signup-displayname">Tên hiển thị owner *</label>
@@ -1124,12 +1124,12 @@
                             <div class="form-row">
                                 <div class="form-group form-group-half">
                                     <label for="signup-password">Mật khẩu mới *</label>
-                                    <input id="signup-password" class="vanan-input" type="@(_showSignupPassword ? "text" : "password")" @bind="_signupOwnerPassword" placeholder="Tối thiểu 8 ký tự" />
+                                    <input id="signup-password" class="vanan-input" type="@(_showSignupPassword ? "text" : "password")" @bind="_signupOwnerPassword" placeholder="Tối thiểu 8 ký tự" autocomplete="new-password" />
                                     <small class="text-muted">Mật khẩu chỉ dùng 1 lần để kích hoạt — merchant nên đổi sau.</small>
                                 </div>
                                 <div class="form-group form-group-half">
                                     <label for="signup-password-confirm">Nhập lại mật khẩu *</label>
-                                    <input id="signup-password-confirm" class="vanan-input" type="password" @bind="_signupOwnerPasswordConfirm" />
+                                    <input id="signup-password-confirm" class="vanan-input" type="password" @bind="_signupOwnerPasswordConfirm" autocomplete="new-password" />
                                 </div>
                             </div>
                         }
@@ -1771,6 +1771,9 @@
         }
         await LoadTenants();
         await LoadShopInstances();
+        // Badge counts phải đúng ngay khi load — trước đây chỉ load khi click tab → hiển thị 0 sai
+        await LoadPendingTenants();
+        await LoadDuplicates();
     }
 
     private async Task LoadTenants()
