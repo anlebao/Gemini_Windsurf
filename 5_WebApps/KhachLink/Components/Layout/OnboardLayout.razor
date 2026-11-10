@@ -1,0 +1,98 @@
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Services
+@using VanAn.Shared.Domain
+@inject ITenantService TenantService
+@inject ShopConfigHttpService ShopConfigService
+@inject KhachLinkInstanceHttpService InstanceHttp
+@implements IDisposable
+
+@* OnboardLayout — chrome tối giản riêng cho luồng self-serve onboarding
+   (/onboard + /onboard/status). Không nav icons, cart, drawer, banner, tour
+   để merchant không bị phân tâm/bấm nhầm giữa wizard. *@
+
+<HeadContent>
+    <style>
+        :root {
+            --onboard-primary: @(_shopConfig?.PrimaryColor ?? "#8B4513");
+        }
+    </style>
+</HeadContent>
+
+<div class="onboard-layout">
+    <header class="onboard-header">
+        <div class="onboard-brand">
+            @if (!string.IsNullOrEmpty(_instanceStyle?.IconUrl))
+            {
+                <img src="@_instanceStyle.IconUrl" alt="@(_shopConfig?.ShopName ?? "Logo")" class="onboard-logo" />
+            }
+            else if (!string.IsNullOrEmpty(_instanceStyle?.LogoUrl))
+            {
+                <img src="@_instanceStyle.LogoUrl" alt="@(_shopConfig?.ShopName ?? "Logo")" class="onboard-logo" />
+            }
+            else if (_shopConfig?.LogoUrl != null)
+            {
+                <img src="@_shopConfig.LogoUrl" alt="@_shopConfig.ShopName" class="onboard-logo" />
+            }
+            else
+            {
+                <i class="bi bi-shop text-white" style="font-size:1.5rem;"></i>
+            }
+            <span class="onboard-title">Đăng ký cửa hàng</span>
+        </div>
+    </header>
+
+    <main class="onboard-main">
+        @ChildContent
+    </main>
+
+    <footer class="onboard-footer">
+        <a href="/privacy-policy.html" target="_blank" rel="noopener">Chính sách Quyền riêng tư</a>
+    </footer>
+</div>
+
+<style>
+.onboard-layout { min-height: 100vh; display: flex; flex-direction: column; background: #f9f9f9; }
+.onboard-header {
+    background: var(--onboard-primary, #8B4513);
+    padding: 0.5rem 1rem;
+}
+.onboard-brand { display: flex; align-items: center; gap: 0.6rem; max-width: 1200px; margin: 0 auto; }
+.onboard-logo { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+.onboard-title { color: #fff; font-weight: 600; font-size: 1rem; }
+.onboard-main { flex: 1; padding: 1rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+.onboard-footer { text-align: center; padding: 0.75rem; font-size: 0.8rem; }
+.onboard-footer a { color: #777; text-decoration: none; }
+</style>
+
+@code {
+    private ShopConfig? _shopConfig;
+    private KhachLinkInstanceConfig? _instanceStyle;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tenantId = TenantService.GetCurrentTenantId();
+
+        // Resolve instance theo domain (giống KhachLinkLayout) để lấy branding
+        // + OwnerTenantId cho multi-domain. Lỗi → fallback tenant hiện tại.
+        try
+        {
+            var instanceConfig = await InstanceHttp.GetByCurrentDomainAsync();
+            if (instanceConfig != null && instanceConfig.OwnerTenantId is { } ownerId && ownerId != Guid.Empty)
+            {
+                _instanceStyle = instanceConfig;
+                tenantId = ownerId;
+            }
+        }
+        catch { /* branding only — không block wizard */ }
+
+        try
+        {
+            _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
+        }
+        catch { /* fallback màu/logo mặc định */ }
+    }
+
+    public void Dispose() { }
+}
