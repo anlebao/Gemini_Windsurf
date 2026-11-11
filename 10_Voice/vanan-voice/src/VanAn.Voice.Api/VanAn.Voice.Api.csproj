@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.Voice.Api</RootNamespace>
+    <AssemblyName>VanAn.Voice.Api</AssemblyName>
+    <!-- Standalone service — NO ProjectReference to 1_Shared / 3_CoreHub (SRS v1.1 D1). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VanAn.Voice.Contracts\VanAn.Voice.Contracts.csproj" />
+    <ProjectReference Include="..\VanAn.Voice.Domain\VanAn.Voice.Domain.csproj" />
+    <ProjectReference Include="..\VanAn.Voice.Infra\VanAn.Voice.Infra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

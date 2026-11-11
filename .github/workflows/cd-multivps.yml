@@ -74,7 +74,7 @@ jobs:
           if (-not $result) {
             $result = [PSCustomObject]@{
               deploy_action    = "full"
-              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering", "tenantai")
+              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering", "tenantai", "voice")
               nginx_changed    = $false
               verification_set = @("build", "unit", "integration", "startup", "deploy_smoke", "targeted_rv")
             }
@@ -123,6 +123,9 @@ jobs:
           - app: tenantai
             file: 9_TenantAI/vanan-ai/Dockerfile
             image: vanan-ai
+          - app: voice
+            file: 10_Voice/vanan-voice/Dockerfile
+            image: vanan-voice
 
     outputs:
       image_tag: ${{ env.IMAGE_TAG }}
@@ -348,6 +351,42 @@ jobs:
           ssh-keygen -lf /tmp/tenantai_key >/dev/null 2>&1 || { echo "::error::VPS_TENANTAI_SSH_PRIVATE_KEY invalid."; exit 1; }
           rm -f /tmp/tenantai_key
           echo "TenantAI SSH key valid."
+
+      - name: Verify voice secrets (only when voice is in deploy set)
+        if: ${{ contains(needs.impact-analysis.outputs.deploy_set, 'voice') }}
+        env:
+          VPS_VOICE_HOST: ${{ secrets.VPS_VOICE_HOST }}
+          VPS_VOICE_USER: ${{ secrets.VPS_VOICE_USER }}
+          VPS_VOICE_SSH_PRIVATE_KEY: ${{ secrets.VPS_VOICE_SSH_PRIVATE_KEY }}
+          VOICE_JWT_SECRET: ${{ secrets.VOICE_JWT_SECRET }}
+          VOICE_TURN_SECRET: ${{ secrets.VOICE_TURN_SECRET }}
+          VOICE_METERING_KEY: ${{ secrets.VOICE_METERING_KEY }}
+          VOICE_GATEWAY_DB: ${{ secrets.VOICE_GATEWAY_DB }}
+          METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
+        run: |
+          missing=0
+          for var_name in VPS_VOICE_HOST VPS_VOICE_USER VPS_VOICE_SSH_PRIVATE_KEY \
+                          VOICE_JWT_SECRET VOICE_TURN_SECRET VOICE_METERING_KEY \
+                          VOICE_GATEWAY_DB METERING_REMOTE_HOST; do
+            val=$(eval echo "\$${var_name}")
+            if [ -z "$val" ]; then
+              echo "::error::Missing GitHub secret: $var_name"
+              missing=$((missing+1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing voice secrets missing — deploy blocked."
+            exit 1
+          fi
+          printf '%s\n' "$VPS_VOICE_SSH_PRIVATE_KEY" > /tmp/voice_key
+          chmod 600 /tmp/voice_key
+          if grep -q $'\r' /tmp/voice_key; then
+            echo "::error::VPS_VOICE_SSH_PRIVATE_KEY has CRLF line endings."
+            exit 1
+          fi
+          ssh-keygen -lf /tmp/voice_key >/dev/null 2>&1 || { echo "::error::VPS_VOICE_SSH_PRIVATE_KEY invalid."; exit 1; }
+          rm -f /tmp/voice_key
+          echo "Voice SSH key valid."
 
   # ============================================================
   # Job 3: Deploy to Gateway VPS
@@ -1167,6 +1206,117 @@ jobs:
           DEPLOY_LLM_KEY: ${{ secrets.TENANTAI_LLM_APIKEY }}
           DEPLOY_METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
           DEPLOY_METERING_CALLERS: ${{ secrets.METERING_CALLERS }}
+
+  # ============================================================
+  # Job 5c: Deploy to Voice VPS (vanan-voice — voice service + Coturn, voice-service-master-plan P6)
+  # ============================================================
+  deploy-voice:
+    name: Deploy to Voice VPS
+    runs-on: ubuntu-latest
+    needs: [impact-analysis, build-and-push, pre-deployment-validation]
+    # Independent service — no ordering dependency on gateway/shoperp (metering pattern).
+    if: ${{ !cancelled() && !failure() && contains(needs.impact-analysis.outputs.deploy_set, 'voice') }}
+    timeout-minutes: 60
+    environment: production-voice
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy directory on Voice VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_VOICE_HOST }}
+          username: ${{ secrets.VPS_VOICE_USER }}
+          key: ${{ secrets.VPS_VOICE_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/vanan-voice/data
+            sudo chown "$USER:$USER" /opt/vanan-voice
+            ls -la /opt/vanan-voice
+            whoami
+            sudo docker image prune -af --filter "until=48h" 2>/dev/null || true
+
+      - name: Copy Voice deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_VOICE_HOST }}
+          username: ${{ secrets.VPS_VOICE_USER }}
+          key: ${{ secrets.VPS_VOICE_SSH_PRIVATE_KEY }}
+          source: "docker-compose.voice.yml"
+          target: "/opt/vanan-voice"
+          overwrite: true
+
+      - name: Bootstrap & Deploy Voice
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_VOICE_HOST }}
+          username: ${{ secrets.VPS_VOICE_USER }}
+          key: ${{ secrets.VPS_VOICE_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          envs: DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VOICE_JWT_SECRET,DEPLOY_VOICE_TURN_SECRET,DEPLOY_VOICE_METERING_KEY,DEPLOY_VOICE_GATEWAY_DB,DEPLOY_METERING_REMOTE_HOST
+          script: |
+            set -e
+
+            # Bootstrap Docker (idempotent — fresh VPS on first deploy)
+            if ! command -v docker > /dev/null 2>&1; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version > /dev/null 2>&1; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
+            fi
+
+            cd /opt/vanan-voice
+
+            printf '%s\n' \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "Jwt__Secret=${DEPLOY_VOICE_JWT_SECRET}" \
+              "Jwt__Issuer=VanAnShopERP" \
+              "Jwt__Audience=VanAnApi" \
+              "TURN__PublicHost=${DEPLOY_VPS_VOICE_PUBLIC_IP:-}" \
+              "TURN__UdpPort=3478" \
+              "TURN__TcpPort=3478" \
+              "TURN__TlsPort=5349" \
+              "TURN__Secret=${DEPLOY_VOICE_TURN_SECRET}" \
+              "TURN__Realm=khachvip.online" \
+              "TURN__CredentialTtlSeconds=1800" \
+              "Metering__BaseUrl=http://${DEPLOY_METERING_REMOTE_HOST}/" \
+              "Metering__CallerId=voice" \
+              "Metering__CallerKey=${DEPLOY_VOICE_METERING_KEY}" \
+              "Voice__GatewayDb=${DEPLOY_VOICE_GATEWAY_DB}" \
+              "Voice__CorsOrigins=https://diemthuong2.khachvip.online,https://app2.khachvip.online" \
+              "Voice__DbPath=/app/data/voice.db" \
+              > .env.voice
+            chmod 600 .env.voice
+
+            # Login to GHCR
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+
+            for i in 1 2 3 4 5; do
+              timeout 600 sudo docker compose -f docker-compose.voice.yml --env-file .env.voice pull && break
+              echo "Pull attempt $i failed, retrying in 15s..."
+              sleep 15
+            done
+            sudo docker compose -f docker-compose.voice.yml --env-file .env.voice up -d --remove-orphans --wait --wait-timeout 240
+
+            sudo docker compose -f docker-compose.voice.yml --env-file .env.voice ps
+            curl -fsS --max-time 15 http://localhost:5070/v1/health || { echo "::error::voice health failed"; exit 1; }
+            echo "Voice VPS deploy complete!"
+        env:
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_VOICE_JWT_SECRET: ${{ secrets.VOICE_JWT_SECRET }}
+          DEPLOY_VOICE_TURN_SECRET: ${{ secrets.VOICE_TURN_SECRET }}
+          DEPLOY_VOICE_METERING_KEY: ${{ secrets.VOICE_METERING_KEY }}
+          DEPLOY_VOICE_GATEWAY_DB: ${{ secrets.VOICE_GATEWAY_DB }}
+          DEPLOY_METERING_REMOTE_HOST: ${{ secrets.METERING_REMOTE_HOST }}
 
   # ============================================================
   # Job 6: Post-Deploy Smoke Test

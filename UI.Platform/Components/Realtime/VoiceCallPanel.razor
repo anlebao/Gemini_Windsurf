@@ -1,0 +1,73 @@
+@* VOICE SERVICE P4 (2026-11-11): voice call inside the chat conversation (SRS §9.2 — chat-first).
+   Embed in RealtimeChatPanel (or any host) with Enabled=true. Attachable by contract —
+   talks to window.vananVoice through the voice-chat.js bridge; no host internals. *@
+@using Microsoft.JSInterop
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+
+@if (Enabled)
+{
+    <div class="voice-call-panel" data-testid="voice-call-panel">
+        @if (_idleLike)
+        {
+            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                         OnClick="StartCallAsync" Disabled="!_canCall" CssClass="voice-call-btn"
+                         aria-label="Gọi thoại">
+                <i class="bi bi-telephone"></i> Gọi thoại
+            </VanAnButton>
+        }
+
+        @if (_state == "ringing" || _state == "calling")
+        {
+            <div class="voice-ringing" data-testid="voice-incoming">
+                <span class="voice-pulse"></span>
+                <span><b>@(_state == "calling" ? "Đang gọi..." : "Cuộc gọi đến...")</b></span>
+                @if (_state == "ringing")
+                {
+                    <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                                 OnClick="AcceptCallAsync" data-testid="voice-accept">
+                        <i class="bi bi-telephone"></i> Nghe
+                    </VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                 OnClick="RejectCallAsync" data-testid="voice-reject">
+                        <i class="bi bi-telephone-x"></i> Từ chối
+                    </VanAnButton>
+                }
+                else
+                {
+                    <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                 OnClick="CancelCallAsync" data-testid="voice-cancel">
+                        <i class="bi bi-x-circle"></i> Hủy
+                    </VanAnButton>
+                }
+            </div>
+        }
+
+        @if (_active)
+        {
+            <div class="voice-active" data-testid="voice-active">
+                <span class="voice-state-badge">@_displayState</span>
+                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                             OnClick="ToggleMuteAsync" data-testid="voice-mute">
+                    <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i> @(_muted ? "Bật mic" : "Tắt mic")
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                             OnClick="EndCallAsync" data-testid="voice-end">
+                    <i class="bi bi-telephone-x"></i> Kết thúc
+                </VanAnButton>
+            </div>
+        }
+
+        @if (_missed)
+        {
+            <div class="voice-missed" data-testid="voice-missed">
+                <i class="bi bi-telephone-x"></i> Bạn có cuộc gọi nhỡ.
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="voice-error" data-testid="voice-error">@_error</div>
+        }
+    </div>
+}

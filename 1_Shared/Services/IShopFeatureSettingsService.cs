@@ -9,6 +9,8 @@ public record ShopFeatureSettingsDto
     public bool QR_TableNumber_Enabled { get; set; }
     public bool Kitchen_Workflow_Enabled { get; set; } = true;
     public bool Voice_Note_Enabled { get; set; }
+    /// <summary>VOICE SERVICE P4 (2026-11-11): enable the one-to-one voice call button inside chat.</summary>
+    public bool Voice_Call_Enabled { get; set; }
     public bool Loyalty_Program_Enabled { get; set; } = true;
     public bool Accounting_Sync_Enabled { get; set; } = true;
     public bool EInvoice_Auto_Export_Enabled { get; set; }

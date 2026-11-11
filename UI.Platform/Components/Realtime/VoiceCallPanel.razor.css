@@ -1,0 +1,55 @@
+/* VOICE SERVICE P4 — voice call panel inside chat (voice-call-panel) */
+
+.voice-call-panel {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px dashed var(--van-border-color, #dee2e6);
+    background: var(--van-surface-muted, #f8f9fa);
+    font-size: 13px;
+}
+
+.voice-ringing,
+.voice-active {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.voice-pulse {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #dc3545;
+    animation: voice-pulse 1s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.voice-state-badge {
+    font-weight: 600;
+    color: var(--van-text-strong, #212529);
+}
+
+.voice-missed {
+    color: #b02a37;
+    font-weight: 600;
+}
+
+.voice-error {
+    color: #dc3545;
+    width: 100%;
+}
+
+@media (max-width: 575.98px) {
+    .voice-call-panel {
+        justify-content: center;
+    }
+}

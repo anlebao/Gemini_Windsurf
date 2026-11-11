@@ -140,6 +140,17 @@
                         </div>
                     </div>
 
+                    <div class="feature-row" data-testid="toggle-voice-call">
+                        <div class="feature-info">
+                            <strong>Bật gọi thoại trong chat (P4)</strong>
+                            <p class="text-muted small">Khách và cửa hàng gọi thoại trực tiếp trong hội thoại chat (voice service, P2P).</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="voice-call" @bind="settings.Voice_Call_Enabled" />
+                        </div>
+                    </div>
+
                     <div class="feature-row" data-testid="toggle-loyalty-program">
                         <div class="feature-info">
                             <strong>Bật chương trình điểm thưởng</strong>

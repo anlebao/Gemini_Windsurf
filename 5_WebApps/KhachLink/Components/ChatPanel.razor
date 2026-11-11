@@ -15,6 +15,8 @@
                    CustomerToken="@CustomerToken"
                    CustomerDeviceId="CustomerDeviceId"
                    VoiceEnabled="_voiceEnabled"
+                   VoiceCallEnabled="_voiceCallEnabled"
+                   VoiceServiceUrl="VoiceServiceUrl"
                    ScrollContainerId="@ScrollContainerId" />
 
 @code {
@@ -24,10 +26,14 @@
     /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id").</summary>
     [Parameter] public Guid? CustomerDeviceId { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
+    /// <summary>VOICE SERVICE P4: voice service HTTP base URL (TURN creds + missed calls) — hosts configure.</summary>
+    [Parameter] public string VoiceServiceUrl { get; set; } = "";
 
     /// <summary>SF-W3 (2026-11-08): voice mic — global Voice_Note_Enabled flag, same
     /// pattern as Home/StoreFinder voice search (platform-level toggle).</summary>
     private bool _voiceEnabled;
+    /// <summary>VOICE SERVICE P4 (2026-11-11): voice call button — Voice_Call_Enabled flag.</summary>
+    private bool _voiceCallEnabled;
 
     protected override async Task OnInitializedAsync()
     {
@@ -36,10 +42,14 @@
             _voiceEnabled = await FeatureSettings.IsEnabledAsync(
                 new Guid("00000000-0000-0000-0000-000000000001"),
                 nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+            _voiceCallEnabled = await FeatureSettings.IsEnabledAsync(
+                new Guid("00000000-0000-0000-0000-000000000001"),
+                nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
         }
         catch
         {
             _voiceEnabled = false; // flag fetch failed — mic hidden, chat unaffected
+            _voiceCallEnabled = false; // voice call hidden, chat unaffected
         }
     }
 }

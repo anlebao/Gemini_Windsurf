@@ -1,0 +1,36 @@
+# vanan-voice — Voice Service + Coturn (voice-service-master-plan P6).
+# Deployed by cd-multivps.yml (deploy-voice job) — image from GHCR, env from .env.voice.
+services:
+  voice:
+    image: ${IMAGE_PREFIX}/vanan-voice:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "5070:5070"
+    volumes:
+      - ./data:/app/data
+    env_file: .env.voice
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5070/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  turn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "49152-65535:49152-65535/udp"
+    env_file: .env.voice
+    command: >
+      --use-auth-secret --static-auth-secret=${TURN__Secret}
+      --realm=${TURN__Realm} --fingerprint --no-cli --no-lt-cred-mech
+      --min-port=49152 --max-port=65535
+      --no-tlsv1 --no-tlsv1_1 --no-dtlsv1 --no-sslv2 --no-sslv3
+      --denied-peer-ip=10.0.0.0/8 --denied-peer-ip=172.16.0.0/12 --denied-peer-ip=192.168.0.0/16
+      --allowed-peer-ip=0.0.0.0/0
+      --max-bps=1048576 --user-quota=12 --total-quota=1200
+      --log-file=/var/log/turnserver.log --syslog

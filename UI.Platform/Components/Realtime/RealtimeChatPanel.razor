@@ -144,6 +144,16 @@
                 </VanAnButton>
             </div>
         </div>
+        @* VOICE SERVICE P4: one-to-one call inside the chat (customer ↔ merchant) — host opt-in. *@
+        @if (VoiceCallEnabled)
+        {
+            <VoiceCallPanel SubjectType="SubjectType"
+                            SubjectId="SubjectId"
+                            CurrentUserId="CurrentUserId"
+                            Token="(IsStaff ? StaffToken : CustomerToken)"
+                            VoiceHubUrl="VoiceHubUrl"
+                            VoiceServiceUrl="VoiceServiceUrl" />
+        }
     </VanAnCard>
 </div>
 
@@ -173,6 +183,13 @@
     [Parameter] public string? HeaderTitle { get; set; }
     /// <summary>SF-W3 (2026-11-08): voice toggle (host resolves Voice_Note_Enabled); false → mic hidden.</summary>
     [Parameter] public bool VoiceEnabled { get; set; }
+    /// <summary>VOICE SERVICE P4 (2026-11-11): enable the voice call button inside the chat
+    /// (host resolves the Voice_Call_Enabled tenant flag). False → no voice call UI.</summary>
+    [Parameter] public bool VoiceCallEnabled { get; set; }
+    /// <summary>VOICE SERVICE P4: voice SignalR hub URL (same-origin default; hosts override).</summary>
+    [Parameter] public string VoiceHubUrl { get; set; } = "/hubs/voice";
+    /// <summary>VOICE SERVICE P4: voice service HTTP base URL (TURN credentials + missed calls).</summary>
+    [Parameter] public string VoiceServiceUrl { get; set; } = "";
 
     private List<RealtimeChatMessage> _messages = new();
     private string _messageInput = string.Empty;

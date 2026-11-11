@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vạn An Voice — P2P Demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+        .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #eee; font-size: 13px; }
+        .badge.active { background: #2e7d32; color: #fff; }
+        .badge.ringing { background: #f9a825; color: #fff; }
+        button { padding: 10px 16px; margin: 4px; border: 0; border-radius: 8px; font-size: 14px; cursor: pointer; }
+        button.primary { background: #1565c0; color: #fff; }
+        button.danger { background: #c62828; color: #fff; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        audio { width: 100%; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Vạn An Voice — Demo P2P</h1>
+    <p>Mở tab thứ hai với <code>?role=callee&token=&lt;jwt&gt;</code>. Token HS256 với <code>Jwt:Secret</code> của service — xem <code>sdk/README.md</code>.</p>
+
+    <div class="card">
+        <div>Trạng thái: <span id="state" class="badge">chưa kết nối</span></div>
+        <div id="info" style="margin-top:8px; font-size: 13px; color: #555;"></div>
+    </div>
+
+    <div class="card">
+        <button id="btn-call" class="primary">Gọi (caller)</button>
+        <button id="btn-accept">Nghe</button>
+        <button id="btn-reject">Từ chối</button>
+        <button id="btn-mute">Tắt/bật mic</button>
+        <button id="btn-end" class="danger">Kết thúc</button>
+    </div>
+
+    <div class="card">
+        <div>Mic của bạn (local, muted):</div>
+        <audio id="local-audio" autoplay muted></audio>
+        <div style="margin-top:8px;">Cuộc gọi đến (remote):</div>
+        <audio id="remote-audio" autoplay></audio>
+    </div>
+
+    <script src="../js/vendor/signalr.min.js"></script>
+    <script src="../js/voice-media.js"></script>
+    <script src="../js/voice-sdk.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
