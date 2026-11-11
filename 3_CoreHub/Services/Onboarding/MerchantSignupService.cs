@@ -40,7 +40,8 @@ public class MerchantSignupService(
     IDataProtectionProvider dataProtection,
     IConfiguration configuration,
     ILogger<MerchantSignupService> logger,
-    IMeteringClient? metering = null) : IMerchantSignupService
+    IMeteringClient? metering = null,
+    IMerchantSignupOtpService? otpService = null) : IMerchantSignupService
 {
     private const string ProtectorPurpose = "VanAn.SelfServeSignup.v1";
     private static readonly Regex UsernameRegex = new("^[a-z0-9._-]{3,30}$", RegexOptions.Compiled);
@@ -59,6 +60,37 @@ public class MerchantSignupService(
         ArgumentNullException.ThrowIfNull(request);
         ValidateRequest(request);
 
+        // P4 / ID-P3 (2026-11-10, user duyệt): RequireOtp=true → bắt buộc session token OTP
+        // đã verify (purpose merchant-signup + contact khớp + chưa hết hạn) — consume 1 lần.
+        var otpVerifiedContact = (string?)null;
+        var otpVerifiedChannel = (string?)null;
+        var otpVerifiedAt = (DateTime?)null;
+        if (otpService is { RequiresOtp: true })
+        {
+            if (string.IsNullOrWhiteSpace(request.OtpSessionToken))
+                throw new ArgumentException("Xác minh liên hệ bắt buộc trước khi gửi đăng ký.");
+
+            var session = await otpService.ConsumeSessionAsync(request.OtpSessionToken);
+            if (session is null)
+                throw new ArgumentException("Phiên xác minh không hợp lệ hoặc đã hết hạn. Vui lòng xác minh lại.");
+
+            var isEmailChannel = string.Equals(otpService.OtpChannel, "email", StringComparison.OrdinalIgnoreCase);
+            var expectedContact = isEmailChannel
+                ? request.ContactEmail?.Trim()
+                : NormalizePhone(request.ContactPhone);
+            if (string.IsNullOrWhiteSpace(expectedContact)
+                || !string.Equals(session.Contact, expectedContact, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(isEmailChannel
+                    ? "Email không khớp với mã đã xác minh."
+                    : "Số điện thoại không khớp với mã đã xác minh.");
+            }
+
+            otpVerifiedContact = session.Contact;
+            otpVerifiedChannel = otpService.OtpChannel;
+            otpVerifiedAt = DateTime.UtcNow;
+        }
+
         var src = NormalizeSrc(request.Src);
 
         // Case Rong: force HKD + Group1 + unregistered (ignore client gửi khác — FR-5)
@@ -68,7 +100,8 @@ public class MerchantSignupService(
         var duplicateWarning = request.Case != SignupCase.CompanyWithLicense
             && await HasNameDuplicateAsync(request.Name, ct);
 
-        var listing = BuildListing(request, src, businessType, hkdGroup, duplicateWarning, clientIp, userAgent);
+        var listing = BuildListing(request, src, businessType, hkdGroup, duplicateWarning, clientIp, userAgent,
+            otpVerifiedChannel, otpVerifiedContact, otpVerifiedAt);
         var tenantId = await onboardingService.OnboardUnverifiedAsync(listing, ct, businessType, hkdGroup);
 
         // Phí nền tảng (issue #197): feature.ocr fire-and-forget — tenant mới ví=0,
@@ -118,7 +151,8 @@ public class MerchantSignupService(
                 selfServe.ContactName, selfServe.ContactPhone, selfServe.ContactEmail,
                 selfServe.OwnerUsername, selfServe.OtpVerified, selfServe.Unregistered,
                 selfServe.DuplicateWarning, selfServe.SignName, selfServe.GpdkInfo,
-                listing!.PhotoUrls, selfServe.SubmittedAt),
+                listing!.PhotoUrls, selfServe.SubmittedAt,
+                selfServe.OtpChannel, selfServe.OtpVerifiedContact, selfServe.OtpVerifiedAt),
             Latitude: listing?.Lat,
             Longitude: listing?.Lng);
     }
@@ -157,9 +191,9 @@ public class MerchantSignupService(
             ShopInstanceId: request.ShopInstanceId,
             Slug: request.Slug,
             ApprovedByUserId: sysAdminUserId,
-            // ID-P1 (2026-11-10): OtpVerified → ContactVerified; channel fallback "otp" cho tới khi P4 có OtpChannel
+            // ID-P1 (2026-11-10): OtpVerified → ContactVerified; channel refine từ payload P4 (fallback "otp" cho payload cũ)
             ContactVerified: selfServe.OtpVerified,
-            VerifiedChannel: "otp"), ct);
+            VerifiedChannel: selfServe.OtpChannel ?? "otp"), ct);
 
         logger.LogInformation(
             "Self-serve verify-signup: tenant {TenantId} → Active, slug {Slug}, owner {Username}, usedMerchantPassword={Used} (sysadmin {SysAdmin})",
@@ -302,7 +336,10 @@ public class MerchantSignupService(
         HKDGroup? hkdGroup,
         bool duplicateWarning,
         string? clientIp,
-        string? userAgent)
+        string? userAgent,
+        string? otpChannel = null,
+        string? otpVerifiedContact = null,
+        DateTime? otpVerifiedAt = null)
     {
         var protector = dataProtection.CreateProtector(ProtectorPurpose);
         var selfServe = new SelfServePayload(
@@ -314,15 +351,17 @@ public class MerchantSignupService(
             ContactEmail: string.IsNullOrWhiteSpace(request.ContactEmail) ? null : request.ContactEmail.Trim(),
             OwnerUsername: request.OwnerUsername.Trim().ToLowerInvariant(),
             OwnerPasswordProtected: protector.Protect(request.OwnerPassword),
-            OtpVerified: configuration.GetValue("MerchantSignup:RequireOtp", false)
-                && string.Equals(NormalizePhone(request.OtpVerifiedPhone), NormalizePhone(request.ContactPhone), StringComparison.Ordinal),
+            OtpVerified: otpVerifiedAt.HasValue,   // P4: session OTP đã verify (RequireOtp=true)
             Unregistered: request.Case == SignupCase.StreetVendorUnregistered,
             DuplicateWarning: duplicateWarning,
             SignName: string.IsNullOrWhiteSpace(request.SignName) ? null : request.SignName.Trim(),
             GpdkInfo: request.GpdkInfo,
             ClientIpHash: HashIp(clientIp),
             UserAgent: userAgent is { Length: > 256 } ? userAgent[..256] : userAgent,
-            SubmittedAt: DateTime.UtcNow);
+            SubmittedAt: DateTime.UtcNow,
+            OtpChannel: otpChannel,
+            OtpVerifiedContact: otpVerifiedContact,
+            OtpVerifiedAt: otpVerifiedAt);
 
         var sourceSite = request.Case switch
         {

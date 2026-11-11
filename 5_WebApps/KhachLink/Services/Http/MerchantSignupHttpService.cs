@@ -107,10 +107,64 @@ public class MerchantSignupHttpService(IHttpClientFactory httpClientFactory, ILo
         }
     }
 
+    // ── P4 / ID-P3 (2026-11-10, user duyệt): OTP liên hệ — email-first Brevo 0đ ──
+
+    /// <summary>Config public cho wizard — requireOtp + channel (default false → UI ẩn hoàn toàn).</summary>
+    public async Task<MerchantSignupConfigInfo?> GetConfigAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<MerchantSignupConfigInfo>("api/v1/merchant-signups/config", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Merchant signup config unavailable");
+            return null;
+        }
+    }
+
+    /// <summary>Gửi OTP tới contact (email theo channel config). KHÔNG trả code.</summary>
+    public async Task<OtpSendOutcome> SendOtpAsync(string contact, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/v1/merchant-signups/otp/send", new { contact }, ct);
+            var body = await response.Content.ReadFromJsonAsync<OtpSendBody>(cancellationToken: ct);
+            if (response.IsSuccessStatusCode)
+                return new OtpSendOutcome(true, body?.RetryAfterSeconds ?? 60, null);
+            return new OtpSendOutcome(false, 0, body?.Error ?? "Không gửi được mã xác minh.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Merchant signup OTP send failed");
+            return new OtpSendOutcome(false, 0, "Lỗi kết nối — vui lòng thử lại.");
+        }
+    }
+
+    /// <summary>Verify OTP → session token single-use (submit kèm OtpSessionToken).</summary>
+    public async Task<OtpVerifyOutcome> VerifyOtpAsync(string contact, string otp, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/v1/merchant-signups/otp/verify", new { contact, otp }, ct);
+            var body = await response.Content.ReadFromJsonAsync<OtpVerifyBody>(cancellationToken: ct);
+            if (response.IsSuccessStatusCode && body?.Verified == true)
+                return new OtpVerifyOutcome(true, body.SessionToken, null);
+            return new OtpVerifyOutcome(false, null, body?.Error ?? "Mã không đúng hoặc đã hết hạn.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Merchant signup OTP verify failed");
+            return new OtpVerifyOutcome(false, null, "Lỗi kết nối — vui lòng thử lại.");
+        }
+    }
+
     // ── Local DTOs mirror P0 contract (camelCase JSON) ─────────────────────
 
     private sealed record ErrorBody(string? Error);
     private sealed record MerchantSignupResultBody(string Message, Guid SignupId);
+    private sealed record OtpSendBody(bool Sent, int RetryAfterSeconds, string? Error);
+    private sealed record OtpVerifyBody(bool Verified, string? SessionToken, string? Error);
 }
 
 /// <summary>3 case self-serve — giá trị khớp VanAn.CoreHub.Services.Onboarding.SignupCase.</summary>
@@ -159,7 +213,17 @@ public sealed record MerchantSignupSubmitRequest(
     string OwnerPassword,
     string? TurnstileToken,
     string? HoneypotWebsite,
-    string? Src = null);
+    string? Src = null,
+    string? OtpSessionToken = null); // P4 / ID-P3: session token từ otp/verify — bắt buộc khi RequireOtp
+
+/// <summary>Config OTP public (mirror MerchantSignupController.GetConfig).</summary>
+public sealed record MerchantSignupConfigInfo(bool RequireOtp, string OtpChannel);
+
+/// <summary>Kết quả gửi OTP.</summary>
+public sealed record OtpSendOutcome(bool Sent, int RetryAfterSeconds, string? Error);
+
+/// <summary>Kết quả verify OTP — SessionToken single-use cho submit.</summary>
+public sealed record OtpVerifyOutcome(bool Verified, string? SessionToken, string? Error);
 
 /// <summary>Kết quả submit.</summary>
 public sealed record MerchantSignupSubmitOutcome(bool Success, string? Message, Guid? SignupId, string? Error)

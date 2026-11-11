@@ -345,6 +345,44 @@
                         <input class="form-control" @bind="_honeypot" tabindex="-1" autocomplete="off" />
                     </div>
 
+                    @if (_requireOtp)
+                    {
+                        @* P4 / ID-P3 (2026-11-10, user duyệt): xác minh liên hệ — email-first Brevo 0đ *@
+                        <div class="ocr-section" data-testid="otp-section">
+                            <h4>📧 Xác minh liên hệ</h4>
+                            <div class="ocr-form">
+                                <label>
+                                    @(_otpChannel == "email" ? "Email nhận mã" : "Số điện thoại nhận mã") <span class="ocr-req">*</span>
+                                    <input class="form-control" @bind="_otpContact" @bind:event="oninput"
+                                           placeholder="@(_otpChannel == "email" ? "email@vidu.vn" : "0912 345 678")" />
+                                </label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <VanAnButton Variant="ButtonVariant.Secondary" OnClick="SendOtpAsync" Loading="_otpBusy"
+                                                 Disabled="_otpVerified || string.IsNullOrWhiteSpace(_otpContact)">
+                                        Gửi mã xác minh
+                                    </VanAnButton>
+                                    @if (_otpSent)
+                                    {
+                                        <input class="form-control text-center" style="max-width:120px" maxlength="6"
+                                               placeholder="Mã 6 số" @bind="_otpCode" />
+                                        <VanAnButton Variant="ButtonVariant.Success" OnClick="VerifyOtpAsync" Loading="_otpBusy"
+                                                     Disabled="_otpVerified || _otpCode?.Length != 6">
+                                            Xác nhận
+                                        </VanAnButton>
+                                    }
+                                </div>
+                                @if (_otpVerified)
+                                {
+                                    <div class="ocr-hint text-success">✓ Liên hệ đã xác minh</div>
+                                }
+                                @if (!string.IsNullOrEmpty(_otpMessage))
+                                {
+                                    <div class="ocr-hint">@_otpMessage</div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <div id="turnstile-container"></div>
                 </div>
                 <div class="ocr-wizard-actions">
@@ -463,6 +501,17 @@
     private string _honeypot = string.Empty;
     private string? _src;
 
+    // P4 / ID-P3 (2026-11-10, user duyệt): OTP liên hệ — flag-gated
+    private bool _requireOtp;
+    private string _otpChannel = "email";
+    private string _otpContact = string.Empty;
+    private string? _otpCode;
+    private string? _otpSessionToken;
+    private bool _otpVerified;
+    private bool _otpSent;
+    private bool _otpBusy;
+    private string? _otpMessage;
+
     // Busy / misc
     private bool _isOcrBusy, _isMenuBusy, _isGpsBusy, _isSubmitting, _isCloudOcrBusy;
     private bool _isUploadingPhotos;
@@ -530,6 +579,21 @@
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Onboarding flags load failed — default open");
+        }
+
+        // P4 / ID-P3: config OTP — default false (fail-open → ẩn OTP UI, không chặn submit)
+        try
+        {
+            var cfg = await SignupService.GetConfigAsync();
+            if (cfg is not null)
+            {
+                _requireOtp = cfg.RequireOtp;
+                _otpChannel = string.IsNullOrWhiteSpace(cfg.OtpChannel) ? "email" : cfg.OtpChannel;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Onboarding OTP config load failed — default off");
         }
 
         if (!_flags.SelfServeEnabled)
@@ -1117,11 +1181,70 @@
     }
 
     // ── Submit ─────────────────────────────────────────────────────────
+    // P4 / ID-P3 (2026-11-10, user duyệt): OTP liên hệ — email-first
+    private async Task SendOtpAsync()
+    {
+        _otpBusy = true;
+        _otpMessage = null;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_otpContact))
+            {
+                _otpMessage = "Vui lòng nhập liên hệ nhận mã.";
+                return;
+            }
+            var contact = _otpContact.Trim();
+            var outcome = await SignupService.SendOtpAsync(contact);
+            if (!outcome.Sent)
+            {
+                _otpMessage = outcome.Error ?? "Không gửi được mã xác minh.";
+                return;
+            }
+            _otpSent = true;
+            _otpMessage = $"Mã xác minh đã gửi — kiểm tra {(_otpChannel == "email" ? "hộp thư" : "SMS")} (hạn 5 phút).";
+        }
+        finally
+        {
+            _otpBusy = false;
+        }
+    }
+
+    private async Task VerifyOtpAsync()
+    {
+        _otpBusy = true;
+        _otpMessage = null;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_otpContact) || string.IsNullOrWhiteSpace(_otpCode))
+                return;
+            var outcome = await SignupService.VerifyOtpAsync(_otpContact.Trim(), _otpCode.Trim());
+            if (!outcome.Verified || string.IsNullOrWhiteSpace(outcome.SessionToken))
+            {
+                _otpMessage = outcome.Error ?? "Mã không đúng hoặc đã hết hạn.";
+                return;
+            }
+            _otpVerified = true;
+            _otpSessionToken = outcome.SessionToken;
+            _otpMessage = "✓ Liên hệ đã xác minh.";
+        }
+        finally
+        {
+            _otpBusy = false;
+        }
+    }
+
     private async Task SubmitAsync()
     {
         if (_case is null || string.IsNullOrWhiteSpace(_tenantName))
         {
             ShowAlert("Thiếu thông tin bắt buộc — quay lại kiểm tra.", "warning");
+            return;
+        }
+
+        // P4 / ID-P3: RequireOtp → bắt buộc liên hệ đã xác minh
+        if (_requireOtp && !_otpVerified)
+        {
+            ShowAlert("Vui lòng xác minh liên hệ (mã OTP) trước khi gửi đăng ký.", "warning");
             return;
         }
 
@@ -1161,7 +1284,8 @@
                 OwnerPassword: _ownerPassword,
                 TurnstileToken: turnstileToken,
                 HoneypotWebsite: string.IsNullOrWhiteSpace(_honeypot) ? null : _honeypot.Trim(),
-                Src: _src ?? "direct");
+                Src: _src ?? "direct",
+                OtpSessionToken: _otpSessionToken);
 
             var outcome = await SignupService.SubmitAsync(request);
             if (outcome.Success)

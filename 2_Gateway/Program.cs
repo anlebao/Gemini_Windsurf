@@ -1312,6 +1312,11 @@ namespace VanAn.Gateway
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IMerchantSignupService, VanAn.CoreHub.Services.Onboarding.MerchantSignupService>();
 
+            // P4 / ID-P3 (2026-11-10, user duyệt): OTP merchant signup — email-first (Brevo 0đ) + composite fallback
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Otp.BrevoEmailOtpChannel>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Otp.IIdentityOtpChannel, VanAn.CoreHub.Services.Otp.FallbackOtpChannel>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IMerchantSignupOtpService, VanAn.CoreHub.Services.Onboarding.MerchantSignupOtpService>();
+
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDuplicateDetectionService, VanAn.CoreHub.Services.DuplicateDetectionService>();
 
             // Membership Infrastructure (2026-09-29): Application lifecycle + Member registry + Consent + HtxProfile.

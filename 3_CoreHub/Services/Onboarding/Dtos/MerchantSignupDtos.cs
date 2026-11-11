@@ -38,7 +38,11 @@ public record SelfServePayload(
     OcrGpdkInfo? GpdkInfo,                // thông tin GPKD đầy đủ (Case A — legalForm/owner…)
     string? ClientIpHash,                 // SHA256(ip + salt) — không lưu IP thô
     string? UserAgent,                    // truncate 256
-    DateTime SubmittedAt);
+    DateTime SubmittedAt,
+    // P4 / ID-P3 (2026-11-10, user duyệt): provenance verify liên hệ — trailing optional
+    string? OtpChannel = null,            // kênh đã verify: "email" | "sms" | "zns" ...
+    string? OtpVerifiedContact = null,    // contact đã OTP-verify (email/SĐT)
+    DateTime? OtpVerifiedAt = null);      // thời điểm verify
 
 /// <summary>Request public submit self-serve signup (POST /api/v1/merchant-signups).</summary>
 public record MerchantSignupRequest(
@@ -61,7 +65,8 @@ public record MerchantSignupRequest(
     string? TurnstileToken,
     string? HoneypotWebsite,
     string? OtpVerifiedPhone = null,      // P4: SĐT đã OTP-verify (RequireOtp=true mới check)
-    string? Src = null);                  // entry channel (FR-19) — whitelist validate
+    string? Src = null,                   // entry channel (FR-19) — whitelist validate
+    string? OtpSessionToken = null);      // P4: session token từ otp/verify — bắt buộc khi RequireOtp
 
 /// <summary>Kết quả submit — generic, KHÔNG tiết lộ duplicate (G10 anti-enumeration).</summary>
 public record MerchantSignupResult(string Message, Guid SignupId);
@@ -81,7 +86,11 @@ public record SelfServeDetailDto(
     string? SignName,
     OcrGpdkInfo? GpdkInfo,
     List<string>? PhotoUrls,
-    DateTime SubmittedAt);
+    DateTime SubmittedAt,
+    // P4 / ID-P3 (2026-11-10): provenance — trailing optional (sysadmin badge "Liên hệ đã xác minh qua kênh X")
+    string? OtpChannel = null,
+    string? OtpVerifiedContact = null,
+    DateTime? OtpVerifiedAt = null);
 
 /// <summary>GET signup-detail response — tenant info + self-serve payload (nếu có).</summary>
 public record SignupDetailDto(
