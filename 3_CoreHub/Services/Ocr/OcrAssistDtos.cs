@@ -52,7 +52,7 @@ public sealed class OcrAssistOptions
     public const string SectionName = "OcrAssist";
     public string Provider { get; set; } = "gemini";   // gemini | vision | none
     public string GeminiApiKey { get; set; } = "";
-    public string GeminiModel { get; set; } = "gemini-2.0-flash";
+    public string GeminiModel { get; set; } = "gemini-3.5-flash"; // RV 2026-11-11: 2.0-flash/2.5-flash bị deprecate cho key mới — 3.5-flash nhanh (8s) + pin bản cụ thể
     public string VisionApiKey { get; set; } = "";
     public string AllowedUrlHost { get; set; } = "";   // host duy nhất được fetch ImageUrl
     public int MaxImageBytes { get; set; } = 8 * 1024 * 1024;

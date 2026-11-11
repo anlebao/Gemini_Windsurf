@@ -143,7 +143,7 @@ services:
       # P6 (2026-11-11): OCR cloud assist (onboarding) — Gemini free tier default + Vision fallback.
       # GEMINI_API_KEY từ GitHub secrets (CD) hoặc .env.gateway; thiếu key → endpoint 503 graceful (nút ẩn).
       - OcrAssist__Provider=${OCR_ASSIST_PROVIDER:-gemini}
-      - OcrAssist__GeminiModel=${OCR_ASSIST_GEMINI_MODEL:-gemini-2.0-flash}
+      - OcrAssist__GeminiModel=${OCR_ASSIST_GEMINI_MODEL:-gemini-3.5-flash}
       - OcrAssist__GeminiApiKey=${GEMINI_API_KEY:-}
       - OcrAssist__VisionApiKey=${GOOGLE_VISION_KEY:-}
       # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)

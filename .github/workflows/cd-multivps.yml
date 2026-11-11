@@ -504,7 +504,7 @@ jobs:
               "R2_SECRET_KEY=${FINAL_R2_SECRET_KEY}" \
               "R2_BUCKET_NAME=vanan-guard-photos" \
               "OcrAssist__Provider=${OCR_ASSIST_PROVIDER:-gemini}" \
-              "OcrAssist__GeminiModel=${OCR_ASSIST_GEMINI_MODEL:-gemini-2.0-flash}" \
+              "OcrAssist__GeminiModel=${OCR_ASSIST_GEMINI_MODEL:-gemini-3.5-flash}" \
               "GEMINI_API_KEY=${FINAL_GEMINI_KEY}" \
               "GODADDY_API_KEY=${FINAL_GODADDY_KEY}" \
               "GODADDY_API_URL=https://api.godaddy.com" \

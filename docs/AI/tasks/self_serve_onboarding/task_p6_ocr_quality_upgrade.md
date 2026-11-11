@@ -103,3 +103,17 @@ dotnet test 6_Tests/VanAn.Core.Tests --filter "FullyQualifiedName~OcrAssist"
 - **Model name thay đổi nhanh**: pin model cụ thể trong config (`OcrAssist:GeminiModel`) thay vì "flash-latest".
 - **ONNX model tiếng Việt**: nếu PaddleOCR không có `vietnamese` recognition model → phương án multilingual/latin — spike phải verify trước khi hứa implement.
 - **Context**: P6 độc lập P4/P5 — nếu go-live gấp, P6 ship sau; UI assist degrade gracefully (nút ẩn khi endpoint 404/503).
+
+## 7. STATUS (2026-11-11 — ✅ IMPLEMENTED + DEPLOYED + RV PRODUCTION PASS)
+
+Implemented cùng batch onboarding UX upgrade (commit `b3fbeb61` — CD #42961459586 SUCCESS):
+- `OcrAssistService` + `POST /api/v1/ocr-assist` — anonymous, rate-limit `ocr-assist` 20/h/IP, ImageUrl host allowlist chống SSRF, request size 8MB, KHÔNG log nội dung ảnh/PII.
+- Provider **gemini** (default) + **vision** fallback. **Model pin `gemini-3.5-flash`** (RV: `gemini-2.0-flash`/`2.5-flash` trả "no longer available" cho key mới 2026-11; 3.5-flash latency ~8s — verified OK).
+- `ImageUploadController`: param `kind` (gpdk|sign|menu|doc) + `thumb=true` → key R2 `onboarding/{kind}/{guid}.{ext}` + `onboarding-thumbs/{kind}/{guid}.jpg` (album phân loại, không đổi DB).
+- KhachLink wizard: sign OCR trả thêm address+phone (heuristic VN phone + addr keywords), prefill địa chỉ/SĐT liên hệ; cloud assist merge phone; thumbnail 320px client-side upload song song.
+- ShopERP wizard: port sign extension + thumb upload; `/admin/tenants` review → **album phân loại** (Giấy phép/Biển hiệu/Menu) + thumbnail fallback ảnh gốc.
+- Config: `OcrAssist:Provider/GeminiModel/GeminiApiKey/VisionApiKey/AllowedUrlHost` — `GEMINI_API_KEY` GitHub secret + `cd-multivps.yml` wiring + `.env.gateway` (giữ nếu secret trống).
+- Tests: `OcrAssistServiceTests` 12/12 (provider switch, gemini structured parse, markdown fence strip, price normalize "35.000đ"/"5k", fallback gemini→vision, no-key 503, host allowlist, base64 inline) · Core.Tests 2909 PASS · guard PASS.
+- **RV production**: upload kind=sign 200 + thumb 200 (key đúng prefix) · ocr-assist 200 provider=gemini trích xuất chính xác `PHO HOA` / `12 Nguyen Trai, Ha Noi` / `0912345678` từ ảnh test tổng hợp.
+- Deferred: ShopERP Track A cloud-assist button (sysadmin đứng tại chỗ — local OCR đủ) · metering `feature.ocr` · on-device PaddleOCR spike (FR-18).
+- Note: `image-upload` rate-limit 10→30/h (thumbnail = 2 requests/ảnh).

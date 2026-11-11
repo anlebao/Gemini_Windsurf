@@ -419,8 +419,8 @@ namespace VanAn.Gateway
                 // Crawl-to-Onboard Phase 6 (O1): Rate limit for anonymous GPKD image upload.
 
                 // 10 uploads per IP per hour — generous for legitimate owners, blocks bulk abuse.
-
-                // Applied via [EnableRateLimiting("image-upload")] on POST /api/v1/images/upload.
+                // P6 (2026-11-11): 10→30 — thumbnail (thumb=true) đi kèm 1 ảnh gốc → 2 requests/ảnh;
+                // onboarding self-serve chụp GPKD + biển hiệu + menu (2-3 shots) ≈ 8-10 uploads.
 
                 options.AddPolicy("image-upload", context =>
 
@@ -432,7 +432,7 @@ namespace VanAn.Gateway
 
                     {
 
-                        PermitLimit = 10,
+                        PermitLimit = 30,
 
                         Window = TimeSpan.FromHours(1),
 
