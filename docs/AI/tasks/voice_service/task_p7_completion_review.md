@@ -6,36 +6,32 @@
 
 ---
 
-## 🔄 SESSION HANDOFF (11/11/2026 — đóng session để mở session mới)
+## 🔄 SESSION HANDOFF (11/11/2026 — session 2 ĐÓNG, chờ CD + mở session mới)
 
-### Đã hoàn thành
-- P0→P5 code + tests (79/79 dotnet · 18/18 node) · commit `8756f51a` (voice + CI/CD) + `2b37acc5` (bỏ publish/) + `5777c2b9` (deployment-impact voice) — đã push.
-- VPS `vanan-voice` (ext `34.87.116.62` · int `10.148.0.8` · asia-southeast1-b): container `vanan-voice` health OK + `vanan-turn` (coturn) chạy; firewall `voice-turn` (3478 udp/tcp, 5349 tcp, relay udp, 5070 tcp).
-- Env: `/opt/vanan-voice/.env.voice` (Jwt__Secret từ gateway, TURN, Metering caller `voice`, GatewayDb=PG 10.148.0.2) + `/opt/vanan-voice/.env.gateway` (bản copy).
-- GitHub secrets đã set: `VPS_VOICE_HOST/USER/SSH_PRIVATE_KEY` · `VOICE_JWT_SECRET` · `VOICE_TURN_SECRET` · `VOICE_METERING_KEY` · `VOICE_GATEWAY_DB`.
+### Đã hoàn thành (session này)
+- **(a)** metering: caller `voice` seeded (auth 200/401 verify) + GH secret `METERING_CALLERS` updated + rate card `voice.call`=0đ / `voice.minute`=1.000đ (Enforcement=MeterOnly — user chốt) · wallet check resolve OK.
+- **(b)** GoDaddy PAT mới (user cung cấp `gd_pat_*` — key cũ 401 vì expired) → set `.env.gateway` + GH secret `GODADDY_API_KEY` · A record `voice → 34.87.116.62` (Godaddy API verify) · nginx + certbot trên voice VPS (443→127.0.0.1:5070 + WebSocket upgrade) · `https://voice.khachvip.online/v1/health` 200 + `/v1/turn/credentials` reachable (401 no-auth đúng) · firewall thêm allow-voice-http/https.
+- **C1/C2** code: ShopInbox + KhachLink (ChatPanel shim + OrderTracking/DeliveryTracking/Store) wire `VoiceCallEnabled`/`VoiceServiceUrl`/`VoiceHubUrl`; SDK assets (signalr.min.js 8.0.7 + voice-media.js + voice-sdk.js) vào `UI.Platform/wwwroot/js/` + load ở ShopERP App.razor + KhachLink index.html; appsettings `Voice:ServiceUrl/HubUrl` prod (`https://voice.khachvip.online[/hubs/voice]`).
+- **C3** (user chốt **Gateway PG** — SRS-compliant, không vi phạm guardrail 2 bảng): `VoiceTenantConfig` (Domain) + EF config + migration `AddVoiceTenantConfig` (PG, auto-migrate Gateway startup) · Gateway `/api/admin/voice-config` GET/PUT (SystemAdmin JWT) + `VoiceTenantConfigService` · ShopERP `/admin/voice` + NavMenu + Sitemap + bUnit **3/3** · voice `TenantFeatureStore` PG-backed (Npgsql, cache 30s, fail-open default enabled) · **PUT không-auth bị chặn** (`Voice:AllowInsecureAdminApi` default false; test/E2E bật dev-only) · E2E spec `voice-admin.spec.ts` (Gate 4) + p2p config flag.
+- **C4** deny/kill-switch UX: `VoiceCallPanel` parse reason từ state info — `METERING_DENIED` → ShopERP "Hết hạn mức phí nền tảng" + link `/wallet/phi-nen-tang` (param `ShowWalletLink`, RealtimeChatPanel truyền `IsStaff`) / KhachLink trung tính "tính năng tạm ngừng" · `FEATURE_DISABLED` → "tính năng tạm ngừng" · missed-hint chỉ `missed`/`RING_TIMEOUT` (sửa bug: denied không hiện "cuộc gọi nhỡ").
+- **C5** `6_Testing/rv-scripts/voice-rv-sweep.mjs` (L1 health/metrics · L2 TURN/missed-calls auth 401/403/200 · L2b voice-config PG-backed · L5 kill-switch config toggle qua Gateway admin API + restore cleanup).
+- **Validate:** voice dotnet **79/79** · node **25/25** · bUnit voice-admin **3/3** · ShopERP+KhachLink build OK · guard-check ALL PASSED (`guard-report-20261112-052648`) · commits `48461b93` (C1-C4, 40 files) + `b168e057` (C5) — **PUSHED** (main SHA khớp).
 
-### BLOCKER cần xử lý đầu session mới
-- **SSH tới `vanan-voice` bị flaky** (plink drop "Remote side unexpectedly closed network connection" / treo) — lệnh (a) dở dang. Pattern ĐÃ chạy được:
-  ```
-  gcloud compute ssh vanan-voice --zone=asia-southeast1-b --ssh-flag="-hostkey SHA256:/Xq+Ag8u/2v6r0yIsQaKRbp+NMWok14P424ebbcFe/A" --quiet --command="..."
-  ```
-  (bắt buộc `-hostkey` vì plink; retry nếu drop; SSH tới `vanan-metering`/`vanan-gateway` ổn định hơn).
-- **(a) chưa xong**: `voice:<key>` CHƯA vào `/opt/vanan-metering/.env.metering` + GitHub secret `METERING_CALLERS` (còn 2026-11-06) → metering chưa nhận caller `voice` (fail-open nên call vẫn chạy, chưa trừ phí). Rate card `voice.call`/`voice.minute` CHƯA tạo (admin API localhost:5050 trên metering VPS, key `METERING_ADMIN` trong `.env.metering`).
+### BLOCKER đã xử lý + CÒN theo dõi
+- **CD #43111872269 attempt 4 đang chạy** (deploy-voice SSH auth fail attempt 1-3 sau VPS reset: authorized_keys `/home/lebao/.ssh/` mất CD key — CD user = `lebao` vì owner `/opt/vanan-voice`; fix: ed25519 `github-actions-voice-deploy` mới append + GH secret `VPS_VOICE_SSH_PRIVATE_KEY` updated 22:42Z). **Chờ user báo CD xong** (deploy-voice + Post-Deploy Smoke).
+- **Nếu attempt 4 vẫn fail**: check log `gh run view 43111872269 --log-failed` — có thể VPS_VOICE_USER khác (`deploy`?) → test `ssh -i <key> deploy@34.87.116.62` (key cũng đã append `/home/deploy/.ssh/`).
+- Voice VPS đã có nginx + certbot + firewall 80/443 — CD deploy-voice không đụng nginx (compose chỉ voice+turn).
 
-### Việc còn lại (đã duyệt — thực thi theo thứ tự)
-1. **(a)** seed caller `voice` + rate card (xem BLOCKER)
-2. **C1** ShopERP `ShopInbox.razor` wire `VoiceCallEnabled`+`VoiceServiceUrl`+`StaffToken` vào RealtimeChatPanel (local code)
-3. **C2** URL production `VoiceServiceUrl=https://voice.khachvip.online` + `VoiceHubUrl` cho KhachLink + ShopERP (local code + config)
-4. **(b)** DNS `voice.khachvip.online` → 34.87.116.62 (Godaddy API key trong `/opt/vanan/.env.gateway` trên gateway VPS) + TLS cert + verify health qua domain
-5. **C3** Admin UI `/admin/voice` (toggle VoiceFeatureEnabled/VoiceOpenCalling per tenant) + NavMenu + Sitemap + persistence DB + bUnit + E2E
-6. **C4** Deny/kill-switch UX: `METERING_DENIED` → link `/wallet/phi-nen-tang` (ShopERP) / message trung tính (KhachLink); `FEATURE_DISABLED` → "tính năng tạm ngừng"
-7. **C5** RV sweep `6_Testing/rv-scripts/voice-rv-sweep.mjs` (health/metrics/TURN/missed-calls/call flow/chat UI/deny/kill-switch/cross-tenant/regression + residue)
-8. **C6** E2E `voice-p2p.spec.ts`+`voice-chat.spec.ts` trên môi trường WebRTC ICE hoạt động + regression chat + ledger
+### Việc còn lại (session mới — sau CD xong)
+1. **RV production C5**: `node 6_Testing/rv-scripts/voice-rv-sweep.mjs` — env `VOICE_JWT_SECRET` extract từ `/opt/vanan-voice/.env.voice` (gcloud, không in giá trị, xóa temp) → 0 FAIL · verify migration PG + `/admin/voice` live.
+2. **C6 E2E**: `voice-p2p.spec.ts` (máy WebRTC ICE thật) + `voice-chat.spec.ts` + `voice-admin.spec.ts` + regression chat + deny/kill-switch E2E → ledger `6_Testing/reports/playwright-ledger.md` + residue cleanup.
+3. **Đóng task card P7** + update `docs/AI/project_state.md`.
 
 ### Tham chiếu nhanh
 - Voice service code: `10_Voice/vanan-voice/` · CI: `.github/workflows/cd-multivps.yml` (job `deploy-voice`) · compose: `docker-compose.voice.yml` · impact: `deployment-impact.yml` (10_Voice/** → voice)
 - SDK/demo: `10_Voice/vanan-voice/sdk/` (README hướng dẫn chạy) · tests node: `6_Testing/unit-tests/voice-*.test.mjs`
 - Task cards: `docs/AI/tasks/voice_service/` (p0–p7) · master plan: `docs/AI/plans/voice-service-master-plan.md`
+- Admin UI: Gateway `VoiceAdminController` (`/api/admin/voice-config`) · ShopERP `VoiceAdmin.razor` (`/admin/voice`) · voice `TenantFeatureStore` PG-backed
 
 ---
 
