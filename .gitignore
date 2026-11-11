@@ -529,3 +529,6 @@ rv-*.json
 
 # HTX/federated planning docs — local review only, do not commit until approved
 docs/AI/tasks/federated_htx_scale/
+10_Voice/**/publish/
+10_Voice/**/bin/
+10_Voice/**/obj/
