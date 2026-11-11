@@ -16,7 +16,7 @@ public class OcrAssistServiceTests
 {
     private static readonly byte[] FakeImage = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
 
-    private static OcrAssistService BuildService(MockHttpMessageHandler handler,
+    private static OcrAssistService BuildService(HttpMessageHandler handler,
         string? provider = "gemini", string? geminiKey = "test-key",
         string? visionKey = "vis-key", string? allowedHost = "r2.example.com")
     {
@@ -33,6 +33,14 @@ public class OcrAssistServiceTests
 
     private static OcrAssistRequest UrlRequest(OcrAssistKind kind = OcrAssistKind.Sign)
         => new(kind, ImageUrl: $"https://r2.example.com/onboarding/sign/{Guid.NewGuid():N}.jpg");
+
+    /// <summary>HttpMessageHandler stateful — factory nhận request, trả response (đếm attempts).</summary>
+    private sealed class SequenceHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> factory) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(factory(request));
+    }
 
     // ── Config / no-key ────────────────────────────────────────────────
 
@@ -146,6 +154,35 @@ public class OcrAssistServiceTests
 
         Assert.Equal("Quán Cô Ba", r.SignName);
         Assert.Equal("0988888888", r.Phone);
+    }
+
+    [Fact(DisplayName = "Gemini_Transient503_RetriesOnce_AndSucceeds")]
+    public async Task Gemini_Transient503_RetriesOnce_AndSucceeds()
+    {
+        // Stateful handler: GET ảnh luôn 200 bytes; POST gemini lần 1 → 503, lần 2 → 200
+        // (retry path — RV 2026-11-11 bắt Gemini 503 upstream).
+        var attempts = 0;
+        var handler = new SequenceHttpMessageHandler((req) =>
+        {
+            if (req.Method == HttpMethod.Get)
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(FakeImage) };
+            attempts++;
+            if (attempts == 1)
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                { Content = new StringContent("{}") };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"{\\\"signName\\\": \\\"Quán Retry\\\"}\"}]}}]}")
+            };
+        });
+        var svc = BuildService(handler);
+
+        var r = await svc.AssistAsync(UrlRequest(), CancellationToken.None);
+
+        Assert.Equal("gemini", r.Provider);
+        Assert.Equal("Quán Retry", r.SignName);
+        Assert.Equal(2, attempts);
     }
 
     // ── Vision ─────────────────────────────────────────────────────────

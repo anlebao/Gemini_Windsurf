@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,26 @@ public sealed class GeminiOcrProvider(HttpClient httpClient, ILogger logger)
         try
         {
             using var response = await httpClient.PostAsJsonAsync(url, payload, ct);
+            // Retry 1 lần (backoff 2s) cho lỗi transient (429/5xx) — RV 2026-11-11 bắt Gemini 503 upstream.
+            if (response.StatusCode is >= HttpStatusCode.InternalServerError or HttpStatusCode.TooManyRequests)
+            {
+                logger.LogWarning("Gemini OCR {Status} (kind {Kind}) — retry 1 lần", (int)response.StatusCode, kind);
+                await Task.Delay(TimeSpan.FromSeconds(2), ct);
+                using var retry = await httpClient.PostAsJsonAsync(url, payload, ct);
+                if (!retry.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("Gemini OCR retry {Status} (kind {Kind})", (int)retry.StatusCode, kind);
+                    return null;
+                }
+                var retryBody = await retry.Content.ReadAsStringAsync(ct);
+                var retryText = ExtractText(retryBody);
+                if (string.IsNullOrWhiteSpace(retryText))
+                {
+                    logger.LogWarning("Gemini OCR retry empty text (kind {Kind})", kind);
+                    return null;
+                }
+                return ParseResponse(kind, retryText);
+            }
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gemini OCR {Status} (kind {Kind})", (int)response.StatusCode, kind);

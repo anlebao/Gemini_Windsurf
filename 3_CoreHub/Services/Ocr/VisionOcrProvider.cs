@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,26 @@ public sealed class VisionOcrProvider(HttpClient httpClient, ILogger logger)
         try
         {
             using var response = await httpClient.PostAsJsonAsync(url, payload, ct);
+            // Retry 1 lần (backoff 2s) cho lỗi transient (429/5xx).
+            if (response.StatusCode is >= HttpStatusCode.InternalServerError or HttpStatusCode.TooManyRequests)
+            {
+                logger.LogWarning("Vision OCR {Status} (kind {Kind}) — retry 1 lần", (int)response.StatusCode, kind);
+                await Task.Delay(TimeSpan.FromSeconds(2), ct);
+                using var retry = await httpClient.PostAsJsonAsync(url, payload, ct);
+                if (!retry.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("Vision OCR retry {Status} (kind {Kind})", (int)retry.StatusCode, kind);
+                    return null;
+                }
+                var retryBody = await retry.Content.ReadAsStringAsync(ct);
+                var retryLines = ExtractLines(retryBody);
+                if (retryLines is null || retryLines.Count == 0)
+                {
+                    logger.LogWarning("Vision OCR retry no text (kind {Kind})", kind);
+                    return null;
+                }
+                return new OcrAssistResponse("vision", kind, Lines: retryLines);
+            }
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Vision OCR {Status} (kind {Kind})", (int)response.StatusCode, kind);
