@@ -17,6 +17,7 @@
                    VoiceEnabled="_voiceEnabled"
                    VoiceCallEnabled="_voiceCallEnabled"
                    VoiceServiceUrl="VoiceServiceUrl"
+                   VoiceHubUrl="VoiceHubUrl"
                    ScrollContainerId="@ScrollContainerId" />
 
 @code {
@@ -28,6 +29,8 @@
     [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
     /// <summary>VOICE SERVICE P4: voice service HTTP base URL (TURN creds + missed calls) — hosts configure.</summary>
     [Parameter] public string VoiceServiceUrl { get; set; } = "";
+    /// <summary>VOICE SERVICE C2: voice SignalR hub URL — hosts configure (default same-origin).</summary>
+    [Parameter] public string VoiceHubUrl { get; set; } = "/hubs/voice";
 
     /// <summary>SF-W3 (2026-11-08): voice mic — global Voice_Note_Enabled flag, same
     /// pattern as Home/StoreFinder voice search (platform-level toggle).</summary>

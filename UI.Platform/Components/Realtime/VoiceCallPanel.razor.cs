@@ -34,11 +34,19 @@ public partial class VoiceCallPanel : IAsyncDisposable
     /// <summary>Voice service HTTP base URL (TURN credentials + missed calls).</summary>
     [Parameter] public string VoiceServiceUrl { get; set; } = "";
 
+    /// <summary>
+    /// VOICE SERVICE C4 (2026-11-11): hiện link nạp phí khi bị METERING_DENIED.
+    /// ShopERP (staff) = true → link /wallet/phi-nen-tang; KhachLink (customer) = false →
+    /// message trung tính, không lộ ví (SRS §14.6 UX contract).
+    /// </summary>
+    [Parameter] public bool ShowWalletLink { get; set; }
+
     private DotNetObjectReference<VoiceCallPanel>? _ref;
     private string _state = "idle";
     private bool _muted;
     private bool _missed;
     private string? _error;
+    private bool _errorIsMeteringDenied;
     private string _incomingCaller = "";
 
     private bool _idleLike => _state is "idle" or "ended" or "rejected" or "cancelled" or "missed"
@@ -117,9 +125,50 @@ public partial class VoiceCallPanel : IAsyncDisposable
     public void OnVoiceStateChange(string state, string infoJson)
     {
         _state = state;
-        if (state is "ended" or "missed" or "failed")
-            _missed = true; // missed-call hint after a terminal missed/ring-timeout call
+        _errorIsMeteringDenied = false;
+
+        // SRS §14.6 UX contract (C4, 2026-11-11): deny/kill-switch → message rõ ràng.
+        var reason = ParseReason(infoJson);
+        if (state == "failed" && !string.IsNullOrEmpty(reason))
+        {
+            switch (reason)
+            {
+                case "METERING_DENIED":
+                    _errorIsMeteringDenied = true;
+                    _error = ShowWalletLink
+                        ? "Hết hạn mức phí nền tảng — vui lòng nạp phí để gọi thoại."
+                        : "Tính năng gọi thoại đang tạm ngừng.";
+                    break;
+                case "FEATURE_DISABLED":
+                    _error = "Tính năng gọi thoại đang tạm ngừng.";
+                    break;
+                default:
+                    _error = null; // timeout/reconnect/etc — không cần thông báo đáng sợ
+                    break;
+            }
+        }
+
+        // Missed-call hint: ring timeout của callee (state 'missed') hoặc caller nhận
+        // RING_TIMEOUT — KHÔNG cho các lần start thất bại (denied/disabled/busy/offline).
+        if (state == "missed" || (state == "ended" && reason == "RING_TIMEOUT"))
+            _missed = true;
         StateHasChanged();
+    }
+
+    private static string ParseReason(string infoJson)
+    {
+        if (string.IsNullOrWhiteSpace(infoJson)) return "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(infoJson);
+            return doc.RootElement.TryGetProperty("reason", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.String
+                ? r.GetString() ?? ""
+                : "";
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     [JSInvokable]

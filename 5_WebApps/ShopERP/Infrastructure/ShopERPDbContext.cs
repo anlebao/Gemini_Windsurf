@@ -117,6 +117,10 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<OrderFlowProfile> OrderFlowProfiles { get; set; }
         public DbSet<OrderFlowStep> OrderFlowSteps { get; set; }
 
+        // VOICE SERVICE C3 (2026-11-11): VoiceTenantConfig PG-only (Gateway source of truth —
+        // /admin/voice đọc/ghi qua Gateway admin API). DbSet contract-only; Ignored bên dưới.
+        public DbSet<VoiceTenantConfig> VoiceTenantConfigs { get; set; }
+
         // Issue #195: lịch sử trạng thái đơn — bảng THẬT trong SQLite (ghi tại
         // OrderWorkflowService khi transition ở ShopERP; timeline UI đọc local).
         public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
@@ -351,6 +355,10 @@ namespace VanAn.ShopERP.Infrastructure
             // Ignore MUST be sau ApplyConfigurationsFromAssembly — nếu không config re-adds chúng.
             _ = modelBuilder.Ignore<OrderFlowProfile>();
             _ = modelBuilder.Ignore<OrderFlowStep>();
+
+            // VOICE SERVICE C3 (2026-11-11): VoiceTenantConfig PG-only — /admin/voice
+            // đọc/ghi qua Gateway admin API, không query SQLite.
+            _ = modelBuilder.Ignore<VoiceTenantConfig>();
 
             // SRS v1.2 W2-W6 + W6 tiếp (2026-10-31): accounting entities PG-ONLY
             // (IAccountingDbContext — ADR-001). Được kéo vào model qua

@@ -48,7 +48,9 @@ export default defineConfig({
         Jwt__Issuer: 'VanAnShopERP',
         Jwt__Audience: 'VanAnApi',
         Voice__DbPath: `voice-e2e-${Date.now()}.db`,
-        Voice__CorsOrigins: 'http://127.0.0.1:5080'
+        Voice__CorsOrigins: 'http://127.0.0.1:5080',
+        // C3 (2026-11-11): PUT /v1/tenants/{id}/voice-config bị chặn mặc định — dev/E2E bật flag.
+        Voice__AllowInsecureAdminApi: 'true'
       }
     },
     {

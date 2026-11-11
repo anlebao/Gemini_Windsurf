@@ -13,6 +13,7 @@
 @inject ShopInboxApiClient ApiClient
 @inject IThemeProvider ThemeProvider
 @inject ILogger<ShopInbox> Logger
+@inject IConfiguration Config
 @* Task AI-P9: owner review of AI conversations (read-only, flag TenantAiEnabled). *@
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
@@ -127,6 +128,9 @@
                                        CurrentUserId="_staffUserId"
                                        StaffToken="@_staffToken"
                                        VoiceEnabled="_voiceEnabled"
+                                       VoiceCallEnabled="_voiceCallEnabled"
+                                       VoiceServiceUrl="@_voiceServiceUrl"
+                                       VoiceHubUrl="@_voiceHubUrl"
                                        ScrollContainerId="inbox-chat-scroll" />
                 }
                 else
@@ -176,9 +180,20 @@
     /// <summary>SF-W3 (2026-11-08): mic trong chat panel — flag Voice_Note_Enabled của tenant.</summary>
     private bool _voiceEnabled;
 
+    /// <summary>VOICE SERVICE P4 (2026-11-11): nút Gọi thoại — flag Voice_Call_Enabled của tenant.</summary>
+    private bool _voiceCallEnabled;
+
+    /// <summary>VOICE SERVICE C2 (2026-11-11): voice service HTTP base URL (production default, env-overridable).</summary>
+    private string _voiceServiceUrl;
+
+    /// <summary>VOICE SERVICE C2 (2026-11-11): voice SignalR hub URL (production default, env-overridable).</summary>
+    private string _voiceHubUrl;
+
     protected override async Task OnInitializedAsync()
     {
         _staffUserId = await ApiClient.GetCurrentUserIdAsync();
+        _voiceServiceUrl = Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
+        _voiceHubUrl = Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
         try
         {
             _aiTabVisible = TenantProvider.HasTenant
@@ -198,6 +213,16 @@
         {
             Logger.LogWarning(ex, "ShopInbox: Voice_Note flag check failed — mic hidden");
             _voiceEnabled = false;
+        }
+        try
+        {
+            _voiceCallEnabled = TenantProvider.HasTenant
+                && await FeatureSettings.IsEnabledAsync(TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ShopInbox: Voice_Call flag check failed — call button hidden");
+            _voiceCallEnabled = false;
         }
         await LoadData();
     }

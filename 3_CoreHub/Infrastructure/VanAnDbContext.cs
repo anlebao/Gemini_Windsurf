@@ -52,6 +52,8 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<TheoreticalConsumption> TheoreticalConsumptions { get; set; }
         // VA-IIE Phase 3-4 (2026-10-05): PG table exists but stays EMPTY (pattern Sprint B).
         public DbSet<VaIIeTenantConfig> VaIIeTenantConfigs { get; set; }
+        // VOICE SERVICE C3 (2026-11-11): per-tenant voice config (kill-switch + open calling) — Gateway PG.
+        public DbSet<VoiceTenantConfig> VoiceTenantConfigs { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }

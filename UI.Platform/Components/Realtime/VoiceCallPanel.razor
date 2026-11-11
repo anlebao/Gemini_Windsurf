@@ -67,7 +67,15 @@
 
         @if (!string.IsNullOrEmpty(_error))
         {
-            <div class="voice-error" data-testid="voice-error">@_error</div>
+            <div class="voice-error" data-testid="voice-error">
+                @_error
+                @if (_errorIsMeteringDenied && ShowWalletLink)
+                {
+                    <a href="/wallet/phi-nen-tang" class="voice-error__link" data-testid="voice-topup-link">
+                        <i class="bi bi-wallet2"></i> Nạp phí nền tảng
+                    </a>
+                }
+            </div>
         }
     </div>
 }

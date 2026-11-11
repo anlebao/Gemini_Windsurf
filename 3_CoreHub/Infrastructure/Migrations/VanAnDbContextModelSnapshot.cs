@@ -8065,6 +8065,53 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.ToTable("VehicleSessions");
                 });
 
+            modelBuilder.Entity("VanAn.Shared.Domain.VoiceTenantConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastChangedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LastChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("VoiceFeatureEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("VoiceOpenCalling")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("VoiceTenantConfigs");
+                });
+
             modelBuilder.Entity("VanAn.Shared.Domain.Voucher", b =>
                 {
                     b.Property<Guid>("Id")

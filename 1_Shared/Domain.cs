@@ -3403,6 +3403,43 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
+    /// VOICE SERVICE C3 (2026-11-11): cấu hình voice per-tenant (SRS v1.1 §14.4) — kill-switch
+    /// VoiceFeatureEnabled + VoiceOpenCalling. 1 row / tenant. Lưu Gateway PG (quyết định user
+    /// 2026-11-11 — SRS-compliant: không vi phạm guardrail 2 bảng voice DB, voice service đọc
+    /// read-only). Missing row → default (feature ENABLED — metering gate still governs cost,
+    /// open-calling OFF).
+    /// </summary>
+    public class VoiceTenantConfig : BaseEntity
+    {
+        public bool VoiceFeatureEnabled { get; protected set; } = true;
+        public bool VoiceOpenCalling { get; protected set; }
+        public DateTime? LastChangedAt { get; protected set; }
+        public string? LastChangedBy { get; protected set; }
+
+        protected VoiceTenantConfig() { }
+
+        /// <summary>Single-Identity: Id (PK) = tenantId — 1 config row per tenant.</summary>
+        public VoiceTenantConfig(Guid tenantId, bool voiceFeatureEnabled, bool voiceOpenCalling, string? changedBy)
+            : base(new TenantId(tenantId))
+        {
+            Id = tenantId;
+            VoiceFeatureEnabled = voiceFeatureEnabled;
+            VoiceOpenCalling = voiceOpenCalling;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+        }
+
+        public void Update(bool voiceFeatureEnabled, bool voiceOpenCalling, string? changedBy)
+        {
+            VoiceFeatureEnabled = voiceFeatureEnabled;
+            VoiceOpenCalling = voiceOpenCalling;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
     /// Cross-tenant wallet — 1 per customer device identity. NOT tenant-scoped (TenantId = Empty).
     /// TotalPointBalance is the shared pool across all alliance tenants.
     /// Stored in PG (Gateway VanAnDbContext). CustomerDeviceId is unique index (1 wallet per device).

@@ -1,0 +1,205 @@
+@page "/admin/voice"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.Shared.Services
+@using VanAn.ShopERP.Services
+@inject VoiceAdminApiClient VoiceApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<VoiceAdmin> Logger
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+
+@* VOICE SERVICE C3 (2026-11-11, quyết định user — Gateway PG): SystemAdmin bật/tắt voice
+   per-tenant (kill-switch VoiceFeatureEnabled + VoiceOpenCalling — SRS v1.1 §14.4).
+   Lưu Gateway PG qua /api/admin/voice-config; voice service đọc read-only. *@
+<div class="voice-admin-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-telephone"></i> Cấu hình gọi thoại (Voice)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAllAsync" IsLoading="@_isLoading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        <ChildContent>
+            <div class="alert alert-info mb-0 py-2">
+                <i class="bi bi-info-circle"></i>
+                <strong>VoiceFeatureEnabled</strong> = kill-switch: tắt → mọi cuộc gọi của tenant bị chặn
+                (<code>FEATURE_DISABLED</code>) dù ví còn hạn mức.
+                <strong>VoiceOpenCalling</strong> = cho phép gọi không qua context chat đã xác minh (mặc định tắt).
+                Chưa cấu hình (default) = bật gọi thoại, tắt open calling — phí theo rate card
+                <code>voice.call</code>/<code>voice.minute</code>.
+            </div>
+        </ChildContent>
+    </VanACard>
+
+    @if (!_isSystemAdmin)
+    {
+        <VanACard>
+            <ChildContent>
+                <p class="text-muted mb-0">Trang này chỉ dành cho SystemAdmin.</p>
+            </ChildContent>
+        </VanACard>
+    }
+    else if (_isLoading)
+    {
+        <VanACard>
+            <ChildContent>
+                <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải cấu hình voice...</p></div>
+            </ChildContent>
+        </VanACard>
+    }
+    else if (_configs.Count == 0)
+    {
+        <VanACard>
+            <ChildContent>
+                <p class="text-muted mb-0">Chưa có tenant nào (Active).</p>
+            </ChildContent>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Danh sách tenant">
+            <ChildContent>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Tenant</th>
+                                <th style="width: 160px;">Gọi thoại (kill-switch)</th>
+                                <th style="width: 160px;">Gọi tự do (open calling)</th>
+                                <th style="width: 120px;">Trạng thái</th>
+                                <th style="width: 200px;">Nạp phí</th>
+                                <th style="width: 110px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in _configs)
+                            {
+                                var saving = _savingTenantId == c.TenantId;
+                                <tr data-testid="voice-config-row">
+                                    <td>
+                                        <strong>@c.TenantName</strong>
+                                        <div class="small text-muted">@c.TenantId.ToString()[..8]</div>
+                                    </td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                   id="voice-feature-@c.TenantId" @bind="c.VoiceFeatureEnabled" />
+                                            <label class="form-check-label small" for="voice-feature-@c.TenantId">
+                                                @(c.VoiceFeatureEnabled ? "Bật" : "Tắt")
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                   id="voice-open-@c.TenantId" @bind="c.VoiceOpenCalling" />
+                                            <label class="form-check-label small" for="voice-open-@c.TenantId">
+                                                @(c.VoiceOpenCalling ? "Bật" : "Tắt")
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (c.IsDefault)
+                                        {
+                                            <span class="badge bg-secondary" title="Chưa có dòng cấu hình — voice service dùng mặc định (bật, open calling tắt)">Mặc định</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success" title="Đã lưu cấu hình riêng">Đã cấu hình</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <a href="/wallet/phi-nen-tang" class="small" target="_blank">
+                                            <i class="bi bi-wallet2"></i> Ví phí nền tảng
+                                        </a>
+                                    </td>
+                                    <td class="text-end">
+                                        <VanAButton Variant="primary" Size="small" OnClick="() => SaveAsync(c)"
+                                                    IsLoading="saving" Disabled="saving">
+                                            Lưu
+                                        </VanAButton>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </ChildContent>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSystemAdmin;
+    private string? _alertMessage;
+    private string _alertType = "info";
+    private List<VoiceTenantConfigDto> _configs = new();
+    private Guid? _savingTenantId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
+        if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        _isLoading = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _configs = await VoiceApi.GetConfigsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VoiceAdmin: load configs failed");
+            _alertType = "error";
+            _alertMessage = $"Không tải được cấu hình voice: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync(VoiceTenantConfigDto c)
+    {
+        _savingTenantId = c.TenantId;
+        _alertMessage = string.Empty;
+        try
+        {
+            var saved = await VoiceApi.UpsertAsync(c.TenantId, new UpdateVoiceTenantConfigRequest
+            {
+                VoiceFeatureEnabled = c.VoiceFeatureEnabled,
+                VoiceOpenCalling = c.VoiceOpenCalling
+            });
+            _alertType = "success";
+            _alertMessage = $"Đã lưu cấu hình voice cho '{c.TenantName}' (gọi thoại: {(saved.VoiceFeatureEnabled ? "bật" : "tắt")}, gọi tự do: {(saved.VoiceOpenCalling ? "bật" : "tắt")}).";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "VoiceAdmin: upsert failed for tenant {TenantId}", c.TenantId);
+            _alertType = "error";
+            _alertMessage = $"Lưu thất bại: {ex.Message}";
+        }
+        finally
+        {
+            _savingTenantId = null;
+        }
+    }
+}

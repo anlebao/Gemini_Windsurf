@@ -1359,6 +1359,8 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.OrderFlowService>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderFlowService>(sp => sp.GetRequiredService<VanAn.CoreHub.Services.OrderFlowService>());
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IOrderFlowAdminService>(sp => sp.GetRequiredService<VanAn.CoreHub.Services.OrderFlowService>());
+            // VOICE SERVICE C3 (2026-11-11): per-tenant voice config (kill-switch + open calling) — Gateway PG.
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IVoiceTenantConfigService, VanAn.CoreHub.Services.VoiceTenantConfigService>();
             // 2026-10-03 (membership v2 — Luồng 2): nâng cấp cộng tác viên (Salesman/Shipper) thành tenant profile.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Membership.ICollaboratorTenantProvisioningService, VanAn.CoreHub.Services.Membership.CollaboratorTenantProvisioningService>();
 

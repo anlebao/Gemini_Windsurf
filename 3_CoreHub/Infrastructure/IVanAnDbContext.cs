@@ -180,6 +180,10 @@ namespace VanAn.CoreHub.Infrastructure
         // CẢ PG và ShopERP SQLite — ghi ở scope thực thi transition.
         DbSet<OrderStatusHistory> OrderStatusHistories { get; }
 
+        // VOICE SERVICE C3 (2026-11-11): cấu hình voice per-tenant (kill-switch + open calling).
+        // PG-only (Gateway source of truth — voice service đọc read-only).
+        DbSet<VoiceTenantConfig> VoiceTenantConfigs { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

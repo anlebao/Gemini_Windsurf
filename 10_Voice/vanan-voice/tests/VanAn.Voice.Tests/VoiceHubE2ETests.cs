@@ -32,6 +32,8 @@ public class VoiceHubE2ETests
             b.UseSetting("Metering:BaseUrl", "");
             b.UseSetting("Metering:CallerId", "");
             b.UseSetting("Metering:CallerKey", "");
+            // C3: PUT admin không-auth bị chặn mặc định — test harness bật (dev-only path).
+            b.UseSetting("Voice:AllowInsecureAdminApi", "true");
         });
         return (factory, dbPath);
     }

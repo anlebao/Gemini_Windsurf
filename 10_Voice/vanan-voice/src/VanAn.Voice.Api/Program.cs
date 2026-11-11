@@ -96,13 +96,21 @@ app.MapGet("/v1/metrics/summary", async (VoiceMetricsService metrics, Cancellati
 
 app.MapHub<VoiceHub>("/hubs/voice");
 
-// Admin: per-tenant kill-switch + open-calling flags (SRS §14.4). In-memory in P1
-// (persistence via admin UI lands in P4).
-app.MapGet("/v1/tenants/{tenantId:guid}/voice-config", (Guid tenantId, TenantFeatureStore store) =>
-    Results.Ok(store.Get(tenantId)));
+// Admin: per-tenant kill-switch + open-calling flags (SRS §14.4).
+// C3 (2026-11-11): config giờ đọc từ Gateway PG (VoiceTenantConfigs — SystemAdmin /api/admin/voice-config).
+// PUT không-auth bị chặn mặc định (lỗ hổng cũ — public domain): chỉ bật khi
+// Voice:AllowInsecureAdminApi=true (dev/E2E). GET chỉ đọc (harmless).
+app.MapGet("/v1/tenants/{tenantId:guid}/voice-config", async (Guid tenantId, TenantFeatureStore store, CancellationToken ct) =>
+    Results.Ok(await store.GetAsync(tenantId, ct)));
 
-app.MapPut("/v1/tenants/{tenantId:guid}/voice-config", (Guid tenantId, VoiceTenantConfig config, TenantFeatureStore store) =>
-    Results.Ok(store.Set(tenantId, config)));
+app.MapPut("/v1/tenants/{tenantId:guid}/voice-config", (Guid tenantId, VoiceTenantConfig config, TenantFeatureStore store, IConfiguration cfg) =>
+{
+    var allowInsecure = cfg.GetValue("Voice:AllowInsecureAdminApi", false);
+    if (!allowInsecure)
+        return Results.NotFound(new { error = "admin_api_disabled" });
+    store.Set(tenantId, config);
+    return Results.Ok(config);
+});
 
 // FR-014: callee reads its own missed-call events on next app open (authenticated — the user
 // may only read their own events).

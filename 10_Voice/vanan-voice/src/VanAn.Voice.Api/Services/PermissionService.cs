@@ -54,7 +54,7 @@ public sealed class PermissionService(
         }
 
         // Kill-switch (§14.4): admin can disable the feature per tenant regardless of wallet.
-        var config = features.Get(tenantId.Value);
+        var config = await features.GetAsync(tenantId.Value, ct);
         if (!config.VoiceFeatureEnabled)
             return new PermissionResult(false, CallStatus.Failed, CallEndReason.FeatureDisabled, tenantId);
 

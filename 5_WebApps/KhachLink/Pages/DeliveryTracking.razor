@@ -13,6 +13,7 @@
 @inject LocationTrackingService LocationTracker
 @inject ILiveLocationClient LiveLocation
 @inject WalletHttpService WalletHttp
+@inject IConfiguration Config
 
 <PageTitle>Theo dõi giao hàng</PageTitle>
 
@@ -234,7 +235,8 @@
             @if (_customerId.HasValue)
             {
                 <div class="mt-3">
-                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="delivery-chat-scroll" />
+                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="delivery-chat-scroll"
+                       VoiceServiceUrl="@_voiceServiceUrl" VoiceHubUrl="@_voiceHubUrl" />
                 </div>
             }
 
@@ -247,6 +249,10 @@
 
 @code {
     [Parameter] public Guid OrderId { get; set; }
+
+    // VOICE SERVICE C2 (2026-11-11): voice service URLs — production defaults, appsettings-overridable.
+    private string _voiceServiceUrl => Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
+    private string _voiceHubUrl => Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
 
     private bool _loading = true;
     private bool _isLoggedIn = false;
