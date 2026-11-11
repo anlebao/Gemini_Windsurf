@@ -38,6 +38,18 @@ public class MockHttpMessageHandler : HttpMessageHandler
         }));
     }
 
+    /// <summary>Register a route returning raw bytes (e.g. image download).</summary>
+    public void AddByteResponse(string urlSubstring, HttpMethod method,
+        byte[] bytes, string contentType = "image/jpeg")
+    {
+        _routes.Add((urlSubstring, method, () =>
+        {
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        }));
+    }
+
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {

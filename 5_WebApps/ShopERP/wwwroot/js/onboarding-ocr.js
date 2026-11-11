@@ -242,6 +242,34 @@ window.vananOnboardingOcr = (function () {
     }
 
     // ── Sign name extraction (Case B primary, Case A cross-check) ────────
+    // P6 (2026-11-11): trả thêm address + phone từ biển hiệu (các dòng nhỏ hơn tên chính).
+
+    const VN_PHONE_RE = /(?:0|\+84)[\s.\-]?\d[\d\s.\-]{8,10}\d/;
+    const ADDR_KEYWORDS = ['địa chỉ', 'đường', 'phường', 'quận', 'huyện', 'xã', 'thị trấn', 'tp.', 'tỉnh', 'số nhà', 'số '];
+
+    function _extractPhone(lines) {
+        for (const l of lines) {
+            const m = l.text.match(VN_PHONE_RE);
+            if (m) {
+                const digits = m[0].replace(/\D/g, '');
+                if (digits.length >= 10 && digits.length <= 11) return digits;
+            }
+        }
+        return null;
+    }
+
+    function _extractAddress(lines, excludeText) {
+        const norm = (excludeText || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const hits = [];
+        for (const l of lines) {
+            const t = l.text.trim();
+            if (!t) continue;
+            const tn = t.toLowerCase();
+            if (norm && tn === norm) continue; // không lấy dòng tên chính
+            if (ADDR_KEYWORDS.some((k) => tn.includes(k))) hits.push(t);
+        }
+        return hits.length ? hits.join(', ').trim() : null;
+    }
 
     async function extractSignName(input) {
         const { lines } = await _recognizeLines(input);
@@ -254,7 +282,8 @@ window.vananOnboardingOcr = (function () {
             }))
             .filter((c) => c.text.length >= 4 && /[A-Za-zÀ-ỹ]/u.test(c.text) && c.h > 0);
 
-        if (!candidates.length) return { value: null, confidence: 0 };
+        if (!candidates.length)
+            return { value: null, address: _extractAddress(lines), phone: _extractPhone(lines), confidence: 0 };
 
         // Largest font line = sign text (shop signs are big). Concatenate
         // same-height adjacent lines (multi-word / two-row signs).
@@ -264,7 +293,12 @@ window.vananOnboardingOcr = (function () {
             .filter((c) => c.h >= top.h * 0.8)
             .sort((a, b) => a.y0 - b.y0);
         const value = sameRow.map((c) => c.text).join(' ').replace(/\s+/g, ' ').trim();
-        return { value, confidence: Math.min(...sameRow.map((c) => c.conf)) };
+        return {
+            value,
+            address: _extractAddress(lines, value),
+            phone: _extractPhone(lines),
+            confidence: Math.min(...sameRow.map((c) => c.conf))
+        };
     }
 
     // ── Menu extraction (both cases) ─────────────────────────────────────

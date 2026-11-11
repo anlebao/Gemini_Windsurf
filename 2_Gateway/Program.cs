@@ -586,6 +586,31 @@ namespace VanAn.Gateway
 
                 });
 
+                // P6 (2026-11-11): OCR cloud assist — anonymous, 20/h/IP. Abuse cost nhỏ
+                // (provider free/cheap + request size limit), NAT share chấp nhận được.
+                // Applied via [EnableRateLimiting("ocr-assist")] on POST /api/v1/ocr-assist.
+                options.AddPolicy("ocr-assist", context =>
+
+                {
+
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+
+                    {
+
+                        PermitLimit = 20,
+
+                        Window = TimeSpan.FromHours(1),
+
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+
+                        QueueLimit = 0
+
+                    });
+
+                });
+
                 // Return 429 (Too Many Requests) instead of default 503 for rate-limited audit requests.
 
                 options.OnRejected = async (context, cancellationToken) =>
@@ -1411,6 +1436,12 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IGuardScanLogRepository, VanAn.CoreHub.Repositories.GuardScanLogRepository>();
 
             _ = builder.Services.AddSingleton<VanAn.CoreHub.Services.IR2StorageService, VanAn.CoreHub.Services.R2StorageService>();
+
+            // P6 (2026-11-11): OCR cloud assist (Gemini default + Vision fallback) — typed HttpClient.
+            _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.Ocr.IOcrAssistService, VanAn.CoreHub.Services.Ocr.OcrAssistService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(40);
+            });
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IGuardService, VanAn.CoreHub.Services.GuardService>();
 

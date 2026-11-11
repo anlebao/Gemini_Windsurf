@@ -21,13 +21,16 @@ window.vananOnboardingWizard = (function () {
         _uploadBaseUrl = (publicGatewayBaseUrl || '').replace(/\/+$/, '');
     }
 
-    /** Upload 1 ảnh → Cloudinary qua Gateway. Trả URL hoặc null (fail không chặn OCR). */
-    async function _uploadPhoto(file) {
+    /** Upload 1 ảnh → R2 qua Gateway (folder=onboarding, kind=gpdk|sign|menu|doc).
+     *  P6 (2026-11-11): upload kèm thumbnail 320px JPEG (canvas client-side — album review nhanh).
+     *  Trả URL ảnh gốc hoặc null (fail không chặn OCR). */
+    async function _uploadPhoto(file, kind) {
         if (!_uploadBaseUrl || !file) return null;
         try {
+            const qs = kind ? `&kind=${encodeURIComponent(kind)}` : '';
             const form = new FormData();
             form.append('file', file, file.name || 'capture.jpg');
-            const resp = await fetch(_uploadBaseUrl + '/api/v1/images/upload?folder=onboarding', {
+            const resp = await fetch(_uploadBaseUrl + `/api/v1/images/upload?folder=onboarding${qs}`, {
                 method: 'POST',
                 body: form
             });
@@ -36,20 +39,54 @@ window.vananOnboardingWizard = (function () {
                 return null;
             }
             const data = await resp.json();
-            return data && data.url ? data.url : null;
+            if (data && data.url) {
+                try {
+                    const thumb = await makeThumbnailBytes(file);
+                    if (thumb && thumb.length > 0) {
+                        const tform = new FormData();
+                        tform.append('file', new File([thumb], 'thumb.jpg', { type: 'image/jpeg' }), 'thumb.jpg');
+                        const tresp = await fetch(_uploadBaseUrl + `/api/v1/images/upload?folder=onboarding&kind=${encodeURIComponent(kind || 'doc')}&thumb=true`, {
+                            method: 'POST',
+                            body: tform
+                        });
+                        if (!tresp.ok) console.warn('[OnboardingWizard] thumb upload failed:', tresp.status);
+                    }
+                } catch (e) {
+                    console.warn('[OnboardingWizard] thumb fail:', e);
+                }
+            }
+            return data.url;
         } catch (e) {
             console.warn('[OnboardingWizard] photo upload error:', e);
             return null;
         }
     }
 
+    /** Resize ảnh → JPEG 320px (max edge) → Uint8Array. Dùng canvas, không phụ thuộc server. */
+    async function makeThumbnailBytes(file) {
+        const canvas = await window.vananOnboardingOcr.fileToCanvas(file);
+        const maxDim = 320;
+        const scale = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+        const w = Math.max(1, Math.round(canvas.width * scale));
+        const h = Math.max(1, Math.round(canvas.height * scale));
+        const out = document.createElement('canvas');
+        out.width = w;
+        out.height = h;
+        out.getContext('2d').drawImage(canvas, 0, 0, w, h);
+        const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/jpeg', 0.8));
+        if (!blob) return null;
+        const thumbBuf = await blob.arrayBuffer();
+        return new Uint8Array(thumbBuf);
+    }
+
     /** Đọc 1 ảnh (file input/camera) → OCR + upload song song → trả kết quả + photoUrls về Blazor. */
     async function processFile(file, methodName) {
         if (!file) return;
         try {
+            const kind = methodName === 'extractGpdk' ? 'gpdk' : methodName === 'extractSignName' ? 'sign' : 'doc';
             const [result, photoUrl] = await Promise.all([
                 window.vananOnboardingOcr[methodName](file),
-                _uploadPhoto(file)
+                _uploadPhoto(file, kind)
             ]);
             await _dotNetRef.invokeMethodAsync('OnOcrResult', methodName, JSON.stringify(result),
                 photoUrl ? JSON.stringify([photoUrl]) : null);
@@ -66,7 +103,7 @@ window.vananOnboardingWizard = (function () {
         try {
             const [result, urls] = await Promise.all([
                 window.vananOnboardingOcr.extractMenu(list),
-                Promise.all(list.map(_uploadPhoto))
+                Promise.all(list.map((f) => _uploadPhoto(f, 'menu')))
             ]);
             const photoUrls = urls.filter((u) => !!u);
             await _dotNetRef.invokeMethodAsync('OnOcrResult', 'extractMenu', JSON.stringify(result),

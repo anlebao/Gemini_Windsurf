@@ -27,6 +27,10 @@ namespace VanAn.Gateway.Controllers
         // Giới hạn khớp KhachLink ImageUploadService (5MB, .jpg/.jpeg/.png/.webp).
         private static readonly HashSet<string> AllowedExtensions =
             new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
+        // P6 (2026-11-11): kind cho onboarding — key R2 onboarding/{kind}/{guid}.{ext}
+        // (album phân loại review — parse kind từ URL, không đổi DB). Thumb → onboarding-thumbs/.
+        private static readonly HashSet<string> AllowedKinds =
+            new(StringComparer.OrdinalIgnoreCase) { "gpdk", "sign", "menu", "doc" };
         private const long MaxFileSize = 5 * 1024 * 1024;
         // Presigned GET URL — TTL 7 ngày (claim được review sớm; key nằm trong URL → có thể
         // regenerate presigned URL mới từ key nếu cần xem lại sau).
@@ -41,6 +45,8 @@ namespace VanAn.Gateway.Controllers
         public async Task<ActionResult<ImageUploadResult>> Upload(
             IFormFile file,
             [FromQuery] string folder = "gpkd-claims",
+            [FromQuery] string? kind = null,
+            [FromQuery] bool thumb = false,
             CancellationToken ct = default)
         {
             if (file == null || file.Length == 0)
@@ -50,16 +56,28 @@ namespace VanAn.Gateway.Controllers
             var ext = Path.GetExtension(file.FileName);
             if (!AllowedExtensions.Contains(ext))
                 return BadRequest(new { error = "Định dạng không hợp lệ. Chỉ chấp nhận .jpg, .jpeg, .png, .webp." });
+            // P6: kind chỉ áp dụng cho folder onboarding (album phân loại); thumb cần kind.
+            if (kind != null && !AllowedKinds.Contains(kind))
+                return BadRequest(new { error = "kind không hợp lệ. Chỉ chấp nhận gpdk | sign | menu | doc." });
+            if (kind != null && !string.Equals(folder, "onboarding", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { error = "kind chỉ áp dụng cho folder onboarding." });
+            if (thumb && kind == null)
+                return BadRequest(new { error = "Thiếu kind khi upload thumbnail." });
 
             try
             {
-                // R2 key: {folder}/{guid}.{ext} — pattern plates/customers/{tenantId}/{guid}.jpg (Guard).
-                var key = $"{folder}/{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+                // R2 key: {folder}/{kind}/{guid}.{ext} — kind=null giữ pattern legacy (plates/customers/{tenantId}/...).
+                // Thumb luôn JPEG 320px từ client → key cố định .jpg.
+                var key = thumb
+                    ? $"onboarding-thumbs/{kind}/{Guid.NewGuid():N}.jpg"
+                    : kind != null
+                        ? $"{folder}/{kind}/{Guid.NewGuid():N}{ext.ToLowerInvariant()}"
+                        : $"{folder}/{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
                 await using var stream = file.OpenReadStream();
                 using var ms = new MemoryStream();
                 await stream.CopyToAsync(ms, ct);
                 var base64 = Convert.ToBase64String(ms.ToArray());
-                var contentType = ext.ToLowerInvariant() switch
+                var contentType = thumb ? "image/jpeg" : ext.ToLowerInvariant() switch
                 {
                     ".png" => "image/png",
                     ".webp" => "image/webp",

@@ -106,6 +106,9 @@ services:
       - TenantAi__CtxSigningSecret=${TENANTAI_CTX_SIGNING_SECRET:-}
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
+      # W2 (2026-11-10): Brevo transactional email (OTP merchant signup + MFA fallback) — GH secret BREVO_API_KEY
+      - Brevo__ApiKey=${BREVO_API_KEY:-not-configured}
+      - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
       # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.
       # No Cors__AllowedOrigins__* env vars — managed via admin UI + DynamicCorsCacheHostedService.
       # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP
@@ -137,6 +140,12 @@ services:
       - R2__AccessKey=${R2_ACCESS_KEY:-}
       - R2__SecretKey=${R2_SECRET_KEY:-}
       - R2__BucketName=${R2_BUCKET_NAME:-vanan-guard-photos}
+      # P6 (2026-11-11): OCR cloud assist (onboarding) — Gemini free tier default + Vision fallback.
+      # GEMINI_API_KEY từ GitHub secrets (CD) hoặc .env.gateway; thiếu key → endpoint 503 graceful (nút ẩn).
+      - OcrAssist__Provider=${OCR_ASSIST_PROVIDER:-gemini}
+      - OcrAssist__GeminiModel=${OCR_ASSIST_GEMINI_MODEL:-gemini-2.0-flash}
+      - OcrAssist__GeminiApiKey=${GEMINI_API_KEY:-}
+      - OcrAssist__VisionApiKey=${GOOGLE_VISION_KEY:-}
       # KhachLink Multi-Profile R1 — feature flag (default OFF = no-op, existing behavior preserved)
       # Set KHACHLINK_MULTIPROFILE_ENABLED=true in .env.gateway to enable multi-domain routing + profile-based NavFlags
       - KhachLink__MultiProfileEnabled=${KHACHLINK_MULTIPROFILE_ENABLED:-false}

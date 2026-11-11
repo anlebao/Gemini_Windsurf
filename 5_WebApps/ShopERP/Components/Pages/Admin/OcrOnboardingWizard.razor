@@ -416,7 +416,7 @@
         string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
         Dictionary<string, double>? Confidence, List<string>? Warnings);
 
-    private sealed record SignOcrResult(string? Value, double Confidence);
+    private sealed record SignOcrResult(string? Value, string? Address, string? Phone, double Confidence);
 
     private sealed record MenuOcrResult(List<MenuProductLine>? ProductLines, List<string>? Warnings);
 
@@ -702,6 +702,11 @@
                         _signName = r.Value;
                         _signNameConf = r.Confidence;
                     }
+                    // P6: prefill địa chỉ + SĐT từ biển hiệu (chỉ khi chưa nhập — không ghi đè)
+                    if (!string.IsNullOrWhiteSpace(r?.Address) && string.IsNullOrWhiteSpace(_address))
+                        _address = r.Address;
+                    if (!string.IsNullOrWhiteSpace(r?.Phone) && string.IsNullOrWhiteSpace(_contactPhone))
+                        _contactPhone = r.Phone;
                     break;
                 }
                 case "extractMenu":

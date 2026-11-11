@@ -218,7 +218,12 @@ public class AuthorizationEnforcementTests
             // public ([AllowAnonymous], Directory SSR + KhachLink đọc entry-point toggles);
             // PUT is method-level [Authorize(Policy="SystemAdmin")]. Same mixed-auth pattern
             // as MembershipApplicationsController.
-            "PlatformOnboardingFlagsController"
+            "PlatformOnboardingFlagsController",
+            // Onboarding P6 (2026-11-11): OcrAssistController — anonymous OCR cloud-assist
+            // surface ([AllowAnonymous] + "ocr-assist" rate-limit 20/h/IP + request size limit
+            // + ImageUrl host allowlist chống SSRF — không log PII ảnh). Same pattern as
+            // PublicBookingController.
+            "OcrAssistController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

@@ -235,7 +235,8 @@ public sealed record MerchantSignupSubmitOutcome(bool Success, string? Message, 
 /// <summary>Status lookup (mirror SignupStatusResult): Pending | Active | Rejected | NotFound.</summary>
 public sealed record SignupStatusInfo(string Status, string? Slug, string? Message);
 
-/// <summary>P6 OCR cloud-assist response (contract dự kiến — tolerant merge ở wizard).</summary>
+/// <summary>P6 OCR cloud-assist response (contract dự kiến — tolerant merge ở wizard).
+    /// P6 (2026-11-11): +Phone (biển hiệu — Gemini structured).</summary>
 public sealed record OcrAssistResultInfo(
     string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
-    string? SignName, List<OcrProductLineInput>? ProductLines, double? Confidence);
+    string? SignName, string? Phone, List<OcrProductLineInput>? ProductLines, double? Confidence);

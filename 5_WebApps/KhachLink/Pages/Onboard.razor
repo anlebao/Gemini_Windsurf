@@ -487,6 +487,8 @@
     private double _signNameConf;
     private readonly List<ProductRow> _productRows = [];
     private readonly List<OnboardPhoto> _photos = [];
+    // P6: thumbnail URL theo kind (upload song song từ JS — album review nhanh).
+    private readonly Dictionary<string, string> _thumbUrlByKind = new();
     private double? _lat, _lng;
     private double _accuracy;
     private double? _lastMapLat, _lastMapLng;
@@ -545,7 +547,7 @@
         string? Mst, string? Name, string? Address, string? LegalForm, string? Owner,
         Dictionary<string, double>? Confidence, List<string>? Warnings);
 
-    private sealed record SignOcrResult(string? Value, double Confidence);
+    private sealed record SignOcrResult(string? Value, string? Address, string? Phone, double Confidence);
 
     private sealed record MenuOcrResult(List<MenuProductLine>? ProductLines, List<string>? Warnings);
 
@@ -898,9 +900,10 @@
         return Task.CompletedTask;
     }
 
-    /// <summary>JS gửi bytes ảnh (file input hoặc camera) → upload R2 folder "onboarding".</summary>
+    /// <summary>JS gửi bytes ảnh (file input hoặc camera) → upload R2 folder "onboarding".
+    /// P6: thumb=true → thumbnail JPEG (onboarding-thumbs/{kind}/...) cho album review nhanh.</summary>
     [JSInvokable]
-    public async Task OnPhotoFile(string kind, byte[] bytes, string fileName, string contentType)
+    public async Task OnPhotoFile(string kind, byte[] bytes, string fileName, string contentType, bool thumb = false)
     {
         if (bytes is null || bytes.Length == 0) return;
         _isUploadingPhotos = true;
@@ -908,11 +911,15 @@
         {
             var outcome = await ImageUpload.UploadImageBytesAsync(
                 bytes, string.IsNullOrWhiteSpace(fileName) ? "photo.jpg" : fileName,
-                "onboarding", contentType);
+                "onboarding", contentType, kind, thumb);
             if (outcome.Success && !string.IsNullOrEmpty(outcome.Url))
             {
+                if (thumb)
+                {
+                    _thumbUrlByKind[kind] = outcome.Url;
+                }
                 // Dedupe theo URL (ảnh chụp lại cùng nội dung vẫn có URL khác — giữ cả 2, sysadmin xem được)
-                if (!_photos.Any(p => p.Url == outcome.Url))
+                else if (!_photos.Any(p => p.Url == outcome.Url))
                 {
                     _photos.Add(new OnboardPhoto { Kind = kind, Url = outcome.Url, FileName = fileName });
                     _photoUrlByKind[kind] = outcome.Url;
@@ -974,6 +981,11 @@
                         if (string.IsNullOrWhiteSpace(_tenantName) && _case != MerchantSignupCase.CompanyWithLicense)
                             _tenantName = r.Value;
                     }
+                    // P6: prefill địa chỉ + SĐT từ biển hiệu (chỉ khi chưa nhập — không ghi đè user)
+                    if (!string.IsNullOrWhiteSpace(r?.Address) && string.IsNullOrWhiteSpace(_address))
+                        _address = r.Address;
+                    if (!string.IsNullOrWhiteSpace(r?.Phone) && string.IsNullOrWhiteSpace(_contactPhone))
+                        _contactPhone = r.Phone;
                     MaybeShowCloudOcr(r?.Confidence ?? 0);
                     break;
                 }
@@ -1057,6 +1069,9 @@
             if (!string.IsNullOrWhiteSpace(result.Address)) _address = result.Address;
             if (!string.IsNullOrWhiteSpace(result.LegalForm)) _gpdkLegalForm = result.LegalForm;
             if (!string.IsNullOrWhiteSpace(result.SignName)) _signName = result.SignName;
+            // P6: phone từ biển hiệu (Gemini structured) → prefill SĐT liên hệ nếu trống
+            if (!string.IsNullOrWhiteSpace(result.Phone) && string.IsNullOrWhiteSpace(_contactPhone))
+                _contactPhone = result.Phone;
             ShowAlert("Đã nhận diện nâng cao — kiểm tra lại các trường.", "success");
         }
         finally

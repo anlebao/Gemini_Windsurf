@@ -977,22 +977,30 @@
                     }
                 </div>
 
-                @* Ảnh giấy tờ (presigned — có thể hết hạn) *@
+                @* Ảnh giấy tờ (presigned — có thể hết hạn). P6: album phân loại theo kind + thumbnail nhanh. *@
                 @if (ss?.PhotoUrls is { Count: > 0 })
                 {
-                    <h6>Ảnh giấy tờ / biển hiệu (@ss.PhotoUrls.Count)</h6>
+                    var classified = ss.PhotoUrls.Select(u => ClassifyPhoto(u)).ToList();
+                    <h6>Ảnh hồ sơ (@ss.PhotoUrls.Count)</h6>
                     @if (ss.SubmittedAt < DateTime.UtcNow.AddDays(-6))
                     {
                         <VanAAlert Variant="warning" Message="Ảnh đã gửi hơn 6 ngày — link có thể hết hạn, yêu cầu merchant gửi lại nếu không xem được." Dismissible="false" />
                     }
-                    <div class="signup-photo-gallery">
-                        @foreach (var url in ss.PhotoUrls)
-                        {
-                            <a href="@url" target="_blank" rel="noopener">
-                                <img src="@url" alt="Ảnh hồ sơ" class="signup-photo-thumb" loading="lazy" />
-                            </a>
-                        }
-                    </div>
+                    @foreach (var group in classified.GroupBy(p => p.Kind)
+                        .OrderBy(g => Array.IndexOf(new[] { "gpdk", "sign", "menu", "Khác" }, g.Key)))
+                    {
+                        <div class="signup-album-group">
+                            <div class="signup-album-title">@KindLabel(group.Key) (@group.Count())</div>
+                            <div class="signup-photo-gallery">
+                                @foreach (var photo in group)
+                                {
+                                    <a href="@photo.Url" target="_blank" rel="noopener" title="Xem ảnh gốc">
+                                        <img src="@photo.ThumbUrl" alt="@KindLabel(photo.Kind)" class="signup-photo-thumb" loading="lazy" onerror="this.onerror=null;this.src='@photo.Url';" />
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
                 }
 
                 @* Thông tin tenant + liên hệ *@
@@ -1276,6 +1284,8 @@
         border: 1px solid #e5e7eb; display: block;
     }
     .signup-photo-thumb:hover { border-color: #2563eb; }
+    .signup-album-group { margin-bottom: 0.5rem; }
+    .signup-album-title { font-size: 0.8rem; font-weight: 600; color: #6b7280; margin-bottom: 0.3rem; text-transform: uppercase; }
 </style>
 
 @* 2026-10-02 (Luồng 1 — user directive): tenant → HTX — modal upload tài liệu tùy chọn *@
@@ -1982,6 +1992,29 @@
         "SmallShopNoLicense" => "Case B — Shop nhỏ",
         "StreetVendorUnregistered" => "Case Rong — Bán rong",
         _ => signupCase ?? "Self-serve"
+    };
+
+    private sealed record ClassifiedPhoto(string Url, string Kind, string ThumbUrl);
+
+    /// <summary>P6: parse kind + derive thumbnail URL từ presigned R2 URL (onboarding/{kind}/{guid}.{ext}).
+    /// Legacy URL (không kind) → nhóm "Khác", thumb = chính URL gốc.</summary>
+    private static ClassifiedPhoto ClassifyPhoto(string url)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(url,
+            @"/onboarding/(gpdk|sign|menu|doc)/[^/]+\.(?:jpg|jpeg|png|webp)(?=\?|$)");
+        if (!m.Success) return new ClassifiedPhoto(url, "Khác", url);
+        var kind = m.Groups[1].Value;
+        var thumb = url.Replace("/onboarding/", "/onboarding-thumbs/");
+        thumb = System.Text.RegularExpressions.Regex.Replace(thumb, @"\.(?:jpg|jpeg|png|webp)(?=\?|$)", ".jpg");
+        return new ClassifiedPhoto(url, kind, thumb);
+    }
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "gpdk" => "Giấy phép kinh doanh",
+        "sign" => "Biển hiệu",
+        "menu" => "Menu",
+        _ => "Khác"
     };
 
     private static string BusinessTypeText(BusinessType bt) => bt switch

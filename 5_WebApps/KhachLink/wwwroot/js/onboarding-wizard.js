@@ -18,16 +18,43 @@ window.vananOnboardingWizard = (function () {
         window.__ocrDotNetRef = ref;
     }
 
-    /** Gửi bytes ảnh về Blazor để upload R2 — fire-and-forget, lỗi không chặn OCR. */
+    /** Gửi bytes ảnh về Blazor để upload R2 — fire-and-forget, lỗi không chặn OCR.
+     *  P6 (2026-11-11): upload kèm thumbnail 320px JPEG (canvas client-side — 0 chi phí server)
+     *  → review sysadmin load nhanh, tiết kiệm mobile data/R2 egress. */
     async function _sendPhotoBytes(file, kind) {
         try {
             if (!file || !_dotNetRef) return;
             const buf = await file.arrayBuffer();
             const bytes = new Uint8Array(buf);
             await _dotNetRef.invokeMethodAsync('OnPhotoFile', kind, bytes, file.name || 'photo.jpg', file.type || 'image/jpeg');
+            try {
+                const thumb = await makeThumbnailBytes(file);
+                if (thumb && thumb.length > 0) {
+                    await _dotNetRef.invokeMethodAsync('OnPhotoFile', kind, thumb, 'thumb.jpg', 'image/jpeg', true);
+                }
+            } catch (e) {
+                console.warn('[OnboardingWizard] thumbnail fail:', e);
+            }
         } catch (e) {
             console.warn('[OnboardingWizard] photo bytes notify fail:', e);
         }
+    }
+
+    /** Resize ảnh → JPEG 320px (max edge) → Uint8Array. Dùng canvas, không phụ thuộc server. */
+    async function makeThumbnailBytes(file) {
+        const canvas = await window.vananOnboardingOcr.fileToCanvas(file);
+        const maxDim = 320;
+        const scale = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+        const w = Math.max(1, Math.round(canvas.width * scale));
+        const h = Math.max(1, Math.round(canvas.height * scale));
+        const out = document.createElement('canvas');
+        out.width = w;
+        out.height = h;
+        out.getContext('2d').drawImage(canvas, 0, 0, w, h);
+        const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/jpeg', 0.8));
+        if (!blob) return null;
+        const thumbBuf = await blob.arrayBuffer();
+        return new Uint8Array(thumbBuf);
     }
 
     /** Đọc 1 ảnh (file input) → gọi vananOnboardingOcr.<method>(file) → trả kết quả về Blazor.

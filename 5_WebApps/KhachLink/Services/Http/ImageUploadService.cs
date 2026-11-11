@@ -105,13 +105,16 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
     /// <param name="filename">Tên file (VD: "signature.png").</param>
     /// <param name="folder">Cloudinary folder (VD: "membership-signatures").</param>
     public Task<ImageUploadOutcome> UploadBytesAsync(byte[] bytes, string filename, string folder, CancellationToken ct = default)
-        => UploadImageBytesAsync(bytes, filename, folder, "image/png", ct);
+        => UploadImageBytesAsync(bytes, filename, folder, "image/png", ct: ct);
 
     /// <summary>
     /// Self-serve onboarding (P1 — 2026-11-09): upload ảnh chụp camera (JPEG) hoặc file input
     /// với content-type thật — JS gửi bytes qua OnPhotoFile → service này → folder "onboarding".
+    /// P6 (2026-11-11): kind (gpdk|sign|menu|doc) → key R2 onboarding/{kind}/... (album phân loại);
+    /// thumb=true → thumbnail JPEG → onboarding-thumbs/{kind}/...
     /// </summary>
-    public async Task<ImageUploadOutcome> UploadImageBytesAsync(byte[] bytes, string filename, string folder, string contentType, CancellationToken ct = default)
+    public async Task<ImageUploadOutcome> UploadImageBytesAsync(byte[] bytes, string filename, string folder,
+        string contentType, string? kind = null, bool thumb = false, CancellationToken ct = default)
     {
         if (bytes is null || bytes.Length == 0)
             return ImageUploadOutcome.Failed("Không có dữ liệu ảnh.");
@@ -126,7 +129,11 @@ public class ImageUploadService(IHttpClientFactory httpClientFactory, ILogger<Im
                 string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType);
             form.Add(fileContent, "file", filename);
 
-            var response = await _httpClient.PostAsync($"api/v1/images/upload?folder={folder}", form, ct);
+            var query = $"api/v1/images/upload?folder={folder}";
+            if (!string.IsNullOrWhiteSpace(kind)) query += $"&kind={Uri.EscapeDataString(kind)}";
+            if (thumb) query += "&thumb=true";
+
+            var response = await _httpClient.PostAsync(query, form, ct);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 return ImageUploadOutcome.Failed("Bạn đã upload quá nhiều lần. Vui lòng thử lại sau 1 giờ.");
