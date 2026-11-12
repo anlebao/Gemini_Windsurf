@@ -161,7 +161,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
 
-> **Last Updated:** 2026-11-12 · **Branch:** `main` @ `f8dd60e5` (Voice: S1→S9 deployed · chat-first E2E 7/7 PASS cả 2 chiều CONNECTED)
+> **Last Updated:** 2026-11-12 · **Branch:** `main` @ `47d3a29c` (Voice: S1→S10 deployed · participant-on-view fix · E2E 7/7 PASS với owner account thật)
 
 
 
@@ -172,6 +172,9 @@ Server A (Edge):              Server B (Central):
 
 
 * **2026-11-12 (session 5) — VOICE CHAT-FIRST CALL: root-cause chain S6→S9 fixed + deployed + E2E RV PASS 7/7.** Runtime verification trên VPS (theo user directive): (1) `535a1712` — `VoiceCallPanel` truyền `CurrentUserId` làm target → mọi call `SELF_CALL` deny, `voice.db` trống 11h; (2) `dabc11e4` — hub reject `TargetUserId==Empty` dù chat-first luôn gửi empty → allow khi có context; (3) `e211ce3d` structured logging dọc StartCall; (4) `d53fd862` counterpart resolver trả candidate list → `PermissionService` chọn first reachable+not-busy (fix OFFLINE khi staff được resolve đã disconnect); (5) `734e285b` ORDER BY += most-recent `Messages.SentAt` per participant — 'gọi cho người đang chat' (user requirement: staff chat nhiều buyer phải biết đang gọi ai). **E2E prod:** mint customer token bằng DataProtection local (key ring `/app/keys` + app `VanAnShopERP` + purpose `CustomerToken.v1` — `/me` 200) + staff JWT → `voice-chat-e2e.mjs` (`f8dd60e5`): customer→staff resolve `bd144983` (most-recent speaker) RINGING→accept→negotiating→**CONNECTED**→ended; staff→customer tương tự — voice.db xác nhận `call.connected` + DurationSeconds cả 2. Node 15/15 · voice 85/85 · builds 0 err.
+
+
+* **2026-11-12 (session 6) — VOICE: root cause cuối = staff viewing ≠ participant → fix `47d3a29c` + E2E PASS với owner account thật.** User manual test fail → trace log: customer calls tới hub bình thường, resolve đúng `bd144983` (most-recent speaker) nhưng **0 voice connections** — owner side KHÔNG BAO GIỜ là participant của conversation (chỉ staff ĐÃ GỬI MESSAGE mới thành participant qua `SendMessage` → `EnsureParticipantAsync`). Các staff connect voice trong khung giờ test (`4f089dc1`/`54f27c4d`/`e97ec78f`/`8eced545`) đều không thuộc conversation; owner account `5d23ffc3` không có row participant. **Fix:** `RealtimeController.GetConversation` += `EnsureParticipantAsync` cho Shop+Staff khi mở thread (idempotent, sau authorize) — 'ai đang xem chat thì gọi được cho người đó'. Verify prod: GET history với JWT `5d23ffc3` → row participant tạo ngay trong PG → `voice-chat-e2e.mjs` với `VOICE_STAFF_ID=5d23ffc3` **7/7 PASS** (customer→owner CONNECTED + owner→customer CONNECTED). Realtime tests 75/75 · Gateway build 0 err · CD `43263014835` SUCCESS (Deploy Gateway VPS).
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS 34/34)
 
