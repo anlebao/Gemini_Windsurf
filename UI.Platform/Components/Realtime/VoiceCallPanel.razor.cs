@@ -41,8 +41,19 @@ public partial class VoiceCallPanel : IAsyncDisposable
     /// </summary>
     [Parameter] public bool ShowWalletLink { get; set; }
 
+    /// <summary>
+    /// S3 (2026-11-12): notifies the host of the voice hub transport state
+    /// ('connecting' | 'connected' | 'disconnected' | 'reconnecting') so a header call
+    /// button can mirror the same readiness.
+    /// </summary>
+    [Parameter] public EventCallback<string> HubStateChanged { get; set; }
+
+    /// <summary>S3: notifies the host of call-state changes (for header button busy state).</summary>
+    [Parameter] public EventCallback<string> CallStateChanged { get; set; }
+
     private DotNetObjectReference<VoiceCallPanel>? _ref;
     private string _state = "idle";
+    private string _hubState = "connecting";
     private bool _muted;
     private bool _missed;
     private string? _error;
@@ -52,7 +63,18 @@ public partial class VoiceCallPanel : IAsyncDisposable
     private bool _idleLike => _state is "idle" or "ended" or "rejected" or "cancelled" or "missed"
         or "busy" or "offline" or "collision" or "failed";
 
-    private bool _canCall => !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty && _state == "idle";
+    private bool _canCall => !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty
+        && _state == "idle" && _hubState == "connected";
+
+    // S5 (2026-11-12): guests have no customer token — button stays visible but disabled
+    // with a login hint instead of failing on click.
+    private bool HubConnecting => _hubState == "connecting";
+
+    private string CallButtonTitle =>
+        string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty ? "Đăng nhập để gọi thoại"
+        : _hubState == "connecting" ? "Đang kết nối máy chủ cuộc gọi..."
+        : _hubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
+        : "Gọi thoại";
 
     private bool _active => _state is "accepted" or "negotiating" or "connected" or "reconnecting";
 
@@ -68,6 +90,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
     protected override async Task OnInitializedAsync()
     {
         if (!Enabled) return;
+        _hubState = "connecting";
         try
         {
             _ref = DotNetObjectReference.Create(this);
@@ -81,6 +104,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            _hubState = "disconnected";
             _error = "Không khởi tạo được gọi thoại: " + ex.Message;
         }
     }
@@ -94,8 +118,20 @@ public partial class VoiceCallPanel : IAsyncDisposable
         StateHasChanged();
     }
 
-    private async Task StartCallAsync()
+    // Public so the chat header button (S4) can trigger the same single SDK instance.
+    public async Task StartCallAsync()
     {
+        // S3: never invoke StartCall while the hub is not Connected — the server round-trip
+        // would throw the raw SignalR error and mask the real connection problem.
+        if (_hubState != "connected")
+        {
+            _error = _hubState == "connecting"
+                ? "Đang kết nối máy chủ cuộc gọi, vui lòng thử lại trong giây lát."
+                : "Không kết nối được máy chủ cuộc gọi.";
+            StateHasChanged();
+            return;
+        }
+        if (!_canCall) return;
         _error = null;
         try
         {
@@ -152,6 +188,20 @@ public partial class VoiceCallPanel : IAsyncDisposable
         // RING_TIMEOUT — KHÔNG cho các lần start thất bại (denied/disabled/busy/offline).
         if (state == "missed" || (state == "ended" && reason == "RING_TIMEOUT"))
             _missed = true;
+        _ = CallStateChanged.InvokeAsync(state);
+        StateHasChanged();
+    }
+
+    /// <summary>S3: hub transport state from voice-sdk.js via voice-chat.js.</summary>
+    [JSInvokable]
+    public void OnVoiceConnectionState(string hubState)
+    {
+        _hubState = string.IsNullOrWhiteSpace(hubState) ? "disconnected" : hubState;
+        // Keep the root-cause init error if present (??=) — only add a hint when the
+        // connection drops mid-session while idle.
+        if (_hubState == "disconnected" && _state == "idle")
+            _error ??= "Mất kết nối máy chủ cuộc gọi — tải lại trang để thử lại.";
+        _ = HubStateChanged.InvokeAsync(_hubState);
         StateHasChanged();
     }
 

@@ -23,6 +23,17 @@
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> @(HeaderTitle ?? "Chat với khách hàng")</h6>
             <div class="d-flex align-items-center gap-2">
+                @* VOICE SERVICE S4 (2026-11-12): icon gọi nổi bật ngay chat header —
+                   chỉ enable khi hub Connected + đã đăng nhập + đang idle (S3/S5). *@
+                @if (VoiceCallEnabled)
+                {
+                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                 OnClick="StartVoiceCallAsync" Disabled="!VoiceCallReady"
+                                 title="@VoiceCallTitle" aria-label="Gọi thoại"
+                                 data-testid="voice-call-header-btn">
+                        <i class="bi bi-telephone"></i>
+                    </VanAnButton>
+                }
                 @* P6 manual-test: nút làm mới nội dung chat thủ công.
                    Dùng param Disabled (PascalCase) — lowercase `disabled` qua unmatched
                    attributes va chạm với disabled nội bộ của VanAnButton → render crash. *@
@@ -147,14 +158,16 @@
         @* VOICE SERVICE P4: one-to-one call inside the chat (customer ↔ merchant) — host opt-in. *@
         @if (VoiceCallEnabled)
         {
-            <VoiceCallPanel Enabled="true"
+            <VoiceCallPanel @ref="_voicePanel" Enabled="true"
                             SubjectType="SubjectType"
                             SubjectId="SubjectId"
                             CurrentUserId="CurrentUserId"
                             Token="(IsStaff ? StaffToken : CustomerToken)"
                             VoiceHubUrl="VoiceHubUrl"
                             VoiceServiceUrl="VoiceServiceUrl"
-                            ShowWalletLink="IsStaff" />
+                            ShowWalletLink="IsStaff"
+                            HubStateChanged="OnVoiceHubStateChanged"
+                            CallStateChanged="OnVoiceCallStateChanged" />
         }
     </VanAnCard>
 </div>
@@ -213,6 +226,31 @@
     private bool _listening;
     private string? _voiceError;
     private DotNetObjectReference<RealtimeChatPanel>? _voiceRef;
+    // VOICE SERVICE S3/S4 (2026-11-12): header call button mirrors the panel's hub/call state.
+    private VoiceCallPanel? _voicePanel;
+    private string _voiceHubState = "connecting";
+    private string _voiceCallState = "idle";
+
+    // Guests (device id only, no customer token / staff JWT) cannot call — S5 Option 1.
+    private bool VoiceCallIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken);
+
+    private bool VoiceCallReady => VoiceCallEnabled && VoiceCallIdentity
+        && _voiceHubState == "connected" && _voiceCallState == "idle";
+
+    private string VoiceCallTitle =>
+        !VoiceCallIdentity ? "Đăng nhập để gọi thoại"
+        : _voiceHubState == "connecting" ? "Đang kết nối máy chủ cuộc gọi..."
+        : _voiceHubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
+        : _voiceCallState != "idle" ? "Đang trong cuộc gọi"
+        : "Gọi thoại";
+
+    private void OnVoiceHubStateChanged(string state) => _voiceHubState = state;
+    private void OnVoiceCallStateChanged(string state) => _voiceCallState = state;
+
+    private async Task StartVoiceCallAsync()
+    {
+        if (_voicePanel is not null) await _voicePanel.StartCallAsync();
+    }
 
     private string GroupName => $"msg_{SubjectType}_{SubjectId}";
 

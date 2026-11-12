@@ -1,4 +1,3 @@
-// SYNC: bản copy từ 10_Voice/vanan-voice/sdk/js/ (canonical) — giữ đồng bộ khi sửa SDK.
 // VOICE SERVICE P2 (2026-11-11): reusable one-to-one voice SDK — the "reusable frontend
 // abstraction" of SRS v1.1 §9.1. Any host app (Blazor WASM/Server/SSR) includes:
 //   1. vendor/signalr.min.js   (@microsoft/signalr 8.x browser bundle)
@@ -39,6 +38,10 @@ window.vananVoice = (function () {
     let muted = false;
     let iceRestartCount = 0;
     let remoteStream = null;
+    // S3 (2026-11-12): hub transport state — the call button stays disabled until the
+    // SignalR connection is actually Connected; invoking earlier throws
+    // "Cannot send data if the connection is not in the 'Connected' State".
+    let hubState = 'disconnected';
     let timeoutConfig = { ringTimeoutSeconds: 30, negotiationTimeoutSeconds: 20, iceTimeoutSeconds: 15, maxDurationMinutes: 120 };
     const timers = { ring: null, negotiate: null, reconnect: null };
 
@@ -83,6 +86,12 @@ window.vananVoice = (function () {
 
     function emitError(message) {
         if (options && options.onError) options.onError(message);
+    }
+
+    function emitHubState(next) {
+        if (hubState === next) return;
+        hubState = next;
+        if (options && options.onConnectionStateChange) options.onConnectionStateChange(next);
     }
 
     async function prepareMedia() {
@@ -280,7 +289,19 @@ window.vananVoice = (function () {
         connection.on('CallEnded', d => finishTerminal(STATES.Ended, d));
         connection.on('CallFailed', d => finishTerminal(STATES.Failed, d));
 
-        await connection.start();
+        // Transport state → host UI. Injected/mock connections may lack these.
+        if (typeof connection.onreconnecting === 'function') connection.onreconnecting(() => emitHubState('reconnecting'));
+        if (typeof connection.onreconnected === 'function') connection.onreconnected(() => emitHubState('connected'));
+        if (typeof connection.onclose === 'function') connection.onclose(() => emitHubState('disconnected'));
+
+        emitHubState('connecting');
+        try {
+            await connection.start();
+        } catch (ex) {
+            emitHubState('disconnected');
+            throw ex;
+        }
+        emitHubState('connected');
         state = STATES.Idle;
         if (options.onStateChange) options.onStateChange(STATES.Idle, {});
         return this;
@@ -289,6 +310,7 @@ window.vananVoice = (function () {
     // Outgoing call. contextType/contextReferenceId are optional verified business context.
     async function startCall(targetUserId, context) {
         if (state !== STATES.Idle) throw new Error('Đang có cuộc gọi khác.');
+        if (hubState !== 'connected') throw new Error('Mất kết nối máy chủ cuộc gọi.');
         callId = newCallId();
         isCaller = true;
         acceptedLocally = false;
@@ -371,7 +393,11 @@ window.vananVoice = (function () {
     }
 
     function getCallState() {
-        return { state, callId, muted, iceRestartCount, isCaller };
+        return { state, callId, muted, iceRestartCount, isCaller, connectionState: hubState };
+    }
+
+    function getConnectionState() {
+        return hubState;
     }
 
     async function dispose() {
@@ -379,11 +405,12 @@ window.vananVoice = (function () {
         if (connection) { try { await connection.stop(); } catch (_) { /* best effort */ } }
         teardownMedia();
         state = STATES.Idle;
+        emitHubState('disconnected');
     }
 
     return {
         initialize, startCall, acceptCall, rejectCall, cancelCall, endCall,
-        mute, unmute, getCallState, dispose,
+        mute, unmute, getCallState, getConnectionState, dispose,
         // test hooks
         _states: STATES
     };

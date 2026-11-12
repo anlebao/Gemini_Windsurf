@@ -25,6 +25,8 @@ window.vananVoiceChat = (function () {
             token: options.token || null,
             turnCredentialsUrl: serviceUrl ? serviceUrl + '/v1/turn/credentials' : null,
             onStateChange: (s, info) => dotNetRef.invokeMethodAsync('OnVoiceStateChange', s, JSON.stringify(info || {})),
+            // S3 (2026-11-12): hub transport state — host disables the call button until Connected.
+            onConnectionStateChange: (s) => dotNetRef.invokeMethodAsync('OnVoiceConnectionState', s || ''),
             onIncoming: (call) => dotNetRef.invokeMethodAsync('OnVoiceIncoming', JSON.stringify(call || {})),
             onLocalStream: () => dotNetRef.invokeMethodAsync('OnVoiceLocalStream'),
             onRemoteStream: () => dotNetRef.invokeMethodAsync('OnVoiceRemoteStream'),
@@ -46,6 +48,7 @@ window.vananVoiceChat = (function () {
     function mute() { return voice.mute(); }
     function unmute() { return voice.unmute(); }
     function getState() { return voice.getCallState(); }
+    function getConnectionState() { return voice ? voice.getConnectionState() : 'disconnected'; }
 
     // FR-014: callee reads its own missed-call events on next app open.
     async function fetchMissedCalls(serviceUrl, userId, token) {
@@ -65,6 +68,6 @@ window.vananVoiceChat = (function () {
 
     return {
         initialize, startCall, acceptCall, rejectCall, endCall,
-        mute, unmute, getState, fetchMissedCalls, dispose
+        mute, unmute, getState, getConnectionState, fetchMissedCalls, dispose
     };
 })();

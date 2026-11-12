@@ -1,6 +1,6 @@
 # Voice Call Button — Investigation & Findings (2026-11-12)
 
-**Status:** REVIEW — chờ duyệt solution trước khi implement/commit.
+**Status:** ✅ APPROVED + IMPLEMENTED (2026-11-12) — user duyệt toàn bộ khuyến nghị: S3 + S4-A (chat header icon) + S5 Option 1 (guest disabled + tooltip). Đã implement: `voice-sdk.js` (hubState + `onConnectionStateChange` + `getConnectionState`, guard `startCall` khi chưa Connected — sync cả 2 bản `10_Voice/sdk` + `UI.Platform/wwwroot`) · `voice-chat.js` bridge `OnVoiceConnectionState` · `VoiceCallPanel` (`_hubState`, nút "Đang kết nối..." disabled tới khi Connected, không ghi đè init error, `CallButtonTitle` tooltip) · `RealtimeChatPanel` header icon `voice-call-header-btn` (mirror hub/call state qua `HubStateChanged`/`CallStateChanged` callbacks + `@ref`). Verify: voice tests 85/85 · node 18/18 · VanAn.sln build 0 err · guard-check PASS. **Còn lại:** commit + push + CD deploy + RV call thật 2 phía (bước 4 §4).
 **Phạm vi:** nút "Gọi thoại" trong chat (KhachLink buyer + ShopERP owner inbox).
 **Tenant test:** An Tâm (`e2d91cdf-d3c4-4399-b96e-e772a7a41630`), storefront `diemthuong2.khachvip.online`.
 
@@ -71,22 +71,19 @@ Customer path gãy ở **2 lớp độc lập** (cả 2 đều phải fix):
 **Đã sửa sẵn trong working tree (CHƯA commit):**
 - `.github/workflows/cd-multivps.yml` job deploy-voice: `"Voice__ShopErpBaseUrl=https://api2.khachvip.online"`.
 
-### S3 — UX: chỉ enable nút khi sẵn sàng kết nối (yêu cầu mới)
-Hiện `_canCall = Token != null && UserId != Empty && state == "idle"` — **không hề biết hub đã connect chưa**. Đề xuất:
-- `voice-sdk.js`: expose trạng thái connection (`getConnectionState()` → 'connecting'|'connected'|'disconnected'|'reconnecting') + callback `onConnectionStateChange` (SignalR `onreconnecting/onreconnected/onclose`).
-- `voice-chat.js` + `VoiceCallPanel`: thêm state `connecting` — nút hiển thị "Đang kết nối..." disabled cho tới khi hub `Connected`; nếu connect fail → hiện lỗi rõ ("Không kết nối được máy chủ cuộc gọi") thay vì nút sáng nhưng bấm lỗi.
-- `VoiceCallPanel`: không để `_error` init bị ghi đè — ưu tiên hiển thị lỗi kết nối.
+### S3 — UX: chỉ enable nút khi sẵn sàng kết nối (yêu cầu mới) — ✅ DONE
+- `voice-sdk.js`: `hubState` ('disconnected'|'connecting'|'connected'|'reconnecting') + `onConnectionStateChange` callback (SignalR `onreconnecting/onreconnected/onclose`) + `getConnectionState()`; `startCall` guard `hubState !== 'connected'` → throw "Mất kết nối máy chủ cuộc gọi."
+- `voice-chat.js`: forward `OnVoiceConnectionState` → .NET + export `getConnectionState`.
+- `VoiceCallPanel`: `_hubState` + `_canCall` yêu cầu `connected`; nút hiển thị "Đang kết nối..." disabled; disconnect giữa session → "Mất kết nối máy chủ cuộc gọi — tải lại trang để thử lại." (`_error ??=` giữ root-cause init error); `StartCallAsync` public + guard sớm không ghi đè `_error`.
 
-### S4 — Vị trí nút gọi nổi bật (yêu cầu mới)
-Đề xuất 2 vị trí (chọn 1 hoặc cả 2):
-- **A. Chat header** — icon điện thoại nhỏ ngay cạnh tiêu đề conversation trong `RealtimeChatPanel` (top-right). Nhìn thấy ngay khi mở chat, không phải scroll xuống cuối.
-- **B. Floating action button** — nút tròn nổi góc chat panel (chỉ khi `VoiceCallEnabled` + idle). Phù hợp mobile.
-- Giữ nguyên panel dưới cùng cho incoming/active states (overlay đã có).
-- Lưu ý UI Platform rule: dùng `VanAnButton`/tokens, không custom HTML/CSS bypass.
+### S4 — Vị trí nút gọi nổi bật (yêu cầu mới) — ✅ DONE (chọn A: chat header)
+- Icon điện thoại nhỏ `voice-call-header-btn` trong header `RealtimeChatPanel` (top-right, cạnh nút refresh) — hiện cả KhachLink (Store/ChatPanel shim/OrderTracking/DeliveryTracking) lẫn ShopERP ShopInbox vì cùng 1 component.
+- Disabled tới khi `hubState==connected` + `callState==idle` + có identity; tooltip phân biệt: "Đăng nhập để gọi thoại" / "Đang kết nối máy chủ cuộc gọi..." / "Không kết nối được máy chủ cuộc gọi" / "Đang trong cuộc gọi".
+- Click → `_voicePanel.StartCallAsync()` qua `@ref` (single SDK instance); state sync qua `HubStateChanged`/`CallStateChanged` EventCallback.
+- Panel dưới cùng giữ nguyên cho incoming/active states. Dùng `VanAnButton` + Bootstrap icons — không custom HTML/CSS bypass.
 
-### S5 — Policy guest call (quyết định cần user chốt)
-- Option 1 (khuyến nghị pilot): guest không gọi được — nút ẩn/disabled + tooltip "Đăng nhập để gọi thoại". Đơn giản, an toàn.
-- Option 2: voice service hỗ trợ guest identity qua `X-Customer-Device-Id` → cần validator mới + server mapping device→customer — scope lớn hơn, để phase sau.
+### S5 — Policy guest call — ✅ DONE (Option 1)
+Guest (chỉ `CustomerDeviceId`, không token) → nút disabled + `title="Đăng nhập để gọi thoại"` ở cả header lẫn panel. Guest identity channel (`X-Customer-Device-Id`) để phase sau nếu cần.
 
 ### S6 — CORS mở rộng (khi rollout P6)
 Thêm origin cho mọi tenant domain pilot vào `Voice__CorsOrigins` (hiện hardcode 2 domain trong workflow — cân nhắc chuyển sang biến/secrets khi số tenant tăng).

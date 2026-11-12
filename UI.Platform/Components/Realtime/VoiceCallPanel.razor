@@ -10,10 +10,13 @@
     <div class="voice-call-panel" data-testid="voice-call-panel">
         @if (_idleLike)
         {
+            @* S3 (2026-11-12): nút chỉ enable khi hub đã Connected; S5: guest (không token)
+               thấy nút disabled + tooltip đăng nhập thay vì bấm rồi lỗi. *@
             <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
                          OnClick="StartCallAsync" Disabled="!_canCall" CssClass="voice-call-btn"
-                         aria-label="Gọi thoại">
-                <i class="bi bi-telephone"></i> Gọi thoại
+                         title="@CallButtonTitle" aria-label="Gọi thoại" data-testid="voice-call-btn">
+                <i class="bi @(HubConnecting ? "bi-arrow-repeat" : "bi-telephone")"></i>
+                @(HubConnecting ? "Đang kết nối..." : "Gọi thoại")
             </VanAnButton>
         }
 
