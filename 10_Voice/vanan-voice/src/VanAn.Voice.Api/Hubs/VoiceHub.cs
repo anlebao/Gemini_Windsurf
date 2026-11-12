@@ -49,7 +49,11 @@ public class VoiceHub(
     public async Task<StartCallResult> StartCall(StartCallRequest req)
     {
         var identity = RequireIdentity();
-        if (req == null || req.CallId == Guid.Empty || req.TargetUserId == Guid.Empty)
+        // Chat-first calls (P4) send targetUserId = Guid.Empty — the server resolves the
+        // conversation counterpart in PermissionService. Only reject when there is no
+        // context to resolve from; empty+context-less targets are denied downstream.
+        if (req == null || req.CallId == Guid.Empty
+            || (req.TargetUserId == Guid.Empty && (string.IsNullOrEmpty(req.ContextType) || string.IsNullOrEmpty(req.ContextReferenceId))))
             throw new HubException("Invalid StartCall payload.");
 
         if (!rateLimiter.TryAcquire($"startcall:{identity.UserId}", max: 10, window: TimeSpan.FromMinutes(1))

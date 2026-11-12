@@ -339,12 +339,22 @@ window.vananVoice = (function () {
         iceRestartCount = 0;
         setState(STATES.Calling, { callId, targetUserId });
 
-        const result = await connection.invoke('StartCall', {
-            callId,
-            targetUserId,
-            contextType: context ? context.contextType : null,
-            contextReferenceId: context ? context.contextReferenceId : null
-        });
+        let result;
+        try {
+            result = await connection.invoke('StartCall', {
+                callId,
+                targetUserId,
+                contextType: context ? context.contextType : null,
+                contextReferenceId: context ? context.contextReferenceId : null
+            });
+        } catch (ex) {
+            // Hub-level rejection (validation/rate-limit/transport) — never park in
+            // 'calling' forever; return to idle so the UI can retry (S6).
+            state = STATES.Idle;
+            emitError(ex && ex.message ? ex.message : String(ex));
+            if (options && options.onStateChange) options.onStateChange(STATES.Idle, {});
+            throw ex;
+        }
 
         // Server already resolved a terminal outcome (OFFLINE/BUSY/COLLISION/FAILED).
         if (result && result.status) {
