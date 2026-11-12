@@ -123,7 +123,9 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.Community_ShipperMinPoints,
             settings.Community_RequiredIdentityLevel,
             // C3 (2026-09-14): charity donation checkout step
-            settings.Charity_Donation_Enabled);
+            settings.Charity_Donation_Enabled,
+            // VOICE SERVICE P4: voice call toggle inside chat
+            settings.Voice_Call_Enabled);
 
         return entity;
     }
@@ -149,6 +151,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.QR_TableNumber_Enabled) => settings.QR_TableNumber_Enabled,
             nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled) => settings.Kitchen_Workflow_Enabled,
             nameof(ShopFeatureSettingsDto.Voice_Note_Enabled) => settings.Voice_Note_Enabled,
+            nameof(ShopFeatureSettingsDto.Voice_Call_Enabled) => settings.Voice_Call_Enabled,
             nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled) => settings.Loyalty_Program_Enabled,
             nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled) => settings.Accounting_Sync_Enabled,
             nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled) => settings.EInvoice_Auto_Export_Enabled,
@@ -250,6 +253,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         QR_TableNumber_Enabled = entity.QR_TableNumber_Enabled,
         Kitchen_Workflow_Enabled = entity.Kitchen_Workflow_Enabled,
         Voice_Note_Enabled = entity.Voice_Note_Enabled,
+        Voice_Call_Enabled = entity.Voice_Call_Enabled,
         Loyalty_Program_Enabled = entity.Loyalty_Program_Enabled,
         Accounting_Sync_Enabled = entity.Accounting_Sync_Enabled,
         EInvoice_Auto_Export_Enabled = entity.EInvoice_Auto_Export_Enabled,

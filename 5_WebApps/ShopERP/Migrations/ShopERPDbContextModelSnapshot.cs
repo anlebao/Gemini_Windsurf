@@ -359,6 +359,11 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<bool>("VibeShowcase_Section_Enabled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("Voice_Call_Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("Voice_Note_Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")

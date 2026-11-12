@@ -90,9 +90,24 @@
     }
     else
     {
-        @if (!string.IsNullOrEmpty(successMessage))
+        @if (_saveSucceeded)
         {
-            <VanAAlert Variant="success" Message="@successMessage" data-testid="alert-success" />
+            <VanAAlert Variant="success" Title="Đã lưu cấu hình" data-testid="alert-success">
+                @if (_savedChanges.Count == 0)
+                {
+                    <span>Không có thay đổi nào so với cấu hình trước đó.</span>
+                }
+                else
+                {
+                    <div>Đã thay đổi @_savedChanges.Count mục:</div>
+                    <ul class="mb-0 ps-3">
+                        @foreach (string change in _savedChanges)
+                        {
+                            <li>@change</li>
+                        }
+                    </ul>
+                }
+            </VanAAlert>
         }
         @if (!string.IsNullOrEmpty(errorMessage))
         {
@@ -577,9 +592,13 @@
 @code {
     private ShopFeatureSettingsDto settings = new();
     private bool loading = true;
-    private string? successMessage;
     private string? errorMessage;
     private bool _isSaving;
+    // Save-result notification: snapshot of last-loaded/saved state → diff shown to user.
+    private bool _saveSucceeded;
+    private List<string> _savedChanges = new();
+    private ShopFeatureSettingsDto? _savedSnapshot;
+    private (bool SmartEntry, bool SmartEntryLlm, bool TenantAi)? _savedOpsFlags;
     private bool _isSystemAdmin;
     private bool _impersonating;
     private List<TenantApiDto> _tenantList = [];
@@ -640,11 +659,13 @@
 
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.GetSettingsAsync(tenantId);
+            _savedSnapshot = settings with { };
 
             // G5/G2: ops-managed flags — SystemSetting "ShopFeature:{tenant}:{flag}"
             _smartEntryEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryEnabled");
             _smartEntryLlmEnabled = await SettingsService.IsEnabledAsync(tenantId, "SmartEntryLlmEnabled");
             _tenantAiEnabled = await SettingsService.IsEnabledAsync(tenantId, "TenantAiEnabled");
+            _savedOpsFlags = (_smartEntryEnabled, _smartEntryLlmEnabled, _tenantAiEnabled);
 
             // #185-4: read-only budget caps snapshot (set by SystemAdmin in /admin/loyalty-config)
             try
@@ -670,20 +691,35 @@
     private async Task SaveSettings()
     {
         _isSaving = true;
-        successMessage = null;
+        _saveSucceeded = false;
+        _savedChanges.Clear();
         errorMessage = null;
         try
         {
             Guid tenantId = TenantProvider.TenantId;
+            ShopFeatureSettingsDto before = _savedSnapshot ?? settings;
+            (bool SmartEntry, bool SmartEntryLlm, bool TenantAi) opsBefore =
+                _savedOpsFlags ?? (_smartEntryEnabled, _smartEntryLlmEnabled, _tenantAiEnabled);
+
             settings = await SettingsService.UpdateSettingsAsync(tenantId, settings);
             // G5/G2: ghi ops-managed flags (SystemSetting rows — giống flag bật bằng SQL trước đây)
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryEnabled", _smartEntryEnabled);
             await SettingsService.SetToggleAsync(tenantId, "SmartEntryLlmEnabled", _smartEntryLlmEnabled);
             await SettingsService.SetToggleAsync(tenantId, "TenantAiEnabled", _tenantAiEnabled);
+
+            _savedSnapshot = settings with { };
+            _savedOpsFlags = (_smartEntryEnabled, _smartEntryLlmEnabled, _tenantAiEnabled);
             _tenantAiSyncResult = null;
-            successMessage = "✅ Đã lưu cấu hình thành công.";
-            // Auto-dismiss success after 5s
-            _ = DismissSuccessAfterDelayAsync();
+
+            _savedChanges = DescribeChanges(before, settings);
+            if (_smartEntryEnabled != opsBefore.SmartEntry)
+                _savedChanges.Add($"Smart Entry: {(opsBefore.SmartEntry ? "Bật" : "Tắt")} → {(_smartEntryEnabled ? "Bật" : "Tắt")}");
+            if (_smartEntryLlmEnabled != opsBefore.SmartEntryLlm)
+                _savedChanges.Add($"Smart Entry (LLM): {(opsBefore.SmartEntryLlm ? "Bật" : "Tắt")} → {(_smartEntryLlmEnabled ? "Bật" : "Tắt")}");
+            if (_tenantAiEnabled != opsBefore.TenantAi)
+                _savedChanges.Add($"Tenant AI: {(opsBefore.TenantAi ? "Bật" : "Tắt")} → {(_tenantAiEnabled ? "Bật" : "Tắt")}");
+
+            _saveSucceeded = true;
         }
         catch (Exception ex)
         {
@@ -696,12 +732,68 @@
         }
     }
 
-    private async Task DismissSuccessAfterDelayAsync()
+    /// <summary>Diff 2 snapshots của ShopFeatureSettingsDto → mô tả thay đổi bằng tiếng Việt.</summary>
+    private static List<string> DescribeChanges(ShopFeatureSettingsDto before, ShopFeatureSettingsDto after)
     {
-        await Task.Delay(5000);
-        successMessage = null;
-        await InvokeAsync(StateHasChanged);
+        var changes = new List<string>();
+        foreach (var prop in typeof(ShopFeatureSettingsDto).GetProperties())
+        {
+            object? b = prop.GetValue(before);
+            object? a = prop.GetValue(after);
+            if (Equals(b, a)) continue;
+
+            string label = FeatureLabels.TryGetValue(prop.Name, out string? l) ? l : prop.Name;
+            changes.Add($"{label}: {FormatValue(b)} → {FormatValue(a)}");
+        }
+        return changes;
     }
+
+    private static string FormatValue(object? value) => value switch
+    {
+        null => "—",
+        bool flag => flag ? "Bật" : "Tắt",
+        _ => value.ToString() ?? "—"
+    };
+
+    /// <summary>Nhãn tiếng Việt cho từng toggle — fallback về tên property nếu thiếu.</summary>
+    private static readonly Dictionary<string, string> FeatureLabels = new()
+    {
+        [nameof(ShopFeatureSettingsDto.QR_TableNumber_Enabled)] = "Số bàn trong mã QR",
+        [nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled)] = "Quy trình bếp",
+        [nameof(ShopFeatureSettingsDto.Voice_Note_Enabled)] = "Ghi chú giọng nói (STT/TTS)",
+        [nameof(ShopFeatureSettingsDto.Voice_Call_Enabled)] = "Gọi thoại trong chat",
+        [nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled)] = "Chương trình điểm thưởng",
+        [nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled)] = "Đồng bộ kế toán",
+        [nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled)] = "Tự xuất hóa đơn điện tử",
+        [nameof(ShopFeatureSettingsDto.VAT_Display_Enabled)] = "Hiển thị VAT",
+        [nameof(ShopFeatureSettingsDto.Price_Validation_Enabled)] = "Kiểm tra giá QR/cart",
+        [nameof(ShopFeatureSettingsDto.Campaign_Section_Enabled)] = "Mục Khuyến mãi (trang shop)",
+        [nameof(ShopFeatureSettingsDto.VibeShowcase_Section_Enabled)] = "Mục Giới thiệu SP (trang shop)",
+        [nameof(ShopFeatureSettingsDto.GoogleMap_Section_Enabled)] = "Mục Bản đồ (trang shop)",
+        [nameof(ShopFeatureSettingsDto.SocialHub_Section_Enabled)] = "Mục Mạng xã hội (trang shop)",
+        [nameof(ShopFeatureSettingsDto.AIChat_Enabled)] = "AI Chatbox",
+        [nameof(ShopFeatureSettingsDto.Home_CampaignSection_Enabled)] = "Khuyến mãi (trang chủ)",
+        [nameof(ShopFeatureSettingsDto.Home_StoreSection_Enabled)] = "Thông tin cửa hàng (trang chủ)",
+        [nameof(ShopFeatureSettingsDto.Home_FeaturedSection_Enabled)] = "SP nổi bật (trang chủ)",
+        [nameof(ShopFeatureSettingsDto.Home_SocialHub_Enabled)] = "MXH (trang chủ)",
+        [nameof(ShopFeatureSettingsDto.PollingIntervalSeconds)] = "Chu kỳ làm mới đơn (giây)",
+        [nameof(ShopFeatureSettingsDto.PlatformFeeRate)] = "Tỷ lệ phí nền tảng",
+        [nameof(ShopFeatureSettingsDto.Loyalty_PointsRate)] = "Tỷ lệ tích điểm",
+        [nameof(ShopFeatureSettingsDto.Loyalty_MinPointsPerOrder)] = "Điểm tối thiểu/đơn",
+        [nameof(ShopFeatureSettingsDto.Loyalty_MaxPointsPerOrder)] = "Điểm tối đa/đơn",
+        [nameof(ShopFeatureSettingsDto.Loyalty_AwardOnAllOrders)] = "Tích điểm mọi đơn",
+        [nameof(ShopFeatureSettingsDto.Notify_MissionCompleted)] = "TB hoàn thành nhiệm vụ",
+        [nameof(ShopFeatureSettingsDto.Notify_BirthdayBonus)] = "TB quà sinh nhật",
+        [nameof(ShopFeatureSettingsDto.Notify_RedemptionFulfilled)] = "TB đổi quà thành công",
+        [nameof(ShopFeatureSettingsDto.Notify_RedemptionCancelled)] = "TB đổi quà hủy",
+        [nameof(ShopFeatureSettingsDto.Notify_VoucherExpiringSoon)] = "TB voucher sắp hết hạn",
+        [nameof(ShopFeatureSettingsDto.VoucherExpiryNotifyHours)] = "Số giờ báo trước hết hạn",
+        [nameof(ShopFeatureSettingsDto.Loyalty_RequirePhoneVerificationForRedeem)] = "Yêu cầu SĐT để đổi điểm",
+        [nameof(ShopFeatureSettingsDto.Community_SalesmanMinPoints)] = "Điểm tối thiểu — Salesman",
+        [nameof(ShopFeatureSettingsDto.Community_ShipperMinPoints)] = "Điểm tối thiểu — Shipper",
+        [nameof(ShopFeatureSettingsDto.Community_RequiredIdentityLevel)] = "Mức định danh cộng đồng",
+        [nameof(ShopFeatureSettingsDto.Charity_Donation_Enabled)] = "Bước quyên góp từ thiện",
+    };
 
     // task_ai_p6b [G9]: manual "Đồng bộ AI ngay" — push full catalog sang vanan-ai
     // mà không chờ nightly reconcile. Service self-noops khi flag/config off.

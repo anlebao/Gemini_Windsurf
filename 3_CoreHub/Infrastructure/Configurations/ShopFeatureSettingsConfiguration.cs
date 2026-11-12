@@ -20,6 +20,7 @@ public class ShopFeatureSettingsConfiguration : IEntityTypeConfiguration<ShopFea
         builder.Property(e => e.QR_TableNumber_Enabled).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.Kitchen_Workflow_Enabled).IsRequired().HasDefaultValue(true);
         builder.Property(e => e.Voice_Note_Enabled).IsRequired().HasDefaultValue(false);
+        builder.Property(e => e.Voice_Call_Enabled).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.Loyalty_Program_Enabled).IsRequired().HasDefaultValue(true);
         builder.Property(e => e.Accounting_Sync_Enabled).IsRequired().HasDefaultValue(true);
         builder.Property(e => e.EInvoice_Auto_Export_Enabled).IsRequired().HasDefaultValue(false);

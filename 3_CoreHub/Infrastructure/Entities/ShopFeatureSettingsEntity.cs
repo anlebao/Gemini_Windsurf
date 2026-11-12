@@ -22,6 +22,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// <summary>Toggle: voice note (STT on client + TTS in kitchen). Default: OFF.</summary>
     public bool Voice_Note_Enabled { get; private set; }
 
+    /// <summary>VOICE SERVICE P4 (2026-11-11): Toggle: one-to-one voice call button inside chat
+    /// (customer ↔ merchant). Default: OFF — owner opts in via /settings/shop-features.</summary>
+    public bool Voice_Call_Enabled { get; private set; }
+
     /// <summary>Toggle: loyalty program (OTP + points + PWA prompt). Default: ON.</summary>
     public bool Loyalty_Program_Enabled { get; private set; } = true;
 
@@ -125,6 +129,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         QR_TableNumber_Enabled = false;
         Kitchen_Workflow_Enabled = true;
         Voice_Note_Enabled = false;
+        Voice_Call_Enabled = false;
         Loyalty_Program_Enabled = true;
         Accounting_Sync_Enabled = true;
         EInvoice_Auto_Export_Enabled = false;
@@ -201,11 +206,14 @@ public class ShopFeatureSettingsEntity : BaseEntity
         int? communityShipperMinPoints = null,
         int? communityRequiredIdentityLevel = null,
         // C3 (2026-09-14): charity donation checkout step (default true = show donation step for Charity carts)
-        bool charityDonationEnabled = true)
+        bool charityDonationEnabled = true,
+        // VOICE SERVICE P4: voice call toggle inside chat (default false = opt-in)
+        bool voiceCallEnabled = false)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
         Voice_Note_Enabled = voiceNote;
+        Voice_Call_Enabled = voiceCallEnabled;
         Loyalty_Program_Enabled = loyaltyProgram;
         Accounting_Sync_Enabled = accountingSync;
         EInvoice_Auto_Export_Enabled = einvoiceAutoExport;

@@ -1229,6 +1229,11 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<bool>("VibeShowcase_Section_Enabled")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("Voice_Call_Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("Voice_Note_Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
