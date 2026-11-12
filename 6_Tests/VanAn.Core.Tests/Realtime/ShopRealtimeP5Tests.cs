@@ -294,6 +294,11 @@ public class ShopRealtimeP5Tests : IDisposable
         });
         Assert.Contains("tin khách A", json);
         Assert.Contains("tin shop", json);
+
+        // Voice (2026-11-12): opening the shared shop thread makes the staff member a
+        // participant so voice calls can reach them.
+        messaging.Verify(m => m.EnsureParticipantAsync(
+            conversation, staffId, RealtimeParticipantRole.Shop, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // === helpers ===

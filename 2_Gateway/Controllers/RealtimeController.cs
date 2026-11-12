@@ -166,6 +166,14 @@ public class RealtimeController(
                 return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
         }
 
+        // Voice (2026-11-12): the shop thread is shared — a staff member who opens it
+        // becomes a participant so voice calls can reach them. The voice resolver and
+        // context verification both require an active ConversationParticipants row;
+        // previously only staff who SENT a message were participants, so an owner
+        // viewing the inbox could never be rung.
+        if (type == RealtimeSubjectType.Shop && identity.Kind == RealtimeIdentityKind.Staff)
+            await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
+
         var messages = await _messaging.GetHistoryAsync(conversation.Id, take, ct);
 
         // P6: the shop conversation is a shared thread — a customer only sees their own messages
