@@ -63,8 +63,10 @@ public partial class VoiceCallPanel : IAsyncDisposable
     private bool _idleLike => _state is "idle" or "ended" or "rejected" or "cancelled" or "missed"
         or "busy" or "offline" or "collision" or "failed";
 
+    // Terminal states (offline/busy/failed/...) are retryable — the SDK resets to idle
+    // on the next startCall; gating on exactly "idle" left the button dead forever (S6).
     private bool _canCall => !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty
-        && _state == "idle" && _hubState == "connected";
+        && _idleLike && _hubState == "connected";
 
     // S5 (2026-11-12): guests have no customer token — button stays visible but disabled
     // with a login hint instead of failing on click.

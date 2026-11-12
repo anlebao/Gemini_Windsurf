@@ -176,6 +176,26 @@ test('offline outcome from StartCall response transitions to offline', async () 
     assert.equal(states[states.length - 1], 'offline');
 });
 
+test('terminal state auto-returns to idle and allows immediate retry (S6)', async () => {
+    const { connection, states } = await setup();
+    connection.setResponses({ StartCall: { callId: 'e2', status: 'OFFLINE', reason: 'OFFLINE' } });
+
+    await vananVoice.startCall('11111111-1111-4111-8111-111111111111');
+    assert.equal(states[states.length - 1], 'offline');
+
+    // Retry must NOT throw "Đang có cuộc gọi khác." — terminal states are retryable.
+    connection.setResponses({ StartCall: { callId: 'e3', status: 'RINGING' } });
+    await vananVoice.startCall('22222222-2222-4222-8222-222222222222');
+    assert.equal(vananVoice.getCallState().state, 'calling');
+    assert.equal(states.filter(s => s === 'idle').length >= 2, true, 'idle re-emitted for panel sync');
+
+    // If the call ends terminally again, the SDK parks in idle ~1.5s later.
+    connection.emit('CallOffline', { callId: 'e3', reason: 'OFFLINE' });
+    assert.equal(vananVoice.getCallState().state, 'offline');
+    await new Promise(r => setTimeout(r, 1700));
+    assert.equal(vananVoice.getCallState().state, 'idle');
+});
+
 test('mute/unmute toggles media and state', async () => {
     const { connection, media } = await setup();
     await vananVoice.startCall('11111111-1111-4111-8111-111111111111');

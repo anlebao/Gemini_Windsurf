@@ -26,6 +26,10 @@ window.vananVoice = (function () {
         Busy: 'busy', Offline: 'offline', CallCollision: 'collision', Failed: 'failed'
     };
     const ACTIVE = new Set(['calling', 'ringing', 'accepted', 'negotiating', 'connected', 'reconnecting']);
+    // S6 (2026-11-12): terminal outcomes are retryable — without this the SDK stayed in
+    // e.g. 'offline' forever and every later startCall threw "Đang có cuộc gọi khác."
+    // while the Blazor panel silently swallowed the click (buttons looked dead).
+    const TERMINAL = new Set(['ended', 'rejected', 'cancelled', 'missed', 'busy', 'offline', 'collision', 'failed']);
     const MAX_ICE_RESTARTS = 2;
 
     let connection = null;
@@ -43,7 +47,7 @@ window.vananVoice = (function () {
     // "Cannot send data if the connection is not in the 'Connected' State".
     let hubState = 'disconnected';
     let timeoutConfig = { ringTimeoutSeconds: 30, negotiationTimeoutSeconds: 20, iceTimeoutSeconds: 15, maxDurationMinutes: 120 };
-    const timers = { ring: null, negotiate: null, reconnect: null };
+    const timers = { ring: null, negotiate: null, reconnect: null, idle: null };
 
     // ---- helpers ----
 
@@ -75,6 +79,16 @@ window.vananVoice = (function () {
         clearTimers();
         teardownMedia();
         setState(finalState, info);
+        // Return to idle shortly after so the UI can offer a retry — hosts render
+        // terminal outcomes (error/missed hints) from their own state, not from
+        // the SDK staying parked in the terminal state forever.
+        timers.idle = setTimeout(() => {
+            timers.idle = null;
+            if (state === finalState) {
+                state = STATES.Idle;
+                if (options && options.onStateChange) options.onStateChange(STATES.Idle, {});
+            }
+        }, 1500);
     }
 
     function teardownMedia() {
@@ -309,7 +323,15 @@ window.vananVoice = (function () {
 
     // Outgoing call. contextType/contextReferenceId are optional verified business context.
     async function startCall(targetUserId, context) {
-        if (state !== STATES.Idle) throw new Error('Đang có cuộc gọi khác.');
+        // Terminal states don't block a retry — reset locally and let the server
+        // decide (a pending idle-reset timer no-ops because state already moved on).
+        if (state !== STATES.Idle) {
+            if (!TERMINAL.has(state)) throw new Error('Đang có cuộc gọi khác.');
+            if (timers.idle) { clearTimeout(timers.idle); timers.idle = null; }
+            state = STATES.Idle;
+            // Keep the Blazor panel in sync — its call button gates on state == idle.
+            if (options && options.onStateChange) options.onStateChange(STATES.Idle, {});
+        }
         if (hubState !== 'connected') throw new Error('Mất kết nối máy chủ cuộc gọi.');
         callId = newCallId();
         isCaller = true;

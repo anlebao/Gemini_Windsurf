@@ -234,14 +234,20 @@
     // Guests (device id only, no customer token / staff JWT) cannot call — S5 Option 1.
     private bool VoiceCallIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken);
 
+    // Terminal call states are retryable (SDK resets to idle on retry) — mirror
+    // VoiceCallPanel._idleLike so the header button doesn't stay dead after a failed call.
+    private static bool VoiceCallIdleLike(string state) =>
+        state is "idle" or "ended" or "rejected" or "cancelled" or "missed"
+            or "busy" or "offline" or "collision" or "failed";
+
     private bool VoiceCallReady => VoiceCallEnabled && VoiceCallIdentity
-        && _voiceHubState == "connected" && _voiceCallState == "idle";
+        && _voiceHubState == "connected" && VoiceCallIdleLike(_voiceCallState);
 
     private string VoiceCallTitle =>
         !VoiceCallIdentity ? "Đăng nhập để gọi thoại"
         : _voiceHubState == "connecting" ? "Đang kết nối máy chủ cuộc gọi..."
         : _voiceHubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
-        : _voiceCallState != "idle" ? "Đang trong cuộc gọi"
+        : !VoiceCallIdleLike(_voiceCallState) ? "Đang trong cuộc gọi"
         : "Gọi thoại";
 
     private void OnVoiceHubStateChanged(string state) => _voiceHubState = state;
