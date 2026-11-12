@@ -86,7 +86,7 @@ if (!SECRET) {
   {
     const r = await get('/v1/turn/credentials', tokenA);
     const shape = r.json && Array.isArray(r.json.urls) && r.json.urls.length > 0
-      && !!r.json.username && !!r.json.credential && r.json.ttl > 0;
+      && !!r.json.username && !!r.json.credential && (r.json.ttlSeconds ?? r.json.ttl) > 0;
     check('L2 TURN valid → 200 + shape', r.status === 200 && shape,
       `status=${r.status} urls=${r.json ? JSON.stringify(r.json.urls) : 'null'}`);
   }
