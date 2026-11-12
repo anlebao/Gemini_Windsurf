@@ -19,11 +19,9 @@ services:
   turn:
     image: coturn/coturn:4.6
     restart: unless-stopped
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/tcp"
-      - "49152-65535:49152-65535/udp"
+    # Host networking: publishing the 49152-65535 UDP relay range via docker-proxy
+    # spawns ~16k proxy processes and OOM-wedged the e2-small VPS (CD run 43111872269).
+    network_mode: host
     env_file: .env.voice
     command: >
       --use-auth-secret --static-auth-secret=${TURN__Secret}

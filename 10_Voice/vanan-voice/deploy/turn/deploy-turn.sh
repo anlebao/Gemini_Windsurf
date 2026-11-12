@@ -27,11 +27,10 @@ sed -e "s/__PUBLIC_HOST__/$TURN_PUBLIC_HOST/g" \
 chmod 600 "$APP_DIR/turnserver.conf"
 
 docker rm -f vanan-turn 2>/dev/null || true
+# Host networking: bridge port-publishing of the 16k-port relay range spawns
+# ~16k docker-proxy processes and OOM-wedges small VPSes. coturn binds host ports directly.
 docker run -d --name vanan-turn --restart unless-stopped \
-  -p 3478:3478/udp \
-  -p 3478:3478/tcp \
-  -p 5349:5349/tcp \
-  -p "$TURN_MIN_RELAY_PORT-$TURN_MAX_RELAY_PORT:$TURN_MIN_RELAY_PORT-$TURN_MAX_RELAY_PORT/udp" \
+  --network host \
   -v "$APP_DIR/turnserver.conf:/etc/turnserver.conf:ro" \
   -v "$APP_DIR/logs:/var/log" \
   "$TURN_IMAGE" -c /etc/turnserver.conf
