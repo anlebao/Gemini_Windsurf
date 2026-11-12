@@ -36,10 +36,17 @@ window.vananVoiceChat = (function () {
 
     // targetUserId may be empty — the server resolves the conversation counterpart (P4).
     async function startCall(targetUserId, subjectType, subjectId) {
-        await voice.startCall(targetUserId || null, {
-            contextType: 'chat',
-            contextReferenceId: subjectType + ':' + subjectId
-        });
+        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, sdkState: voice ? voice.getCallState() : null });
+        try {
+            await voice.startCall(targetUserId || null, {
+                contextType: 'chat',
+                contextReferenceId: subjectType + ':' + subjectId
+            });
+            console.info('[voice-chat] startCall returned');
+        } catch (ex) {
+            console.warn('[voice-chat] startCall failed', ex);
+            throw ex;
+        }
     }
 
     async function acceptCall() { return voice.acceptCall(); }

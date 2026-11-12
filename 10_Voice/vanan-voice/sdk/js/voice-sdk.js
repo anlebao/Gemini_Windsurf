@@ -105,6 +105,7 @@ window.vananVoice = (function () {
     function emitHubState(next) {
         if (hubState === next) return;
         hubState = next;
+        console.info('[vananVoice] hub state →', next);
         if (options && options.onConnectionStateChange) options.onConnectionStateChange(next);
     }
 
@@ -323,6 +324,7 @@ window.vananVoice = (function () {
 
     // Outgoing call. contextType/contextReferenceId are optional verified business context.
     async function startCall(targetUserId, context) {
+        console.info('[vananVoice] startCall', { targetUserId, state, hubState });
         // Terminal states don't block a retry — reset locally and let the server
         // decide (a pending idle-reset timer no-ops because state already moved on).
         if (state !== STATES.Idle) {
@@ -343,13 +345,18 @@ window.vananVoice = (function () {
         try {
             result = await connection.invoke('StartCall', {
                 callId,
-                targetUserId,
+                // SignalR/STJ cannot bind JSON null into non-nullable Guid — it throws
+                // during argument materialization BEFORE the hub method runs (no server
+                // log, no DB row). Send the empty-guid literal for chat-first calls;
+                // the hub accepts it when contextType/contextReferenceId are present.
+                targetUserId: targetUserId || '00000000-0000-0000-0000-000000000000',
                 contextType: context ? context.contextType : null,
                 contextReferenceId: context ? context.contextReferenceId : null
             });
         } catch (ex) {
             // Hub-level rejection (validation/rate-limit/transport) — never park in
             // 'calling' forever; return to idle so the UI can retry (S6).
+            console.warn('[vananVoice] StartCall invoke rejected', ex);
             state = STATES.Idle;
             emitError(ex && ex.message ? ex.message : String(ex));
             if (options && options.onStateChange) options.onStateChange(STATES.Idle, {});
