@@ -17,7 +17,9 @@ public interface IContextVerifier
     /// Chat-first UX (SRS §9.2, P4): when the caller does not know the counterpart's user id,
     /// the server resolves the OTHER active participants of the conversation — ordered so the
     /// opposite role comes first. Returns ALL candidates (shop threads have many staff/guest
-    /// participants); the caller picks the first reachable one.
+    /// participants); the caller picks the first reachable one. Ordering puts the
+    /// opposite role first, then the participant who most recently sent a message
+    /// in the thread ("call whoever you're chatting with").
     /// </summary>
     Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default);
 }
