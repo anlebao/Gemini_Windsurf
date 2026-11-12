@@ -53,7 +53,10 @@ public sealed class PostgresContextVerifier(
 #pragma warning restore CA2100
             cmd.Parameters.AddWithValue("contextRef", contextReferenceId);
             cmd.Parameters.AddWithValue("caller", callerUserId);
-            return await cmd.ExecuteScalarAsync(ct) as Guid?;
+            var counterpart = await cmd.ExecuteScalarAsync(ct) as Guid?;
+            logger.LogInformation("Counterpart resolve {ContextType} {ContextRef}: caller={Caller} → {Result}",
+                contextType, contextReferenceId, callerUserId, counterpart);
+            return counterpart;
         }
         catch (Exception ex)
         {
@@ -84,6 +87,8 @@ public sealed class PostgresContextVerifier(
             cmd.Parameters.AddWithValue("caller", callerUserId);
             cmd.Parameters.AddWithValue("target", targetUserId);
             var tenant = await cmd.ExecuteScalarAsync(ct) as Guid?;
+            logger.LogInformation("Context verify {ContextType} {ContextRef}: caller={Caller} target={Target} → tenant={Tenant}",
+                contextType, contextReferenceId, callerUserId, targetUserId, tenant);
             return new ContextVerification(tenant is not null, tenant, null);
         }
         catch (Exception ex)

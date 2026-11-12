@@ -60,6 +60,8 @@ public class VoiceHub(
             || !rateLimiter.TryAcquire($"startcall_hour:{identity.UserId}", max: 60, window: TimeSpan.FromHours(1)))
             throw new HubException("Rate limit exceeded for call initiation.");
 
+        logger.LogInformation("StartCall {CallId}: caller={Caller} target={Target} ctx={Ctx}/{Ref} conn={Conn}",
+            req.CallId, identity.UserId, req.TargetUserId, req.ContextType, req.ContextReferenceId, Context.ConnectionId);
         return await callService.StartCallAsync(identity, req, Context.ConnectionId);
     }
 

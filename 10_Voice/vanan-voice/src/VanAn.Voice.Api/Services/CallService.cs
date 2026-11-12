@@ -55,6 +55,8 @@ public sealed class CallService(
         var perm = await permission.CheckStartCallAsync(caller, req.TargetUserId, req.ContextType, req.ContextReferenceId, now, ct);
         if (!perm.Allowed)
         {
+            logger.LogInformation("StartCall {CallId} denied: reason={Reason} terminal={Terminal} tenant={Tenant} target={Target}",
+                req.CallId, perm.Reason, perm.TerminalStatus, perm.TenantId, perm.TargetUserId ?? req.TargetUserId);
             // FR-013: call collision is rejected WITHOUT inserting a row.
             if (perm.TerminalStatus == CallStatus.CallCollision)
             {
@@ -85,6 +87,8 @@ public sealed class CallService(
         }
 
         var targetUserId = perm.TargetUserId ?? req.TargetUserId;
+        logger.LogInformation("StartCall {CallId} permitted: caller={Caller} target={Target} tenant={Tenant} ctx={Ctx}/{Ref}",
+            req.CallId, caller.UserId, targetUserId, perm.TenantId, req.ContextType, req.ContextReferenceId);
 
         // Metering gate (§14.2): deny BEFORE ringing when the wallet is below the estimate.
         var tenantId = perm.TenantId!.Value;
@@ -160,6 +164,8 @@ public sealed class CallService(
 
         // Presence: zero connections ⇒ immediate OFFLINE (no wasted ringing, FR-014).
         var receiverConnections = store.ConnectionsOf(targetUserId);
+        logger.LogInformation("StartCall {CallId}: receiver {Target} has {Count} voice connection(s)",
+            req.CallId, targetUserId, receiverConnections.Count);
         if (receiverConnections.Count == 0)
         {
             call.ForceTerminal(CallStatus.Offline, CallEndReason.Offline, now);
@@ -174,6 +180,8 @@ public sealed class CallService(
             new CallCreatedDto(req.CallId, call.Status.ToString().ToUpperInvariant(), TimeoutConfig));
         await publisher.SendToConnectionsAsync(receiverConnections, "IncomingCall",
             new IncomingCallDto(req.CallId, caller.UserId, CallerDisplayName(caller), VerifiedContextLabel(call), TimeoutConfig));
+        logger.LogInformation("StartCall {CallId} RINGING: caller={Caller} target={Target} receiverConns={Count}",
+            req.CallId, caller.UserId, targetUserId, receiverConnections.Count);
         Schedule(active, TimeSpan.FromSeconds(RingTimeoutSeconds), svc => svc.RingTimeoutAsync(req.CallId));
         return new StartCallResult(req.CallId, true, "RINGING", null);
     }
