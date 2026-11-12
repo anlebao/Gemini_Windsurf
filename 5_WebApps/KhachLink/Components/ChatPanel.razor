@@ -22,6 +22,9 @@
 
 @code {
     [Parameter] public Guid OrderId { get; set; }
+    /// <summary>Shop tenant that owns this order — resolves per-shop feature flags
+    /// (Voice_Note_Enabled / Voice_Call_Enabled). Empty → flags stay off.</summary>
+    [Parameter] public Guid TenantId { get; set; }
     [Parameter] public Guid CurrentUserId { get; set; }
     [Parameter] public string? CustomerToken { get; set; }
     /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id").</summary>
@@ -40,14 +43,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Flags are per-shop (ShopFeatureSettings keyed by tenant) — the host must pass
+        // the order's TenantId. Empty → both hidden (fail-safe).
+        if (TenantId == Guid.Empty) return;
         try
         {
             _voiceEnabled = await FeatureSettings.IsEnabledAsync(
-                new Guid("00000000-0000-0000-0000-000000000001"),
-                nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+                TenantId, nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
             _voiceCallEnabled = await FeatureSettings.IsEnabledAsync(
-                new Guid("00000000-0000-0000-0000-000000000001"),
-                nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
+                TenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
         }
         catch
         {

@@ -147,7 +147,8 @@
         @* VOICE SERVICE P4: one-to-one call inside the chat (customer ↔ merchant) — host opt-in. *@
         @if (VoiceCallEnabled)
         {
-            <VoiceCallPanel SubjectType="SubjectType"
+            <VoiceCallPanel Enabled="true"
+                            SubjectType="SubjectType"
                             SubjectId="SubjectId"
                             CurrentUserId="CurrentUserId"
                             Token="(IsStaff ? StaffToken : CustomerToken)"

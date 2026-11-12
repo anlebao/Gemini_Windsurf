@@ -59,6 +59,7 @@ public class ShopFeatureSettingsHttpService(IHttpClientFactory httpClientFactory
             nameof(ShopFeatureSettingsDto.QR_TableNumber_Enabled) => settings.QR_TableNumber_Enabled,
             nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled) => settings.Kitchen_Workflow_Enabled,
             nameof(ShopFeatureSettingsDto.Voice_Note_Enabled) => settings.Voice_Note_Enabled,
+            nameof(ShopFeatureSettingsDto.Voice_Call_Enabled) => settings.Voice_Call_Enabled,
             nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled) => settings.Loyalty_Program_Enabled,
             nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled) => settings.Accounting_Sync_Enabled,
             nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled) => settings.EInvoice_Auto_Export_Enabled,

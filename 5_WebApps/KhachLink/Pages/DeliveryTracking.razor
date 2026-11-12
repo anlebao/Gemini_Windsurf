@@ -235,7 +235,7 @@
             @if (_customerId.HasValue)
             {
                 <div class="mt-3">
-                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="delivery-chat-scroll"
+                    <ChatPanel OrderId="OrderId" TenantId="_orderTenantId" CurrentUserId="_customerId.Value" CustomerToken="@_customerToken" ScrollContainerId="delivery-chat-scroll"
                        VoiceServiceUrl="@_voiceServiceUrl" VoiceHubUrl="@_voiceHubUrl" />
                 </div>
             }
@@ -271,6 +271,8 @@
     // GPS pings must be keyed by DeliveryTask.Id (PK) — NOT OrderId. Gateway RecordLocation
     // looks up DeliveryTasks.Id; sending OrderId silently discards every ping.
     private Guid? _deliveryTaskId;
+    // VOICE SERVICE: shop tenant for per-shop chat flags (voice call/mic).
+    private Guid _orderTenantId = Guid.Empty;
 
     // CC-S5: Wallet + COD state
     private bool _showCodInput = false;
@@ -342,6 +344,20 @@
                 _customerLat = t.DeliveryLat;
                 _customerLng = t.DeliveryLng;
             }
+
+            // Shop tenant id for per-shop chat flags — public order endpoint (buyer-accessible,
+            // same source OrderTracking uses). Non-fatal: empty → voice flags stay off.
+            try
+            {
+                var orderClient = HttpClientFactory.CreateClient("gateway");
+                var orderResp = await orderClient.GetAsync($"/api/public/orders/{OrderId}");
+                if (orderResp.IsSuccessStatusCode)
+                {
+                    var orderDto = await orderResp.Content.ReadFromJsonAsync<PublicOrderTenantDto>();
+                    if (orderDto != null) _orderTenantId = orderDto.TenantId;
+                }
+            }
+            catch { /* flag resolution only — chat unaffected */ }
 
             // Fall back to the shipper's own GPS only for centring the map.
             GeoPosition? pos = null;
@@ -555,5 +571,11 @@
     {
         public double Lat { get; set; }
         public double Lng { get; set; }
+    }
+
+    /// <summary>Minimal projection of GET /api/public/orders/{id} — only TenantId is needed.</summary>
+    private class PublicOrderTenantDto
+    {
+        public Guid TenantId { get; set; }
     }
 }

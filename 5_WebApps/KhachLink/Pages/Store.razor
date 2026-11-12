@@ -23,8 +23,6 @@
 @* SF-W1: unread badge — same client the chat panel uses, polled lightly. *@
 @inject IRealtimeChatClient RealtimeChat
 @inject IConfiguration Config
-@inject ShopFeatureSettingsHttpService FeatureSettings
-
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
@@ -361,7 +359,7 @@ else
                                        ScrollContainerId="ai-widget-human-scroll"
                                        HeaderTitle="Chủ quán"
                                        VoiceEnabled="_features.Voice_Note_Enabled"
-                                       VoiceCallEnabled="_voiceCallEnabled"
+                                       VoiceCallEnabled="_features.Voice_Call_Enabled"
                                        VoiceServiceUrl="@_voiceServiceUrl"
                                        VoiceHubUrl="@_voiceHubUrl"
                                        InitialDraft="@_humanDraft" />
@@ -829,23 +827,8 @@ else
     private string _voiceServiceUrl => Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
     private string _voiceHubUrl => Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
 
-    /// <summary>VOICE SERVICE P4/C2: voice call button — global Voice_Call_Enabled flag (same
-    /// pattern as ChatPanel shim; platform-level toggle, fail-safe false).</summary>
-    private bool _voiceCallEnabled;
-
-    private async Task LoadVoiceCallFlagAsync()
-    {
-        try
-        {
-            _voiceCallEnabled = await FeatureSettings.IsEnabledAsync(
-                new Guid("00000000-0000-0000-0000-000000000001"),
-                nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
-        }
-        catch
-        {
-            _voiceCallEnabled = false; // flag fetch failed — call button hidden, chat unaffected
-        }
-    }
+    /// <summary>VOICE SERVICE P4/C2: voice call button — resolved from _features.Voice_Call_Enabled
+    /// (per-shop flag via TenantProfile feature-settings; fail-safe default false).</summary>
 
     /// <summary>Task AI-P8: refused AI question → prefills the human chat input (set before HumanContent mounts).</summary>
     private string? _humanDraft;
@@ -1012,11 +995,8 @@ else
             // Build ShopConfig from tenant store data
             _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_store.Id);
 
-            // Load feature settings (section toggles)
+            // Load feature settings (section toggles + Voice_Call_Enabled for the chat call button)
             _features = await TenantProfileService.GetFeatureSettingsAsync(_store.Id);
-
-            // VOICE SERVICE C2: global voice-call flag (platform-level, not per-tenant).
-            await LoadVoiceCallFlagAsync();
 
             // Parallel load: products + campaigns
             var productsTask = LoadProductsAsync(_store.Id);

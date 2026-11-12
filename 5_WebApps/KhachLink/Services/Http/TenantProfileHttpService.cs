@@ -82,4 +82,7 @@ public class TenantFeatureSettingsDto
     /// <summary>SF-W3: voice mic on the AI search bar + chat widget. Default OFF
     /// (owner opts in via Shop Features — same flag as POS/order voice notes).</summary>
     public bool Voice_Note_Enabled { get; set; }
+    /// <summary>VOICE SERVICE P4: "Gọi thoại" button inside shop chat. Default OFF
+    /// (owner opts in via Shop Features → Voice_Call_Enabled).</summary>
+    public bool Voice_Call_Enabled { get; set; }
 }
