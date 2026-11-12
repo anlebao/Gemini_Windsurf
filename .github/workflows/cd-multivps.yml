@@ -1284,7 +1284,7 @@ jobs:
               "TURN__Secret=${DEPLOY_VOICE_TURN_SECRET}" \
               "TURN__Realm=khachvip.online" \
               "TURN__CredentialTtlSeconds=1800" \
-              "Metering__BaseUrl=http://${DEPLOY_METERING_REMOTE_HOST}/" \
+              "Metering__BaseUrl=http://${DEPLOY_METERING_REMOTE_HOST}:5050/" \
               "Metering__CallerId=voice" \
               "Metering__CallerKey=${DEPLOY_VOICE_METERING_KEY}" \
               "Voice__GatewayDb=${DEPLOY_VOICE_GATEWAY_DB}" \
