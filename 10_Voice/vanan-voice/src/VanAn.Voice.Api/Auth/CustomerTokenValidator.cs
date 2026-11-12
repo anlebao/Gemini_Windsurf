@@ -16,6 +16,12 @@ public sealed class CustomerTokenValidator(
 {
     public const string QueryKey = "customerToken";
     public const string HeaderKey = "X-Customer-Token";
+    // Fallback channels: the SDK sends whatever token the host gave it through SignalR's
+    // accessTokenFactory → "access_token" query (WS handshake can't set headers), and the
+    // TURN/missed-calls fetches send "Authorization: Bearer". A customer token is not a
+    // JWT so StaffJwtValidator rejects it first — safe to try here as a candidate.
+    private const string AccessTokenQueryKey = "access_token";
+    private const string BearerHeaderKey = "Authorization";
 
     public string Name => "CustomerToken";
 
@@ -24,7 +30,7 @@ public sealed class CustomerTokenValidator(
         var baseUrl = configuration["Voice:ShopErpBaseUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl)) return null;
 
-        var token = VoiceRequestReader.ReadCredential(httpContext, QueryKey, HeaderKey);
+        var token = ReadAnyCredential(httpContext);
         if (string.IsNullOrEmpty(token)) return null;
 
         try
@@ -44,6 +50,26 @@ public sealed class CustomerTokenValidator(
             logger.LogWarning(ex, "CustomerTokenValidator: token validation failed");
             return null;
         }
+    }
+
+    private static string? ReadAnyCredential(HttpContext httpContext)
+    {
+        var token = VoiceRequestReader.ReadCredential(httpContext, QueryKey, HeaderKey);
+        if (!string.IsNullOrWhiteSpace(token)) return token;
+
+        if (httpContext.Request.Query.TryGetValue(AccessTokenQueryKey, out var q)
+            && !string.IsNullOrWhiteSpace(q.ToString()))
+            return q.ToString();
+
+        if (httpContext.Request.Headers.TryGetValue(BearerHeaderKey, out var h)
+            && !string.IsNullOrWhiteSpace(h.ToString()))
+        {
+            var value = h.ToString();
+            return value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? value["Bearer ".Length..].Trim()
+                : value;
+        }
+        return null;
     }
 
     public sealed class MeResponse

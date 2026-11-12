@@ -1288,6 +1288,7 @@ jobs:
               "Metering__CallerId=voice" \
               "Metering__CallerKey=${DEPLOY_VOICE_METERING_KEY}" \
               "Voice__GatewayDb=${DEPLOY_VOICE_GATEWAY_DB}" \
+              "Voice__ShopErpBaseUrl=https://api2.khachvip.online" \
               "Voice__CorsOrigins=https://diemthuong2.khachvip.online,https://app2.khachvip.online" \
               "Voice__DbPath=/app/data/voice.db" \
               > .env.voice
