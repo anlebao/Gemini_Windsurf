@@ -75,6 +75,13 @@ try {
   await callee.conn.invoke('AcceptCall', callId);
   await sleep(1000);
 
+  // SDP handshake tối thiểu: offer → Negotiating, answer → sẵn sàng connected
+  const sdp = 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n';
+  await caller.conn.invoke('SendOffer', { callId, sdp }).catch(e => console.log('SendOffer:', e.message));
+  await sleep(500);
+  await callee.conn.invoke('SendAnswer', { callId, sdp }).catch(e => console.log('SendAnswer:', e.message));
+  await sleep(500);
+
   // Giả lập media connected (P2: server cần NotifyConnected sau khi media lên)
   await caller.conn.invoke('NotifyConnected', callId).catch(e => console.log('caller NotifyConnected:', e.message));
   await callee.conn.invoke('NotifyConnected', callId).catch(e => console.log('callee NotifyConnected:', e.message));
