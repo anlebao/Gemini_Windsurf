@@ -500,6 +500,12 @@ public sealed class CallService(
         if (!call.IsTerminal()) call.ForceTerminal(CallStatus.Failed, CallEndReason.NetworkLost, now);
         if (call.EndReason == CallEndReason.Offline)
             db.VoiceCallEvents.Add(new VoiceCallEvent(call.Id, "call.offline", call.CallerUserId, now));
+        // Hub invocations resolve CallService in different DI scopes → the VoiceCall
+        // entity tracked at StartCall is DETACHED here; without re-attach, SaveChanges
+        // persists only the new event row and voice_calls.Status/EndedAt stay stale
+        // (found by RV call-sim 2026-11-12 — row stuck Ringing after call.ended).
+        if (db.Entry(call).State == EntityState.Detached)
+            db.VoiceCalls.Update(call);
         await db.SaveChangesAsync();
         IngestUsage(call);
         store.Remove(call.Id);
