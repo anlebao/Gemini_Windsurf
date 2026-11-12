@@ -21,11 +21,17 @@ public sealed class PermissionService(
         DateTime now, CancellationToken ct = default)
     {
         // Chat-first UX (P4): the caller may omit the target — resolve the OTHER active
-        // participant of the verified conversation.
+        // participants of the verified conversation. Shop threads hold many staff
+        // participants but only some have a live voice connection: prefer the first
+        // candidate that is reachable and not already in a call (S8 — deterministic
+        // single-pick kept ringing an offline staff member while others were online).
         if (targetUserId == Guid.Empty
             && !string.IsNullOrEmpty(contextType) && !string.IsNullOrEmpty(contextReferenceId))
         {
-            targetUserId = await contextVerifier.ResolveCounterpartAsync(contextType!, contextReferenceId!, caller.UserId, ct) ?? Guid.Empty;
+            var candidates = await contextVerifier.ResolveCounterpartCandidatesAsync(contextType!, contextReferenceId!, caller.UserId, ct);
+            var reachable = candidates.FirstOrDefault(c => store.ConnectionsOf(c).Count > 0 && !store.HasActiveCall(c));
+            targetUserId = reachable != Guid.Empty ? reachable
+                : candidates.Count > 0 ? candidates[0] : Guid.Empty;
             if (targetUserId == Guid.Empty)
                 return new PermissionResult(false, CallStatus.Failed, CallEndReason.InvalidContext, caller.TenantId);
         }

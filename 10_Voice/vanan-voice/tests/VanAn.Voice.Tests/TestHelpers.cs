@@ -48,8 +48,8 @@ public sealed class FakeContextVerifier : IContextVerifier
             Fail ? new ContextVerification(false, null, null)
                  : new ContextVerification(VerifiedTenantId != null, VerifiedTenantId, "verified"));
 
-    public Task<Guid?> ResolveCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
-        => Task.FromResult(ResolvedCounterpart);
+    public Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Guid>>(ResolvedCounterpart is { } id ? new[] { id } : Array.Empty<Guid>());
 }
 
 /// <summary>Thread-safe recording publisher — captures (connectionId, method, arg) for assertions.</summary>

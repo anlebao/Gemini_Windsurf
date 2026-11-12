@@ -15,9 +15,11 @@ public interface IContextVerifier
 
     /// <summary>
     /// Chat-first UX (SRS §9.2, P4): when the caller does not know the counterpart's user id,
-    /// the server resolves the OTHER active participant of the conversation.
+    /// the server resolves the OTHER active participants of the conversation — ordered so the
+    /// opposite role comes first. Returns ALL candidates (shop threads have many staff/guest
+    /// participants); the caller picks the first reachable one.
     /// </summary>
-    Task<Guid?> ResolveCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -35,17 +37,18 @@ public sealed class PostgresContextVerifier(
     public Task<ContextVerification?> VerifyAsync(string contextType, string contextReferenceId, Guid callerUserId, Guid targetUserId, CancellationToken ct = default)
         => VerifyInternalAsync(contextType, contextReferenceId, callerUserId, targetUserId, ct);
 
-    public async Task<Guid?> ResolveCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
     {
         var sql = configuration[$"Voice:ContextVerifySql:{contextType}:counterpart"];
         if (string.IsNullOrWhiteSpace(_connectionString) || string.IsNullOrWhiteSpace(sql))
         {
-            logger.LogWarning("Counterpart resolver not configured for '{ContextType}' — returning null.", contextType);
-            return null;
+            logger.LogWarning("Counterpart resolver not configured for '{ContextType}' — returning empty.", contextType);
+            return Array.Empty<Guid>();
         }
 
         try
         {
+            var candidates = new List<Guid>();
 #pragma warning disable CA2100
             await using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync(ct);
@@ -53,15 +56,19 @@ public sealed class PostgresContextVerifier(
 #pragma warning restore CA2100
             cmd.Parameters.AddWithValue("contextRef", contextReferenceId);
             cmd.Parameters.AddWithValue("caller", callerUserId);
-            var counterpart = await cmd.ExecuteScalarAsync(ct) as Guid?;
-            logger.LogInformation("Counterpart resolve {ContextType} {ContextRef}: caller={Caller} → {Result}",
-                contextType, contextReferenceId, callerUserId, counterpart);
-            return counterpart;
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!reader.IsDBNull(0)) candidates.Add(reader.GetGuid(0));
+            }
+            logger.LogInformation("Counterpart resolve {ContextType} {ContextRef}: caller={Caller} → [{Result}]",
+                contextType, contextReferenceId, callerUserId, string.Join(", ", candidates));
+            return candidates;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Counterpart resolution failed for {ContextType} — returning null.", contextType);
-            return null;
+            logger.LogWarning(ex, "Counterpart resolution failed for {ContextType} — returning empty.", contextType);
+            return Array.Empty<Guid>();
         }
     }
 
@@ -108,6 +115,6 @@ public sealed class NullContextVerifier(ILogger<NullContextVerifier> logger) : I
         return Task.FromResult<ContextVerification?>(new ContextVerification(false, null, null));
     }
 
-    public Task<Guid?> ResolveCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
-        => Task.FromResult<Guid?>(null);
+    public Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Guid>>(Array.Empty<Guid>());
 }
