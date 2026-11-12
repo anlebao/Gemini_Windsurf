@@ -159,12 +159,12 @@
         @if (VoiceCallEnabled)
         {
             <VoiceCallPanel @ref="_voicePanel" Enabled="true"
-                            SubjectType="SubjectType"
+                            SubjectType="@SubjectType"
                             SubjectId="SubjectId"
                             CurrentUserId="CurrentUserId"
-                            Token="(IsStaff ? StaffToken : CustomerToken)"
-                            VoiceHubUrl="VoiceHubUrl"
-                            VoiceServiceUrl="VoiceServiceUrl"
+                            Token="@(IsStaff ? StaffToken : CustomerToken)"
+                            VoiceHubUrl="@VoiceHubUrl"
+                            VoiceServiceUrl="@VoiceServiceUrl"
                             ShowWalletLink="IsStaff"
                             HubStateChanged="OnVoiceHubStateChanged"
                             CallStateChanged="OnVoiceCallStateChanged" />
