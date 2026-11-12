@@ -75,7 +75,17 @@ Voice tính phí qua 2 rate card (giống mọi dịch vụ metering):
 
 ## 3. Dành cho Shop Owner
 
-### 3.1. Gọi cho khách / nghe máy
+### 3.1. Bật gọi thoại cho cửa hàng (bắt buộc, làm 1 lần)
+
+Nút "Gọi thoại" **không hiện mặc định** — chủ shop phải tự bật trong cài đặt:
+
+1. ShopERP → **Cài đặt → Tính năng cửa hàng** (`/settings/shop-features`).
+2. Bật toggle **"Bật gọi thoại trong chat (P4)**" → **Lưu**.
+3. F5 lại trang — nút 📞 "Gọi thoại" xuất hiện trong mọi khung chat, **và khách cũng thấy nút** (cờ này là public config, KhachLink đọc cùng giá trị).
+
+> Ngoài ra SystemAdmin phải đảm bảo `VoiceFeatureEnabled` = Bật ở `/admin/voice` (kill-switch nền tảng). Hai lớp độc lập: tắt cái nào cũng mất nút/chặn cuộc gọi.
+
+### 3.2. Gọi cho khách / nghe máy
 
 1. Mở **ShopERP** → **Hộp thư cộng đồng (ShopInbox)** → chọn hội thoại với khách.
 2. Trong khung chat, góc trên có nút **📞 "Gọi thoại"** (chỉ hiện khi tính năng bật cho tenant).
@@ -84,7 +94,7 @@ Voice tính phí qua 2 rate card (giống mọi dịch vụ metering):
 
 **Khi khách gọi đến:** khung chat hiện **"Cuộc gọi đến..."** với 2 nút **Nghe** (xanh) / **Từ chối** (đỏ). Chuông reo tối đa **30 giây** — không nghe → tự chuyển "cuộc gọi nhỡ".
 
-### 3.2. Trạng thái & ý nghĩa
+### 3.3. Trạng thái & ý nghĩa
 
 | Hiển thị | Ý nghĩa |
 |---|---|
@@ -95,7 +105,7 @@ Voice tính phí qua 2 rate card (giống mọi dịch vụ metering):
 | Đang nối lại... | Mất kết nối tạm thời, tự thử lại (tối đa 2 lần) |
 | Bạn có cuộc gọi nhỡ. | Có cuộc gọi đến không nghe — chỉ hiện 1 lần |
 
-### 3.3. Lưu ý vận hành
+### 3.4. Lưu ý vận hành
 
 - **Micro bắt buộc:** nếu từ chối quyền mic, cuộc gọi không có tiếng — kiểm tra icon ổ khóa trên thanh địa chỉ → cho phép Microphone → tải lại trang.
 - **Mạng yếu:** cuộc gọi tự chuyển TURN relay; nếu vẫn rớt, hệ thống báo kết thúc — gọi lại bình thường.
@@ -136,7 +146,7 @@ Voice tính phí qua 2 rate card (giống mọi dịch vụ metering):
 
 | Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 |---|---|---|
-| Không thấy nút "Gọi thoại" | Tenant chưa bật voice / tính năng chưa deploy / đang ở màn hình không phải chat | SystemAdmin kiểm tra `/admin/voice` → VoiceFeatureEnabled = Bật; phải gọi từ trong chat |
+| Không thấy nút "Gọi thoại" (cả 2 phía) | Shop chưa bật `Voice_Call_Enabled` trong Cài đặt → Tính năng cửa hàng (mặc định TẮT), hoặc SystemAdmin tắt `VoiceFeatureEnabled` ở `/admin/voice`, hoặc đang ở màn hình không phải chat | Owner bật toggle "Bật gọi thoại trong chat (P4)" → Lưu → F5; SystemAdmin kiểm tra `/admin/voice`; phải gọi từ trong chat |
 | "Tính năng gọi thoại đang tạm ngừng." | Kill-switch OFF hoặc METERING_DENIED (ShopERP hiện kèm link nạp phí) | Bật lại toggle; nạp ví tại `/wallet/phi-nen-tang` |
 | "Bạn có cuộc gọi nhỡ." | Cuộc gọi đến không nghe sau 30s | Gọi lại ngay trong cùng khung chat |
 | "Đang gọi..." mãi không vào "Đang gọi" | Đối phương chưa accept / mạng đối phương yếu | Chờ hoặc Hủy; kiểm tra mạng 2 bên |
