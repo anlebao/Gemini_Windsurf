@@ -137,7 +137,9 @@ public partial class VoiceCallPanel : IAsyncDisposable
         _error = null;
         try
         {
-            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", CurrentUserId, SubjectType, SubjectId);
+            // Chat-first (P4): pass NULL target — the server resolves the conversation
+            // counterpart. Passing CurrentUserId made every call SELF_CALL-denied (S7).
+            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId);
         }
         catch (Exception ex)
         {
