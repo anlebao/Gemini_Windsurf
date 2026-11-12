@@ -1277,7 +1277,7 @@ jobs:
               "Jwt__Secret=${DEPLOY_VOICE_JWT_SECRET}" \
               "Jwt__Issuer=VanAnShopERP" \
               "Jwt__Audience=VanAnApi" \
-              "TURN__PublicHost=${DEPLOY_VPS_VOICE_PUBLIC_IP:-}" \
+              "TURN__PublicHost=${DEPLOY_VPS_VOICE_PUBLIC_IP:-voice.khachvip.online}" \
               "TURN__UdpPort=3478" \
               "TURN__TcpPort=3478" \
               "TURN__TlsPort=5349" \

@@ -23,13 +23,15 @@ public class VoiceTenantConfigService(
 
     public async Task<List<VoiceTenantConfigDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var tenants = await _context.Tenants.AsNoTracking()
+        // IgnoreQueryFilters: SystemAdmin token có tenant_id=Empty → global IMustHaveTenant
+        // filter sẽ che toàn bộ Tenants/VoiceTenantConfigs (pattern OrderFlowAdminService).
+        var tenants = await _context.Tenants.AsNoTracking().IgnoreQueryFilters()
             .Where(t => !t.IsDeleted && t.Status == TenantStatus.Active)
             .Select(t => new { t.Id, t.Name })
             .OrderBy(t => t.Name)
             .ToListAsync(ct);
 
-        var configs = await _context.VoiceTenantConfigs.AsNoTracking()
+        var configs = await _context.VoiceTenantConfigs.AsNoTracking().IgnoreQueryFilters()
             .ToDictionaryAsync(c => c.TenantId.Value, ct);
 
         return tenants.Select(t => configs.TryGetValue(t.Id, out var cfg)
@@ -57,12 +59,12 @@ public class VoiceTenantConfigService(
         if (request is null)
             throw new ArgumentNullException(nameof(request));
 
-        var tenant = await _context.Tenants.AsNoTracking()
+        var tenant = await _context.Tenants.AsNoTracking().IgnoreQueryFilters()
             .FirstOrDefaultAsync(t => t.Id == new TenantId(tenantId) && !t.IsDeleted, ct);
         if (tenant is null)
             throw new KeyNotFoundException($"Tenant {tenantId} not found.");
 
-        var existing = await _context.VoiceTenantConfigs
+        var existing = await _context.VoiceTenantConfigs.IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.TenantId == new TenantId(tenantId), ct);
 
         if (existing is null)

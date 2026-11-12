@@ -62,8 +62,8 @@ async function get(path, token = null) {
 }
 {
   const r = await get('/v1/metrics/summary');
-  const shape = r.json && typeof r.json.total === 'number' && typeof r.json.today === 'number'
-    && typeof r.json.connected === 'number' && typeof r.json.failed === 'number';
+  const shape = r.json && typeof r.json.totalCalls === 'number' && typeof r.json.todayCalls === 'number'
+    && typeof r.json.connectedCalls === 'number' && typeof r.json.failedCalls === 'number';
   check('L1 metrics/summary 200 + shape', r.status === 200 && shape, `status=${r.status} keys=${r.json ? Object.keys(r.json).join(',') : 'null'}`);
 }
 
@@ -115,8 +115,21 @@ if (!SECRET) {
 // ============ L5. KILL-SWITCH CONFIG (Gateway admin API — restore cuối run) ============
 if (SECRET && GW) {
   const adminToken = mintJwt('11111111-1111-4111-8111-000000000001', '00000000-0000-0000-0000-000000000000', 'SystemAdmin');
+  // Upsert yêu cầu tenant THẬT (404 nếu không tồn tại) — lấy tenant đầu tiên từ admin list,
+  // override bằng env VOICE_TEST_TENANT. Toggle OFF chỉ tồn tại trong vài giây (restore finally).
+  let killTenant = process.env.VOICE_TEST_TENANT || TEST_TENANT;
+  {
+    const listRes = await fetch(`${GW}/api/admin/voice-config`, { headers: { Authorization: `Bearer ${adminToken}` } });
+    if (listRes.ok) {
+      const tenants = await listRes.json();
+      if (Array.isArray(tenants) && tenants.length > 0) {
+        killTenant = process.env.VOICE_TEST_TENANT || tenants[0].tenantId;
+        console.log(`[info] L5 kill-switch tenant = ${tenants[0].tenantName ?? killTenant} (${killTenant})`);
+      }
+    }
+  }
   async function putConfig(feature, open) {
-    const res = await fetch(`${GW}/api/admin/voice-config/${TEST_TENANT}`, {
+    const res = await fetch(`${GW}/api/admin/voice-config/${killTenant}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({ voiceFeatureEnabled: feature, voiceOpenCalling: open })
@@ -129,7 +142,7 @@ if (SECRET && GW) {
     const off = await putConfig(false, false);
     check('L5 kill-switch OFF qua admin API → 200', off.status === 200 && off.json?.voiceFeatureEnabled === false,
       `status=${off.status} feature=${off.json?.voiceFeatureEnabled}`);
-    const readOff = await get(`/v1/tenants/${TEST_TENANT}/voice-config`);
+    const readOff = await get(`/v1/tenants/${killTenant}/voice-config`);
     check('L5 voice service đọc OFF (PG-backed)', readOff.status === 200 && readOff.json?.voiceFeatureEnabled === false,
       `status=${readOff.status} feature=${readOff.json?.voiceFeatureEnabled}`);
   } finally {

@@ -58,7 +58,7 @@ public sealed class TenantFeatureStore
             await conn.OpenAsync(ct);
             await using var cmd = new NpgsqlCommand(
                 "SELECT \"VoiceFeatureEnabled\", \"VoiceOpenCalling\" FROM \"VoiceTenantConfigs\" WHERE \"TenantId\" = @tenantId LIMIT 1", conn);
-            cmd.Parameters.AddWithValue("tenantId", tenantId.ToString());
+            cmd.Parameters.AddWithValue("tenantId", tenantId);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct))
                 return new VoiceTenantConfig(); // no row → defaults (feature enabled, open-calling off)
