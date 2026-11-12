@@ -178,10 +178,27 @@ public partial class VoiceCallPanel : IAsyncDisposable
                 case "FEATURE_DISABLED":
                     _error = "Tính năng gọi thoại đang tạm ngừng.";
                     break;
+                case "INVALID_CONTEXT":
+                case "SELF_CALL":
+                case "CONTEXT_REQUIRED":
+                    _error = "Cuộc gọi không khả dụng trong cuộc trò chuyện này.";
+                    break;
                 default:
-                    _error = null; // timeout/reconnect/etc — không cần thông báo đáng sợ
+                    _error = "Không gọi được, vui lòng thử lại.";
                     break;
             }
+        }
+
+        // Terminal no-call outcomes must be VISIBLE — previously OFFLINE/BUSY/COLLISION
+        // silently returned to idle and looked like "button does nothing" (2026-11-12 RV).
+        if (state is "offline" or "busy" or "collision")
+        {
+            _error = state switch
+            {
+                "offline" => "Đối phương hiện không trực tuyến.",
+                "busy" => "Đối phương đang bận.",
+                _ => "Đang có cuộc gọi khác, vui lòng thử lại."
+            };
         }
 
         // Missed-call hint: ring timeout của callee (state 'missed') hoặc caller nhận
