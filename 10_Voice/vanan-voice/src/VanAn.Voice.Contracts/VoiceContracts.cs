@@ -6,7 +6,7 @@ public sealed record StartCallRequest(Guid CallId, Guid TargetUserId, string? Co
 
 public sealed record SdpDto(Guid CallId, string Sdp);
 
-public sealed record IceCandidateDto(Guid CallId, string Candidate);
+public sealed record IceCandidateDto(Guid CallId, string Candidate, string? SdpMid = null, int? SdpMLineIndex = null);
 
 // ---- Server → Client (events) ----
 
@@ -33,4 +33,4 @@ public sealed record CallOfflineDto(Guid CallId, bool MissedCallAllowed);
 
 public sealed record ReceiveSdpDto(Guid CallId, string Sdp);
 
-public sealed record ReceiveIceCandidateDto(Guid CallId, string Candidate);
+public sealed record ReceiveIceCandidateDto(Guid CallId, string Candidate, string? SdpMid = null, int? SdpMLineIndex = null);

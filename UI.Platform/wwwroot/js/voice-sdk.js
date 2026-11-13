@@ -94,6 +94,7 @@ window.vananVoice = (function () {
     function teardownMedia() {
         if (media) { media.closePeer(); media.stopLocal(); }
         remoteStream = null;
+        stopRemoteAudio();
         acceptedLocally = false;
         iceRestartCount = 0;
     }
@@ -195,7 +196,13 @@ window.vananVoice = (function () {
 
     async function onReceiveIce(d) {
         if (d.callId !== callId) return;
-        try { await media.addIceCandidate(d.candidate); } catch (_) { /* stale candidate */ }
+        try {
+            await media.addIceCandidate({
+                candidate: d.candidate,
+                sdpMid: d.sdpMid ?? null,
+                sdpMLineIndex: d.sdpMLineIndex ?? null
+            });
+        } catch (_) { /* stale candidate */ }
     }
 
     function onCallConnected(d) {
@@ -204,18 +211,56 @@ window.vananVoice = (function () {
         setState(STATES.Connected, { callId });
     }
 
+    // Remote audio playback: JSInvokable cannot receive a MediaStream into .NET, so the
+    // stream is played HERE on a hidden autoplay <audio> element. Without this the call
+    // connects but the user hears nothing (prod "connected, no audio", 2026-11-13).
+    let remoteAudioEl = null;
+
+    function playRemoteStream(stream) {
+        try {
+            if (!remoteAudioEl) {
+                remoteAudioEl = document.createElement('audio');
+                remoteAudioEl.id = 'vanan-voice-remote-audio';
+                remoteAudioEl.autoplay = true;
+                remoteAudioEl.playsInline = true;
+                remoteAudioEl.style.display = 'none';
+                document.body.appendChild(remoteAudioEl);
+            }
+            remoteAudioEl.srcObject = stream;
+            remoteAudioEl.play().catch(() => { /* autoplay blocked until next gesture */ });
+        } catch (_) { /* best effort — element may not exist in non-DOM hosts */ }
+    }
+
+    function stopRemoteAudio() {
+        if (remoteAudioEl) {
+            try { remoteAudioEl.pause(); remoteAudioEl.srcObject = null; } catch (_) { /* best effort */ }
+        }
+    }
+
     function onRemoteTrack(stream) {
         remoteStream = stream;
+        playRemoteStream(stream);
         if (options && options.onRemoteStream) options.onRemoteStream(stream);
     }
 
-    // ICE candidate relay: the server contract carries the candidate as a STRING
-    // (IceCandidateDto.Candidate); browsers emit RTCIceCandidate objects.
+    // ICE candidate relay: the server contract carries sdpMid/sdpMLineIndex alongside
+    // the candidate string — without them addIceCandidate() throws and trickle ICE
+    // silently dies (prod NEGOTIATION_TIMEOUT, 2026-11-13). End-of-candidates is
+    // relayed as an empty candidate string.
     function relayIceCandidate(candidate) {
-        if (!candidate) return;
+        if (!connection) return;
+        if (candidate == null) {
+            connection.invoke('SendIceCandidate', { callId, candidate: '' }).catch(() => {});
+            return;
+        }
         const value = typeof candidate === 'string' ? candidate : candidate.candidate;
-        if (!value) return; // end-of-candidates marker — server needs nothing
-        connection.invoke('SendIceCandidate', { callId, candidate: value }).catch(() => {});
+        if (!value) return;
+        connection.invoke('SendIceCandidate', {
+            callId,
+            candidate: value,
+            sdpMid: typeof candidate === 'string' ? null : (candidate.sdpMid ?? null),
+            sdpMLineIndex: typeof candidate === 'string' ? null : (candidate.sdpMLineIndex ?? null)
+        }).catch(() => {});
     }
 
     // Media connection state → ICE restart (bounded) + connected confirmation.

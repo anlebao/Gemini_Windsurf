@@ -1,4 +1,3 @@
-// SYNC: bản copy từ 10_Voice/vanan-voice/sdk/js/ (canonical) — giữ đồng bộ khi sửa SDK.
 // VOICE SERVICE P2 (2026-11-11): thin WebRTC media wrapper for the reusable voice SDK.
 // Contract (SRS v1.1 §9.5): mic requested ONLY on explicit user action; mono Opus
 // 32–64 kbps target with a 128 kbps hard cap; echoCancellation/noiseSuppression/autoGainControl
@@ -23,6 +22,10 @@ window.vananVoiceMedia = (function () {
     let localStream = null;
     let peer = null;
     let handlers = null;
+    // Remote candidates that arrive before setRemoteDescription completes are
+    // queued — addIceCandidate throws in that window and would silently drop them.
+    let remoteDescSet = false;
+    let pendingIce = [];
 
     function isSupported() {
         return !!(window.RTCPeerConnection
@@ -55,10 +58,14 @@ window.vananVoiceMedia = (function () {
     async function createPeer(iceServers, eventHandlers) {
         closePeer();
         handlers = eventHandlers || {};
+        remoteDescSet = false;
+        pendingIce = [];
         peer = new RTCPeerConnection({ iceServers: iceServers || [] });
         if (localStream) localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
         peer.onicecandidate = e => {
-            if (e.candidate && handlers.onIceCandidate) handlers.onIceCandidate(e.candidate);
+            // e.candidate === null marks end-of-candidates — relay it so the remote
+            // side can finish trickle ICE promptly.
+            if (handlers.onIceCandidate) handlers.onIceCandidate(e.candidate);
         };
         peer.onconnectionstatechange = () => {
             if (handlers.onConnectionStateChange) handlers.onConnectionStateChange(peer.connectionState);
@@ -79,19 +86,37 @@ window.vananVoiceMedia = (function () {
         return offer;
     }
 
+    async function flushPendingIce() {
+        const queued = pendingIce;
+        pendingIce = [];
+        for (const c of queued) {
+            try { await peer.addIceCandidate(c); } catch (_) { /* stale */ }
+        }
+    }
+
     async function createAnswer(offerSdp) {
         await peer.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+        remoteDescSet = true;
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
+        await flushPendingIce();
         return answer;
     }
 
     async function setRemoteAnswer(answerSdp) {
         await peer.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+        remoteDescSet = true;
+        await flushPendingIce();
     }
 
     async function addIceCandidate(candidate) {
-        if (peer && candidate) await peer.addIceCandidate(candidate);
+        if (!peer) return;
+        // End-of-candidates marker (empty candidate) — pass through as {}.
+        const init = candidate && candidate.candidate
+            ? { candidate: candidate.candidate, sdpMid: candidate.sdpMid ?? null, sdpMLineIndex: candidate.sdpMLineIndex ?? null }
+            : {};
+        if (!remoteDescSet) { pendingIce.push(init); return; }
+        try { await peer.addIceCandidate(init); } catch (_) { /* stale candidate */ }
     }
 
     function getConnectionState() {

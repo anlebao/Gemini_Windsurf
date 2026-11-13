@@ -299,7 +299,8 @@ public sealed class CallService(
 
         var target = active.Call.CallerUserId == user.UserId ? active.ReceiverConnectionId : active.CallerConnectionId;
         if (target == null) return false;
-        await publisher.SendToAsync(target, "ReceiveIceCandidate", new ReceiveIceCandidateDto(candidate.CallId, candidate.Candidate));
+        await publisher.SendToAsync(target, "ReceiveIceCandidate",
+            new ReceiveIceCandidateDto(candidate.CallId, candidate.Candidate, candidate.SdpMid, candidate.SdpMLineIndex));
         return true;
     }
 
