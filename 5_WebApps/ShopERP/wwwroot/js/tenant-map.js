@@ -28,8 +28,8 @@
     async function ensureLeaflet() {
         if (leafletLoaded && window.L) return;
         await Promise.all([
-            loadCss('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
-            loadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
+            loadCss('/_content/VanAn.UI.Platform/lib/leaflet/leaflet.css'),
+            loadScript('/_content/VanAn.UI.Platform/lib/leaflet/leaflet.js')
         ]);
         leafletLoaded = true;
     }

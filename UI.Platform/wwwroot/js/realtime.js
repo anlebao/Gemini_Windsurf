@@ -86,10 +86,10 @@ function loadMapLibre() {
     _maplibreLoaderPromise = new Promise(function (resolve, reject) {
         const css = document.createElement('link');
         css.rel = 'stylesheet';
-        css.href = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+        css.href = '/_content/VanAn.UI.Platform/lib/maplibre/maplibre-gl.css';
         document.head.appendChild(css);
         const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+        s.src = '/_content/VanAn.UI.Platform/lib/maplibre/maplibre-gl.js';
         s.async = true;
         s.onload = resolve;
         s.onerror = function () {

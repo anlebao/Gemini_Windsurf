@@ -108,11 +108,11 @@ window.vananOcrHub = (function () {
         const MODEL_DIR = '/js/lib/ocr/paddle';
         const REC_HEIGHT = 48;  // PP-OCRv4 rec mobile expects 48px height
 
-        // Load ONNX Runtime Web from CDN
+        // Load ONNX Runtime Web (self-hosted — was jsdelivr CDN)
         if (!window.ort) {
-            await _loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js');
+            await _loadScript('/js/lib/onnxruntime/ort.min.js');
         }
-        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+        ort.env.wasm.wasmPaths = '/js/lib/onnxruntime/';
         ort.env.wasm.numThreads = 1;  // Single thread — avoid SharedArrayBuffer requirement
 
         // Load dict.txt (character dictionary for CTC decoding)

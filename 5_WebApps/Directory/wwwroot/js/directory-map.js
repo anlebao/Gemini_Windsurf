@@ -5,12 +5,12 @@ window.directoryMap = (function () {
     let map = null;
 
     // Fix Leaflet default marker icon 404s — wwwroot/lib/leaflet/ ships only
-    // leaflet.css + leaflet.js (no images/ folder). Point default icon to CDN.
+    // leaflet.css + leaflet.js. Marker images vendored locally (images/).
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+        iconRetinaUrl: '/lib/leaflet/images/marker-icon-2x.png',
+        iconUrl: '/lib/leaflet/images/marker-icon.png',
+        shadowUrl: '/lib/leaflet/images/marker-shadow.png'
     });
 
     // 2026-11-08: tile chain giống UI.Platform realtime.js (CARTO Voyager → Esri → OSM)
