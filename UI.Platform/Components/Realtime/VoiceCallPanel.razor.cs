@@ -78,10 +78,15 @@ public partial class VoiceCallPanel : IAsyncDisposable
         : _hubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
         : "Gọi thoại";
 
+    private string MuteButtonClass =>
+        "voice-call-btn voice-call-btn--mute" + (_muted ? " is-muted" : "");
+
     private bool _active => _state is "accepted" or "negotiating" or "connected" or "reconnecting";
 
     private string _displayState => _state switch
     {
+        "ringing" => "Đang đổ chuông...",
+        "calling" => "Đang gọi đi...",
         "accepted" => "Đang kết nối...",
         "negotiating" => "Đang kết nối...",
         "reconnecting" => "Đang nối lại...",

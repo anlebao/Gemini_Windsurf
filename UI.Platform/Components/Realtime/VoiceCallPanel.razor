@@ -5,59 +5,61 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
 
-@if (Enabled)
+@* UX refresh (2026-11-13): panel KHÔNG còn render nút "Gọi thoại" ở idle —
+   điểm vào gọi duy nhất là icon điện thoại trên chat header (RealtimeChatPanel).
+   Panel chỉ xuất hiện khi có cuộc gọi đang diễn ra (incoming/ringing/active)
+   hoặc cần báo lỗi/trạng thái (missed, offline, metering deny). *@
+@if (Enabled && (!_idleLike || _missed || !string.IsNullOrEmpty(_error)))
 {
     <div class="voice-call-panel" data-testid="voice-call-panel">
-        @if (_idleLike)
+        @if (!_idleLike)
         {
-            @* S3 (2026-11-12): nút chỉ enable khi hub đã Connected; S5: guest (không token)
-               thấy nút disabled + tooltip đăng nhập thay vì bấm rồi lỗi. *@
-            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                         OnClick="StartCallAsync" Disabled="!_canCall" CssClass="voice-call-btn"
-                         title="@CallButtonTitle" aria-label="Gọi thoại" data-testid="voice-call-btn">
-                <i class="bi @(HubConnecting ? "bi-arrow-repeat" : "bi-telephone")"></i>
-                @(HubConnecting ? "Đang kết nối..." : "Gọi thoại")
-            </VanAnButton>
-        }
-
-        @if (_state == "ringing" || _state == "calling")
-        {
-            <div class="voice-ringing" data-testid="voice-incoming">
-                <span class="voice-pulse"></span>
-                <span><b>@(_state == "calling" ? "Đang gọi..." : "Cuộc gọi đến...")</b></span>
-                @if (_state == "ringing")
-                {
-                    <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
-                                 OnClick="AcceptCallAsync" data-testid="voice-accept">
-                        <i class="bi bi-telephone"></i> Nghe
-                    </VanAnButton>
-                    <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
-                                 OnClick="RejectCallAsync" data-testid="voice-reject">
-                        <i class="bi bi-telephone-x"></i> Từ chối
-                    </VanAnButton>
-                }
-                else
-                {
-                    <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
-                                 OnClick="CancelCallAsync" data-testid="voice-cancel">
-                        <i class="bi bi-x-circle"></i> Hủy
-                    </VanAnButton>
-                }
-            </div>
-        }
-
-        @if (_active)
-        {
-            <div class="voice-active" data-testid="voice-active">
-                <span class="voice-state-badge">@_displayState</span>
-                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                             OnClick="ToggleMuteAsync" data-testid="voice-mute">
-                    <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i> @(_muted ? "Bật mic" : "Tắt mic")
-                </VanAnButton>
-                <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
-                             OnClick="EndCallAsync" data-testid="voice-end">
-                    <i class="bi bi-telephone-x"></i> Kết thúc
-                </VanAnButton>
+            <div class="voice-call-card" data-testid="voice-call-card">
+                <span class="voice-call-avatar @( _state == "ringing" ? "voice-call-avatar--ringing" : "")">
+                    <i class="bi @(_state == "ringing" ? "bi-telephone-inbound" : "bi-telephone")"></i>
+                </span>
+                <div class="voice-call-info">
+                    <div class="voice-call-title">
+                        @(_state == "ringing" ? "Cuộc gọi đến..." : _state == "calling" ? "Đang gọi..." : "Cuộc gọi")
+                    </div>
+                    <div class="voice-call-sub">@_displayState</div>
+                </div>
+                <div class="voice-call-actions">
+                    @if (_state == "ringing")
+                    {
+                        <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                                     OnClick="AcceptCallAsync" CssClass="voice-call-btn voice-call-btn--accept"
+                                     data-testid="voice-accept" aria-label="Nghe">
+                            <i class="bi bi-telephone"></i>
+                        </VanAnButton>
+                        <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                     OnClick="RejectCallAsync" CssClass="voice-call-btn voice-call-btn--reject"
+                                     data-testid="voice-reject" aria-label="Từ chối">
+                            <i class="bi bi-telephone-x"></i>
+                        </VanAnButton>
+                    }
+                    else if (_state == "calling")
+                    {
+                        <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                     OnClick="CancelCallAsync" CssClass="voice-call-btn voice-call-btn--reject"
+                                     data-testid="voice-cancel" aria-label="Hủy cuộc gọi">
+                            <i class="bi bi-x-lg"></i>
+                        </VanAnButton>
+                    }
+                    else
+                    {
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="ToggleMuteAsync" CssClass="@MuteButtonClass"
+                                     data-testid="voice-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">
+                            <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i>
+                        </VanAnButton>
+                        <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                     OnClick="EndCallAsync" CssClass="voice-call-btn voice-call-btn--reject"
+                                     data-testid="voice-end" aria-label="Kết thúc cuộc gọi">
+                            <i class="bi bi-telephone-x"></i>
+                        </VanAnButton>
+                    }
+                </div>
             </div>
         }
 

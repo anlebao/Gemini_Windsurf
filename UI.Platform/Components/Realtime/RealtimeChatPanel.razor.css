@@ -48,3 +48,26 @@
         width: auto;
     }
 }
+
+/* ── UX refresh (2026-11-13): header call icon call-state visuals ── */
+.chat-panel ::deep .voice-hdr-btn--ringing {
+    border-color: #dc3545;
+    color: #dc3545;
+    animation: voice-hdr-ring 1.2s ease-in-out infinite;
+}
+
+.chat-panel ::deep .voice-hdr-btn--active {
+    border-color: #198754;
+    color: #198754;
+    animation: voice-hdr-ring 2s ease-in-out infinite;
+}
+
+@keyframes voice-hdr-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-panel ::deep .voice-hdr-btn--ringing,
+    .chat-panel ::deep .voice-hdr-btn--active { animation: none; }
+}

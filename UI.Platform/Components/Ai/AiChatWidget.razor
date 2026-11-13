@@ -33,28 +33,35 @@
                         }
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        @if (_mode == WidgetMode.Ai && HumanHandoffAvailable)
-                        {
-                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                                         OnClick="SwitchToHuman" CssClass="vanan-ai-human-btn"
-                                         aria-label="Chat với chủ quán">
-                                <i class="bi bi-chat-dots"></i> Chat với chủ quán
-                            </VanAnButton>
-                        }
-                        else if (_mode == WidgetMode.Human && _config?.AiEnabled == true)
-                        {
-                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
-                                         OnClick="SwitchToAi" CssClass="vanan-ai-back-btn"
-                                         aria-label="Quay lại trợ lý AI">
-                                <i class="bi bi-arrow-left"></i> Trợ lý AI
-                            </VanAnButton>
-                        }
                         <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
                                      OnClick="ToggleOpen" aria-label="Đóng trợ lý AI">
                             <i class="bi bi-chevron-down"></i>
                         </VanAnButton>
                     </div>
                 </div>
+
+                @* UX refresh (2026-11-13): 2 mode (Trợ lý AI / Chủ quán) thành segmented
+                   tabs hiển thị rõ thay vì 2 nút chuyển nhỏ trong header — user luôn
+                   biết đang nói chuyện với ai. Chỉ hiện khi cả 2 mode đều khả dụng. *@
+                @if (_config?.AiEnabled == true && HumanHandoffAvailable)
+                {
+                    <div class="vanan-ai-tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected="@(_mode == WidgetMode.Ai)"
+                                class="vanan-ai-tab vanan-ai-tab-ai @(_mode == WidgetMode.Ai ? "active" : "")"
+                                @onclick="SwitchToAi">
+                            <i class="bi bi-robot"></i> Trợ lý AI
+                        </button>
+                        <button type="button" role="tab" aria-selected="@(_mode == WidgetMode.Human)"
+                                class="vanan-ai-tab vanan-ai-tab-human @(_mode == WidgetMode.Human ? "active" : "")"
+                                @onclick="SwitchToHuman">
+                            <i class="bi bi-person"></i> Chủ quán
+                            @if (_mode != WidgetMode.Human && HumanUnreadCount > 0)
+                            {
+                                <span class="vanan-ai-tab-badge">@(HumanUnreadCount > 9 ? "9+" : HumanUnreadCount.ToString())</span>
+                            }
+                        </button>
+                    </div>
+                }
 
                 @if (_mode == WidgetMode.Human)
                 {
@@ -80,8 +87,11 @@
                         @if (_sending)
                         {
                             <div class="vanan-ai-msg vanan-ai-msg-assistant">
-                                <div class="vanan-ai-bubble vanan-ai-typing">
-                                    <span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span>
+                                <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
+                                <div class="vanan-ai-msg-body">
+                                    <div class="vanan-ai-bubble vanan-ai-typing">
+                                        <span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span>
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -100,6 +110,11 @@
                             var isUser = msg.Role == "user";
                             var turnDraft = drafts[i];
                             <div class="vanan-ai-msg @(isUser ? "vanan-ai-msg-user" : "vanan-ai-msg-assistant")" @key="msg">
+                                @if (!isUser)
+                                {
+                                    <span class="vanan-ai-avatar" aria-hidden="true" title="Trợ lý AI"><i class="bi bi-robot"></i></span>
+                                }
+                                <div class="vanan-ai-msg-body">
                                 <div class="vanan-ai-bubble">@msg.Content</div>
                                 @if (!isUser && msg.Refused && HumanHandoffAvailable)
                                 {
@@ -131,12 +146,16 @@
                                         }
                                     </div>
                                 }
+                                </div>
                             </div>
                         }
                         @if (!string.IsNullOrWhiteSpace(_config?.Greeting) && _messages.Count == 0)
                         {
                             <div class="vanan-ai-msg vanan-ai-msg-assistant">
-                                <div class="vanan-ai-bubble">@_config.Greeting</div>
+                                <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
+                                <div class="vanan-ai-msg-body">
+                                    <div class="vanan-ai-bubble">@_config.Greeting</div>
+                                </div>
                             </div>
                         }
                         @if (_config?.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)

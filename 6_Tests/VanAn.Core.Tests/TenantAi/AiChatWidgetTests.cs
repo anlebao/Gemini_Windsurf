@@ -193,14 +193,14 @@ public class AiChatWidgetTests : TestContext
         cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
         cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
 
-        cut.Find("button.vanan-ai-human-btn").Click();
+        cut.Find("button.vanan-ai-tab-human").Click();
 
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Chủ quán");
             cut.Markup.Should().Contain("HUMAN-PANEL");
-            cut.Markup.Should().NotContain("vanan-ai-human-btn");
-            cut.Find("button.vanan-ai-back-btn").Should().NotBeNull();
+            cut.Find("button.vanan-ai-tab-human.active").Should().NotBeNull();
+            cut.Find("button.vanan-ai-tab-ai").Should().NotBeNull();
         });
     }
 
@@ -218,9 +218,9 @@ public class AiChatWidgetTests : TestContext
         cut.Find("button.vanan-ai-send").Click();
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Câu trả lời AI."));
 
-        cut.Find("button.vanan-ai-human-btn").Click();
-        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-back-btn"));
-        cut.Find("button.vanan-ai-back-btn").Click();
+        cut.Find("button.vanan-ai-tab-human").Click();
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-tab-ai"));
+        cut.Find("button.vanan-ai-tab-ai").Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -292,7 +292,7 @@ public class AiChatWidgetTests : TestContext
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Từ chối.");
-            cut.Markup.Should().NotContain("vanan-ai-human-btn");
+            cut.Markup.Should().NotContain("vanan-ai-tab"); // no human channel → no mode tabs
             cut.Markup.Should().NotContain("vanan-ai-escalate");
             cut.Markup.Should().NotContain("HUMAN-PANEL");
         });
@@ -309,7 +309,7 @@ public class AiChatWidgetTests : TestContext
         {
             cut.Markup.Should().Contain("Chủ quán");
             cut.Markup.Should().Contain("HUMAN-PANEL");
-            cut.Markup.Should().NotContain("vanan-ai-back-btn"); // no AI to go back to
+            cut.Markup.Should().NotContain("vanan-ai-tab"); // no tabs — human only
         });
     }
 
@@ -447,7 +447,7 @@ public class AiChatWidgetTests : TestContext
             .Add(w => w.HumanContent, builder => builder.AddContent(0, "HUMAN")));
 
         cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
-        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-human-btn").Click());
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-tab-human").Click());
         cut.WaitForAssertion(() => calls.Should().Be(1));
     }
 

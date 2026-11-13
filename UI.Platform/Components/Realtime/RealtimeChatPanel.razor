@@ -30,8 +30,9 @@
                     <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
                                  OnClick="StartVoiceCallAsync" Disabled="!VoiceCallReady"
                                  title="@VoiceCallTitle" aria-label="Gọi thoại"
+                                 CssClass="@VoiceCallButtonClass"
                                  data-testid="voice-call-header-btn">
-                        <i class="bi bi-telephone"></i>
+                        <i class="bi @VoiceCallButtonIcon"></i>
                     </VanAnButton>
                 }
                 @* P6 manual-test: nút làm mới nội dung chat thủ công.
@@ -242,6 +243,23 @@
 
     private bool VoiceCallReady => VoiceCallEnabled && VoiceCallIdentity
         && _voiceHubState == "connected" && VoiceCallIdleLike(_voiceCallState);
+
+    // UX refresh (2026-11-13): header icon phản ánh trạng thái cuộc gọi —
+    // incoming/ringing pulse đỏ, đang gọi pulse xanh, idle thường.
+    private string VoiceCallButtonClass => _voiceCallState switch
+    {
+        "ringing" => "voice-hdr-btn voice-hdr-btn--ringing",
+        "calling" or "accepted" or "negotiating" or "connected" or "reconnecting"
+            => "voice-hdr-btn voice-hdr-btn--active",
+        _ => "voice-hdr-btn"
+    };
+
+    private string VoiceCallButtonIcon => _voiceCallState switch
+    {
+        "calling" => "bi-telephone-outbound",
+        "ringing" => "bi-telephone-inbound",
+        _ => "bi-telephone"
+    };
 
     private string VoiceCallTitle =>
         !VoiceCallIdentity ? "Đăng nhập để gọi thoại"

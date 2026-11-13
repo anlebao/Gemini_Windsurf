@@ -266,3 +266,85 @@
 .vanan-ai-bubble-btn {
     position: relative;
 }
+
+/* ── UX refresh (2026-11-13): segmented mode tabs (Trợ lý AI / Chủ quán) ── */
+.vanan-ai-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px 10px 0;
+    background: var(--bs-light, #f8f9fa);
+}
+
+.vanan-ai-tab {
+    flex: 1;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #fff;
+    color: #6c757d;
+    border-radius: 8px 8px 0 0;
+    padding: 6px 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    position: relative;
+}
+
+.vanan-ai-tab.active {
+    background: var(--bs-primary, #0d6efd);
+    border-color: var(--bs-primary, #0d6efd);
+    color: #fff;
+}
+
+.vanan-ai-tab-badge {
+    position: absolute;
+    top: -6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--bs-danger, #dc3545);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    padding: 0 4px;
+}
+
+/* ── AI avatar on assistant bubbles (sender identity) ── */
+.vanan-ai-msg-assistant {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.vanan-ai-msg-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vanan-ai-msg-user .vanan-ai-msg-body {
+    align-items: flex-end;
+}
+
+.vanan-ai-msg-assistant .vanan-ai-msg-body {
+    align-items: flex-start;
+}
+
+.vanan-ai-avatar {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
