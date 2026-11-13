@@ -43,11 +43,14 @@ public class RealtimeMessagingService(
 
         var subjectCode = subjectType.ToString();
 
+        // 2026-11-13: per-(subject, initiator) threads — Conversation.CustomerId stores the
+        // initiator id, so the same shop can hold one conversation per customer/guest.
         var conversation = await _dbContext.Conversations
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId
                                    && c.SubjectType == subjectCode
-                                   && c.SubjectId == subjectId, ct);
+                                   && c.SubjectId == subjectId
+                                   && c.CustomerId == initiatorId, ct);
 
         if (conversation == null)
         {
@@ -74,7 +77,8 @@ public class RealtimeMessagingService(
                     .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(c => c.TenantId == tenantId
                                            && c.SubjectType == subjectCode
-                                           && c.SubjectId == subjectId, ct);
+                                           && c.SubjectId == subjectId
+                                           && c.CustomerId == initiatorId, ct);
                 if (conversation == null)
                     return null;
             }
@@ -90,14 +94,20 @@ public class RealtimeMessagingService(
     public async Task<Conversation?> GetConversationAsync(
         RealtimeSubjectType subjectType,
         Guid subjectId,
+        Guid? customerId = null,
         CancellationToken ct = default)
     {
         var subjectCode = subjectType.ToString();
 
-        return await _dbContext.Conversations
+        var query = _dbContext.Conversations
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.SubjectType == subjectCode && c.SubjectId == subjectId, ct);
+            .Where(c => c.SubjectType == subjectCode && c.SubjectId == subjectId);
+
+        if (customerId.HasValue)
+            query = query.Where(c => c.CustomerId == customerId.Value);
+
+        return await query.FirstOrDefaultAsync(ct);
     }
 
     public async Task<Message?> SendMessageAsync(Guid conversationId, Guid senderId, string content, CancellationToken ct = default)

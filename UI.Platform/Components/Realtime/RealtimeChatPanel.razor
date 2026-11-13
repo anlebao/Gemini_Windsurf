@@ -162,6 +162,7 @@
             <VoiceCallPanel @ref="_voicePanel" Enabled="true"
                             SubjectType="@SubjectType"
                             SubjectId="SubjectId"
+                            PeerId="PeerId"
                             CurrentUserId="CurrentUserId"
                             Token="@(IsStaff ? StaffToken : CustomerToken)"
                             VoiceHubUrl="@VoiceHubUrl"
@@ -182,6 +183,12 @@
     [Parameter] public string? CustomerToken { get; set; }
     /// <summary>D6 (2026-09-17): guest identity (localStorage "customer_device_id"). Guests chat over HTTP.</summary>
     [Parameter] public Guid? CustomerDeviceId { get; set; }
+    /// <summary>
+    /// 2026-11-13: shop threads are per-customer — staff pass the customer/guest participant id
+    /// of the selected inbox thread so history/send resolve THAT conversation. Customer/guest
+    /// callers leave it null (server resolves their own thread).
+    /// </summary>
+    [Parameter] public Guid? PeerId { get; set; }
     /// <summary>
     /// P5 (2026-09-18): staff Bearer JWT (ShopERP minted, tenant_id claim) — the shop side of a
     /// Shop conversation. Takes precedence over the customer credentials; sent as
@@ -208,6 +215,9 @@
     [Parameter] public string VoiceServiceUrl { get; set; } = "";
 
     private List<RealtimeChatMessage> _messages = new();
+    /// <summary>2026-11-13: resolved conversation id (from history) — Shop threads are
+    /// per-customer; ReceiveMessageThread pushes are filtered to this thread.</summary>
+    private Guid _conversationId = Guid.Empty;
     private string _messageInput = string.Empty;
     private bool _loadingHistory = true;
     private bool _connecting = false;
@@ -296,12 +306,29 @@
 
     private bool HasAnyIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken) || HasGuestIdentity;
 
-    protected override void OnParametersSet()
+    private Guid? _loadedPeerId;
+    private Guid _loadedSubjectId;
+
+    protected override async Task OnParametersSetAsync()
     {
         if (!_draftApplied && !string.IsNullOrWhiteSpace(InitialDraft))
         {
             _messageInput = InitialDraft;
             _draftApplied = true;
+        }
+
+        // 2026-11-13: shop threads are per-customer — when the host switches the selected
+        // inbox thread (PeerId) or subject, the panel must reload: messages, resolved
+        // conversation id and SignalR thread-filter all belong to the previous thread.
+        if (HasAnyIdentity && (_loadedSubjectId != SubjectId || _loadedPeerId != PeerId))
+        {
+            _loadedSubjectId = SubjectId;
+            _loadedPeerId = PeerId;
+            _messages = new List<RealtimeChatMessage>();
+            _conversationId = Guid.Empty;
+            _error = null;
+            await LoadHistoryAsync();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -317,6 +344,8 @@
         await LoadHistoryAsync();
         await ConnectSignalRAsync();
         StartHistoryPolling();
+        _loadedSubjectId = SubjectId;
+        _loadedPeerId = PeerId;
     }
 
     /// <summary>
@@ -348,10 +377,11 @@
     private async Task LoadHistoryAsync()
     {
         _loadingHistory = true;
-        var result = await ChatClient.GetHistoryAsync(SubjectType, SubjectId, CustomerToken, CustomerDeviceId, 100, StaffToken);
+        var result = await ChatClient.GetHistoryAsync(SubjectType, SubjectId, CustomerToken, CustomerDeviceId, 100, StaffToken, PeerId);
         if (result.Success)
         {
             _messages = result.Messages;
+            _conversationId = result.ConversationId;
         }
         else
         {
@@ -410,7 +440,7 @@
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<string, string, string, string>("ReceiveMessage", (messageId, senderId, content, sentAt) =>
+            void AppendMessage(string messageId, string senderId, string content, string sentAt)
             {
                 var msg = new RealtimeChatMessage
                 {
@@ -420,7 +450,8 @@
                     SentAt = DateTime.Parse(sentAt),
                     IsRead = false
                 };
-                // Dedup: reconnect/poll overlap or a sender echo must never render twice.
+                // Dedup: reconnect/poll overlap, sender echo or the legacy+thread event pair
+                // must never render twice.
                 if (_messages.Any(m => m.Id == msg.Id)) return;
                 _messages.Add(msg);
                 _ = InvokeAsync(async () =>
@@ -428,7 +459,32 @@
                     StateHasChanged();
                     await ScrollToBottomAsync();
                 });
+            }
+
+            _hubConnection.On<string, string, string, string>("ReceiveMessage", (messageId, senderId, content, sentAt) =>
+            {
+                // 2026-11-13: Shop subjects have per-customer threads and staff sit in the
+                // shared group — the 4-arg legacy event carries no conversation id, so it
+                // cannot be routed to the right thread. Shop panels rely on
+                // ReceiveMessageThread only; other subjects keep this handler.
+                if (SubjectType == "Shop") return;
+                AppendMessage(messageId, senderId, content, sentAt);
             });
+
+            // Per-customer shop threads: payload carries the conversation id so a staff
+            // panel (shared group, sees every thread) appends only its own.
+            _hubConnection.On<string, string, string, string, string>("ReceiveMessageThread",
+                (conversationId, messageId, senderId, content, sentAt) =>
+                {
+                    if (SubjectType != "Shop") return;
+                    // Strict match: staff share one SignalR group across ALL customer
+                    // threads — anything not addressed to this panel's conversation is
+                    // another customer's chat and must never render here.
+                    if (_conversationId == Guid.Empty
+                        || !string.Equals(conversationId, _conversationId.ToString(), StringComparison.OrdinalIgnoreCase))
+                        return;
+                    AppendMessage(messageId, senderId, content, sentAt);
+                });
 
             // Realtime fix (2026-11-13): WithAutomaticReconnect tạo connection MỚI —
             // group membership của hub KHÔNG được giữ → phải JoinConversation lại,
@@ -473,7 +529,7 @@
         _messageInput = string.Empty;
         _error = null;
 
-        var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId, StaffToken);
+        var result = await ChatClient.SendMessageAsync(SubjectType, SubjectId, content, CustomerToken, CustomerDeviceId, StaffToken, PeerId);
         if (!result.Success)
         {
             if (result.ErrorCode == 403)

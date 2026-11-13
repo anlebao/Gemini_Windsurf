@@ -25,7 +25,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasDefaultValue(RealtimeSubjectType.Order.ToString());
             _ = builder.Property(e => e.SubjectId).IsRequired();
             _ = builder.HasIndex(e => e.OrderId); // legacy lookup path — no longer unique
-            _ = builder.HasIndex(e => new { e.TenantId, e.SubjectType, e.SubjectId }).IsUnique(); // 1 conversation per subject
+            // 2026-11-13: per-(shop, customer) threads — CustomerId holds the initiator
+            // (customer/guest device id) so a shop can have one conversation per customer.
+            _ = builder.HasIndex(e => new { e.TenantId, e.SubjectType, e.SubjectId, e.CustomerId }).IsUnique();
             _ = builder.Property(e => e.TenantId).IsRequired();
         }
     }

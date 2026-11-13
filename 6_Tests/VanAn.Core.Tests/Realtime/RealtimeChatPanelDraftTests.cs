@@ -83,12 +83,12 @@ public class RealtimeChatPanelDraftTests : TestContext
     {
         public Task<RealtimeChatHistoryResult> GetHistoryAsync(string subjectType, Guid subjectId,
             string? customerToken, Guid? customerDeviceId, int take = 100, string? staffToken = null,
-            CancellationToken ct = default)
+            Guid? peerId = null, CancellationToken ct = default)
             => Task.FromResult(new RealtimeChatHistoryResult { Success = true });
 
         public Task<RealtimeSendResult> SendMessageAsync(string subjectType, Guid subjectId, string content,
             string? customerToken, Guid? customerDeviceId, string? staffToken = null,
-            CancellationToken ct = default)
+            Guid? peerId = null, CancellationToken ct = default)
             => Task.FromResult(new RealtimeSendResult { Success = true });
     }
 

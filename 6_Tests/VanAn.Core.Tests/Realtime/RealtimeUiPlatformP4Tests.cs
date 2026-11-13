@@ -113,7 +113,7 @@ public class RealtimeUiPlatformP4Tests
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Post, $"{GatewayBase}/api/realtime/conversations/messages")
                .WithHeaders("X-Customer-Token", "tok-123")
-               .WithContent("""{"subjectType":"Order","subjectId":"SUBJECT_ID","content":"hello"}"""
+               .WithContent("""{"subjectType":"Order","subjectId":"SUBJECT_ID","content":"hello","peerId":null}"""
                    .Replace("SUBJECT_ID", subjectId.ToString()))
                .Respond("application/json", $$"""{"conversationId":"{{Guid.NewGuid()}}","messageId":"{{messageId}}","sentAt":"2026-09-18T01:02:03Z"}""");
 

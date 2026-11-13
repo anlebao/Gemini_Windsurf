@@ -35,12 +35,16 @@ window.vananVoiceChat = (function () {
     }
 
     // targetUserId may be empty — the server resolves the conversation counterpart (P4).
-    async function startCall(targetUserId, subjectType, subjectId) {
-        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, sdkState: voice ? voice.getCallState() : null });
+    // peerId (2026-11-13): shop threads are per-customer — staff pass the customer id so the
+    // context verifier scopes verification/counterpart resolution to THAT thread, not every
+    // customer conversation of the shop.
+    async function startCall(targetUserId, subjectType, subjectId, peerId) {
+        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, peerId, sdkState: voice ? voice.getCallState() : null });
         try {
+            const contextRef = subjectType + ':' + subjectId + (peerId ? ':' + peerId : '');
             await voice.startCall(targetUserId || null, {
                 contextType: 'chat',
-                contextReferenceId: subjectType + ':' + subjectId
+                contextReferenceId: contextRef
             });
             console.info('[voice-chat] startCall returned');
         } catch (ex) {

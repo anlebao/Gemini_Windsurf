@@ -38,12 +38,13 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimeChatHistoryResult> GetHistoryAsync(
         string subjectType, Guid subjectId, string? customerToken, Guid? customerDeviceId,
-        int take = 100, string? staffToken = null, CancellationToken ct = default)
+        int take = 100, string? staffToken = null, Guid? peerId = null, CancellationToken ct = default)
     {
         try
         {
-            var request = BuildGet($"/api/realtime/conversations/{subjectType}/{subjectId}?take={take}",
-                customerToken, customerDeviceId, staffToken);
+            var url = $"/api/realtime/conversations/{subjectType}/{subjectId}?take={take}"
+                + (peerId.HasValue ? $"&peerId={peerId.Value}" : "");
+            var request = BuildGet(url, customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
@@ -74,12 +75,12 @@ public class RealtimeHttpAdapter(
 
     public async Task<RealtimeSendResult> SendMessageAsync(
         string subjectType, Guid subjectId, string content, string? customerToken, Guid? customerDeviceId,
-        string? staffToken = null, CancellationToken ct = default)
+        string? staffToken = null, Guid? peerId = null, CancellationToken ct = default)
     {
         try
         {
             var request = BuildPost("/api/realtime/conversations/messages",
-                new { subjectType, subjectId, content }, customerToken, customerDeviceId, staffToken);
+                new { subjectType, subjectId, content, peerId }, customerToken, customerDeviceId, staffToken);
             var resp = await CreateClient().SendAsync(request, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 

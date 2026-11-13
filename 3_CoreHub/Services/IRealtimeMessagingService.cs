@@ -31,10 +31,16 @@ public interface IRealtimeMessagingService
         string counterpartRole = RealtimeParticipantRole.Shop,
         CancellationToken ct = default);
 
-    /// <summary>Get the conversation for a subject, or null when none exists yet.</summary>
+    /// <summary>
+    /// Get the conversation for a subject, or null when none exists yet.
+    /// <paramref name="customerId"/> scopes the lookup to one customer's thread — required
+    /// for Shop subjects where each customer has their own conversation (2026-11-13);
+    /// ignored for subjects that still have a single shared thread.
+    /// </summary>
     Task<Conversation?> GetConversationAsync(
         RealtimeSubjectType subjectType,
         Guid subjectId,
+        Guid? customerId = null,
         CancellationToken ct = default);
 
     /// <summary>

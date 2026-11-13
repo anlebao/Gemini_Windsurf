@@ -68,7 +68,7 @@ public class RealtimeControllerP3Tests
         var (controller, _, _, _) = Build(registerOrderAuthorizer: false);
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         var forbidden = Assert.IsType<ObjectResult>(result);
         Assert.Equal(403, forbidden.StatusCode);
@@ -88,7 +88,7 @@ public class RealtimeControllerP3Tests
                  });
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.NotNull(ok.Value);
@@ -101,12 +101,12 @@ public class RealtimeControllerP3Tests
         var (controller, messaging, _, _) = Build(allowedUser: Guid.NewGuid());
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         var forbidden = Assert.IsType<ObjectResult>(result);
         Assert.Equal(403, forbidden.StatusCode);
         messaging.Verify(m => m.GetConversationAsync(
-            It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // === T21: (0,0) is rejected — it is the unset-default coordinate that blanked the maps (D8) ===
@@ -167,7 +167,7 @@ public class RealtimeControllerP3Tests
         var (controller, _, _, _) = Build(conversation: null);
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         // The fallback created a conversation → history is served, not 404.
         Assert.IsType<OkObjectResult>(result);
@@ -180,10 +180,10 @@ public class RealtimeControllerP3Tests
         var (controller, messaging, _, _) = Build(conversation: null, registerShopAuthorizer: true);
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Shop), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Shop), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result);
-        messaging.Verify(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
+        messaging.Verify(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // === T26 (P4): when the generic conversation exists, the legacy adapter is NOT consulted ===
@@ -194,7 +194,7 @@ public class RealtimeControllerP3Tests
         var (controller, _, _, _) = Build(conversation: existing);
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
     }
@@ -245,7 +245,7 @@ public class RealtimeControllerP3Tests
         var allowed = allowedUser ?? CallerId;
 
         var messaging = new Mock<IRealtimeMessagingService>();
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));

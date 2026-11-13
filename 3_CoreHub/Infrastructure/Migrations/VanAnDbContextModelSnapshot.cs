@@ -4141,7 +4141,7 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.HasIndex("TenantId", "SubjectType", "SubjectId")
+                    b.HasIndex("TenantId", "SubjectType", "SubjectId", "CustomerId")
                         .IsUnique();
 
                     b.ToTable("Conversations");

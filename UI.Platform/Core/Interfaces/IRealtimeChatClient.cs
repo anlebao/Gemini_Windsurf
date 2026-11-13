@@ -13,6 +13,8 @@ namespace VanAn.UI.Platform.Core.Interfaces;
 public interface IRealtimeChatClient
 {
     /// <summary>GET /api/realtime/conversations/{subjectType}/{subjectId} — history, oldest first.</summary>
+    /// <param name="peerId">Shop threads are per-customer (2026-11-13): staff pass the
+    /// customer/guest participant id of the thread; ignored for customer/guest callers.</param>
     Task<RealtimeChatHistoryResult> GetHistoryAsync(
         string subjectType,
         Guid subjectId,
@@ -20,9 +22,11 @@ public interface IRealtimeChatClient
         Guid? customerDeviceId,
         int take = 100,
         string? staffToken = null,
+        Guid? peerId = null,
         CancellationToken ct = default);
 
     /// <summary>POST /api/realtime/conversations/messages — send a message to a subject's conversation.</summary>
+    /// <param name="peerId">See <see cref="GetHistoryAsync"/>.</param>
     Task<RealtimeSendResult> SendMessageAsync(
         string subjectType,
         Guid subjectId,
@@ -30,5 +34,6 @@ public interface IRealtimeChatClient
         string? customerToken,
         Guid? customerDeviceId,
         string? staffToken = null,
+        Guid? peerId = null,
         CancellationToken ct = default);
 }

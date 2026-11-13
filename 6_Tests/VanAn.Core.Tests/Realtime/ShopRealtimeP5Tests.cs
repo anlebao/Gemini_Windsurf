@@ -180,7 +180,7 @@ public class ShopRealtimeP5Tests : IDisposable
         var (controller, messaging, _) = BuildController(_context, customerId, tenantId: null, kind: RealtimeIdentityKind.Customer);
 
         // Generic lookup misses → Shop ensure (create-only) runs, then the authorizer gates.
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Conversation?)null);
         messaging.Setup(m => m.EnsureConversationAsync(
                 It.IsAny<TenantId>(), It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(),
@@ -191,7 +191,7 @@ public class ShopRealtimeP5Tests : IDisposable
                  .ReturnsAsync(new List<Message>());
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, peerId: null, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
         // The conversation was created with the caller as initiator and the shop as counterpart.
@@ -215,7 +215,7 @@ public class ShopRealtimeP5Tests : IDisposable
         await _context.SaveChangesAsync();
 
         var (controller, messaging, _) = BuildController(_context, customerB, tenantId: null, kind: RealtimeIdentityKind.Device);
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         // The shared thread contains customer A's message + a shop reply (by staff).
         messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -226,7 +226,7 @@ public class ShopRealtimeP5Tests : IDisposable
                  });
 
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, peerId: null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         var json = System.Text.Json.JsonSerializer.Serialize(ok.Value, new System.Text.Json.JsonSerializerOptions
@@ -246,7 +246,7 @@ public class ShopRealtimeP5Tests : IDisposable
         // Legacy order conversation keyed to the customer — the device is NOT a party.
         var conversation = new Conversation(Tenant, customer /*orderId*/, Guid.NewGuid() /*shipper*/, customer);
         var (controller, messaging, _) = BuildController(_context, device, tenantId: null, kind: RealtimeIdentityKind.Device);
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
@@ -275,7 +275,7 @@ public class ShopRealtimeP5Tests : IDisposable
         await _context.SaveChangesAsync();
 
         var (controller, messaging, _) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(new List<Message>
@@ -284,8 +284,9 @@ public class ShopRealtimeP5Tests : IDisposable
                      new Message(Tenant, conversation.Id, staffId, "tin shop")
                  });
 
+        // 2026-11-13: staff must name the customer thread (peerId = Conversation.CustomerId).
         var result = await controller.GetConversation(
-            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, CancellationToken.None);
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, customerA, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         var json = System.Text.Json.JsonSerializer.Serialize(ok.Value, new System.Text.Json.JsonSerializerOptions
@@ -316,7 +317,7 @@ public class ShopRealtimeP5Tests : IDisposable
         await _context.SaveChangesAsync();
 
         var (controller, messaging, hubClients) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
@@ -326,15 +327,16 @@ public class ShopRealtimeP5Tests : IDisposable
             {
                 SubjectType = nameof(RealtimeSubjectType.Shop),
                 SubjectId = ShopTenantId,
-                Content = "shop trả lời"
+                Content = "shop trả lời",
+                PeerId = customerA
             }, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
-        // Shared group → staff inbox.
-        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Once);
+        // Shared group → staff inbox (ReceiveMessage + ReceiveMessageThread = 2 sends).
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Exactly(2));
         // Every non-shop participant gets the shop reply on their own per-user group.
-        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Once);
-        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{guestDevice}"), Times.Once);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Exactly(2));
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{guestDevice}"), Times.Exactly(2));
         // Shop-role participants never join per-user groups.
         hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{staffId}"), Times.Never);
     }
@@ -354,7 +356,7 @@ public class ShopRealtimeP5Tests : IDisposable
         await _context.SaveChangesAsync();
 
         var (controller, messaging, hubClients) = BuildController(_context, customerA, tenantId: null, kind: RealtimeIdentityKind.Customer);
-        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
@@ -368,11 +370,43 @@ public class ShopRealtimeP5Tests : IDisposable
             }, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
-        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Once);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Exactly(2));
         // Echo to sender's own group only (multi-device sync) — customer B stays blind.
-        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Once);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Exactly(2));
         hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerB}"), Times.Never);
         hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{staffId}"), Times.Never);
+    }
+
+    [Fact(DisplayName = "T15: staff GetConversation WITHOUT peerId → 404 (no merged thread anymore)")]
+    public async Task GetConversation_Shop_StaffWithoutPeerId_NotFound()
+    {
+        var staffId = Guid.NewGuid();
+        var (controller, messaging, _) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Shop), ShopTenantId.ToString(), 100, peerId: null, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        // Staff never fall back to "any" thread — the scoped lookup is never even attempted.
+        messaging.Verify(m => m.GetConversationAsync(
+            It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact(DisplayName = "T16: staff SendMessage WITHOUT peerId → 404 (must name the customer thread)")]
+    public async Task SendMessage_Shop_StaffWithoutPeerId_NotFound()
+    {
+        var staffId = Guid.NewGuid();
+        var (controller, _, _) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
+
+        var result = await controller.SendMessage(
+            new RealtimeController.SendRealtimeMessageRequest
+            {
+                SubjectType = nameof(RealtimeSubjectType.Shop),
+                SubjectId = ShopTenantId,
+                Content = "không rõ gửi cho ai"
+            }, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
     }
 
     // === helpers ===

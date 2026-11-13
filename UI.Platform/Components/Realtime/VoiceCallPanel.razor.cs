@@ -22,6 +22,14 @@ public partial class VoiceCallPanel : IAsyncDisposable
     /// <summary>Chat subject id — the voice context reference is "{SubjectType}:{SubjectId}".</summary>
     [Parameter] public Guid SubjectId { get; set; }
 
+    /// <summary>
+    /// 2026-11-13: shop threads are per-customer — staff pass the customer id of the selected
+    /// thread so the voice context reference scopes verification + counterpart resolution to
+    /// THAT conversation ("{type}:{id}:{peerId}"). Customer/guest callers leave it null — the
+    /// verifier scopes to the caller's own thread automatically.
+    /// </summary>
+    [Parameter] public Guid? PeerId { get; set; }
+
     /// <summary>The caller's own participant id (staff userId or customerId).</summary>
     [Parameter] public Guid CurrentUserId { get; set; }
 
@@ -152,7 +160,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         {
             // Chat-first (P4): pass NULL target — the server resolves the conversation
             // counterpart. Passing CurrentUserId made every call SELF_CALL-denied (S7).
-            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId);
+            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId, PeerId);
         }
         catch (Exception ex)
         {

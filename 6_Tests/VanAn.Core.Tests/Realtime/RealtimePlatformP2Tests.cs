@@ -236,6 +236,33 @@ public class RealtimePlatformP2Tests : IDisposable
         Assert.NotEqual(a!.Id, b!.Id);
     }
 
+    // === T12 (2026-11-13): one conversation PER CUSTOMER for a Shop subject ===
+    // Before this change a shop had exactly ONE thread shared by every customer/guest —
+    // a second account on the same shop saw the previous account's chat. CustomerId now
+    // holds the initiator id, so each customer gets their own isolated thread.
+    [Fact(DisplayName = "T12: EnsureConversation_ShopSubject_PerCustomerIsolation")]
+    public async Task EnsureConversation_ShopSubject_PerCustomerIsolation()
+    {
+        var customerB = Guid.NewGuid();
+
+        var a = await _messaging.EnsureConversationAsync(Tenant, RealtimeSubjectType.Shop, ShopTenantId, CustomerId, ShopTenantId);
+        var b = await _messaging.EnsureConversationAsync(Tenant, RealtimeSubjectType.Shop, ShopTenantId, customerB, ShopTenantId);
+
+        Assert.NotNull(a);
+        Assert.NotNull(b);
+        Assert.NotEqual(a!.Id, b!.Id);
+
+        // Idempotent per customer — same initiator reuses their own thread.
+        var a2 = await _messaging.EnsureConversationAsync(Tenant, RealtimeSubjectType.Shop, ShopTenantId, CustomerId, ShopTenantId);
+        Assert.Equal(a.Id, a2!.Id);
+
+        // Scoped lookup resolves each customer's own thread.
+        var foundA = await _messaging.GetConversationAsync(RealtimeSubjectType.Shop, ShopTenantId, CustomerId);
+        var foundB = await _messaging.GetConversationAsync(RealtimeSubjectType.Shop, ShopTenantId, customerB);
+        Assert.Equal(a.Id, foundA!.Id);
+        Assert.Equal(b.Id, foundB!.Id);
+    }
+
     private static void SetProp<T>(T obj, string propName, object value)
     {
         typeof(T).GetProperty(propName)?.SetValue(obj, value);

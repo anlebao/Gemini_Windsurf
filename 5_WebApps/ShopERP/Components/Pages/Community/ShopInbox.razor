@@ -125,6 +125,7 @@
                 {
                     <RealtimeChatPanel SubjectType="Shop"
                                        SubjectId="_selectedTenantId"
+                                       PeerId="_selectedPeerId"
                                        CurrentUserId="_staffUserId"
                                        StaffToken="@_staffToken"
                                        VoiceEnabled="_voiceEnabled"
@@ -168,6 +169,9 @@
 
     private Guid _selectedConversationId;
     private Guid _selectedTenantId;
+    /// <summary>2026-11-13: customer/guest participant id of the selected thread — shop
+    /// conversations are per-customer, the panel needs it to resolve the right one.</summary>
+    private Guid _selectedPeerId;
     private Guid _staffUserId;
     private string? _staffToken;
 
@@ -273,6 +277,7 @@
     {
         _selectedConversationId = conv.ConversationId;
         _selectedTenantId = conv.SubjectId;
+        _selectedPeerId = conv.CustomerId;
         // Fresh short-lived JWT per conversation — the panel authenticates as the shop side.
         _staffToken = await ApiClient.MintOwnerTokenAsync();
 

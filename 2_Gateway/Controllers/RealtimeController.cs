@@ -78,7 +78,7 @@ public class RealtimeController(
         Conversation? conversation;
         if (subjectType == RealtimeSubjectType.Shop)
         {
-            conversation = await GetOrEnsureShopConversationAsync(subjectId, identity, ct);
+            conversation = await GetOrEnsureShopConversationAsync(subjectId, identity, body.PeerId, ct);
             if (conversation == null)
                 return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
             if (!await CanAccessAsync(subjectType, subjectId, identity, ct))
@@ -136,6 +136,20 @@ public class RealtimeController(
                         .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
                             message.Content, message.SentAt.ToString("O"), ct);
                 }
+
+                // 2026-11-13: per-customer threads — staff sit in the SHARED shop group and
+                // receive every thread's messages, so pushes now also carry the conversation
+                // id (ReceiveMessageThread) and the panel filters to its own thread.
+                // ReceiveMessage (4-arg) stays for backward compatibility with stale clients.
+                await _messagingHub.Clients.Group(RealtimeGroups.Messaging(subjectType, subjectId))
+                    .SendAsync("ReceiveMessageThread", conversation.Id.ToString(), message.Id.ToString(),
+                        message.SenderId.ToString(), message.Content, message.SentAt.ToString("O"), ct);
+                foreach (var recipientId in recipientIds)
+                {
+                    await _messagingHub.Clients.Group(RealtimeGroups.MessagingUser(subjectId, recipientId))
+                        .SendAsync("ReceiveMessageThread", conversation.Id.ToString(), message.Id.ToString(),
+                            message.SenderId.ToString(), message.Content, message.SentAt.ToString("O"), ct);
+                }
             }
 
             return Ok(new
@@ -157,7 +171,7 @@ public class RealtimeController(
 
     /// <summary>Conversation history for a subject, oldest first.</summary>
     [HttpGet("conversations/{subjectType}/{subjectId}")]
-    public async Task<IActionResult> GetConversation(string subjectType, string subjectId, [FromQuery] int take = DefaultHistoryTake, CancellationToken ct = default)
+    public async Task<IActionResult> GetConversation(string subjectType, string subjectId, [FromQuery] int take = DefaultHistoryTake, [FromQuery] Guid? peerId = null, CancellationToken ct = default)
     {
         var identity = await ResolveIdentityAsync(ct);
         if (identity == null)
@@ -171,7 +185,7 @@ public class RealtimeController(
         Conversation? conversation;
         if (type == RealtimeSubjectType.Shop)
         {
-            conversation = await GetOrEnsureShopConversationAsync(id, identity, ct);
+            conversation = await GetOrEnsureShopConversationAsync(id, identity, peerId, ct);
             if (conversation == null)
                 return NotFound(new { error = "Chưa có cuộc trò chuyện cho chủ thể này." });
             if (!await CanAccessAsync(type, id, identity, ct))
@@ -438,7 +452,7 @@ public class RealtimeController(
         RealtimeIdentity identity,
         CancellationToken ct)
     {
-        var conversation = await _messaging.GetConversationAsync(subjectType, subjectId, ct);
+        var conversation = await _messaging.GetConversationAsync(subjectType, subjectId, ct: ct);
         if (conversation != null)
             return conversation;
 
@@ -464,14 +478,28 @@ public class RealtimeController(
     private async Task<Conversation?> GetOrEnsureShopConversationAsync(
         Guid subjectId,
         RealtimeIdentity identity,
+        Guid? peerId,
         CancellationToken ct)
     {
-        var conversation = await _messaging.GetConversationAsync(RealtimeSubjectType.Shop, subjectId, ct);
+        // 2026-11-13: per-(shop, customer) threads. The customer/guest side resolves its OWN
+        // thread (Conversation.CustomerId == identity.UserId); staff resolves the thread of
+        // the customer they selected in the inbox (peerId == that customer's id). Staff
+        // without a peerId get null — they never create and never see a merged thread.
+        var isStaff = identity.Kind == RealtimeIdentityKind.Staff;
+        var customerKey = isStaff ? peerId ?? Guid.Empty : identity.UserId;
+
+        // Staff must name the customer thread (peerId); without it there is no "the" shop
+        // conversation anymore — return null instead of an arbitrary thread.
+        if (isStaff && customerKey == Guid.Empty)
+            return null;
+
+        var conversation = await _messaging.GetConversationAsync(
+            RealtimeSubjectType.Shop, subjectId, customerKey, ct);
         if (conversation != null)
             return conversation;
 
         // Staff never creates — they only reply to conversations customers started.
-        if (identity.Kind == RealtimeIdentityKind.Staff)
+        if (isStaff)
             return null;
 
         var tenantId = await _subjectResolver.ResolveTenantAsync(RealtimeSubjectType.Shop, subjectId, ct);
@@ -534,6 +562,9 @@ public class RealtimeController(
         public string SubjectType { get; set; } = string.Empty;
         public Guid SubjectId { get; set; }
         public string Content { get; set; } = string.Empty;
+        /// <summary>Shop threads are per-customer (2026-11-13): staff pass the customer/guest
+        /// participant id of the thread they are replying to; ignored for other identities.</summary>
+        public Guid? PeerId { get; set; }
     }
 
     public class RealtimePingRequest
