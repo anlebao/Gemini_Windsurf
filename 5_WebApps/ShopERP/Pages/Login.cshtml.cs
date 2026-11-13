@@ -235,10 +235,16 @@ namespace VanAn.ShopERP.Pages
             List<Claim> claims =
             [
                 new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Role, user.Role.ToString()),
                 new Claim("DisplayName", user.DisplayName),
                 new Claim("tenant_id", tenantId.ToString()),
-                new Claim("TenantId", tenantId.ToString())
+                new Claim("TenantId", tenantId.ToString()),
+                // Stable user identity for ShopInboxApiClient (voice/chat): without a GUID
+                // sub/NameIdentifier, GetCurrentUserIdAsync returned Guid.Empty (dead call
+                // button) and MintOwnerTokenAsync minted a random userId per request.
+                new Claim("sub", user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email ?? user.Username)
             ];
 
             // W4 (P1.1): client_ip/client_ua claims → audit IP/UserAgent trong Blazor circuit.

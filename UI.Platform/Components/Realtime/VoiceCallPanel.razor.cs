@@ -138,7 +138,15 @@ public partial class VoiceCallPanel : IAsyncDisposable
             StateHasChanged();
             return;
         }
-        if (!_canCall) return;
+        if (!_canCall)
+        {
+            // Identity failures must be visible — a silent return left the header call
+            // button looking dead (ShopERP tenant login lacked a GUID sub claim, S9).
+            if (string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty)
+                _error = "Phiên đăng nhập chưa sẵn sàng — vui lòng đăng nhập lại.";
+            StateHasChanged();
+            return;
+        }
         _error = null;
         try
         {

@@ -66,7 +66,14 @@ public sealed class ShopInboxApiClient
 
         string userId = user.FindFirst("sub")?.Value
             ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? Guid.NewGuid().ToString();
+            ?? user.FindFirst("user_id")?.Value
+            ?? string.Empty;
+        Guid userGuid = Guid.TryParse(userId, out Guid parsed) ? parsed : Guid.Empty;
+        if (userGuid == Guid.Empty)
+        {
+            _logger.LogWarning("ShopInbox: minting owner token without stable user id claim — falling back to random id (re-login required for voice/chat)");
+            userGuid = Guid.NewGuid();
+        }
 
         string email = user.FindFirst("email")?.Value
             ?? user.FindFirst(ClaimTypes.Email)?.Value
@@ -77,7 +84,7 @@ public sealed class ShopInboxApiClient
         Guid tenantId = Guid.TryParse(tenantIdStr, out Guid tid) ? tid : Guid.Empty;
 
         return _jwtTokenService.GenerateToken(
-            Guid.TryParse(userId, out Guid id) ? id : Guid.NewGuid(),
+            userGuid,
             email,
             "Owner",
             tenantId);
@@ -89,8 +96,11 @@ public sealed class ShopInboxApiClient
         AuthenticationState authState = await _authStateProvider.GetAuthenticationStateAsync();
         string userId = authState.User.FindFirst("sub")?.Value
             ?? authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? Guid.Empty.ToString();
-        return Guid.TryParse(userId, out Guid id) ? id : Guid.Empty;
+            ?? authState.User.FindFirst("user_id")?.Value
+            ?? string.Empty;
+        if (Guid.TryParse(userId, out Guid id)) return id;
+        _logger.LogWarning("ShopInbox: current user has no GUID identity claim — voice/chat disabled until re-login");
+        return Guid.Empty;
     }
 
     private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string relativeUri, object? body = null)
