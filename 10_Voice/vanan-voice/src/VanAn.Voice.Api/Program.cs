@@ -6,15 +6,23 @@ using VanAn.Voice.Infra;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS — host applications connect cross-origin (SDK + token); origins configured via
-// Voice:CorsOrigins (comma-separated). Empty = same-origin only.
+// CORS — host applications connect cross-origin (SDK + token). Tenant storefronts live on
+// dynamic custom domains (TenantDomains table), so a static whitelist cannot scale: auth is
+// bearer-token based (no ambient cookies), which makes CORS a transport concern, not a
+// security boundary. Policy: any https:// origin + localhost (dev/RV) + explicit
+// Voice:CorsOrigins extras (e.g. http:// staging origins).
 var corsOrigins = (builder.Configuration["Voice:CorsOrigins"] ?? string.Empty)
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-if (corsOrigins.Length > 0)
+builder.Services.AddCors(o => o.AddPolicy("voice-cors", p =>
 {
-    builder.Services.AddCors(o => o.AddPolicy("voice-cors", p =>
-        p.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
-}
+    p.SetIsOriginAllowed(origin =>
+            origin.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+               && (uri.IsLoopback || uri.Host == "localhost"))
+        .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    if (corsOrigins.Length > 0)
+        p.WithOrigins(corsOrigins);
+}));
 
 var dbPath = builder.Configuration["Voice:DbPath"] ?? "data/voice.db";
 builder.Services.AddDbContext<VoiceDbContext>(o => o.UseSqlite($"Data Source={dbPath}"));
