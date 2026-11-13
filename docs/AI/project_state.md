@@ -161,7 +161,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
 
-> **Last Updated:** 2026-11-12 · **Branch:** `main` @ `47d3a29c` (Voice: S1→S10 deployed · participant-on-view fix · E2E 7/7 PASS với owner account thật)
+> **Last Updated:** 2026-11-13 · **Branch:** `main` @ `974a0147` (Voice: ICE relay + remote audio playback fix deployed · E2E signaling 7/7 PASS · chờ manual test audio thật)
 
 
 
@@ -175,6 +175,8 @@ Server A (Edge):              Server B (Central):
 
 
 * **2026-11-12 (session 6) — VOICE: root cause cuối = staff viewing ≠ participant → fix `47d3a29c` + E2E PASS với owner account thật.** User manual test fail → trace log: customer calls tới hub bình thường, resolve đúng `bd144983` (most-recent speaker) nhưng **0 voice connections** — owner side KHÔNG BAO GIỜ là participant của conversation (chỉ staff ĐÃ GỬI MESSAGE mới thành participant qua `SendMessage` → `EnsureParticipantAsync`). Các staff connect voice trong khung giờ test (`4f089dc1`/`54f27c4d`/`e97ec78f`/`8eced545`) đều không thuộc conversation; owner account `5d23ffc3` không có row participant. **Fix:** `RealtimeController.GetConversation` += `EnsureParticipantAsync` cho Shop+Staff khi mở thread (idempotent, sau authorize) — 'ai đang xem chat thì gọi được cho người đó'. Verify prod: GET history với JWT `5d23ffc3` → row participant tạo ngay trong PG → `voice-chat-e2e.mjs` với `VOICE_STAFF_ID=5d23ffc3` **7/7 PASS** (customer→owner CONNECTED + owner→customer CONNECTED). Realtime tests 75/75 · Gateway build 0 err · CD `43263014835` SUCCESS (Deploy Gateway VPS).
+
+* **2026-11-13 (session 7) — VOICE: 2 bug media thật tìm thấy + fix `974a0147` (CD `43343118069` SUCCESS, deployed Voice+ShopERP+KhachLink).** User manual test: (1) customer→owner CONNECTED nhưng **không nghe thấy tiếng**; (2) owner→customer không kết nối. Root causes: **(a) ICE relay mất `sdpMid`/`sdpMLineIndex`** — `IceCandidateDto`/`ReceiveIceCandidateDto` chỉ mang candidate string → `addIceCandidate(string)` throw TypeError 2 phía → trickle ICE chết → prod calls `NEGOTIATION_TIMEOUT`/`NETWORK_LOST` (voice.db `AB40A402`/`CE1D600A`); **(b) remote MediaStream không bao giờ được phát** — `onRemoteStream` chỉ gọi .NET callback (JSInvokable không nhận được MediaStream) và không có `<audio>` element nào → stream nhận được nhưng câm. Fix: contracts += SdpMid/SdpMLineIndex + relay end-of-candidates; `voice-media.js` queue candidate đến trước remote description; `voice-sdk.js` phát stream qua hidden `<audio autoplay>` (`#vanan-voice-remote-audio`). Verify: voice 85/85 · node 19/19 · builds 0 err · E2E signaling prod **7/7 PASS** (call.connected cả 2 chiều, voice.db xác nhận). **CÒN LẠI:** audio thật cần browser — chờ user manual test.
 
 ## Regime-Lock — chuẩn kế toán theo Tenant.Type (`615d85ac`, 2026-10-30 — DEPLOYED + RV PASS 34/34)
 
