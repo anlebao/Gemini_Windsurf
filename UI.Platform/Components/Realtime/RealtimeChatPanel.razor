@@ -420,6 +420,8 @@
                     SentAt = DateTime.Parse(sentAt),
                     IsRead = false
                 };
+                // Dedup: reconnect/poll overlap or a sender echo must never render twice.
+                if (_messages.Any(m => m.Id == msg.Id)) return;
                 _messages.Add(msg);
                 _ = InvokeAsync(async () =>
                 {
@@ -438,6 +440,9 @@
             {
                 try { await _hubConnection.InvokeAsync("JoinConversation", SubjectType, SubjectId.ToString()); }
                 catch { /* best effort — polling covers the gap */ }
+                // Reconcile once: messages sent while the group was re-joining may never
+                // have been pushed — reload history so nothing is silently missed.
+                try { await LoadHistoryAsync(); } catch { /* best effort */ }
                 await InvokeAsync(() => { _isConnected = true; StateHasChanged(); });
             };
             _hubConnection.Closed += async _ =>

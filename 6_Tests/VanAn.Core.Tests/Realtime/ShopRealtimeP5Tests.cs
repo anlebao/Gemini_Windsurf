@@ -143,7 +143,7 @@ public class ShopRealtimeP5Tests : IDisposable
         _context.Conversations.AddRange(newer, older);
         await _context.SaveChangesAsync();
 
-        var (controller, messaging) = BuildController(_context, staffUserId, ShopTenantId);
+        var (controller, messaging, _) = BuildController(_context, staffUserId, ShopTenantId);
         messaging.Setup(m => m.GetConversationsAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(new List<Conversation> { newer, older });
         messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -165,7 +165,7 @@ public class ShopRealtimeP5Tests : IDisposable
     [Fact(DisplayName = "T8: shop inbox — non-staff (customer) identity is forbidden")]
     public async Task ShopInbox_Customer_IsForbidden()
     {
-        var (controller, _) = BuildController(_context, Guid.NewGuid(), tenantId: null, kind: RealtimeIdentityKind.Customer);
+        var (controller, _, _) = BuildController(_context, Guid.NewGuid(), tenantId: null, kind: RealtimeIdentityKind.Customer);
 
         var result = await controller.GetShopConversations(CancellationToken.None);
 
@@ -177,7 +177,7 @@ public class ShopRealtimeP5Tests : IDisposable
     public async Task GetConversation_Shop_EnsuresConversation()
     {
         var customerId = Guid.NewGuid();
-        var (controller, messaging) = BuildController(_context, customerId, tenantId: null, kind: RealtimeIdentityKind.Customer);
+        var (controller, messaging, _) = BuildController(_context, customerId, tenantId: null, kind: RealtimeIdentityKind.Customer);
 
         // Generic lookup misses → Shop ensure (create-only) runs, then the authorizer gates.
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -214,7 +214,7 @@ public class ShopRealtimeP5Tests : IDisposable
             new ConversationParticipant(Tenant, conversation.Id, staffId, RealtimeParticipantRole.Shop));
         await _context.SaveChangesAsync();
 
-        var (controller, messaging) = BuildController(_context, customerB, tenantId: null, kind: RealtimeIdentityKind.Device);
+        var (controller, messaging, _) = BuildController(_context, customerB, tenantId: null, kind: RealtimeIdentityKind.Device);
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         // The shared thread contains customer A's message + a shop reply (by staff).
@@ -245,7 +245,7 @@ public class ShopRealtimeP5Tests : IDisposable
         var customer = Guid.NewGuid();
         // Legacy order conversation keyed to the customer — the device is NOT a party.
         var conversation = new Conversation(Tenant, customer /*orderId*/, Guid.NewGuid() /*shipper*/, customer);
-        var (controller, messaging) = BuildController(_context, device, tenantId: null, kind: RealtimeIdentityKind.Device);
+        var (controller, messaging, _) = BuildController(_context, device, tenantId: null, kind: RealtimeIdentityKind.Device);
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -274,7 +274,7 @@ public class ShopRealtimeP5Tests : IDisposable
         _context.Conversations.Add(conversation);
         await _context.SaveChangesAsync();
 
-        var (controller, messaging) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
+        var (controller, messaging, _) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
         messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(conversation);
         messaging.Setup(m => m.GetHistoryAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -301,9 +301,83 @@ public class ShopRealtimeP5Tests : IDisposable
             conversation, staffId, RealtimeParticipantRole.Shop, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact(DisplayName = "T13: staff Shop reply pushes to shared group + EVERY non-shop participant's per-user group (2026-11-13 fix — customers never received pushes)")]
+    public async Task SendMessage_Shop_StaffPushesToAllNonShopGroups()
+    {
+        var staffId = Guid.NewGuid();
+        var customerA = Guid.NewGuid();
+        var guestDevice = Guid.NewGuid();
+        var conversation = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, customerA, ShopTenantId);
+        _context.Conversations.Add(conversation);
+        _context.ConversationParticipants.AddRange(
+            new ConversationParticipant(Tenant, conversation.Id, staffId, RealtimeParticipantRole.Shop),
+            new ConversationParticipant(Tenant, conversation.Id, customerA, RealtimeParticipantRole.Customer),
+            new ConversationParticipant(Tenant, conversation.Id, guestDevice, RealtimeParticipantRole.Guest));
+        await _context.SaveChangesAsync();
+
+        var (controller, messaging, hubClients) = BuildController(_context, staffId, ShopTenantId, kind: RealtimeIdentityKind.Staff);
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(conversation);
+        messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
+
+        var result = await controller.SendMessage(
+            new RealtimeController.SendRealtimeMessageRequest
+            {
+                SubjectType = nameof(RealtimeSubjectType.Shop),
+                SubjectId = ShopTenantId,
+                Content = "shop trả lời"
+            }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        // Shared group → staff inbox.
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Once);
+        // Every non-shop participant gets the shop reply on their own per-user group.
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Once);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{guestDevice}"), Times.Once);
+        // Shop-role participants never join per-user groups.
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{staffId}"), Times.Never);
+    }
+
+    [Fact(DisplayName = "T14: a customer message echoes ONLY to the sender's own per-user group — never to other customers")]
+    public async Task SendMessage_Shop_CustomerMessage_DoesNotLeakToOtherCustomers()
+    {
+        var customerA = Guid.NewGuid();
+        var customerB = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        var conversation = new Conversation(Tenant, RealtimeSubjectType.Shop, ShopTenantId, customerA, ShopTenantId);
+        _context.Conversations.Add(conversation);
+        _context.ConversationParticipants.AddRange(
+            new ConversationParticipant(Tenant, conversation.Id, staffId, RealtimeParticipantRole.Shop),
+            new ConversationParticipant(Tenant, conversation.Id, customerA, RealtimeParticipantRole.Customer),
+            new ConversationParticipant(Tenant, conversation.Id, customerB, RealtimeParticipantRole.Customer));
+        await _context.SaveChangesAsync();
+
+        var (controller, messaging, hubClients) = BuildController(_context, customerA, tenantId: null, kind: RealtimeIdentityKind.Customer);
+        messaging.Setup(m => m.GetConversationAsync(It.IsAny<RealtimeSubjectType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(conversation);
+        messaging.Setup(m => m.SendMessageAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((Guid c, Guid s, string content, CancellationToken _) => new Message(Tenant, c, s, content));
+
+        var result = await controller.SendMessage(
+            new RealtimeController.SendRealtimeMessageRequest
+            {
+                SubjectType = nameof(RealtimeSubjectType.Shop),
+                SubjectId = ShopTenantId,
+                Content = "tin của khách A"
+            }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}"), Times.Once);
+        // Echo to sender's own group only (multi-device sync) — customer B stays blind.
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerA}"), Times.Once);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{customerB}"), Times.Never);
+        hubClients.Verify(c => c.Group($"msg_Shop_{ShopTenantId}_u_{staffId}"), Times.Never);
+    }
+
     // === helpers ===
 
-    private (RealtimeController Controller, Mock<IRealtimeMessagingService> Messaging) BuildController(
+    private (RealtimeController Controller, Mock<IRealtimeMessagingService> Messaging, Mock<IHubClients> HubClients) BuildController(
         IVanAnDbContext dbContext, Guid userId, Guid? tenantId,
         RealtimeIdentityKind kind = RealtimeIdentityKind.Staff,
         bool authorizerAllows = true)
@@ -334,7 +408,7 @@ public class ShopRealtimeP5Tests : IDisposable
             RealtimeSubjectType.Order, (_, _) => new StubShopAuthorizer(allows: authorizerAllows));
         var provider = services.BuildServiceProvider();
 
-        var (messagingHub, _) = HubMock<MessagingHub>();
+        var (messagingHub, hubClients) = HubMock<MessagingHub>();
         var (trackingHub, _) = HubMock<TrackingHub>();
 
         var controller = new RealtimeController(
@@ -345,7 +419,7 @@ public class ShopRealtimeP5Tests : IDisposable
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
 
-        return (controller, messaging);
+        return (controller, messaging, hubClients);
     }
 
     private static (Mock<IHubContext<T>> Hub, Mock<IHubClients> Clients) HubMock<T>() where T : Hub

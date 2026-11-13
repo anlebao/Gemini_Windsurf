@@ -215,6 +215,43 @@ window.vananVoice = (function () {
     // stream is played HERE on a hidden autoplay <audio> element. Without this the call
     // connects but the user hears nothing (prod "connected, no audio", 2026-11-13).
     let remoteAudioEl = null;
+    let audioPlaybackBlocked = false;
+    let audioRetryTimer = null;
+    let audioGestureBound = false;
+
+    // Autoplay policy (prod "connected but silent → instant hangup", 2026-11-13):
+    // remoteAudioEl.play() fires from a WebRTC event — outside any user gesture —
+    // and is rejected on Chrome/Safari until the document sees activation. The
+    // callee's accept click does NOT cover a track that arrives later, so retry
+    // play() briefly AND re-attempt on the next user gesture.
+    function tryPlayRemoteAudio() {
+        if (!remoteAudioEl || !remoteAudioEl.srcObject) return;
+        remoteAudioEl.play()
+            .then(() => { audioPlaybackBlocked = false; if (audioRetryTimer) { clearInterval(audioRetryTimer); audioRetryTimer = null; } })
+            .catch(() => { audioPlaybackBlocked = true; });
+    }
+
+    function ensureAudioPlayback() {
+        tryPlayRemoteAudio();
+        if (audioPlaybackBlocked && !audioRetryTimer) {
+            let attempts = 0;
+            audioRetryTimer = setInterval(() => {
+                if (++attempts > 15 || !remoteAudioEl || !remoteAudioEl.srcObject) {
+                    clearInterval(audioRetryTimer); audioRetryTimer = null; return;
+                }
+                tryPlayRemoteAudio();
+            }, 800);
+        }
+    }
+
+    function bindAudioGestureUnlock() {
+        if (audioGestureBound || typeof document === 'undefined') return;
+        audioGestureBound = true;
+        const unlock = () => { if (audioPlaybackBlocked) tryPlayRemoteAudio(); };
+        document.addEventListener('pointerdown', unlock, { passive: true });
+        document.addEventListener('touchend', unlock, { passive: true });
+        document.addEventListener('keydown', unlock);
+    }
 
     function playRemoteStream(stream) {
         try {
@@ -225,13 +262,16 @@ window.vananVoice = (function () {
                 remoteAudioEl.playsInline = true;
                 remoteAudioEl.style.display = 'none';
                 document.body.appendChild(remoteAudioEl);
+                bindAudioGestureUnlock();
             }
             remoteAudioEl.srcObject = stream;
-            remoteAudioEl.play().catch(() => { /* autoplay blocked until next gesture */ });
+            ensureAudioPlayback();
         } catch (_) { /* best effort — element may not exist in non-DOM hosts */ }
     }
 
     function stopRemoteAudio() {
+        if (audioRetryTimer) { clearInterval(audioRetryTimer); audioRetryTimer = null; }
+        audioPlaybackBlocked = false;
         if (remoteAudioEl) {
             try { remoteAudioEl.pause(); remoteAudioEl.srcObject = null; } catch (_) { /* best effort */ }
         }

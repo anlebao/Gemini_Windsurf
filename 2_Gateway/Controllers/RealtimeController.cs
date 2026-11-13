@@ -108,15 +108,35 @@ public class RealtimeController(
             if (message == null)
                 return NotFound(new { error = "Không tìm thấy cuộc trò chuyện." });
 
-            // P6: the shared group carries the thread to staff (inbox); the sender's per-user
-            // group carries it to the customer who sent it — never to other customers.
+            // P6: the shared group carries the thread to staff (inbox). For Shop subjects,
+            // per-user groups carry it to customers — 2026-11-13 fix: previously only the
+            // SENDER's own group was pushed, so a staff reply never reached any customer
+            // (they had to F5). Shop-role messages are visible to every non-shop participant
+            // per the history filter below, so staff pushes fan out to all Customer/Guest
+            // participant groups; a customer/guest message still only echoes to its sender
+            // (other customers must never see it).
             await _messagingHub.Clients.Group(RealtimeGroups.Messaging(subjectType, subjectId))
                 .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
                     message.Content, message.SentAt.ToString("O"), ct);
             if (subjectType == RealtimeSubjectType.Shop)
-                await _messagingHub.Clients.Group(RealtimeGroups.MessagingUser(subjectId, message.SenderId))
-                    .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
-                        message.Content, message.SentAt.ToString("O"), ct);
+            {
+                var recipientIds = identity.Kind == RealtimeIdentityKind.Staff
+                    ? await _dbContext.ConversationParticipants
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(p => p.ConversationId == conversation.Id && p.IsActive
+                                 && p.RoleCode != RealtimeParticipantRole.Shop)
+                        .Select(p => p.ParticipantId)
+                        .ToListAsync(ct)
+                    : new List<Guid> { message.SenderId };
+
+                foreach (var recipientId in recipientIds)
+                {
+                    await _messagingHub.Clients.Group(RealtimeGroups.MessagingUser(subjectId, recipientId))
+                        .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(),
+                            message.Content, message.SentAt.ToString("O"), ct);
+                }
+            }
 
             return Ok(new
             {
