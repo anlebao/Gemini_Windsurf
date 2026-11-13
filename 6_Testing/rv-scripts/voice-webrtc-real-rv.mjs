@@ -56,7 +56,10 @@ async function waitFor(fn, timeoutMs, label) {
 const launchArgs = [
   '--use-fake-device-for-media-stream',
   '--use-fake-ui-for-media-stream',
-  '--autoplay-policy=no-user-gesture-required',
+  // NOTE (2026-11-13): autoplay policy is NOT bypassed — user-gesture-required
+  // reproduces the prod condition that made calls connect-but-silent. The SDK's
+  // gesture-unlock/retry path must start playback after the simulated click.
+  '--autoplay-policy=user-gesture-required',
   '--disable-web-security',
   '--disable-features=WebRtcHideLocalIpsWithMdns' // keep host candidates reachable
 ];
@@ -103,20 +106,40 @@ async function runDirection(caller, callee, label) {
     `caller=${await caller.page.evaluate(() => window.rv.state)} callee=${await callee.page.evaluate(() => window.rv.state)}`);
 
   // Remote audio must be attached + playing on BOTH sides (poll — ontrack can
-  // fire shortly after CallConnected).
+  // fire shortly after CallConnected). 2026-11-13: autoplay policy is enforced —
+  // play() may be blocked until a user gesture; the SDK retries ~12s AND on the
+  // next gesture. Simulate that gesture (mouse click) then require playback.
   for (const side of [caller, callee]) {
+    const readAudio = () => side.page.evaluate(() => {
+      const el = document.getElementById('vanan-voice-remote-audio');
+      return el ? {
+        exists: true, paused: el.paused, readyState: el.readyState,
+        srcObjectTracks: el.srcObject ? el.srcObject.getTracks().length : 0
+      } : { exists: false };
+    });
     let a = null;
     try {
       await waitFor(async () => {
-        const v = await side.page.evaluate(() => window.rv.remoteAudio);
-        if (v && v.exists) { a = v; return true; }
+        const v = await readAudio();
+        if (v && v.exists && v.srcObjectTracks > 0) { a = v; return true; }
         return null;
       }, 8000, `${side.name} remoteAudio element`);
     } catch { /* leave a=null */ }
     const tracks = await side.page.evaluate(() => window.rv.remoteStreamInfo);
-    check(`${label}: ${side.name} remote audio playing`,
-      !!(a && a.srcObjectTracks > 0 && !a.paused),
-      JSON.stringify({ remoteAudio: a, tracks }));
+    const blockedAtFirst = a ? a.paused : null;
+    // User gesture → SDK's pointerdown unlock + retry interval should start playback.
+    await side.page.mouse.click(10, 10).catch(() => {});
+    let playing = null;
+    try {
+      await waitFor(async () => {
+        const v = await readAudio();
+        if (v && v.exists && v.srcObjectTracks > 0 && !v.paused) { playing = v; return true; }
+        return null;
+      }, 16000, `${side.name} remote audio playing`);
+    } catch { /* playing stays null */ }
+    check(`${label}: ${side.name} remote audio playing (autoplay policy enforced)`,
+      !!playing,
+      JSON.stringify({ firstState: a, blockedAtFirst, afterGesture: playing, tracks }));
   }
 
   // End the call cleanly before next direction.
