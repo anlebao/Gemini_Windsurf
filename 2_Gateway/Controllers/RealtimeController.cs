@@ -468,7 +468,13 @@ public class RealtimeController(
 
         if (subjectType == RealtimeSubjectType.Order)
         {
-            var guestDeviceId = identity.Kind == RealtimeIdentityKind.Device ? identity.UserId : (Guid?)null;
+            // 2026-11-13: logged-in customer on a device that placed a GUEST order — the
+            // authorizer already granted access via RealtimeIdentity.DeviceId, but the legacy
+            // adapter needs the same device guid to resolve the order's customer identity
+            // (otherwise it returns null → 404 "Chưa có cuộc trò chuyện").
+            var guestDeviceId = identity.Kind == RealtimeIdentityKind.Device
+                ? identity.UserId
+                : identity.DeviceId;
             return await _chatService.GetOrCreateConversationAsync(subjectId, guestDeviceId);
         }
 
