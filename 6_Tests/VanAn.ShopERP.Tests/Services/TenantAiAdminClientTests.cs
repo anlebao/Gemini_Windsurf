@@ -245,6 +245,55 @@ public sealed class TenantAiAdminClientTests
             .Should().Be($"https://vanan-ai.test/v1/admin/knowledge/{docId}/reject");
     }
 
+    // ---------- AI-P11: approve classification + ingest sourceRef ----------
+
+    [Fact]
+    public async Task ApproveDocument_WithClassification_SendsBody()
+    {
+        var handler = new StubHandler(_ => Json(
+            """{"id":"11111111-1111-1111-1111-111111111111","type":"faq","title":"t","classification":"public","approvalStatus":"approved","approvedBy":"shoperp","approvedAtUtc":"2026-11-13T00:00:00Z","rejectionReason":null,"createdAtUtc":"2026-11-12T00:00:00Z"}"""));
+        var client = BuildClient(handler);
+        var docId = Guid.NewGuid();
+
+        var ok = await client.ApproveDocumentAsync(Tenant, docId, "public");
+
+        ok.Should().BeTrue();
+        handler.LastBody.Should().Contain("\"classification\":\"public\"");
+        handler.LastRequest!.RequestUri!.ToString()
+            .Should().Be($"https://vanan-ai.test/v1/admin/knowledge/{docId}/approve");
+    }
+
+    [Fact]
+    public async Task ApproveDocument_NullClassification_SendsNoBody()
+    {
+        var handler = new StubHandler(_ => Json(
+            """{"id":"11111111-1111-1111-1111-111111111111","type":"faq","title":"t","classification":"internal","approvalStatus":"approved","approvedBy":"shoperp","approvedAtUtc":"2026-11-13T00:00:00Z","rejectionReason":null,"createdAtUtc":"2026-11-12T00:00:00Z"}"""));
+        var client = BuildClient(handler);
+        var docId = Guid.NewGuid();
+
+        var ok = await client.ApproveDocumentAsync(Tenant, docId);
+
+        ok.Should().BeTrue();
+        handler.LastBody.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task IngestDocument_ForwardsSourceRef_InBody()
+    {
+        var handler = new StubHandler(_ => Json(
+            """{"id":"11111111-1111-1111-1111-111111111111","approvalStatus":"pending_review","sanitized":false}"""));
+        var client = BuildClient(handler);
+
+        var ok = await client.IngestDocumentAsync(Tenant, "faq", "Hỏi: ship?",
+            "Khách hỏi:\nship?\n\nChủ quán đáp: 2h", "internal", sourceRef: "chat:c1:m1");
+
+        ok.Should().BeTrue();
+        handler.LastBody.Should().Contain("\"sourceRef\":\"chat:c1:m1\"");
+        handler.LastBody.Should().Contain("\"classification\":\"internal\"");
+        handler.LastRequest!.RequestUri!.ToString()
+            .Should().Be("https://vanan-ai.test/v1/knowledge/documents");
+    }
+
     // ---------- usage ----------
 
     [Fact]

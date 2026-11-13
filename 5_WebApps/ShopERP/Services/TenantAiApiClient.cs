@@ -79,8 +79,9 @@ public interface ITenantAiClient
 {
     Task<TenantAiBatchResponse?> PushProductsBatchAsync(Guid tenantId, IReadOnlyList<TenantAiProductItem> items, bool fullSync, string sourceVersion, string idempotencyKey, CancellationToken ct = default);
     Task<bool> DeleteProductAsync(Guid tenantId, Guid productId, CancellationToken ct = default);
-    Task<bool> IngestDocumentAsync(Guid tenantId, string type, string title, string content, string classification, CancellationToken ct = default);
-    Task<bool> ApproveDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default);
+    Task<bool> IngestDocumentAsync(Guid tenantId, string type, string title, string content, string classification, string? sourceRef = null, CancellationToken ct = default);
+    /// <summary>AI-P11 — classification optional: owner chọn visibility lúc approve (null = giữ nguyên).</summary>
+    Task<bool> ApproveDocumentAsync(Guid tenantId, Guid docId, string? classification = null, CancellationToken ct = default);
     Task<bool> RejectDocumentAsync(Guid tenantId, Guid docId, string reason, CancellationToken ct = default);
     Task<List<TenantAiDocSummary>> GetPendingDocumentsAsync(Guid tenantId, CancellationToken ct = default);
     Task<TenantAiStatus?> GetKnowledgeStatusAsync(Guid tenantId, CancellationToken ct = default);
@@ -154,12 +155,13 @@ public sealed class TenantAiApiClient : ITenantAiClient
     public Task<bool> DeleteProductAsync(Guid tenantId, Guid productId, CancellationToken ct = default)
         => SendVoid(tenantId, HttpMethod.Delete, $"v1/knowledge/products/{productId}", null, null, ct);
 
-    public async Task<bool> IngestDocumentAsync(Guid tenantId, string type, string title, string content, string classification, CancellationToken ct = default)
+    public async Task<bool> IngestDocumentAsync(Guid tenantId, string type, string title, string content, string classification, string? sourceRef = null, CancellationToken ct = default)
         => await Send<object>(tenantId, HttpMethod.Post, "v1/knowledge/documents",
-            new { type, title, content, classification }, null, ct) != null;
+            new { type, title, content, classification, sourceRef }, null, ct) != null;
 
-    public async Task<bool> ApproveDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default)
-        => await Send<object>(tenantId, HttpMethod.Post, $"v1/admin/knowledge/{docId}/approve", null, AdminTimeout, ct) != null;
+    public async Task<bool> ApproveDocumentAsync(Guid tenantId, Guid docId, string? classification = null, CancellationToken ct = default)
+        => await Send<object>(tenantId, HttpMethod.Post, $"v1/admin/knowledge/{docId}/approve",
+            classification == null ? null : new { classification }, AdminTimeout, ct) != null;
 
     public async Task<bool> RejectDocumentAsync(Guid tenantId, Guid docId, string reason, CancellationToken ct = default)
         => await Send<object>(tenantId, HttpMethod.Post, $"v1/admin/knowledge/{docId}/reject", new { reason }, AdminTimeout, ct) != null;

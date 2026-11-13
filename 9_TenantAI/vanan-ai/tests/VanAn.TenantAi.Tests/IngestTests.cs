@@ -242,6 +242,88 @@ public sealed class IngestTests : IDisposable
         chunks.Should().OnlyContain(c => !c.Content.Contains("system prompt"));
     }
 
+    // ---------- AI-P11: approve-time classification + sourceRef ----------
+
+    [Fact]
+    public async Task Approve_WithClassification_UpgradesInternal_ToPublic_AndRetrievable()
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
+            new DocumentIngestRequest("faq", "Ship cod", "Khách hỏi:\nship bao lâu?\n\nChủ quán đáp: 2h trong nội thành",
+                "internal", SourceRef: "chat:c1:m1")));
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var doc = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
+
+        var approve = await _client.SendAsync(Req(HttpMethod.Post, $"/v1/admin/knowledge/{doc!.Id}/approve",
+            new ApproveDocumentRequest("public")));
+        approve.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var stored = await Scoped(db => db.KnowledgeDocuments.SingleAsync(d => d.Id == doc.Id));
+        stored.Classification.Should().Be(DocumentClassification.Public);
+        stored.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+        stored.SourceRef.Should().Be("chat:c1:m1");
+        (await PublicChunks(TenantA)).Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Approve_WithoutBody_KeepsOriginalClassification()
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
+            new DocumentIngestRequest("faq", "No upgrade", "nội dung", "internal")));
+        var doc = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
+
+        var approve = await _client.SendAsync(Req(HttpMethod.Post, $"/v1/admin/knowledge/{doc!.Id}/approve"));
+        approve.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var stored = await Scoped(db => db.KnowledgeDocuments.SingleAsync(d => d.Id == doc.Id));
+        stored.Classification.Should().Be(DocumentClassification.Internal);
+        // Internal approved → chunks exist but never enter the public retrieval set.
+        (await PublicChunks(TenantA)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Approve_Restricted_Returns400_StaysPending()
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
+            new DocumentIngestRequest("faq", "t", "c", "public")));
+        var doc = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
+
+        var approve = await _client.SendAsync(Req(HttpMethod.Post, $"/v1/admin/knowledge/{doc!.Id}/approve",
+            new ApproveDocumentRequest("restricted")));
+        approve.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var stored = await Scoped(db => db.KnowledgeDocuments.SingleAsync(d => d.Id == doc.Id));
+        stored.ApprovalStatus.Should().Be(ApprovalStatus.PendingReview);
+        stored.Classification.Should().Be(DocumentClassification.Public);
+    }
+
+    [Fact]
+    public async Task Approve_InvalidClassification_Returns400()
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
+            new DocumentIngestRequest("faq", "t", "c", "public")));
+        var doc = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
+
+        var approve = await _client.SendAsync(Req(HttpMethod.Post, $"/v1/admin/knowledge/{doc!.Id}/approve",
+            new ApproveDocumentRequest("bogus")));
+        approve.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Ingest_SameSourceRef_ReturnsExistingDoc_NoDuplicate()
+    {
+        var body = new DocumentIngestRequest("faq", "Dup", "cùng nội dung", "internal",
+            SourceRef: "chat:c9:m9");
+        var first = await (await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents", body)))
+            .Content.ReadFromJsonAsync<DocumentIngestResponse>();
+        var second = await (await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents", body)))
+            .Content.ReadFromJsonAsync<DocumentIngestResponse>();
+
+        second!.Id.Should().Be(first!.Id);
+        var count = await Scoped(db => db.KnowledgeDocuments
+            .CountAsync(d => d.TenantId == TenantA && d.SourceRef == "chat:c9:m9"));
+        count.Should().Be(1);
+    }
+
     // ---------- embedding pending (provider off) ----------
 
     [Fact]

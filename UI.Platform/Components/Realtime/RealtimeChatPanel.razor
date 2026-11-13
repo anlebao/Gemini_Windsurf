@@ -86,14 +86,32 @@
             }
             else
             {
-                @foreach (var msg in _messages)
+                @for (var i = 0; i < _messages.Count; i++)
                 {
+                    var msg = _messages[i];
                     var isOwn = msg.SenderId == CurrentUserId;
                     <div class="d-flex @(isOwn ? "justify-content-end" : "justify-content-start") mb-2">
                         <div style="max-width: 75%;">
                             <div class="px-3 py-2 rounded @(isOwn ? "bg-primary text-white" : "bg-white border")">
                                 @msg.Content
                             </div>
+                            @* AI-P11: owner-side messages get a "Đề xuất AI" action when the host
+                               opts in (ShopInbox). Pairing = nearest preceding non-own message. *@
+                            @if (isOwn && KnowledgeSuggestEnabled)
+                            {
+                                var qi = ChatKnowledgePairing.FindQuestionIndex(_messages, i, CurrentUserId);
+                                <div class="mt-1 text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            disabled="@(qi == null)"
+                                            title="@(qi == null
+                                                ? "Không tìm thấy câu hỏi của khách phía trước"
+                                                : "Đề xuất câu trả lời này vào tri thức AI")"
+                                            aria-label="Đề xuất vào tri thức AI"
+                                            @onclick="() => SuggestKnowledgeAsync(i)">
+                                        <i class="bi bi-robot"></i> Đề xuất AI
+                                    </button>
+                                </div>
+                            }
                             <div class="small text-muted mt-1 @(isOwn ? "text-end" : "text-start")">
                                 @msg.SentAt.ToString("HH:mm")
                             </div>
@@ -213,6 +231,17 @@
     [Parameter] public string VoiceHubUrl { get; set; } = "/hubs/voice";
     /// <summary>VOICE SERVICE P4: voice service HTTP base URL (TURN credentials + missed calls).</summary>
     [Parameter] public string VoiceServiceUrl { get; set; } = "";
+    /// <summary>
+    /// AI-P11: opt-in "Đề xuất AI" button on caller's own messages (ShopInbox/Owner only).
+    /// Default false → zero behavior change for Order chat / KhachLink usages.
+    /// </summary>
+    [Parameter] public bool KnowledgeSuggestEnabled { get; set; }
+    /// <summary>AI-P11: fired with the paired customer question + owner answer (verbatim).</summary>
+    [Parameter] public EventCallback<KnowledgeSuggestion> OnKnowledgeSuggest { get; set; }
+
+    /// <summary>AI-P11 payload — conversation + message ids for SourceRef dedupe, texts verbatim.</summary>
+    public sealed record KnowledgeSuggestion(
+        Guid ConversationId, Guid MessageId, string Question, string Answer);
 
     private List<RealtimeChatMessage> _messages = new();
     /// <summary>2026-11-13: resolved conversation id (from history) — Shop threads are
@@ -565,6 +594,16 @@
         }
         // If SignalR connected, ReceiveMessage handler will append the message — no need to add manually.
         await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>AI-P11: owner clicked "Đề xuất AI" — resolve the paired question and hand off.</summary>
+    private async Task SuggestKnowledgeAsync(int index)
+    {
+        var qi = ChatKnowledgePairing.FindQuestionIndex(_messages, index, CurrentUserId);
+        if (qi == null) return;
+        var answer = _messages[index];
+        await OnKnowledgeSuggest.InvokeAsync(new KnowledgeSuggestion(
+            _conversationId, answer.Id, _messages[qi.Value].Content, answer.Content));
     }
 
     private async Task OnKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)

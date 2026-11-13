@@ -15,8 +15,10 @@
 @inject ILogger<ShopInbox> Logger
 @inject IConfiguration Config
 @* Task AI-P9: owner review of AI conversations (read-only, flag TenantAiEnabled). *@
+@* Task AI-P11: "Đề xuất AI" trên tin owner → knowledge doc pending_review (verbatim Q&A). *@
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
+@inject ITenantAiClient AiClient
 
 @attribute [Authorize(Roles = "Owner")]
 
@@ -52,6 +54,11 @@
                 </button>
             </li>
         </ul>
+    }
+
+    @if (!string.IsNullOrEmpty(_notice))
+    {
+        <VanAAlert Variant="@_noticeVariant" Message="@_notice" Dismissible="true" OnDismiss="() => _notice = null" />
     }
 
     @if (_activeTab == "ai")
@@ -132,6 +139,8 @@
                                        VoiceCallEnabled="_voiceCallEnabled"
                                        VoiceServiceUrl="@_voiceServiceUrl"
                                        VoiceHubUrl="@_voiceHubUrl"
+                                       KnowledgeSuggestEnabled="@_aiTabVisible"
+                                       OnKnowledgeSuggest="HandleKnowledgeSuggest"
                                        ScrollContainerId="inbox-chat-scroll" />
                 }
                 else
@@ -143,6 +152,43 @@
                         </div>
                     </VanACard>
                 }
+            </div>
+        </div>
+    }
+
+    @* AI-P11: confirm dialog — preview nguyên văn cặp hỏi/đáp trước khi gửi vào
+       hàng chờ duyệt tri thức AI (classification chọn sau ở trang TenantAi Knowledge). *@
+    @if (_suggestion is not null)
+    {
+        <div class="ai-suggest-overlay" @onclick="CloseSuggest">
+            <div class="ai-suggest-card" @onclick:stopPropagation="true">
+                <h6 class="mb-1"><i class="bi bi-robot"></i> Đề xuất vào tri thức AI</h6>
+                <p class="small text-muted">
+                    Nội dung gửi <strong>nguyên văn</strong> — AI chỉ dùng sau khi bạn duyệt
+                    và chọn phân loại trong trang <a href="/admin/tenant-ai/knowledge">Tri thức AI</a>.
+                </p>
+                <div class="ai-suggest-msg">
+                    <span class="badge bg-light text-dark border">Khách hỏi</span>
+                    <pre>@_suggestion.Question</pre>
+                </div>
+                <div class="ai-suggest-msg">
+                    <span class="badge bg-primary">Chủ quán đáp</span>
+                    <pre>@_suggestion.Answer</pre>
+                </div>
+                <label class="form-label small mb-1" for="ai-suggest-title">Tiêu đề tài liệu</label>
+                <input id="ai-suggest-title" class="form-control form-control-sm mb-3" maxlength="200"
+                       @bind="_suggestTitle" data-testid="input-suggest-title" />
+                <div class="d-flex gap-2 justify-content-end">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseSuggest" Disabled="@_suggestBusy">
+                        Hủy
+                    </VanAButton>
+                    <VanAButton Variant="primary" Size="small" OnClick="ConfirmSuggestAsync"
+                                Loading="@_suggestBusy"
+                                Disabled="@(_suggestBusy || string.IsNullOrWhiteSpace(_suggestTitle))"
+                                data-testid="btn-confirm-suggest">
+                        Gửi vào hàng chờ duyệt
+                    </VanAButton>
+                </div>
             </div>
         </div>
     }
@@ -158,6 +204,21 @@
         display: inline-block; background: var(--vanan-danger, #dc3545); color: white;
         font-size: 0.7rem; font-weight: 700; min-width: 18px; height: 18px; line-height: 18px;
         text-align: center; border-radius: 9px; padding: 0 5px;
+    }
+    .ai-suggest-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1050;
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .ai-suggest-card {
+        background: var(--vanan-surface, #fff); border-radius: .75rem; padding: 1.25rem;
+        width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    }
+    .ai-suggest-msg { margin-bottom: .75rem; }
+    .ai-suggest-msg pre {
+        white-space: pre-wrap; word-break: break-word; font-size: .8rem;
+        background: #f8f9fa; border: 1px solid #e9ecef; border-radius: .375rem;
+        padding: .5rem; margin: .35rem 0 0; max-height: 120px; overflow-y: auto;
     }
 </style>
 
@@ -295,6 +356,62 @@
             {
                 Logger.LogError(ex, "ShopInbox: mark conversation read failed for {ConvId}", conv.ConversationId);
             }
+        }
+    }
+
+    // ── AI-P11: "Đề xuất AI" → knowledge doc pending_review ──────────────────
+    private RealtimeChatPanel.KnowledgeSuggestion? _suggestion;
+    private string _suggestTitle = string.Empty;
+    private bool _suggestBusy;
+    private string? _notice;
+    private string _noticeVariant = "success";
+
+    private void HandleKnowledgeSuggest(RealtimeChatPanel.KnowledgeSuggestion s)
+    {
+        _suggestion = s;
+        _suggestTitle = s.Question.Length <= 80 ? s.Question : s.Question[..80];
+        _notice = null;
+    }
+
+    private void CloseSuggest()
+    {
+        if (!_suggestBusy) _suggestion = null;
+    }
+
+    private async Task ConfirmSuggestAsync()
+    {
+        var s = _suggestion;
+        if (s is null || string.IsNullOrWhiteSpace(_suggestTitle)) return;
+        _suggestBusy = true;
+        try
+        {
+            // Nguyên văn cặp hỏi/đáp — không rewrite. classification="internal" placeholder:
+            // owner chọn Public/Internal/Confidential lúc approve ở trang TenantAi Knowledge.
+            var content = $"Khách hỏi:\n{s.Question}\n\nChủ quán đáp:\n{s.Answer}";
+            var ok = await AiClient.IngestDocumentAsync(TenantProvider.TenantId, "faq",
+                _suggestTitle.Trim(), content, "internal",
+                sourceRef: $"chat:{s.ConversationId}:{s.MessageId}");
+            if (ok)
+            {
+                _suggestion = null;
+                _notice = "Đã gửi vào hàng chờ duyệt tri thức AI — vào trang Tri thức AI để duyệt.";
+                _noticeVariant = "success";
+            }
+            else
+            {
+                _notice = "Gửi thất bại — dịch vụ AI có thể đang tạm nghỉ, thử lại sau.";
+                _noticeVariant = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "ShopInbox: knowledge suggest failed");
+            _notice = "Gửi thất bại — thử lại sau.";
+            _noticeVariant = "error";
+        }
+        finally
+        {
+            _suggestBusy = false;
         }
     }
 }

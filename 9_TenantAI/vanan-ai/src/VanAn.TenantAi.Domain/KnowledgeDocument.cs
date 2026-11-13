@@ -76,6 +76,20 @@ public sealed class KnowledgeDocument
             UpdatedAtUtc = DateTime.UtcNow
         };
 
+    /// <summary>
+    /// AI-P11 — owner chọn visibility lúc approve. Chỉ đổi được khi PendingReview;
+    /// Restricted fail-closed [G5]; sau approve classification immutable.
+    /// </summary>
+    public void SetClassification(DocumentClassification classification)
+    {
+        if (ApprovalStatus != ApprovalStatus.PendingReview)
+            throw new InvalidOperationException("Classification chỉ đổi được khi pending_review.");
+        if (classification == DocumentClassification.Restricted)
+            throw new ArgumentException("Restricted không được phép.", nameof(classification));
+        Classification = classification;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     public void Approve(string approvedBy)
     {
         ApprovalStatus = ApprovalStatus.Approved;

@@ -89,7 +89,16 @@
                                     <span class="badge bg-light text-dark ms-1">@d.Classification</span>
                                     <div class="small text-muted mt-1">@d.CreatedAtUtc.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</div>
                                 </div>
-                                <div class="d-flex gap-2">
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    @* AI-P11: owner chọn classification lúc duyệt (chat-suggest docs
+                                       vào với internal placeholder). Không có Restricted — fail closed. *@
+                                    <select class="form-select form-select-sm" style="max-width: 170px;"
+                                            @bind="_approveClasses[d.Id]" data-testid="select-approve-class"
+                                            title="Phân loại khi duyệt — Public = AI trả lời khách trên storefront">
+                                        <option value="public">Public — AI trả lời khách</option>
+                                        <option value="internal">Internal — chỉ lưu trữ</option>
+                                        <option value="confidential">Confidential — chỉ lưu trữ</option>
+                                    </select>
                                     <VanAButton Variant="success" Size="small" OnClick="() => ApproveAsync(d)"
                                                 Disabled="@_busy" data-testid="btn-approve-doc">
                                         <i class="bi bi-check-lg me-1"></i> Duyệt
@@ -269,6 +278,8 @@
     private readonly List<TenantAiDocItem> _pending = new();
     private int _pendingCount;
     private readonly Dictionary<Guid, string> _rejectReasons = new();
+    /// <summary>AI-P11: classification chọn lúc approve, seed = classification hiện tại của doc.</summary>
+    private readonly Dictionary<Guid, string> _approveClasses = new();
 
     private readonly List<TenantAiDocItem> _docs = new();
     private readonly HashSet<Guid> _expanded = new();
@@ -316,7 +327,13 @@
             if (pending != null) _pending.AddRange(pending.Items);
             // @bind="_rejectReasons[d.Id]" đọc indexer khi render → seed key trước,
             // nếu không mỗi pending doc ném KeyNotFoundException (crash render/500).
-            foreach (var d in _pending) _rejectReasons.TryAdd(d.Id, string.Empty);
+            foreach (var d in _pending)
+            {
+                _rejectReasons.TryAdd(d.Id, string.Empty);
+                // Doc lạ (restricted…) → fallback internal, không bao giờ gửi giá trị lạ lên server.
+                _approveClasses[d.Id] = d.Classification is "public" or "internal" or "confidential"
+                    ? d.Classification : "internal";
+            }
             if (pending == null) SetAlert("Không kết nối được dịch vụ AI — thử Làm mới.", "warning");
             if (_tab == "docs") await LoadDocsPageAsync(reset: true);
         }
@@ -393,7 +410,8 @@
         _busy = true;
         try
         {
-            var ok = await AiClient.ApproveDocumentAsync(TenantProvider.TenantId, doc.Id);
+            var cls = _approveClasses.TryGetValue(doc.Id, out var c) ? c : null;
+            var ok = await AiClient.ApproveDocumentAsync(TenantProvider.TenantId, doc.Id, cls);
             SetAlert(ok
                 ? $"Đã duyệt \"{doc.Title}\" — AI có thể dùng nội dung này trả lời khách."
                 : "Duyệt thất bại — tài liệu có thể đã được xử lý hoặc dịch vụ AI tạm nghỉ.",

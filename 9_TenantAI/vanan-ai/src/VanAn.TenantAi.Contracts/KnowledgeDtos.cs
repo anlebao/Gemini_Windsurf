@@ -28,7 +28,9 @@ public sealed record DocumentIngestRequest(
     string Type,
     string Title,
     string Content,
-    string Classification);
+    string Classification,
+    /// <summary>AI-P11 — provenance/dedupe key (vd "chat:{conversationId}:{messageId}"). Optional.</summary>
+    string? SourceRef = null);
 
 public sealed record DocumentSummaryDto(
     Guid Id,
@@ -64,6 +66,9 @@ public sealed record DocumentListResponse(
     IReadOnlyList<DocumentListItemDto> Items);
 
 public sealed record RejectDocumentRequest(string Reason);
+
+/// <summary>AI-P11 — approve body: owner chọn classification lúc duyệt. Null/absent = giữ nguyên.</summary>
+public sealed record ApproveDocumentRequest(string? Classification);
 
 public sealed record KnowledgeStatusResponse(
     int PendingDocs,

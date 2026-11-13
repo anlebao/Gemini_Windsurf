@@ -352,13 +352,18 @@ app.MapGet("/v1/admin/knowledge/pending", async (
     .RequireTenantContext();
 
 app.MapPost("/v1/admin/knowledge/{id:guid}/approve", async (
-        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id, CancellationToken ct) =>
+        HttpContext ctx, VanAn.TenantAi.Api.Services.KnowledgeIngestService svc, Guid id,
+        VanAn.TenantAi.Contracts.ApproveDocumentRequest? body, CancellationToken ct) =>
     {
-        var result = await svc.ApproveDocumentAsync(TenantOf(ctx), id, CallerOf(ctx), ct);
+        var result = await svc.ApproveDocumentAsync(TenantOf(ctx), id, CallerOf(ctx), body?.Classification, ct);
         return result.Value == null
-            ? result.ErrorCode == "not_found"
-                ? Error(StatusCodes.Status404NotFound, "not_found", "Document not found.")
-                : Error(StatusCodes.Status409Conflict, result.ErrorCode ?? "conflict", "Document is not pending review.")
+            ? result.ErrorCode switch
+            {
+                "not_found" => Error(StatusCodes.Status404NotFound, "not_found", "Document not found."),
+                "invalid_classification" or "restricted_not_approvable"
+                    => Error(StatusCodes.Status400BadRequest, result.ErrorCode!, "Classification not allowed."),
+                _ => Error(StatusCodes.Status409Conflict, result.ErrorCode ?? "conflict", "Document is not pending review.")
+            }
             : Results.Ok(result.Value);
     })
     .RequireScope(ScopeNames.Admin)

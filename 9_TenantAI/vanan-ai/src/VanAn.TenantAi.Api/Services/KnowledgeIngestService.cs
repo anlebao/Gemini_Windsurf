@@ -114,20 +114,30 @@ public sealed class KnowledgeIngestService(
         if (classification == DocumentClassification.Restricted)
             return new(null, "restricted_not_ingestible");
 
+        // AI-P11 — SourceRef dedupe: chat-suggest replays return the existing doc
+        // instead of creating duplicates (check-then-insert is enough at owner-click rate).
+        if (!string.IsNullOrWhiteSpace(req.SourceRef))
+        {
+            var dup = await db.KnowledgeDocuments.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.SourceRef == req.SourceRef
+                    && d.Status == DocumentStatus.Active, ct);
+            if (dup != null) return new(dup, null);
+        }
+
         // T3 — strip instruction-like lines before they ever reach a chunk.
         var sanitized = IngestSanitizer.Sanitize(req.Content);
         if (string.IsNullOrWhiteSpace(sanitized.Text))
             return new(null, "empty_after_sanitize");
 
         var doc = KnowledgeDocument.Create(tenantId, req.Type, req.Title.Trim(),
-            sanitized.Text, classification, sanitized: sanitized.Sanitized);
+            sanitized.Text, classification, sourceRef: req.SourceRef, sanitized: sanitized.Sanitized);
         db.KnowledgeDocuments.Add(doc);
         await db.SaveChangesAsync(ct);
         return new(doc, null);
     }
 
     public async Task<ServiceResult<DocumentSummaryDto>> ApproveDocumentAsync(
-        Guid tenantId, Guid docId, string callerId, CancellationToken ct)
+        Guid tenantId, Guid docId, string callerId, string? classification, CancellationToken ct)
     {
         var doc = await db.KnowledgeDocuments
             .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.Id == docId, ct);
@@ -135,6 +145,17 @@ public sealed class KnowledgeIngestService(
             return new(null, "not_found");
         if (doc.ApprovalStatus != ApprovalStatus.PendingReview)
             return new(null, "not_pending");
+
+        // AI-P11 — owner chọn classification lúc approve (chat-suggest docs vào với
+        // internal placeholder). Restricted fail-closed; null = giữ nguyên.
+        if (!string.IsNullOrWhiteSpace(classification))
+        {
+            if (!Enum.TryParse<DocumentClassification>(classification, true, out var parsed))
+                return new(null, "invalid_classification");
+            if (parsed == DocumentClassification.Restricted)
+                return new(null, "restricted_not_approvable");
+            doc.SetClassification(parsed);
+        }
 
         doc.Approve(callerId);
 
