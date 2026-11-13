@@ -18,7 +18,7 @@
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
-<div class="chat-panel">
+<div class="chat-panel @(_voiceCallActive ? "chat-panel--in-call" : "")" data-in-call="@_voiceCallActive">
     <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> @(HeaderTitle ?? "Chat với khách hàng")</h6>
@@ -59,7 +59,7 @@
         </div>
 
         <!-- Message list -->
-        <div id="@ScrollContainerId" style="max-height: 400px; overflow-y: auto; padding: 12px;" class="bg-light">
+        <div id="@ScrollContainerId" class="chat-messages bg-light" style="max-height: 400px; overflow-y: auto; padding: 12px;">
             @if (_loadingHistory)
             {
                 <div class="text-center py-3">
@@ -104,7 +104,7 @@
         </div>
 
         <!-- Input row -->
-        <div class="p-3 border-top">
+        <div class="chat-input-wrap p-3 border-top">
             @if (_error != null)
             {
                 <div class="alert alert-danger py-2 small mb-2">
@@ -269,7 +269,18 @@
         : "Gọi thoại";
 
     private void OnVoiceHubStateChanged(string state) => _voiceHubState = state;
-    private void OnVoiceCallStateChanged(string state) => _voiceCallState = state;
+    private void OnVoiceCallStateChanged(string state)
+    {
+        _voiceCallState = state;
+        // UX refresh (2026-11-13): khi có cuộc gọi (ringing → connected), panel chat
+        // bung ra chiếm toàn bộ khung chat (Zalo/Messenger style) — ẩn message list +
+        // ô nhập, call card mở rộng. Terminal/idle → trở lại chat bình thường.
+        _voiceCallActive = state is "ringing" or "calling" or "accepted"
+            or "negotiating" or "connected" or "reconnecting";
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _voiceCallActive;
 
     private async Task StartVoiceCallAsync()
     {
@@ -416,6 +427,21 @@
                     await ScrollToBottomAsync();
                 });
             });
+
+            // Realtime fix (2026-11-13): WithAutomaticReconnect tạo connection MỚI —
+            // group membership của hub KHÔNG được giữ → phải JoinConversation lại,
+            // nếu không client "connected" nhưng không nhận được tin nhắn (phải F5).
+            // Đồng thời _isConnected=false trong lúc reconnect → polling 4s làm fallback.
+            _hubConnection.Reconnecting += async _ =>
+                await InvokeAsync(() => { _isConnected = false; StateHasChanged(); });
+            _hubConnection.Reconnected += async _ =>
+            {
+                try { await _hubConnection.InvokeAsync("JoinConversation", SubjectType, SubjectId.ToString()); }
+                catch { /* best effort — polling covers the gap */ }
+                await InvokeAsync(() => { _isConnected = true; StateHasChanged(); });
+            };
+            _hubConnection.Closed += async _ =>
+                await InvokeAsync(() => { _isConnected = false; StateHasChanged(); });
 
             await _hubConnection.StartAsync();
             await _hubConnection.InvokeAsync("JoinConversation", SubjectType, SubjectId.ToString());

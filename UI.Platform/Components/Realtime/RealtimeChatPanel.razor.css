@@ -71,3 +71,57 @@
     .chat-panel ::deep .voice-hdr-btn--ringing,
     .chat-panel ::deep .voice-hdr-btn--active { animation: none; }
 }
+
+/* ── UX refresh (2026-11-13): in-call mode — call UI chiếm toàn bộ khung chat
+   (Zalo/Messenger style): ẩn message list + input, call card mở rộng. ── */
+.chat-panel--in-call .chat-messages,
+.chat-panel--in-call .chat-input-wrap {
+    display: none;
+}
+
+.chat-panel--in-call ::deep .voice-call-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 16px;
+}
+
+.chat-panel--in-call ::deep .voice-call-card {
+    flex: 1;
+    min-height: 180px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px 16px;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.chat-panel--in-call ::deep .voice-call-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 1.8rem;
+    margin: 0 auto;
+}
+
+.chat-panel--in-call ::deep .voice-call-info {
+    text-align: center;
+}
+
+.chat-panel--in-call ::deep .voice-call-title {
+    font-size: 1.05rem;
+}
+
+.chat-panel--in-call ::deep .voice-call-actions {
+    justify-content: center;
+    gap: 18px;
+}
+
+.chat-panel--in-call ::deep .voice-call-btn {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    font-size: 1.3rem;
+}
