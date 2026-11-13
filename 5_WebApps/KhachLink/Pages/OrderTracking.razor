@@ -337,13 +337,12 @@
                 _tokenExpired = true;
         }
 
-        // D6: guest identity (no token) — used for tracking + chat via device id.
-        if (string.IsNullOrEmpty(_customerToken))
-        {
-            var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
-            if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
-                _customerDeviceId = deviceId;
-        }
+        // Device identity — ALWAYS loaded (2026-11-13): a logged-in customer may own
+        // guest-placed orders keyed by this device id; sending it alongside the token lets
+        // the server apply the guest-order fallback instead of 403.
+        var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
+            _customerDeviceId = deviceId;
 
         try
         {

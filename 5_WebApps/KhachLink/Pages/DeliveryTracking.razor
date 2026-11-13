@@ -268,6 +268,9 @@
     private bool _isTracking = false;
     private DateTime? _lastGpsUpdate;
     private Guid? _customerId;
+    // 2026-11-13: guest device id — sent alongside the token so guest-placed orders
+    // (keyed by CustomerDeviceId) stay accessible after login.
+    private Guid? _customerDeviceId;
     // GPS pings must be keyed by DeliveryTask.Id (PK) — NOT OrderId. Gateway RecordLocation
     // looks up DeliveryTasks.Id; sending OrderId silently discards every ping.
     private Guid? _deliveryTaskId;
@@ -295,6 +298,9 @@
     protected override async Task OnInitializedAsync()
     {
         _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
+            _customerDeviceId = deviceId;
         if (string.IsNullOrEmpty(_customerToken))
         {
             _isLoggedIn = false;
@@ -332,7 +338,7 @@
             // authorized). Previously this used GET /api/community/nearby-orders, which EXCLUDES
             // orders that already have an active DeliveryTask — i.e. exactly the order the shipper
             // is looking at — so the map never had coordinates and never rendered.
-            var tracking = await CommunityHttp.GetOrderTrackingAsync(_customerToken, null, OrderId);
+            var tracking = await CommunityHttp.GetOrderTrackingAsync(_customerToken, _customerDeviceId, OrderId);
             if (tracking.Success && tracking.Tracking != null)
             {
                 var t = tracking.Tracking;

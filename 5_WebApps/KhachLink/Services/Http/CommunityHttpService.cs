@@ -660,12 +660,14 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
 
     /// <summary>
     /// D6 (2026-09-17): X-Customer-Token when logged in, otherwise X-Customer-Device-Id (guest).
+    /// 2026-11-13: send BOTH when both exist — a logged-in customer may own guest-placed orders
+    /// keyed by the device id; the server uses the device header as an access fallback.
     /// </summary>
     private static void AddIdentityHeader(HttpRequestMessage request, string? customerToken, Guid? customerDeviceId)
     {
         if (!string.IsNullOrEmpty(customerToken))
             request.Headers.Add("X-Customer-Token", customerToken);
-        else if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
+        if (customerDeviceId.HasValue && customerDeviceId.Value != Guid.Empty)
             request.Headers.Add("X-Customer-Device-Id", customerDeviceId.Value.ToString());
     }
 }

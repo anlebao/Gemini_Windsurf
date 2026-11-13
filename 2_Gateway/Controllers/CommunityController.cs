@@ -563,9 +563,16 @@ namespace VanAn.Gateway.Controllers
                     .FirstOrDefaultAsync();
 
                 bool isCustomer = order.CustomerId == identity.Value;
+                // 2026-11-13: logged-in customer who placed the order as a GUEST — the token
+                // identity wins over the device guid, so also honour X-Customer-Device-Id as a
+                // fallback match (same rule RealtimeIdentityResolver applies on /api/realtime).
+                Guid? callerDeviceId = Request.Headers.TryGetValue("X-Customer-Device-Id", out var deviceHeader)
+                    && Guid.TryParse(deviceHeader.ToString(), out var parsedDevice) && parsedDevice != Guid.Empty
+                    ? parsedDevice : null;
                 bool isDeviceGuest = !isCustomer
                     && Guid.TryParse(order.CustomerDeviceId, out var orderDeviceId)
-                    && orderDeviceId == identity.Value;
+                    && (orderDeviceId == identity.Value
+                        || (callerDeviceId.HasValue && orderDeviceId == callerDeviceId.Value));
                 bool isShipper = task != null && task.ShipperId == identity.Value;
 
                 if (!isCustomer && !isDeviceGuest && !isShipper)
