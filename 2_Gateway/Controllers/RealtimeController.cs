@@ -95,11 +95,16 @@ public class RealtimeController(
 
         // P5/P6: the shop side is a tenant, not a user — a sender's id is not a conversation
         // party by default, so every Shop sender (staff AND customer) is added as a participant
-        // before the sender check below. P6 RV: the same applies to a guest DEVICE on an order —
-        // the order conversation is keyed to the customer (Conversation.CustomerId), so a device
-        // authorized via Order.CustomerDeviceId is not a party yet. Access was already granted by
-        // the authorizer above, so this never widens it.
-        if (subjectType == RealtimeSubjectType.Shop || identity.Kind == RealtimeIdentityKind.Device)
+        // before the sender check below. Access was already granted by the authorizer above,
+        // so this never widens it.
+        // 2026-11-13 (order chat parity): order conversations predate the participant table —
+        // legacy ChatService only fills the CustomerId/ShipperId pair columns. Voice context
+        // verification + counterpart resolution require active ConversationParticipants rows,
+        // so every authorized party registers itself and the known counterpart on send.
+        // Order takes the dedicated path (it also covers the caller — incl. guest devices).
+        if (subjectType == RealtimeSubjectType.Order)
+            await EnsureOrderParticipantsAsync(conversation, identity, ct);
+        else if (subjectType == RealtimeSubjectType.Shop || identity.Kind == RealtimeIdentityKind.Device)
             await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
 
         try
@@ -207,6 +212,11 @@ public class RealtimeController(
         // viewing the inbox could never be rung.
         if (type == RealtimeSubjectType.Shop && identity.Kind == RealtimeIdentityKind.Staff)
             await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
+
+        // Same parity fix on read: merely OPENING the order chat (customer or shipper side)
+        // registers the parties so an incoming voice call can resolve a counterpart.
+        if (type == RealtimeSubjectType.Order)
+            await EnsureOrderParticipantsAsync(conversation, identity, ct);
 
         var messages = await _messaging.GetHistoryAsync(conversation.Id, take, ct);
 
@@ -510,6 +520,25 @@ public class RealtimeController(
         return await _messaging.EnsureConversationAsync(
             tenantId, RealtimeSubjectType.Shop, subjectId, identity.UserId, subjectId,
             identity.RoleCode, RealtimeParticipantRole.Shop, ct);
+    }
+
+    /// <summary>
+    /// 2026-11-13 (order chat parity): legacy order conversations have no
+    /// <see cref="ConversationParticipant"/> rows — voice verify/counterpart SQL joins that
+    /// table, so without rows no call can be placed on an Order subject. Registers the caller
+    /// (true identity role — a guest device keeps Guest and stays excluded from voice
+    /// targeting) plus the known counterpart columns: CustomerId → Customer, ShipperId →
+    /// Shipper. All writes are idempotent no-ops when the row already exists.
+    /// </summary>
+    private async Task EnsureOrderParticipantsAsync(Conversation conversation, RealtimeIdentity identity, CancellationToken ct)
+    {
+        await _messaging.EnsureParticipantAsync(conversation, identity.UserId, identity.RoleCode, ct);
+
+        if (conversation.CustomerId != Guid.Empty && conversation.CustomerId != identity.UserId)
+            await _messaging.EnsureParticipantAsync(conversation, conversation.CustomerId, RealtimeParticipantRole.Customer, ct);
+
+        if (conversation.ShipperId != Guid.Empty && conversation.ShipperId != identity.UserId)
+            await _messaging.EnsureParticipantAsync(conversation, conversation.ShipperId, RealtimeParticipantRole.Shipper, ct);
     }
 
     private async Task<RealtimeIdentity?> ResolveIdentityAsync(CancellationToken ct)

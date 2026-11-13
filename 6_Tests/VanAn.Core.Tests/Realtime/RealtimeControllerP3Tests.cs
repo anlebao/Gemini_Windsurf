@@ -94,6 +94,24 @@ public class RealtimeControllerP3Tests
         Assert.NotNull(ok.Value);
     }
 
+    // === T19b: opening an Order conversation registers voice participants (2026-11-13 parity fix) ===
+    [Fact(DisplayName = "T19b: GetConversation_Order_EnsuresCallerAndCounterpartParticipants")]
+    public async Task GetConversation_Order_EnsuresParticipants()
+    {
+        var shipperId = Guid.NewGuid();
+        // Legacy order conversation: caller (CallerId) is the customer, counterpart is the shipper.
+        var conversation = new Conversation(Tenant, SubjectId, shipperId, CallerId);
+
+        var (controller, messaging, _, _) = Build(conversation: conversation);
+
+        var result = await controller.GetConversation(
+            nameof(RealtimeSubjectType.Order), SubjectId.ToString(), 100, peerId: null, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        messaging.Verify(m => m.EnsureParticipantAsync(conversation, CallerId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        messaging.Verify(m => m.EnsureParticipantAsync(conversation, shipperId, RealtimeParticipantRole.Shipper, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // === T20: an unauthorized caller never reaches the messaging service ===
     [Fact(DisplayName = "T20: GetConversation_AuthorizerDenies_Returns403AndSkipsService")]
     public async Task GetConversation_AuthorizerDenies_Returns403AndSkipsService()
