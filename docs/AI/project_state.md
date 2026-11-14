@@ -55,10 +55,12 @@
 **▶ ENTRY POINTS RETENTION — ✅ W1 DONE 100% (fix `708dc8ef` + spec `d04612be` deployed, RV PASS) → W2:**
 - [x] **FIX nav duplicate (RV finding)** — `NavMenu Variant` param (all|sidebar|mobile); MainLayout truyền variant → 1 `.mobile-bottom-nav` + 1 `#nav-more-mobile` trên DOM. Deployed `708dc8ef`.
 - [x] **RV W1** — spec de-flaked `d04612be` (by-domain response + nav visible + stable-count poll); mobile-layout.spec PASS cả hoptacxa (3P/2S) + diemthuong2 (chromium 3P/2S, firefox+MobileChrome 5P/4S/1flaky→pass). Skips legit: ≤5 items → no "Thêm"; no featured products → skip grid. Webkit env WASM-timeout (pre-existing).
-- [ ] **W2-1 Cooperative model** `task_w2_1_cooperative_model.md` — prerequisite portal: entity Cooperative + member tenants + `/api/cooperatives` endpoints (Gate 5 — cần duyệt Option A/B/C)
-- [ ] **W2-2 portal landing** · W2-3 timlathay retention · W2-4 khachlink retention · W2-5 FeatureContextService
+- [x] **W2-1 Cooperative model** `176d4aae` — **QUYẾT ĐỊNH: reuse Membership Infrastructure** (user duyệt) thay entity Cooperative mới: HTX = Tenant có `HtxProfile`, member shops = `Member.MemberTenantId` Active. Public `GET /api/cooperatives` + `/{htxId}/members` + `/by-domain/{domain}` ([AllowAnonymous] + `cooperatives-public` 60rpm + nginx `dir_api_cache` 5m). Admin CRUD tái dùng `/api/admin/membership/*` + `/admin/membership/members` (SystemAdmin). 8 Core.Tests PASS. Arch-test exempt thêm `CooperativesController`.
+- [x] **W2-2 portal landing** `a3b2f2fc` — `InstanceContextService` (scoped config share MainLayout↔pages, nền cho W2-5) + `CooperativeHttpService` + `HoptacxaPortal.razor` (hero + 4 module cards + HTX grid + member cards `data-tenant-id`) + Home skip commerce loads khi `Profile=Hoptacxa` + E2E `hoptacxa-portal.spec.ts`. Pushed `a3b2f2fc`, CD `43597415844` đang chạy.
+- [ ] **W2-1 ops còn lại** — seed "Hợp tác xã Vạn An" (tenant → `POST /api/admin/membership/htx-profile`) + gán member tenant đầu tiên + verify `/api/cooperatives` trên prod sau CD
+- [ ] **W2-3 timlathay retention** · **W2-4 khachlink retention** · **W2-5 FeatureContextService** (InstanceContextService đã có sẵn OwnerTenantId — mở rộng chain `_lastTenantId`)
 - [ ] **W3 contextual AI/voice** · M1 sàn việc `/jobs` (bật `ShowJobs` trong preset sau khi ship page)
-- [ ] **Ops còn lại hoptacxa** — icon riêng (iconUrl đang default) · branding colors · seed cooperative + member đầu tiên
+- [ ] **Ops còn lại hoptacxa** — icon riêng (iconUrl đang default) · branding colors
 
 **▶ VOICE SERVICE — P5 PILOT (automated DONE · real-call pilot CHỜ user) → P6 ROLLOUT:**
 - [x] **CD deploy voice DONE** — root cause TURN docker-proxy port storm → host networking (`93180b44`) + coturn args (`6727e590`) + tenant filter/uuid/TURN host (`eed7922b`) + metering port `:5050` (`02221110`) + detached entity persist (`ecd28acf`) — CD #43144523206/#43150444872 ALL SUCCESS
