@@ -69,7 +69,12 @@ public sealed class IntentRouter(ILlmChatClient llm, ILogger<IntentRouter> logge
             // Faq đứng trước PriceQuery, "bao gia"/"gia" sẽ nuốt price questions).
             "soi da", "bao hanh", "dat lich", "dat hen", "lien he", "hotline",
             "so dien thoai", "sdt", "co so", "chi nhanh", "nhan vien",
-            "chuyen vien", "ky thuat vien", "cuoi tuan", "chu nhat", "ngay le"
+            "chuyen vien", "ky thuat vien", "cuoi tuan", "chu nhat", "ngay le",
+            // AI-P11 follow-up: refund/return vocabulary — without these the LLM
+            // classify fallback mislabels refund questions as PolicyViolation and
+            // the pipeline refuses BEFORE retrieval (verified on prod 2026-11-14).
+            "hoan tien", "tra lai tien", "refund", "hoan hang", "tra hang",
+            "khieu nai"
         ]),
         (ChatIntents.PriceQuery,
         [
@@ -131,19 +136,29 @@ public sealed class IntentRouter(ILlmChatClient llm, ILogger<IntentRouter> logge
         return normalized.Contains(keyword, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Labels the LLM fallback may emit. PolicyViolation is EXCLUDED — it is a
+    /// security boundary reserved for deterministic rule/topic matches (0-LLM-call
+    /// gate). Letting the classifier emit it produced false-positive refusals of
+    /// legitimate policy questions (e.g. refund asks) before retrieval [G6].
+    /// A model that still outputs the word simply fails to parse → OutOfScope.
+    /// </summary>
+    private static readonly IReadOnlyList<string> ClassifyLabels =
+        ChatIntents.All.Where(i => i != ChatIntents.PolicyViolation).ToList();
+
     /// <summary>Classify-only LLM fallback: prompt returns exactly one label [FR-2].</summary>
     private async Task<string?> ClassifyWithLlmAsync(string text, CancellationToken ct)
     {
         var prompt =
             "Phân loại câu hỏi của khách hàng vào ĐÚNG MỘT nhãn sau:\n"
-            + string.Join(", ", ChatIntents.All)
+            + string.Join(", ", ClassifyLabels)
             + "\nChỉ trả về JSON {\"intent\": \"<nhãn>\"}. Không giải thích.\n"
             + $"Câu hỏi: {text.Trim()}";
         try
         {
             var result = await llm.GenerateAsync(prompt, schemaHint: "intent_label", ct);
             if (result == null) return null;
-            return ChatIntents.All.FirstOrDefault(i =>
+            return ClassifyLabels.FirstOrDefault(i =>
                 result.Text.Contains(i, StringComparison.OrdinalIgnoreCase));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
