@@ -30,9 +30,29 @@ test.describe('Mobile layout pack (W1-2) @mobile', () => {
   });
 
   test('tab "Thêm" mở overflow sheet khi nav > 5 items', async ({ page }) => {
+    // Instance config (by-domain) resolves async sau first paint — NavMenu render
+    // tạm với default flags rồi re-render theo preset. Phải đợi response + re-render
+    // xong, nếu không #nav-more-mobile bị detach ngay khi click (flake).
+    const cfgDone = page.waitForResponse(
+      (r) => r.url().includes('/api/v1/khachlink-instances/by-domain/'),
+      { timeout: 30000 }
+    ).catch(() => null);
     await page.goto('/', { waitUntil: 'networkidle' });
-
+    await cfgDone;
+    // WASM boot + áp NavFlags chậm hơn API response — đợi nav render rồi poll
+    // cho tới khi số tab + #nav-more-mobile ổn định (2 nhịp liên tiếp), tránh
+    // count() sớm → skip sai hoặc click vào node sắp bị detach.
+    const nav = page.locator('.mobile-bottom-nav').first();
+    await expect(nav).toBeVisible({ timeout: 30000 });
     const moreTab = page.locator('#nav-more-mobile');
+    let lastSig = '', stable = 0;
+    for (let i = 0; i < 40 && stable < 2; i++) {
+      const sig = `${await nav.locator('.mobile-tab-item').count()}|${await moreTab.count()}`;
+      stable = sig === lastSig ? stable + 1 : 0;
+      lastSig = sig;
+      await page.waitForTimeout(500);
+    }
+
     if (!(await moreTab.count())) {
       test.skip(true, 'Instance này ≤5 nav items — không có tab "Thêm" (hợp lệ)');
     }
