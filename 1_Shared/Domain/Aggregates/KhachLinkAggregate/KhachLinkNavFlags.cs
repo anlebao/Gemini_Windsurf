@@ -49,6 +49,20 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
                 // ShowHome, ShowStores, ShowProfile = true (directory core)
             },
             KhachLinkProfile.Reseller => new KhachLinkNavFlags(),  // R2: all true (full commerce + reseller extensions)
+            // Portal HTX (W1-1): browse-only — commerce ở member storefronts; ShowJobs bật khi M1 ship /jobs.
+            KhachLinkProfile.Hoptacxa => new KhachLinkNavFlags
+            {
+                ShowCart = false,
+                ShowOrders = false,
+                ShowLoyaltyHistory = false,
+                ShowMissions = false,
+                ShowRewards = false,
+                ShowAllianceWallet = false,
+                ShowScan = false,
+                ShowQrClaim = false,
+                ShowStaffDashboard = false
+                // ShowHome, ShowStores, ShowCampaigns, ShowCommunity, ShowProfile = true
+            },
             // TODO R3: Logistics preset (hide commerce, show community)
             // TODO R3: JobMarket preset (hide commerce, show /jobs)
             _ => new KhachLinkNavFlags()  // FullCommerce + unimplemented profiles = all true (safe default)

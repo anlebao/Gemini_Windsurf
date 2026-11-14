@@ -157,6 +157,7 @@ public class PublicKhachLinkIconController(
             KhachLinkProfile.Logistics => "Sàn giao nhận — giao hàng nhanh, đặt xe tải",
             KhachLinkProfile.JobMarket => "Chợ việc làm — kết nối người tìm việc và nhà tuyển dụng",
             KhachLinkProfile.Reseller => "Nền tảng bán hàng trung gian — kinh doanh online dễ dàng",
+            KhachLinkProfile.Hoptacxa => "Cổng hợp tác xã — kết nối hợp tác xã và thành viên",
             KhachLinkProfile.FullCommerce => "Mua sắm trực tuyến — nhiều ưu đãi và quà tặng",
             _ => "Vạn An — ứng dụng của bạn"
         };

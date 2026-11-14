@@ -408,7 +408,8 @@
         new("1", "Directory (Type 1)"),
         new("2", "Logistics (Type 2) — R3"),
         new("3", "JobMarket (Type 3) — R3"),
-        new("4", "Reseller (Type 5)")
+        new("4", "Reseller (Type 5)"),
+        new("5", "Hợp tác xã (Type 6) — portal multi-tenant")
     };
 
     private List<VanASelect.SelectOption> _tenantOptions = new();
@@ -642,6 +643,13 @@
             ShowCampaigns = true, ShowScan = true, ShowQrClaim = true, ShowCommunity = true,
             ShowJobs = false, ShowProfile = true, ShowStaffDashboard = true
         },
+        KhachLinkProfile.Hoptacxa => new KhachLinkNavFlagsDto
+        {
+            ShowHome = true, ShowCart = false, ShowOrders = false, ShowLoyaltyHistory = false,
+            ShowMissions = false, ShowRewards = false, ShowAllianceWallet = false, ShowStores = true,
+            ShowCampaigns = true, ShowScan = false, ShowQrClaim = false, ShowCommunity = true,
+            ShowJobs = false, ShowProfile = true, ShowStaffDashboard = false
+        },
         _ => new KhachLinkNavFlagsDto()
     };
 
@@ -762,6 +770,7 @@
         KhachLinkProfile.Logistics => "Logistics",
         KhachLinkProfile.JobMarket => "JobMarket",
         KhachLinkProfile.Reseller => "Reseller",
+        KhachLinkProfile.Hoptacxa => "Hợp tác xã",
         _ => p.ToString()
     };
 

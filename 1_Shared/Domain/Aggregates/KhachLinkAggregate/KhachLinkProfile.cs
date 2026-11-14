@@ -19,6 +19,10 @@ namespace VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
         JobMarket = 3,
 
         /// <summary>Type 5 — reseller MSP. Tenant trung gian, all features + reseller extensions (R2).</summary>
-        Reseller = 4
+        Reseller = 4,
+
+        /// <summary>Type 6 — cooperative platform portal. KHÔNG gắn OwnerTenantId:
+        /// danh bạ HTX + member shops; commerce diễn ra ở member storefronts.</summary>
+        Hoptacxa = 5
     }
 }

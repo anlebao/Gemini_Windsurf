@@ -152,7 +152,7 @@ else
     .khachlink-app-main {
         flex: 1;
         padding: 1rem;
-        padding-bottom: 80px; /* Space for mobile tab bar */
+        padding-bottom: var(--mobile-nav-total, 80px); /* FR-L2: space for mobile tab bar (+community row khi có) */
         min-width: 0;
     }
     @@media (min-width: 769px) {

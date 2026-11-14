@@ -267,14 +267,13 @@
                     @foreach (var item in _catalog.Products.Where(p => p.Source == "Featured").Take(8))
                     {
                         var imgId = $"featured-img-{item.ProductId:N}";
-                        <div class="col-md-3 mb-3 feature-card">
+                        <div class="col-6 col-md-3 mb-3 feature-card">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
                                     <img id="@imgId"
                                          src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
-                                         class="card-img-top"
-                                         alt="@item.DisplayName"
-                                         style="height: 200px; object-fit: cover;" />
+                                         class="card-img-top product-card-img"
+                                         alt="@item.DisplayName" />
                                 </div>
                                 <div class="product-info">
                                     <h5>@item.DisplayName</h5>
@@ -324,13 +323,12 @@
                 <div class="row">
                     @foreach (var item in _catalog.Products.Where(p => p.Source == "History").Take(4))
                     {
-                        <div class="col-md-3 mb-3">
+                        <div class="col-6 col-md-3 mb-3">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
                                     <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
-                                         class="card-img-top"
-                                         alt="@item.DisplayName"
-                                         style="height: 180px; object-fit: cover;" />
+                                         class="card-img-top product-card-img-sm"
+                                         alt="@item.DisplayName" />
                                 </div>
                                 <div class="product-info">
                                     <h6>@item.DisplayName</h6>
@@ -365,13 +363,12 @@
                 <div class="row">
                     @foreach (var item in recentlyViewed.Take(4))
                     {
-                        <div class="col-md-3 mb-3">
+                        <div class="col-6 col-md-3 mb-3">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
                                     <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
-                                         class="card-img-top" 
-                                         alt="@item.Name" 
-                                         style="height: 180px; object-fit: cover;" />
+                                         class="card-img-top product-card-img-sm" 
+                                         alt="@item.Name" />
                                 </div>
                                 <div class="product-info">
                                     <h6>@item.Name</h6>
@@ -416,6 +413,22 @@
     .home-voice-mic-btn.recording { animation: mic-pulse 1s infinite; }
     .home-search-go-btn { border-radius: 0 9999px 9999px 0; }
     @@keyframes mic-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    /* FR-L4: compact product card — mobile 2-col grid (col-6), desktop giữ nguyên */
+    .product-card-img { height: 200px; object-fit: cover; }
+    .product-card-img-sm { height: 180px; object-fit: cover; }
+    @@media (max-width: 767.98px) {
+        .product-card-img { height: 130px; }
+        .product-card-img-sm { height: 110px; }
+        .product-info h5,
+        .product-info h6 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: 0.9rem;
+        }
+        .product-info .text-muted { font-size: 0.75rem; }
+    }
 </style>
 
 @code {

@@ -192,8 +192,8 @@ else
                     <i class="bi bi-info-circle"></i> Chế độ: @GetProfileLabel(_instanceStyle.Profile)
                 </div>
             }
-            <!-- Add bottom padding for mobile tab bar -->
-            <div style="height: 70px;" class="d-md-none"></div>
+            <!-- FR-L2: bottom padding for mobile tab bar — động theo số nav rows (community row → 128px) -->
+            <div style="height: var(--mobile-nav-total, 70px);" class="d-md-none"></div>
         </div>
     </footer>
 </div>
@@ -509,6 +509,7 @@ else
         KhachLinkProfile.Reseller      => "Đại lý Vạn An",
         KhachLinkProfile.Logistics     => "Logistics",
         KhachLinkProfile.JobMarket     => "Sàn việc",
+        KhachLinkProfile.Hoptacxa      => "Hợp tác xã",
         _                              => "Cửa hàng trực tiếp"
     };
 
