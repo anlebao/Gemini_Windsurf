@@ -116,6 +116,9 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.Http.GuardQrApiClient>();
             // KhachLink Multi-Profile R1 Sprint 3: instance config by-domain resolver
             _ = builder.Services.AddScoped<Services.Http.KhachLinkInstanceHttpService>();
+            // W2-1/W2-2 (2026-11-14): cooperative portal — instance context + public coop directory client
+            _ = builder.Services.AddScoped<Services.InstanceContextService>();
+            _ = builder.Services.AddScoped<Services.Http.CooperativeHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();
 
             // Register Recently Viewed Service + LastInteractionService

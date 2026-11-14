@@ -20,6 +20,7 @@
 @inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
+@inject VanAn.KhachLink.Services.InstanceContextService InstanceContext
 @inject ISocialCampaignService CampaignService
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -28,6 +29,13 @@
 <PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
 
 <KhachLinkLayout>
+    @* W2-2 (2026-11-14): Profile=Hoptacxa → cooperative portal landing thay commerce home *@
+    @if (_isHoptacxa)
+    {
+        <HoptacxaPortal />
+    }
+    else
+    {
     <!-- P4.1: Reseller badge moved to KhachLinkLayout (global — shows on all pages, not just Home) -->
 
     <!-- Issue #142: Store Finder search box — Google Maps style.
@@ -397,6 +405,7 @@
     {
     <SocialHub ShopConfig="@_shopConfig" />
     }
+    }
 </KhachLinkLayout>
 
 <style>
@@ -455,6 +464,8 @@
     private StoreInfoDto? _store;
     private bool _storeLoading = true;
     private Guid? _lastTenantId;
+    // W2-2: true khi instance Profile=Hoptacxa → render portal landing thay commerce home
+    private bool _isHoptacxa;
 
     // P4.1: Commerce Mode badge moved to KhachLinkLayout (global — shows on all pages)
 
@@ -482,6 +493,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // W2-2: resolve instance profile trước — Hoptacxa portal bỏ qua commerce data loads
+        await InstanceContext.GetConfigAsync();
+        _isHoptacxa = InstanceContext.IsHoptacxa;
+        if (_isHoptacxa) return;
+
         // Cart drawer + cart state now managed by KhachLinkLayout (global floating cart).
         // Home only needs to load recently viewed products.
         await LoadRecentlyViewedAsync();
@@ -491,6 +507,9 @@
     {
         if (firstRender)
         {
+            // W2-2: Hoptacxa portal — skip toàn bộ commerce data loads (portal tự fetch /api/cooperatives)
+            if (_isHoptacxa) return;
+
             // Check if user is logged in (customer_token in localStorage)
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);

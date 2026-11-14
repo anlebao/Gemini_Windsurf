@@ -1,0 +1,198 @@
+@using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Services.Http
+@inject CooperativeHttpService CooperativeHttp
+@inject NavigationManager Navigation
+
+@* W2-2 (2026-11-14): Hoptacxa portal landing — Profile=Hoptacxa instances only.
+   Data: public /api/cooperatives (Membership Infrastructure — HtxProfile + Member.MemberTenantId).
+   Member cards carry data-tenant-id cho W3 contextual AI/voice attach. *@
+
+<div class="hoptacxa-portal">
+    <!-- Hero -->
+    <section class="htx-hero text-center py-5 mb-4">
+        <i class="bi bi-diagram-3-fill htx-hero-icon"></i>
+        <h1 class="htx-hero-title mt-3">Cổng Hợp tác xã</h1>
+        <p class="htx-hero-tagline text-muted mb-4">
+            Kết nối các hợp tác xã và cửa hàng thành viên — mua sắm, tích điểm, hưởng lợi ích tập thể.
+        </p>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <a href="#htx-coops" class="btn btn-primary btn-lg">
+                <i class="bi bi-search me-1"></i> Khám phá hợp tác xã
+            </a>
+            <a href="/stores" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-shop me-1"></i> Tìm cửa hàng
+            </a>
+        </div>
+    </section>
+
+    <!-- Module cards -->
+    <section class="htx-modules mb-4">
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <a href="https://commienphi.timlathay.com" class="htx-module-card text-decoration-none" target="_blank" rel="noopener">
+                    <i class="bi bi-heart-fill htx-module-icon text-danger"></i>
+                    <div class="htx-module-title">Cơm từ thiện</div>
+                    <div class="htx-module-sub">Ủng hộ bữa cơm miễn phí</div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a href="/community" class="htx-module-card text-decoration-none">
+                    <i class="bi bi-people-fill htx-module-icon text-primary"></i>
+                    <div class="htx-module-title">Cộng tác viên</div>
+                    <div class="htx-module-sub">Bán hàng &amp; tích điểm</div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="htx-module-card htx-module-soon">
+                    <i class="bi bi-box-seam htx-module-icon text-secondary"></i>
+                    <div class="htx-module-title">Mua chung</div>
+                    <div class="htx-module-sub">Sắp ra mắt</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="htx-module-card htx-module-soon">
+                    <i class="bi bi-briefcase htx-module-icon text-secondary"></i>
+                    <div class="htx-module-title">Sàn việc</div>
+                    <div class="htx-module-sub">Sắp ra mắt</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Các hợp tác xã -->
+    <section id="htx-coops" class="mb-4">
+        <h2 class="htx-section-title"><i class="bi bi-buildings me-2"></i>Các hợp tác xã</h2>
+        @if (_loading)
+        {
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (_cooperatives.Count == 0)
+        {
+            <VanAnCard>
+                <p class="text-muted text-center mb-0 py-3">Chưa có hợp tác xã nào trên hệ thống. Vui lòng quay lại sau.</p>
+            </VanAnCard>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var coop in _cooperatives)
+                {
+                    var coopMembers = _membersByHtx.GetValueOrDefault(coop.TenantId) ?? new List<CooperativeMemberDto>();
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <VanAnCard CssClass="h-100">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                @if (!string.IsNullOrEmpty(coop.LogoUrl))
+                                {
+                                    <img src="@coop.LogoUrl" alt="@coop.Name" class="htx-coop-logo" />
+                                }
+                                else
+                                {
+                                    <span class="htx-coop-logo htx-coop-logo-fallback"><i class="bi bi-building"></i></span>
+                                }
+                                <div>
+                                    <div class="fw-bold">@coop.Name</div>
+                                    <div class="text-muted small">@coop.MemberCount cửa hàng thành viên</div>
+                                </div>
+                            </div>
+                            @if (coopMembers.Count > 0)
+                            {
+                                <div class="htx-member-chips">
+                                    @foreach (var m in coopMembers.Take(6))
+                                    {
+                                        <span class="htx-member-chip" data-tenant-id="@m.TenantId" title="@m.Name">@m.Name</span>
+                                    }
+                                    @if (coopMembers.Count > 6)
+                                    {
+                                        <span class="htx-member-chip htx-member-chip-more">+@(coopMembers.Count - 6)</span>
+                                    }
+                                </div>
+                            }
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <!-- Cửa hàng thành viên (flat grid — link tới storefront/domain) -->
+    @if (!_loading && _allMembers.Count > 0)
+    {
+        <section class="mb-4">
+            <h2 class="htx-section-title"><i class="bi bi-shop me-2"></i>Cửa hàng thành viên</h2>
+            <div class="row g-3">
+                @foreach (var member in _allMembers)
+                {
+                    var href = !string.IsNullOrEmpty(member.KhachLinkDomain)
+                        ? $"https://{member.KhachLinkDomain}"
+                        : "/stores";
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <a href="@href" class="htx-member-card text-decoration-none" data-tenant-id="@member.TenantId" target="@(!string.IsNullOrEmpty(member.KhachLinkDomain) ? "_blank" : "")" rel="noopener">
+                            @if (!string.IsNullOrEmpty(member.LogoUrl))
+                            {
+                                <img src="@member.LogoUrl" alt="@member.Name" class="htx-member-logo" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span class="htx-member-logo htx-member-logo-fallback"><i class="bi bi-shop"></i></span>
+                            }
+                            <div class="htx-member-name">@member.Name</div>
+                            @if (!string.IsNullOrEmpty(member.KhachLinkDomain))
+                            {
+                                <div class="htx-member-domain">@member.KhachLinkDomain</div>
+                            }
+                        </a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+<style>
+    .htx-hero { background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); border-radius: 16px; color: #fff; }
+    .htx-hero-icon { font-size: 3rem; color: #a5d6a7; }
+    .htx-hero-title { font-size: 2rem; font-weight: 700; }
+    .htx-hero-tagline { color: #c8e6c9 !important; max-width: 560px; margin-left: auto; margin-right: auto; }
+    .htx-hero .btn-outline-primary { color: #fff; border-color: #fff; }
+    .htx-hero .btn-outline-primary:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .htx-module-card { display: block; background: #fff; border-radius: 12px; padding: 1rem; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: transform .15s, box-shadow .15s; height: 100%; }
+    .htx-module-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); color: inherit; }
+    .htx-module-soon { opacity: .65; }
+    .htx-module-icon { font-size: 1.6rem; display: block; margin-bottom: .4rem; }
+    .htx-module-title { font-weight: 600; font-size: .95rem; }
+    .htx-module-sub { font-size: .78rem; color: #6c757d; }
+    .htx-section-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
+    .htx-coop-logo { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; }
+    .htx-coop-logo-fallback { display: inline-flex; align-items: center; justify-content: center; background: #e8f5e9; color: #2e7d32; font-size: 1.4rem; }
+    .htx-member-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .htx-member-chip { background: #f1f8e9; color: #33691e; border-radius: 999px; padding: .15rem .6rem; font-size: .78rem; }
+    .htx-member-chip-more { background: #eceff1; color: #546e7a; }
+    .htx-member-card { display: flex; flex-direction: column; align-items: center; background: #fff; border-radius: 12px; padding: .9rem .5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: transform .15s, box-shadow .15s; height: 100%; }
+    .htx-member-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); color: inherit; }
+    .htx-member-logo { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; margin-bottom: .5rem; }
+    .htx-member-logo-fallback { display: inline-flex; align-items: center; justify-content: center; background: #e3f2fd; color: #1565c0; font-size: 1.8rem; }
+    .htx-member-name { font-weight: 600; font-size: .9rem; text-align: center; }
+    .htx-member-domain { font-size: .72rem; color: #1565c0; text-align: center; }
+</style>
+
+@code {
+    private bool _loading = true;
+    private List<CooperativeDto> _cooperatives = new();
+    private List<CooperativeMemberDto> _allMembers = new();
+    private Dictionary<Guid, List<CooperativeMemberDto>> _membersByHtx = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cooperatives = await CooperativeHttp.GetByCurrentDomainAsync();
+        foreach (var coop in _cooperatives)
+        {
+            var members = await CooperativeHttp.GetMembersAsync(coop.TenantId);
+            _membersByHtx[coop.TenantId] = members;
+            _allMembers.AddRange(members);
+        }
+        _allMembers = _allMembers.OrderBy(m => m.Name).ToList();
+        _loading = false;
+    }
+}

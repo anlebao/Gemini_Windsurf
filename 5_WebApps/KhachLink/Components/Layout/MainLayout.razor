@@ -3,7 +3,7 @@
 @using VanAn.KhachLink.Models
 @using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
 @inject KhachLinkHomeSettingsHttpService HomeSettingsService
-@inject KhachLinkInstanceHttpService InstanceHttp
+@inject VanAn.KhachLink.Services.InstanceContextService InstanceContext
 @inject NotificationHttpService NotificationHttp
 @inject IJSRuntime JSRuntime
 @implements IDisposable
@@ -214,7 +214,7 @@ else
         // #134: Fetch instance config first — if disabled, skip everything else
         try
         {
-            var instanceConfig = await InstanceHttp.GetByCurrentDomainAsync();
+            var instanceConfig = await InstanceContext.GetConfigAsync();
             if (instanceConfig != null)
             {
                 if (!instanceConfig.IsActive)
