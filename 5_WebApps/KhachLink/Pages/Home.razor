@@ -21,6 +21,7 @@
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 @inject VanAn.KhachLink.Services.InstanceContextService InstanceContext
+@inject VanAn.KhachLink.Services.PWA.PWAService PWAService
 @inject ISocialCampaignService CampaignService
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -100,6 +101,77 @@
             }
         </div>
     </VanAnCard>
+
+    @* W2-4 FR-U3 (2026-11-14): new-user hero strip — chỉ khi đã resolve lastTenant
+       và user CHƯA có tenant (tránh flash cho returning user). *@
+    @if (_lastTenantLoaded && !_lastTenantId.HasValue)
+    {
+    <VanAnCard CssClass="new-user-hero mb-4">
+        <div class="text-center">
+            <i class="bi bi-qr-code-scan text-primary" style="font-size: 2rem;"></i>
+            <h5 class="mt-2 mb-1">Chào mừng đến KhachLink!</h5>
+            <p class="text-muted small mb-3">Quét QR tại cửa hàng để xem menu, đặt món và tích điểm thưởng.</p>
+            <div class="d-flex justify-content-center gap-4 small text-muted mb-3">
+                <span><i class="bi bi-1-circle text-primary"></i> Quét QR</span>
+                <span><i class="bi bi-2-circle text-primary"></i> Đặt món</span>
+                <span><i class="bi bi-3-circle text-primary"></i> Tích điểm</span>
+            </div>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                @if (_canInstallApp)
+                {
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="InstallAppAsync">
+                        <i class="bi bi-phone me-1"></i> Cài app
+                    </VanAnButton>
+                }
+                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                    <i class="bi bi-qr-code me-1"></i> Quét QR ngay
+                </VanAnButton>
+                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/stores"))">
+                    <i class="bi bi-shop me-1"></i> Khám phá cửa hàng
+                </VanAnButton>
+            </div>
+        </div>
+    </VanAnCard>
+    }
+
+    @* W2-4 FR-U5: retention teasers — points + missions (hiện cho mọi user) *@
+    <div class="row g-3 mb-4 retention-teasers">
+        <div class="col-6 col-md-3">
+            <VanAnCard CssClass="h-100 text-center p-3">
+                <i class="bi bi-star-fill text-warning" style="font-size:1.5rem;"></i>
+                <div class="fw-bold small mt-1">Điểm thưởng</div>
+                @if (_isLoggedIn)
+                {
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" CssClass="mt-2" OnClick="@(() => Navigation.NavigateTo("/rewards"))">Đổi điểm</VanAnButton>
+                }
+                else
+                {
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" CssClass="mt-2" OnClick="@(() => Navigation.NavigateTo("/login"))">Đăng nhập để tích điểm</VanAnButton>
+                }
+            </VanAnCard>
+        </div>
+        <div class="col-6 col-md-3">
+            <VanAnCard CssClass="h-100 text-center p-3">
+                <i class="bi bi-list-check text-success" style="font-size:1.5rem;"></i>
+                <div class="fw-bold small mt-1">Nhiệm vụ</div>
+                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" CssClass="mt-2" OnClick="@(() => Navigation.NavigateTo("/missions"))">Xem nhiệm vụ</VanAnButton>
+            </VanAnCard>
+        </div>
+        <div class="col-6 col-md-3">
+            <VanAnCard CssClass="h-100 text-center p-3">
+                <i class="bi bi-megaphone text-danger" style="font-size:1.5rem;"></i>
+                <div class="fw-bold small mt-1">Khuyến mãi</div>
+                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" CssClass="mt-2" OnClick="@(() => Navigation.NavigateTo("/campaigns"))">Xem ưu đãi</VanAnButton>
+            </VanAnCard>
+        </div>
+        <div class="col-6 col-md-3">
+            <VanAnCard CssClass="h-100 text-center p-3">
+                <i class="bi bi-people text-primary" style="font-size:1.5rem;"></i>
+                <div class="fw-bold small mt-1">Cộng tác viên</div>
+                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" CssClass="mt-2" OnClick="@(() => Navigation.NavigateTo("/collaborator-verification"))">Tham gia</VanAnButton>
+            </VanAnCard>
+        </div>
+    </div>
 
     <!-- Issue 5a: Hide Campaign + Store sections for new customers (no _lastTenantId yet).
          New users see only the catalog/featured products + scan CTA. Once they scan QR or
@@ -186,7 +258,12 @@
                 }
                 else
                 {
-                    <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào. Vui lòng quay lại sau!" />
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào." />
+                    <div class="text-center mt-2">
+                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/campaigns"))">
+                            <i class="bi bi-megaphone me-1"></i> Xem khuyến mãi khác
+                        </VanAnButton>
+                    </div>
                 }
             </div>
         </VanAnCard>
@@ -249,6 +326,11 @@
                 else
                 {
                     <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
+                    <div class="text-center mt-2">
+                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/stores"))">
+                            <i class="bi bi-shop me-1"></i> Tìm cửa hàng khác
+                        </VanAnButton>
+                    </div>
                 }
             </div>
         </VanAnCard>
@@ -313,8 +395,14 @@
             }
             else
             {
-                <div class="col-12 text-center">
-                    <VanAnAlert Variant="AlertVariant.Info" Message="Chưa có sản phẩm nổi bật. Vui lòng quay lại sau." />
+                <VanAnAlert Variant="AlertVariant.Info" Message="Chưa có sản phẩm nổi bật." />
+                <div class="text-center mt-2 d-flex justify-content-center gap-2 flex-wrap">
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/stores"))">
+                        <i class="bi bi-shop me-1"></i> Khám phá cửa hàng
+                    </VanAnButton>
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                        <i class="bi bi-qr-code me-1"></i> Quét QR ngay
+                    </VanAnButton>
                 </div>
             }
         </div>
@@ -466,6 +554,9 @@
     private Guid? _lastTenantId;
     // W2-2: true khi instance Profile=Hoptacxa → render portal landing thay commerce home
     private bool _isHoptacxa;
+    // W2-4: new-user hero chỉ hiện sau khi lastTenant resolve xong (tránh flash cho returning user)
+    private bool _lastTenantLoaded;
+    private bool _canInstallApp;
 
     // P4.1: Commerce Mode badge moved to KhachLinkLayout (global — shows on all pages)
 
@@ -555,6 +646,9 @@
 
             // Issue #142: init voice search on home (reuses wwwroot/js/voice-note.js)
             await InitHomeVoiceSearchAsync();
+
+            // W2-4: install-app CTA — chỉ hiện khi PWA install khả dụng
+            try { _canInstallApp = await PWAService.CanInstallAsync(); } catch { _canInstallApp = false; }
 
             StateHasChanged();
         }
@@ -705,6 +799,7 @@
     private async Task LoadLastTenantDataAsync()
     {
         _lastTenantId = await LastInteractionService.GetLastTenantIdAsync();
+        _lastTenantLoaded = true; // W2-4: hero strip gate — chỉ quyết định sau khi resolve xong
 
         if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
         {
@@ -885,6 +980,13 @@
     private void GoToCart()
     {
         Navigation.NavigateTo("/cart");
+    }
+
+    /// <summary>W2-4: hero "Cài app" — trigger PWA install prompt (browser-gated).</summary>
+    private async Task InstallAppAsync()
+    {
+        try { await PWAService.ShowInstallPromptAsync(); }
+        catch { /* install không khả dụng trên browser này */ }
     }
 
     private void OpenCampaign(string trackingCode)
