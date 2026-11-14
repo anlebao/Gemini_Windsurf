@@ -60,7 +60,8 @@
 - [x] **W2-3 timlathay retention** `05e4cc23` — below-fold: recent searches (localStorage top-5) + 8 category chips → store search + featured stores top-6 (skeleton); `GoToStoreFinder` → `/stores` nội bộ; StoreFinder port (keyword + geolocation nearby + Leaflet map). E2E `directory-retention.spec.ts`.
 - [x] **W2-4 khachlink retention** `0854a080` — new-user hero strip (gate `_lastTenantLoaded && !_lastTenantId`, install-app PWA-gated, 3 bước) + 4 retention teasers (điểm/nhiệm vụ/khuyến mãi/CTV→`/collaborator-verification`) + empty-state CTAs (featured→/stores+/scan, campaign→/campaigns, store→/stores). "Mua lại" giữ `/scan` — **nợ: deep-link product route chưa có (W3)**. E2E `khachlink-retention.spec.ts`.
 - [x] **W2-5 FeatureContextService** `fb5b44b5` — FR-V6 chain explicit→instance OwnerTenantId→LastInteraction (`Services/FeatureContextService.cs`, 12 unit tests); ChatPanel fallback + Store.razor `AiFeaturesVisible` gate; FR-V1 `/admin/feature-visibility` matrix (read-only, nav menu "Hệ thống"); FR-V2 nút "Bật flagship mặc định" trên MembershipMembers (AIChat+VoiceCall+VoiceNote cho member Active).
-- [ ] **W2-1 ops còn lại** — seed "Hợp tác xã Vạn An" (tenant → `POST /api/admin/membership/htx-profile`) + gán member tenant đầu tiên + verify `/api/cooperatives` trên prod sau CD
+- [x] **W2-1 ops verify** — `/api/cooperatives` prod trả data thật: 2 HTX ("HỢP TÁC XÃ ĐỨC NGHĨA" 2 members, "Vạn An Trading Co." 3 members incl. Vạn An Cafe → vanan.timlathay.com); `/members` + `/by-domain` 200. Seed "Hợp tác xã Vạn An" literal không cần — HTX Vạn An đã tồn tại.
+- [ ] **W2 manual RV còn lại** — `/admin/feature-visibility` matrix + nút "Bật flagship mặc định" cần SystemAdmin login kiểm tra tay (không auto được).
 - [ ] **W3 contextual AI/voice** · M1 sàn việc `/jobs` (bật `ShowJobs` trong preset sau khi ship page)
 - [ ] **Ops còn lại hoptacxa** — icon riêng (iconUrl đang default) · branding colors
 
