@@ -7,7 +7,9 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @using VanAn.UI.Platform.Components.Data
+@using VanAn.Shared.Services
 @inject MembershipAdminApiClient MembershipAdminApi
+@inject IShopFeatureSettingsService FeatureSettings
 @inject TenantApiClient TenantApi
 @inject CommunityAdminApiClient CommunityAdminApi
 @inject IThemeProvider ThemeProvider
@@ -43,7 +45,16 @@
             <VanAButton Variant="info" Size="small" OnClick="OpenUpgradeModal">
                 <i class="bi bi-arrow-up-circle me-1"></i> Nâng cấp CTV thành tenant
             </VanAButton>
+            @* W2-5 (FR-V2): batch bật flagship toggles cho member tenants của HTX *@
+            <VanAButton Variant="success" Size="small" OnClick="ApplyHtxFlagshipDefaultsAsync"
+                        IsLoading="_applyingDefaults" Disabled="@(string.IsNullOrEmpty(_selectedHtxId) || _members.Count == 0)">
+                <i class="bi bi-stars me-1"></i> Bật flagship mặc định (AI/Voice)
+            </VanAButton>
         </div>
+        <small class="text-muted d-block mt-2">
+            "Bật flagship mặc định" = AIChat + VoiceCall + VoiceNote ON cho mọi thành viên Active có tenant
+            (opt-in mặc định trong hệ HTX; tenant ngoài HTX vẫn opt-in riêng).
+        </small>
     </VanACard>
 
     @if (_loadingMembers)
@@ -192,6 +203,7 @@
     private bool _showUpgradeModal;
     private bool _savingAdd;
     private bool _savingUpgrade;
+    private bool _applyingDefaults;
 
     protected override async Task OnInitializedAsync()
     {
@@ -362,6 +374,56 @@
         finally
         {
             _savingUpgrade = false;
+        }
+    }
+
+    /// <summary>
+    /// W2-5 (FR-V2): batch-enable flagship toggles (AIChat + VoiceCall + VoiceNote)
+    /// cho mọi member tenant Active của HTX đang chọn. Ghi qua IShopFeatureSettingsService
+    /// → SQLite authoritative + outbox sync sang PG.
+    /// </summary>
+    private async Task ApplyHtxFlagshipDefaultsAsync()
+    {
+        var targets = _members
+            .Where(m => m.MemberTenantId is not null && m.MemberTenantId != Guid.Empty
+                && string.Equals(m.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            .Select(m => m.MemberTenantId!.Value)
+            .Distinct()
+            .ToList();
+        if (targets.Count == 0)
+        {
+            ShowAlert("warning", "Không có thành viên Active nào có tenant để áp dụng.");
+            return;
+        }
+
+        _applyingDefaults = true;
+        int ok = 0, failed = 0;
+        try
+        {
+            foreach (var tenantId in targets)
+            {
+                try
+                {
+                    var settings = await FeatureSettings.GetSettingsAsync(tenantId);
+                    settings.AIChat_Enabled = true;
+                    settings.Voice_Call_Enabled = true;
+                    settings.Voice_Note_Enabled = true;
+                    await FeatureSettings.UpdateSettingsAsync(tenantId, settings);
+                    ok++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    Logger.LogWarning(ex, "Apply HTX flagship defaults failed for tenant {TenantId}", tenantId);
+                }
+            }
+            ShowAlert(failed == 0 ? "success" : "warning",
+                $"Đã bật flagship mặc định (AIChat + VoiceCall + VoiceNote) cho {ok}/{targets.Count} tenant"
+                + (failed > 0 ? $" — {failed} tenant lỗi (xem log)." : "."));
+        }
+        finally
+        {
+            _applyingDefaults = false;
         }
     }
 

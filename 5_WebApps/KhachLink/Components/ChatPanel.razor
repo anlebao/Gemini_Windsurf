@@ -8,6 +8,7 @@
 @using VanAn.KhachLink.Services.Http
 @using VanAn.Shared.Services
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject VanAn.KhachLink.Services.FeatureContextService FeatureContext
 
 <RealtimeChatPanel SubjectType="Order"
                    SubjectId="OrderId"
@@ -44,14 +45,18 @@
     protected override async Task OnInitializedAsync()
     {
         // Flags are per-shop (ShopFeatureSettings keyed by tenant) — the host must pass
-        // the order's TenantId. Empty → both hidden (fail-safe).
-        if (TenantId == Guid.Empty) return;
+        // the order's TenantId. W2-5: param rỗng → resolve qua FeatureContextService
+        // (explicit → instance owner → last interaction); vẫn không có → flags off (fail-safe).
+        Guid? tenantId = TenantId != Guid.Empty
+            ? TenantId
+            : await FeatureContext.GetEffectiveTenantIdAsync();
+        if (tenantId is null || tenantId.Value == Guid.Empty) return;
         try
         {
             _voiceEnabled = await FeatureSettings.IsEnabledAsync(
-                TenantId, nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+                tenantId.Value, nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
             _voiceCallEnabled = await FeatureSettings.IsEnabledAsync(
-                TenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
+                tenantId.Value, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
         }
         catch
         {

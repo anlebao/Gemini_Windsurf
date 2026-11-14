@@ -436,6 +436,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     new() { Title = "Tenant Registrations", Icon = "person-plus", Url = "/admin/tenant-registrations" },
                     new() { Title = "ShopERP Instances", Icon = "hdd-network", Url = "/admin/shop-instances" },
                     new() { Title = "KhachLink Instances", Icon = "grid", Url = "/admin/khachlink-instances" },
+                    // W2-5 (FR-V1): feature visibility matrix — instance navflags + tenant flagship toggles
+                    new() { Title = "Feature Visibility", Icon = "eye", Url = "/admin/feature-visibility" },
                     new() { Title = "Tenant Domains", Icon = "globe", Url = "/admin/domains" },
                     new() { Title = "Người dùng", Icon = "people", Url = "/admin/users" },
                     new() { Title = "Nhóm quyền", Icon = "person-lock", Url = "/admin/permission-groups" },

@@ -23,6 +23,7 @@
 @* SF-W1: unread badge — same client the chat panel uses, polled lightly. *@
 @inject IRealtimeChatClient RealtimeChat
 @inject IConfiguration Config
+@inject VanAn.KhachLink.Services.FeatureContextService FeatureContext
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
@@ -134,7 +135,7 @@ else
 
         @* SF-W2 (A2): semantic search bar — câu hỏi tự nhiên → answer ngắn + product
            cards, không cần mở bubble. Chỉ render khi AI bật; fail → ẩn kết quả. *@
-        @if (_features.AIChat_Enabled)
+        @if (AiFeaturesVisible)
         {
             <StoreSearchBar TenantId="_store.Id" OnAskAi="AskAi" OnAddToCart="AddAiProductToCartAsync"
                             VoiceEnabled="_features.Voice_Note_Enabled" />
@@ -151,7 +152,7 @@ else
                     </h2>
                     <div class="section-divider"></div>
                 </div>
-                @if (_features.AIChat_Enabled)
+                @if (AiFeaturesVisible)
                 {
                     <div class="store-ai-chips">
                         <button type="button" class="store-ai-chip" @onclick='() => AskAi("Còn lịch trống chiều nay không?")'>📅 Còn lịch trống chiều nay?</button>
@@ -252,7 +253,7 @@ else
                     </h2>
                     <div class="section-divider"></div>
                 </div>
-                @if (_features.AIChat_Enabled)
+                @if (AiFeaturesVisible)
                 {
                     <div class="store-ai-chips">
                         <button type="button" class="store-ai-chip" @onclick='() => AskAi("Quán có món gì bán chạy nhất?")'>💡 Món bán chạy?</button>
@@ -339,7 +340,7 @@ else
              itself hides when widget-config returns aiEnabled=false AND no human
              identity exists (service down / metering deny → human mode bubble).
         ════════════════════════════════════════════════════════════════ -->
-        @if (_features.AIChat_Enabled)
+        @if (AiFeaturesVisible)
         {
             <AiChatWidget TenantId="_store.Id"
                           OnAddToCart="AddAiProductToCartAsync"
@@ -370,7 +371,7 @@ else
         @* SF-W2 (B3): product quick-view modal — VibeShowcase card click mở modal
            (ảnh lớn + mô tả + giá + Thêm giỏ + Hỏi AI). *@
         <ProductQuickView Product="_quickViewProduct"
-                          AiEnabled="_features.AIChat_Enabled"
+                          AiEnabled="AiFeaturesVisible"
                           OnClose="CloseQuickView"
                           OnAddToCart="QuickViewAddToCartAsync"
                           OnAskAi="QuickViewAskAi" />
@@ -808,6 +809,10 @@ else
     private ShopDto? _store;
     private ShopConfig? _shopConfig;
     private TenantFeatureSettingsDto _features = new();
+    // W2-5 (FR-V6/V7): tenant context cho flagship features — explicit = _store.Id.
+    private bool _hasTenantContext;
+    /// <summary>FR-V7 render rule: AI features chỉ render khi toggle ON + có tenant context.</summary>
+    private bool AiFeaturesVisible => VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(_features.AIChat_Enabled, _hasTenantContext);
     private List<ProductDto> _products = new();
     private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
@@ -997,6 +1002,8 @@ else
 
             // Load feature settings (section toggles + Voice_Call_Enabled for the chat call button)
             _features = await TenantProfileService.GetFeatureSettingsAsync(_store.Id);
+            // W2-5: resolve tenant context qua FeatureContextService (explicit = store này)
+            _hasTenantContext = await FeatureContext.HasTenantContextAsync(_store.Id);
 
             // Parallel load: products + campaigns
             var productsTask = LoadProductsAsync(_store.Id);

@@ -1,0 +1,261 @@
+@page "/admin/feature-visibility"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.Shared.Services
+@using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate
+@using VanAn.ShopERP.Services
+@inject KhachLinkInstanceApiClient InstanceApi
+@inject TenantApiClient TenantApi
+@inject MembershipAdminApiClient MembershipAdminApi
+@inject IShopFeatureSettingsService FeatureSettings
+@inject IThemeProvider ThemeProvider
+@inject ILogger<FeatureVisibility> Logger
+
+@* W2-5 (FR-V1, 2026-11-14): Feature Visibility Matrix — read-only.
+   Instance → profile → NavFlags hiệu lực + tenant → flagship toggles
+   (AIChat / VoiceCall / VoiceNote). Nguồn: PG KhachLinkInstances (Gateway)
+   + ShopFeatureSettings (ShopERP SQLite → sync PG). *@
+
+<div class="feature-visibility-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Feature Visibility Matrix</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="LoadData" Disabled="_isLoading">
+            <i class="bi bi-arrow-clockwise me-1"></i> Làm mới
+        </VanAButton>
+    </header>
+
+    <div class="alert alert-info small">
+        <strong>Read-only.</strong> Bảng tra cứu instance → nav flags hiệu lực và flagship toggles
+        (AIChat / VoiceCall / VoiceNote) theo tenant. Bật/tắt toggle per-tenant tại
+        <a href="/settings/shop-features">Shop Features</a>; member HTX dùng nút
+        "Bật flagship mặc định" tại <a href="/admin/membership/members">Thành viên HTX</a>.
+    </div>
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tổng hợp matrix...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"KhachLink Instances ({_instances.Count})")">
+            @if (_instances.Count == 0)
+            {
+                <p class="text-muted">Chưa có instance nào.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="vanan-table">
+                        <thead>
+                            <tr>
+                                <th>Nhãn</th>
+                                <th>Domain</th>
+                                <th>Profile</th>
+                                <th>Owner Tenant</th>
+                                <th>Trạng thái</th>
+                                <th>NavFlags OFF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var inst in _instances)
+                            {
+                                var offFlags = GetOffFlags(inst.NavFlags);
+                                <tr>
+                                    <td><strong>@inst.Label</strong></td>
+                                    <td><code>@(string.IsNullOrEmpty(inst.CustomDomain) ? "—" : inst.CustomDomain)</code></td>
+                                    <td><span class="status-badge">@inst.Profile</span></td>
+                                    <td>@TenantName(inst.OwnerTenantId)</td>
+                                    <td>
+                                        <span class="status-badge status-@(inst.IsActive ? "active" : "inactive")">
+                                            @(inst.IsActive ? "Hoạt động" : "Tạm dừng")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (offFlags.Count == 0)
+                                        {
+                                            <span class="text-success small">Tất cả ON</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-warning small" title="@string.Join(", ", offFlags)">
+                                                @offFlags.Count OFF: @string.Join(", ", offFlags.Take(3))@(offFlags.Count > 3 ? $" +{offFlags.Count - 3}" : "")
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </VanACard>
+
+        <VanACard Header="@($"Flagship toggles theo tenant ({_tenantRows.Count})")">
+            @if (_tenantRows.Count == 0)
+            {
+                <p class="text-muted">Không có tenant nào trong phạm vi (owner tenant + member HTX).</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="vanan-table">
+                        <thead>
+                            <tr>
+                                <th>Tenant</th>
+                                <th>Context</th>
+                                <th>AIChat</th>
+                                <th>VoiceCall</th>
+                                <th>VoiceNote</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _tenantRows)
+                            {
+                                <tr>
+                                    <td><strong>@row.TenantName</strong> <code class="small text-muted">@row.TenantId.ToString()[..8]</code></td>
+                                    <td><small>@string.Join(" · ", row.Sources)</small></td>
+                                    <td><span class="status-badge status-@(row.AiChatEnabled ? "active" : "inactive")">@(row.AiChatEnabled ? "ON" : "OFF")</span></td>
+                                    <td><span class="status-badge status-@(row.VoiceCallEnabled ? "active" : "inactive")">@(row.VoiceCallEnabled ? "ON" : "OFF")</span></td>
+                                    <td><span class="status-badge status-@(row.VoiceNoteEnabled ? "active" : "inactive")">@(row.VoiceNoteEnabled ? "ON" : "OFF")</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </VanACard>
+    }
+</div>
+
+<style>
+    .feature-visibility-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+</style>
+
+@code {
+    private sealed class TenantFlagRow
+    {
+        public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public List<string> Sources { get; } = new();
+        public bool AiChatEnabled { get; set; }
+        public bool VoiceCallEnabled { get; set; }
+        public bool VoiceNoteEnabled { get; set; }
+    }
+
+    private List<KhachLinkInstanceDto> _instances = new();
+    private List<TenantFlagRow> _tenantRows = new();
+    private Dictionary<Guid, string> _tenantNames = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var instancesTask = InstanceApi.ListAsync();
+            var tenantsTask = TenantApi.ListAllAsync();
+            var htxTask = MembershipAdminApi.ListHtxProfilesAsync();
+            await Task.WhenAll(instancesTask, tenantsTask, htxTask);
+
+            _instances = instancesTask.Result;
+            var tenants = tenantsTask.Result;
+            var htxList = htxTask.Result;
+            _tenantNames = tenants.ToDictionary(t => t.Id, t => t.Name);
+
+            // Thu thập tenant ids: OwnerTenantId của instance + member tenant của từng HTX
+            var rows = new Dictionary<Guid, TenantFlagRow>();
+            TenantFlagRow GetOrAdd(Guid tid)
+            {
+                if (!rows.TryGetValue(tid, out var row))
+                {
+                    row = new TenantFlagRow
+                    {
+                        TenantId = tid,
+                        TenantName = _tenantNames.TryGetValue(tid, out var n) ? n : tid.ToString()[..8]
+                    };
+                    rows[tid] = row;
+                }
+                return row;
+            }
+
+            foreach (var inst in _instances)
+            {
+                if (inst.OwnerTenantId.HasValue && inst.OwnerTenantId.Value != Guid.Empty)
+                    GetOrAdd(inst.OwnerTenantId.Value).Sources.Add($"Owner: {inst.Label}");
+            }
+
+            foreach (var htx in htxList)
+            {
+                try
+                {
+                    var members = await MembershipAdminApi.ListMembersAsync(htx.HtxTenantId);
+                    foreach (var m in members)
+                    {
+                        if (m.MemberTenantId is null || m.MemberTenantId == Guid.Empty) continue;
+                        if (!string.Equals(m.Status, "Active", StringComparison.OrdinalIgnoreCase)) continue;
+                        GetOrAdd(m.MemberTenantId.Value).Sources.Add($"HTX: {htx.TenantName}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Load members for HTX {HtxTenantId} failed", htx.HtxTenantId);
+                }
+            }
+
+            // Flagship toggles per tenant (ShopERP local settings — authoritative, syncs to PG)
+            foreach (var row in rows.Values)
+            {
+                try
+                {
+                    var s = await FeatureSettings.GetSettingsAsync(row.TenantId);
+                    row.AiChatEnabled = s.AIChat_Enabled;
+                    row.VoiceCallEnabled = s.Voice_Call_Enabled;
+                    row.VoiceNoteEnabled = s.Voice_Note_Enabled;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Load feature settings for tenant {TenantId} failed", row.TenantId);
+                }
+            }
+
+            _tenantRows = rows.Values.OrderBy(r => r.TenantName).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "FeatureVisibility load failed");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string TenantName(Guid? tenantId)
+        => tenantId.HasValue && _tenantNames.TryGetValue(tenantId.Value, out var n) ? n : "—";
+
+    private static List<string> GetOffFlags(KhachLinkNavFlagsDto flags)
+    {
+        var off = new List<string>();
+        foreach (var p in typeof(KhachLinkNavFlagsDto).GetProperties())
+        {
+            if (p.PropertyType == typeof(bool) && p.GetValue(flags) is false)
+                off.Add(p.Name.Replace("Show", string.Empty));
+        }
+        return off;
+    }
+}

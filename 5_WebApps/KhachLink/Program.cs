@@ -124,6 +124,8 @@ namespace VanAn.KhachLink
             // Register Recently Viewed Service + LastInteractionService
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
             _ = builder.Services.AddScoped<Services.LastInteractionService>();
+            // W2-5 (FR-V6/V7): tenant-context resolution + render rule cho flagship features
+            _ = builder.Services.AddScoped<Services.FeatureContextService>();
 
             // Add Logging
             _ = builder.Services.AddLogging();
