@@ -22,5 +22,9 @@ namespace VanAn.KhachLink.Models
         public string? LogoUrl { get; set; }
         public string? KhachLinkDomain { get; set; }
         public DateTime JoinedAt { get; set; }
+        /// <summary>W3-1 (FR-V8): tenant bật AI Chat — member card hiện "Hỏi AI".</summary>
+        public bool AiChatEnabled { get; set; }
+        /// <summary>W3-1 (FR-V8): tenant bật voice call — member card hiện "Gọi".</summary>
+        public bool VoiceCallEnabled { get; set; }
     }
 }

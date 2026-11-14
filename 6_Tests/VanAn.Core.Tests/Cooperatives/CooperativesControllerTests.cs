@@ -186,6 +186,53 @@ public class CooperativesControllerTests
         list.Should().ContainSingle();
     }
 
+    // ── W3-1 (FR-V8): feature-flag exposure on member DTO ─────────────────
+
+    [Fact]
+    public async Task Members_MapsFeatureFlags_FromShopFeatureSettings()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = conn;
+        await SeedHtxAsync(ctx);
+        await SeedMemberTenantAsync(ctx, MemberTenantId, "Cửa hàng A");
+        ctx.Members.Add(NewTenantMember(HtxId, MemberTenantId, "MEM-1"));
+        var settings = new VanAn.CoreHub.Infrastructure.Entities.ShopFeatureSettingsEntity(
+            new TenantId(MemberTenantId));
+        settings.UpdateToggles(
+            qrTableNumber: false, kitchenWorkflow: true, voiceNote: false,
+            loyaltyProgram: true, accountingSync: true, einvoiceAutoExport: false,
+            aiChat: true, voiceCallEnabled: true);
+        ctx.ShopFeatureSettings.Add(settings);
+        await ctx.SaveChangesAsync();
+
+        var result = await NewController(ctx).Members(HtxId);
+        var dto = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeAssignableTo<List<CooperativeMemberDto>>().Subject
+            .Should().ContainSingle().Subject;
+
+        dto.AiChatEnabled.Should().BeTrue();
+        dto.VoiceCallEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Members_FlagsDefaultFalse_WhenNoSettingsRow()
+    {
+        var (ctx, conn) = NewDb();
+        await using var _ = conn;
+        await SeedHtxAsync(ctx);
+        await SeedMemberTenantAsync(ctx, MemberTenantId, "Cửa hàng A");
+        ctx.Members.Add(NewTenantMember(HtxId, MemberTenantId, "MEM-1"));
+        await ctx.SaveChangesAsync();
+
+        var result = await NewController(ctx).Members(HtxId);
+        var dto = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeAssignableTo<List<CooperativeMemberDto>>().Subject
+            .Should().ContainSingle().Subject;
+
+        dto.AiChatEnabled.Should().BeFalse();
+        dto.VoiceCallEnabled.Should().BeFalse();
+    }
+
     [Fact]
     public void PublicEndpoints_AreAllowAnonymous()
     {

@@ -350,7 +350,9 @@ else
                           @bind-PendingQuestion="_pendingQuestion"
                           HumanUnreadCount="_aiUnreadCount"
                           OnHumanOpened="OnHumanChatOpened"
-                          @bind-OpenHumanPanel="_openHumanPanel">
+                          @bind-OpenHumanPanel="_openHumanPanel"
+                          OpenPanel="_openAiPanel"
+                          OpenPanelChanged="v => _openAiPanel = v">
                 <HumanContent>
                     <RealtimeChatPanel SubjectType="Shop"
                                        SubjectId="_store.Id"
@@ -805,6 +807,13 @@ else
     [Parameter]
     public string TenantId { get; set; } = string.Empty;
 
+    /// <summary>W3-1 (FR-V10): deep-link contextual chat — ?chat=ai|human&amp;ask=...</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "chat")]
+    public string? ChatMode { get; set; }
+    /// <summary>W3-1: câu hỏi AI auto-send khi chat=ai (vd "Hỏi AI về món này").</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "ask")]
+    public string? ChatAsk { get; set; }
+
     private bool _loading = true;
     private ShopDto? _store;
     private ShopConfig? _shopConfig;
@@ -848,6 +857,8 @@ else
     /// <summary>SF-W1: slim chat card CTA → open bubble straight in human mode.</summary>
     private bool _openHumanPanel;
     private void OpenHumanChat() => _openHumanPanel = true;
+    /// <summary>W3-1: deep-link ?chat=ai (không ask) → mở AI bubble không auto-send.</summary>
+    private bool _openAiPanel;
     private System.Threading.Timer? _unreadTimer;
     private bool _productsLoading = true;
 
@@ -1004,6 +1015,24 @@ else
             _features = await TenantProfileService.GetFeatureSettingsAsync(_store.Id);
             // W2-5: resolve tenant context qua FeatureContextService (explicit = store này)
             _hasTenantContext = await FeatureContext.HasTenantContextAsync(_store.Id);
+
+            // W3-1 (FR-V10): deep-link contextual entries — chỉ khi AI features visible (FR-V7).
+            // ?chat=human → mở human chat (chứa nút Gọi khi VoiceCallEnabled);
+            // ?chat=ai&ask=... → auto-send câu hỏi; ?chat=ai (không ask) → mở bubble.
+            if (AiFeaturesVisible)
+            {
+                if (string.Equals(ChatMode, "human", StringComparison.OrdinalIgnoreCase))
+                {
+                    _openHumanPanel = true;
+                }
+                else if (string.Equals(ChatMode, "ai", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrWhiteSpace(ChatAsk))
+                        _pendingQuestion = ChatAsk;
+                    else
+                        _openAiPanel = true;
+                }
+            }
 
             // Parallel load: products + campaigns
             var productsTask = LoadProductsAsync(_store.Id);

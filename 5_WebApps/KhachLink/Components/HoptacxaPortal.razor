@@ -127,22 +127,45 @@
                     var href = !string.IsNullOrEmpty(member.KhachLinkDomain)
                         ? $"https://{member.KhachLinkDomain}"
                         : "/stores";
+                    // W3-1 (FR-V10): contextual entries — chỉ khi tenant bật toggle + có context (FR-V7).
+                    var showAi = VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(member.AiChatEnabled, member.TenantId != Guid.Empty);
+                    var showCall = VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(member.VoiceCallEnabled, member.TenantId != Guid.Empty);
+                    var storeBase = MemberStoreBaseUrl(member);
                     <div class="col-6 col-md-4 col-lg-3">
-                        <a href="@href" class="htx-member-card text-decoration-none" data-tenant-id="@member.TenantId" target="@(!string.IsNullOrEmpty(member.KhachLinkDomain) ? "_blank" : "")" rel="noopener">
-                            @if (!string.IsNullOrEmpty(member.LogoUrl))
+                        <div class="htx-member-card" data-tenant-id="@member.TenantId">
+                            <a href="@href" class="htx-member-main text-decoration-none" target="@(!string.IsNullOrEmpty(member.KhachLinkDomain) ? "_blank" : "")" rel="noopener">
+                                @if (!string.IsNullOrEmpty(member.LogoUrl))
+                                {
+                                    <img src="@member.LogoUrl" alt="@member.Name" class="htx-member-logo" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span class="htx-member-logo htx-member-logo-fallback"><i class="bi bi-shop"></i></span>
+                                }
+                                <div class="htx-member-name">@member.Name</div>
+                                @if (!string.IsNullOrEmpty(member.KhachLinkDomain))
+                                {
+                                    <div class="htx-member-domain">@member.KhachLinkDomain</div>
+                                }
+                            </a>
+                            @if (showAi || showCall)
                             {
-                                <img src="@member.LogoUrl" alt="@member.Name" class="htx-member-logo" loading="lazy" />
+                                <div class="htx-member-actions">
+                                    @if (showAi)
+                                    {
+                                        <a href="@($"{storeBase}?chat=ai")" class="htx-member-action htx-member-action-ai" target="_blank" rel="noopener" title="Hỏi AI về cửa hàng này">
+                                            <i class="bi bi-robot"></i> Hỏi AI
+                                        </a>
+                                    }
+                                    @if (showCall)
+                                    {
+                                        <a href="@($"{storeBase}?chat=human")" class="htx-member-action htx-member-action-call" target="_blank" rel="noopener" title="Chat với chủ quán / gọi cửa hàng">
+                                            <i class="bi bi-telephone"></i> Gọi
+                                        </a>
+                                    }
+                                </div>
                             }
-                            else
-                            {
-                                <span class="htx-member-logo htx-member-logo-fallback"><i class="bi bi-shop"></i></span>
-                            }
-                            <div class="htx-member-name">@member.Name</div>
-                            @if (!string.IsNullOrEmpty(member.KhachLinkDomain))
-                            {
-                                <div class="htx-member-domain">@member.KhachLinkDomain</div>
-                            }
-                        </a>
+                        </div>
                     </div>
                 }
             </div>
@@ -175,6 +198,11 @@
     .htx-member-logo-fallback { display: inline-flex; align-items: center; justify-content: center; background: #e3f2fd; color: #1565c0; font-size: 1.8rem; }
     .htx-member-name { font-weight: 600; font-size: .9rem; text-align: center; }
     .htx-member-domain { font-size: .72rem; color: #1565c0; text-align: center; }
+    .htx-member-main { display: flex; flex-direction: column; align-items: center; color: inherit; }
+    .htx-member-actions { display: flex; gap: .35rem; margin-top: .5rem; }
+    .htx-member-action { font-size: .72rem; padding: .2rem .55rem; border-radius: 999px; text-decoration: none; }
+    .htx-member-action-ai { background: #ede7f6; color: #4527a0; }
+    .htx-member-action-call { background: #e8f5e9; color: #2e7d32; }
 </style>
 
 @code {
@@ -194,5 +222,14 @@
         }
         _allMembers = _allMembers.OrderBy(m => m.Name).ToList();
         _loading = false;
+    }
+
+    /// <summary>W3-1: storefront URL cho contextual deep-link — slug nếu có, else by-id;
+    /// fallback domain mặc định khi member chưa có KhachLinkInstance riêng.</summary>
+    private static string MemberStoreBaseUrl(CooperativeMemberDto m)
+    {
+        var domain = !string.IsNullOrEmpty(m.KhachLinkDomain) ? m.KhachLinkDomain : "khachvip.online";
+        var path = !string.IsNullOrEmpty(m.Slug) ? $"/store/{m.Slug}" : $"/store/by-id/{m.TenantId}";
+        return $"https://{domain}{path}";
     }
 }

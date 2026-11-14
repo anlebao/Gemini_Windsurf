@@ -51,7 +51,8 @@ namespace VanAn.Gateway.Controllers
                 if (tenant == null)
                     return NotFound();
 
-                return Ok(MapToStoreDto(tenant));
+                var flags = await BuildFeatureFlagMapAsync(new List<Guid> { tenantId });
+                return Ok(MapToStoreDto(tenant, featureFlags: flags));
             }
             catch (Exception ex)
             {
@@ -96,7 +97,7 @@ namespace VanAn.Gateway.Controllers
                     return NotFound();
                 }
 
-                var dto = MapToStoreDto(tenant);
+                var dto = MapToStoreDto(tenant, featureFlags: await BuildFeatureFlagMapAsync(new List<Guid> { tenant.Id.Value }));
 
                 if (tenant.Status == TenantStatus.Pending)
                 {
@@ -176,10 +177,11 @@ namespace VanAn.Gateway.Controllers
                 // Batch query KhachLink instances for nearby tenants (1 query, no N+1)
                 var nearbyTenantIds = nearby.Select(x => x.Tenant.Id.Value).ToList();
                 var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(nearbyTenantIds);
+                var featureFlags = await BuildFeatureFlagMapAsync(nearbyTenantIds);
 
                 return Ok(new TenantSearchResultDto
                 {
-                    Results = nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap)).ToList(),
+                    Results = nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap, featureFlags)).ToList(),
                     SuggestedKeywords = [],
                     MatchStrategy = "nearby"
                 });
@@ -289,6 +291,7 @@ namespace VanAn.Gateway.Controllers
                 // Batch query KhachLink instances for all matched tenants (1 query, no N+1)
                 var tenantIds = tenants.Select(t => t.Id.Value).ToList();
                 var khachLinkDomainMap = await BuildKhachLinkDomainMapAsync(tenantIds);
+                var featureFlags = await BuildFeatureFlagMapAsync(tenantIds);
 
                 // Compute distance for each store + sort by Issue #166 ordering rules
                 double? userLat = lat, userLng = lng;
@@ -302,7 +305,7 @@ namespace VanAn.Gateway.Controllers
                     {
                         dist = HaversineKm(userLat.Value, userLng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value);
                     }
-                    return MapToStoreDto(t, dist, khachLinkDomainMap);
+                    return MapToStoreDto(t, dist, khachLinkDomainMap, featureFlags);
                 }).ToList();
 
                 // Issue #166 ordering: Active first, then Pending; within each: relevance, then distance
@@ -353,9 +356,12 @@ namespace VanAn.Gateway.Controllers
         }
 
         private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,
-            Dictionary<Guid, string>? khachLinkDomainMap = null)
+            Dictionary<Guid, string>? khachLinkDomainMap = null,
+            IReadOnlyDictionary<Guid, TenantFeatureFlags>? featureFlags = null)
         {
             var isPending = t.Status == TenantStatus.Pending;
+            // W3-1 (FR-V8): expose flagship toggles cho contextual entries — Pending ẩn hết.
+            var flags = featureFlags != null && featureFlags.TryGetValue(t.Id.Value, out var f) ? f : default;
             return new()
             {
                 Id = t.Id.Value,
@@ -381,8 +387,34 @@ namespace VanAn.Gateway.Controllers
                 IsPending = isPending,
                 ClaimUrl = isPending && !string.IsNullOrEmpty(t.Settings?.Slug)
                     ? $"/store/{t.Settings.Slug}/claim"
-                    : null
+                    : null,
+                // W3-1 (FR-V8): chỉ 2 bool public-safe — không lộ config khác.
+                AiChatEnabled = !isPending && flags.AiChatEnabled,
+                VoiceCallEnabled = !isPending && flags.VoiceCallEnabled
             };
+        }
+
+        /// <summary>
+        /// W3-1 (FR-V8): batch query ShopFeatureSettings (PG) cho tenant ids —
+        /// chỉ lấy AIChat_Enabled + Voice_Call_Enabled, 1 query không N+1.
+        /// Tenant không có row settings → flags=false (opt-in mặc định OFF).
+        /// </summary>
+        private async Task<Dictionary<Guid, TenantFeatureFlags>> BuildFeatureFlagMapAsync(List<Guid> tenantIds)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, TenantFeatureFlags>();
+
+            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
+            var rows = await _dbContext.ShopFeatureSettings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(s => idVos.Contains(s.TenantId))
+                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
+                .ToListAsync();
+
+            return rows.ToDictionary(
+                r => r.Value,
+                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
         }
 
         /// <summary>
@@ -457,7 +489,16 @@ namespace VanAn.Gateway.Controllers
         /// <summary>Crawl-to-Onboard (2026-08-25): URL to Claim form for Pending tenants.
         /// Null for Active tenants. Format: /store/{slug}/claim</summary>
         public string? ClaimUrl { get; init; }
+
+        /// <summary>W3-1 (FR-V8): tenant bật AI Chat — Directory/portal hiện entry "Hỏi AI".
+        /// Chỉ 2 bool public-safe; config khác không expose. Pending tenant → luôn false.</summary>
+        public bool AiChatEnabled { get; init; }
+        /// <summary>W3-1 (FR-V8): tenant bật voice call trong chat — entry "Gọi cửa hàng".</summary>
+        public bool VoiceCallEnabled { get; init; }
     }
+
+    /// <summary>W3-1 (FR-V8): flagship feature flags per tenant — shared giữa TenantStore + Cooperatives + Catalog.</summary>
+    public readonly record struct TenantFeatureFlags(bool AiChatEnabled, bool VoiceCallEnabled);
 
     /// <summary>
     /// Issue #166 comment (2026-08-27): Search response wrapper with results + suggested keywords.

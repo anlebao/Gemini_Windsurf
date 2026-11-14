@@ -184,6 +184,19 @@
                                                         <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
                                                     </VanAnButton>
                                                 }
+                                                @* W3-1 (FR-V10): contextual entries — tenant flag ON → nút AI/Gọi *@
+                                                @if (!string.IsNullOrEmpty(store.Slug) && store.AiChatEnabled)
+                                                {
+                                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id, "ai"))">
+                                                        <i class="bi bi-robot me-1"></i> Hỏi AI
+                                                    </VanAnButton>
+                                                }
+                                                @if (!string.IsNullOrEmpty(store.Slug) && store.VoiceCallEnabled)
+                                                {
+                                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id, "human"))">
+                                                        <i class="bi bi-telephone me-1"></i> Gọi cửa hàng
+                                                    </VanAnButton>
+                                                }
                                             </div>
                                         </div>
                                     </VanAnCard>
@@ -313,6 +326,19 @@
                                         {
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id))">
                                                 <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                            </VanAnButton>
+                                        }
+                                        @* W3-1 (FR-V10): contextual entries — tenant flag ON → nút AI/Gọi *@
+                                        @if (!string.IsNullOrEmpty(store.Slug) && store.AiChatEnabled)
+                                        {
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id, "ai"))">
+                                                <i class="bi bi-robot me-1"></i> Hỏi AI
+                                            </VanAnButton>
+                                        }
+                                        @if (!string.IsNullOrEmpty(store.Slug) && store.VoiceCallEnabled)
+                                        {
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id, "human"))">
+                                                <i class="bi bi-telephone me-1"></i> Gọi cửa hàng
                                             </VanAnButton>
                                         }
                                     }
@@ -591,7 +617,7 @@
         _pendingAlert = $"{storeName} đang chờ xác minh thông tin từ chủ doanh nghiệp. Vui lòng quay lại sau.";
     }
 
-    private void NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId)
+    private void NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId, string? chatMode = null)
     {
         // Phí nền tảng P4 (hook c): directory.redirect — tenant-facing click-through,
         // fire-and-forget before navigation (G9).
@@ -600,10 +626,13 @@
             $"dir-redirect:{tenantId}:{Guid.NewGuid()}",
             MetadataJson: $"{{\"slug\":\"{slug}\"}}"));
 
+        // W3-1: contextual deep-link — ?chat=ai|human mở chat panel trên storefront.
+        var chatQuery = string.IsNullOrEmpty(chatMode) ? string.Empty : $"?chat={chatMode}";
+
         if (!string.IsNullOrEmpty(khachLinkDomain))
         {
             // Redirect to tenant's own KhachLink domain
-            Navigation.NavigateTo($"https://{khachLinkDomain}/store/{slug}", forceLoad: true);
+            Navigation.NavigateTo($"https://{khachLinkDomain}/store/{slug}{chatQuery}", forceLoad: true);
         }
         else
         {
@@ -613,7 +642,7 @@
             var defaultDomain = Configuration["KhachLink:DefaultDomain"];
             if (string.IsNullOrWhiteSpace(defaultDomain))
                 defaultDomain = "khachvip.online"; // ultimate fallback if config missing
-            Navigation.NavigateTo($"https://{defaultDomain}/store/{slug}", forceLoad: true);
+            Navigation.NavigateTo($"https://{defaultDomain}/store/{slug}{chatQuery}", forceLoad: true);
         }
     }
 

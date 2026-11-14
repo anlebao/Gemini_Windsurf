@@ -38,4 +38,9 @@ public class RecommendedCatalogItem
 
     /// <summary>True when ProductType is Free or Charity (charity/giveaway products).</summary>
     public bool IsFree => ProductType != FeaturedProductType.Paid;
+
+    /// <summary>W3-1 (FR-V8): tenant bật AI Chat — featured card hiện "Hỏi AI về món này".</summary>
+    public bool AiChatEnabled { get; set; }
+    /// <summary>W3-1 (FR-V8): tenant bật voice call — entry "Gọi cửa hàng".</summary>
+    public bool VoiceCallEnabled { get; set; }
 }

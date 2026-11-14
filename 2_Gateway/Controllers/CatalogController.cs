@@ -114,6 +114,17 @@ namespace VanAn.Gateway.Controllers
                     if (tenantNames.TryGetValue(new TenantId(r.TenantId), out var name))
                         r.TenantName = name ?? string.Empty;
                 }
+
+                // W3-1 (FR-V8/V10): flagship toggles per tenant — "Hỏi AI về món này" trên featured card.
+                var flags = await BuildFeatureFlagMapAsync(tenantIds.ToList(), ct);
+                foreach (var r in results)
+                {
+                    if (flags.TryGetValue(r.TenantId, out var f))
+                    {
+                        r.AiChatEnabled = f.AiChatEnabled;
+                        r.VoiceCallEnabled = f.VoiceCallEnabled;
+                    }
+                }
             }
 
             var totalCount = results.Count;
@@ -250,6 +261,17 @@ namespace VanAn.Gateway.Controllers
                     if (tenantNames.TryGetValue(new TenantId(r.TenantId), out var name))
                         r.TenantName = name ?? string.Empty;
                 }
+
+                // W3-1 (FR-V8): flagship toggles per tenant (same as /recommended).
+                var flags = await BuildFeatureFlagMapAsync(tenantIds.ToList(), ct);
+                foreach (var r in results)
+                {
+                    if (flags.TryGetValue(r.TenantId, out var f))
+                    {
+                        r.AiChatEnabled = f.AiChatEnabled;
+                        r.VoiceCallEnabled = f.VoiceCallEnabled;
+                    }
+                }
             }
 
             var paged = results
@@ -266,6 +288,27 @@ namespace VanAn.Gateway.Controllers
                 Page = page,
                 PageSize = pageSize
             });
+        }
+        /// <summary>
+        /// W3-1 (FR-V8): batch ShopFeatureSettings lookup — chỉ AIChat + VoiceCall,
+        /// 1 query cho toàn bộ tenant ids (không N+1). Tenant thiếu row → false.
+        /// </summary>
+        private async Task<Dictionary<Guid, TenantFeatureFlags>> BuildFeatureFlagMapAsync(List<Guid> tenantIds, CancellationToken ct)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, TenantFeatureFlags>();
+
+            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
+            var rows = await _dbContext.ShopFeatureSettings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(s => idVos.Contains(s.TenantId))
+                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
+                .ToListAsync(ct);
+
+            return rows.ToDictionary(
+                r => r.Value,
+                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
         }
     }
 
@@ -285,6 +328,10 @@ namespace VanAn.Gateway.Controllers
         public DateTime? LastOrderedAt { get; set; }
         /// <summary>Tenant display name — resolved from PG Tenants table.</summary>
         public string TenantName { get; set; } = string.Empty;
+        /// <summary>W3-1 (FR-V8): tenant bật AI Chat — KhachLink featured card hiện "Hỏi AI".</summary>
+        public bool AiChatEnabled { get; set; }
+        /// <summary>W3-1 (FR-V8): tenant bật voice call — entry "Gọi cửa hàng".</summary>
+        public bool VoiceCallEnabled { get; set; }
     }
 
     public record RecommendedCatalogResponse

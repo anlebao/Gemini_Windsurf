@@ -120,6 +120,19 @@
                                             <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
                                         </VanAnButton>
                                     }
+                                    @* W3-1 (FR-V10): contextual entries — tenant flag ON → nút AI/Gọi *@
+                                    @if (!string.IsNullOrEmpty(store.Slug) && store.AiChatEnabled)
+                                    {
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store, "ai"))">
+                                            <i class="bi bi-robot me-1"></i> Hỏi AI
+                                        </VanAnButton>
+                                    }
+                                    @if (!string.IsNullOrEmpty(store.Slug) && store.VoiceCallEnabled)
+                                    {
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => NavigateToStore(store, "human"))">
+                                            <i class="bi bi-telephone me-1"></i> Gọi cửa hàng
+                                        </VanAnButton>
+                                    }
                                 }
                             </div>
                         </div>
@@ -221,13 +234,15 @@
         }
     }
 
-    private void NavigateToStore(TenantStoreDto store)
+    private void NavigateToStore(TenantStoreDto store, string? chatMode = null)
     {
         if (string.IsNullOrEmpty(store.Slug)) return;
         var domain = !string.IsNullOrEmpty(store.KhachLinkDomain)
             ? store.KhachLinkDomain
             : (Configuration["KhachLink:DefaultDomain"] ?? "khachvip.online");
-        Navigation.NavigateTo($"https://{domain}/store/{store.Slug}", forceLoad: true);
+        // W3-1: contextual deep-link — ?chat=ai|human mở chat panel trên storefront.
+        var chatQuery = string.IsNullOrEmpty(chatMode) ? string.Empty : $"?chat={chatMode}";
+        Navigation.NavigateTo($"https://{domain}/store/{store.Slug}{chatQuery}", forceLoad: true);
     }
 
     private sealed class GeoPositionResult

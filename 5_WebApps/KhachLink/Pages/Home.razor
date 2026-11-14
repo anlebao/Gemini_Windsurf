@@ -388,6 +388,29 @@
                                             Mua
                                         </VanAnButton>
                                     </div>
+                                    @* W3-1 (FR-V10): contextual entries — tenant flag ON + có tenant context (FR-V7).
+                                       Deep-link /store/by-id/{tid}?chat=ai&ask=... → AI widget auto-send;
+                                       ?chat=human → human chat (chứa nút Gọi khi VoiceCallEnabled). *@
+                                    @if (VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(item.AiChatEnabled, item.TenantId != Guid.Empty)
+                                        || VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(item.VoiceCallEnabled, item.TenantId != Guid.Empty))
+                                    {
+                                        <div class="d-flex gap-1 mt-2">
+                                            @if (VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(item.AiChatEnabled, item.TenantId != Guid.Empty))
+                                            {
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                             OnClick="@(() => GoToStoreChat(item.TenantId, "ai", $"Món {item.DisplayName} của {item.TenantName} có gì nổi bật?"))">
+                                                    <i class="bi bi-robot me-1"></i>Hỏi AI
+                                                </VanAnButton>
+                                            }
+                                            @if (VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(item.VoiceCallEnabled, item.TenantId != Guid.Empty))
+                                            {
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                             OnClick="@(() => GoToStoreChat(item.TenantId, "human"))">
+                                                    <i class="bi bi-telephone me-1"></i>Gọi
+                                                </VanAnButton>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             </VanAnCard>
                         </div>
@@ -981,6 +1004,14 @@
     private void GoToCart()
     {
         Navigation.NavigateTo("/cart");
+    }
+
+    /// <summary>W3-1 (FR-V10): deep-link tới storefront chat — by-id route (không cần slug),
+    /// ?chat=ai&amp;ask= auto-send câu hỏi, ?chat=human mở human chat (nút Gọi bên trong).</summary>
+    private void GoToStoreChat(Guid tenantId, string chatMode, string? ask = null)
+    {
+        var askQuery = string.IsNullOrWhiteSpace(ask) ? string.Empty : $"&ask={Uri.EscapeDataString(ask)}";
+        Navigation.NavigateTo($"/store/by-id/{tenantId}?chat={chatMode}{askQuery}");
     }
 
     /// <summary>W2-4: hero "Cài app" — trigger PWA install prompt (browser-gated).</summary>

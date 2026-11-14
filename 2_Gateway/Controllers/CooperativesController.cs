@@ -71,12 +71,15 @@ namespace VanAn.Gateway.Controllers
                 .ToDictionaryAsync(t => t.Value, ct);
 
             var domainMap = await BuildKhachLinkDomainMapAsync(memberTenantIdGuids, ct);
+            // W3-1 (FR-V8): flagship toggles per member tenant — batch 1 query.
+            var featureFlags = await BuildFeatureFlagMapAsync(memberTenantIdGuids, ct);
 
             return Ok(members
                 .Where(m => tenants.ContainsKey(m.MemberTenantId!.Value))
                 .Select(m =>
                 {
                     var t = tenants[m.MemberTenantId!.Value];
+                    featureFlags.TryGetValue(m.MemberTenantId!.Value, out var flags);
                     return new CooperativeMemberDto(
                         MemberId: m.Id,
                         MemberNumber: m.MemberNumber,
@@ -85,7 +88,9 @@ namespace VanAn.Gateway.Controllers
                         Slug: t.Slug,
                         LogoUrl: t.LogoUrl,
                         KhachLinkDomain: domainMap.GetValueOrDefault(m.MemberTenantId!.Value),
-                        JoinedAt: m.JoinedAt);
+                        JoinedAt: m.JoinedAt,
+                        AiChatEnabled: flags.AiChatEnabled,
+                        VoiceCallEnabled: flags.VoiceCallEnabled);
                 })
                 .OrderBy(m => m.Name)
                 .ToList());
@@ -183,6 +188,27 @@ namespace VanAn.Gateway.Controllers
             return rows.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
         }
 
+        /// <summary>
+        /// W3-1 (FR-V8): batch ShopFeatureSettings lookup — chỉ AIChat + VoiceCall,
+        /// 1 query cho toàn bộ member tenants (không N+1). Tenant thiếu row → false.
+        /// </summary>
+        private async Task<Dictionary<Guid, TenantFeatureFlags>> BuildFeatureFlagMapAsync(List<Guid> tenantIds, CancellationToken ct)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, TenantFeatureFlags>();
+
+            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
+            var rows = await _dbContext.ShopFeatureSettings
+                .IgnoreQueryFilters().AsNoTracking()
+                .Where(s => idVos.Contains(s.TenantId))
+                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
+                .ToListAsync(ct);
+
+            return rows.ToDictionary(
+                r => r.Value,
+                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
+        }
+
         /// <summary>TenantId → KhachLink CustomDomain (active non-Directory instance, prefer FullCommerce) — pattern TenantStoreController.</summary>
         private async Task<Dictionary<Guid, string>> BuildKhachLinkDomainMapAsync(List<Guid> tenantIds, CancellationToken ct)
         {
@@ -222,5 +248,8 @@ namespace VanAn.Gateway.Controllers
         string? Slug,
         string? LogoUrl,
         string? KhachLinkDomain,
-        DateTime JoinedAt);
+        DateTime JoinedAt,
+        // W3-1 (FR-V8): flagship toggles — portal render "Hỏi AI"/"Gọi" per member.
+        bool AiChatEnabled = false,
+        bool VoiceCallEnabled = false);
 }

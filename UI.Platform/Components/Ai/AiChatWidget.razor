@@ -246,6 +246,10 @@
     /// <summary>SF-W1: one-shot host request — open the bubble straight into human mode.</summary>
     [Parameter] public bool OpenHumanPanel { get; set; }
     [Parameter] public EventCallback<bool> OpenHumanPanelChanged { get; set; }
+    /// <summary>W3-1: one-shot host request — open the bubble in AI mode (no auto-send;
+    /// pair with <see cref="PendingQuestion"/> when a question should auto-send).</summary>
+    [Parameter] public bool OpenPanel { get; set; }
+    [Parameter] public EventCallback<bool> OpenPanelChanged { get; set; }
 
     /// <summary>SF-W3: tenant voice toggle (Voice_Note_Enabled) — host resolves it from
     /// feature settings; false → mic hidden regardless of browser support.</summary>
@@ -329,6 +333,16 @@
             if (HumanHandoffAvailable) _mode = WidgetMode.Human;
             if (OpenHumanPanelChanged.HasDelegate)
                 await OpenHumanPanelChanged.InvokeAsync(false);
+            await NotifyHumanOpenedAsync();
+            return;
+        }
+
+        // W3-1: host asks to open the AI bubble (deep-link ?chat=ai) — consume once.
+        if (OpenPanel)
+        {
+            _open = true;
+            if (OpenPanelChanged.HasDelegate)
+                await OpenPanelChanged.InvokeAsync(false);
             await NotifyHumanOpenedAsync();
             return;
         }

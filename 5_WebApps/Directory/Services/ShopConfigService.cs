@@ -115,6 +115,11 @@ public class TenantStoreDto
 
     /// <summary>Crawl-to-Onboard: URL to Claim form for Pending tenants. Null for Active.</summary>
     public string? ClaimUrl { get; init; }
+
+    /// <summary>W3-1 (FR-V8): tenant bật AI Chat — store card hiện entry "Hỏi AI".</summary>
+    public bool AiChatEnabled { get; init; }
+    /// <summary>W3-1 (FR-V8): tenant bật voice call — entry "Gọi cửa hàng".</summary>
+    public bool VoiceCallEnabled { get; init; }
 }
 
 /// <summary>
