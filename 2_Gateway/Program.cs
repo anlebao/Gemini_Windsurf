@@ -356,6 +356,20 @@ namespace VanAn.Gateway
 
 
 
+                // W2-1 Entry Points Retention (2026-11-14): public cooperative directory —
+                // anonymous + cacheable, 60 req/min/IP (same tier as tenant-ai-public).
+                options.AddPolicy("cooperatives-public", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+
                 options.AddPolicy("auth", context =>
 
                 {

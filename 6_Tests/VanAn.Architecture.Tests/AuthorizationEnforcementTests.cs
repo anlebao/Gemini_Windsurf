@@ -209,6 +209,10 @@ public class AuthorizationEnforcementTests
             // 60 req/min/IP + 20 msg/session/giờ cap) + server-side tenant resolution (T6).
             // Same pattern as PublicBookingController.
             "PublicTenantAiController",
+            // Entry Points Retention W2-1 (2026-11-14): CooperativesController — anonymous
+            // public cooperative directory for hoptacxa portal ([AllowAnonymous] +
+            // "cooperatives-public" rate-limit policy). Read-only, no PII.
+            "CooperativesController",
             // Self-Serve Onboarding (2026-11-09): MerchantSignupController — public merchant
             // signup surface ([AllowAnonymous] + "merchant-signup"/"signup-otp"/"signup-status"
             // rate-limit policies + Turnstile + honeypot + master flag). OTP stubs 501 (P4).
