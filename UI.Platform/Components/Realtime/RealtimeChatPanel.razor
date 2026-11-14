@@ -90,6 +90,15 @@
                 {
                     var msg = _messages[i];
                     var isOwn = msg.SenderId == CurrentUserId;
+                    // AI-P11: pairing index resolved at loop scope — a `var` statement inside
+                    // the nested @if below makes Razor render @onclick as a literal attribute.
+                    var suggestQi = isOwn
+                        ? ChatKnowledgePairing.FindQuestionIndex(_messages, i, CurrentUserId)
+                        : null;
+                    // Closure fix: `i` is the shared @for variable — a lambda capturing it
+                    // reads _messages.Count after the loop ends (ArgumentOutOfRange on click).
+                    // A body-local copy is captured per-iteration instead.
+                    var msgIndex = i;
                     <div class="d-flex @(isOwn ? "justify-content-end" : "justify-content-start") mb-2">
                         <div style="max-width: 75%;">
                             <div class="px-3 py-2 rounded @(isOwn ? "bg-primary text-white" : "bg-white border")">
@@ -99,17 +108,14 @@
                                opts in (ShopInbox). Pairing = nearest preceding non-own message. *@
                             @if (isOwn && KnowledgeSuggestEnabled)
                             {
-                                var qi = ChatKnowledgePairing.FindQuestionIndex(_messages, i, CurrentUserId);
                                 <div class="mt-1 text-end">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                            disabled="@(qi == null)"
-                                            title="@(qi == null
-                                                ? "Không tìm thấy câu hỏi của khách phía trước"
-                                                : "Đề xuất câu trả lời này vào tri thức AI")"
-                                            aria-label="Đề xuất vào tri thức AI"
-                                            @onclick="() => SuggestKnowledgeAsync(i)">
-                                        <i class="bi bi-robot"></i> Đề xuất AI
-                                    </button>
+                                    @* Child component: @onclick inside this nested @for/@if/else
+                                       markup renders as a literal attribute — never binds. *@
+                                    <KnowledgeSuggestButton Disabled="@(suggestQi == null)"
+                                        Title="@(suggestQi == null
+                                            ? "Không tìm thấy câu hỏi của khách phía trước"
+                                            : "Đề xuất câu trả lời này vào tri thức AI")"
+                                        OnClick="() => SuggestKnowledgeAsync(msgIndex)" />
                                 </div>
                             }
                             <div class="small text-muted mt-1 @(isOwn ? "text-end" : "text-start")">

@@ -1,0 +1,27 @@
+@* AI-P11: "Đề xuất AI" button on an owner-side chat message.
+   NOTE: @using Microsoft.AspNetCore.Components.Web below is REQUIRED — without it
+   Razor treats @onclick as an unmatched attribute and renders it literally
+   (click never binds). Verified via bUnit MissingEventHandlerException. *@
+@using Microsoft.AspNetCore.Components.Web
+@* Extracted into its own component because @onclick placed inside the panel's
+   deeply nested @for/@if/else markup also fails to bind in this project. *@
+<button type="button" class="btn btn-sm btn-outline-secondary"
+        disabled="@Disabled"
+        title="@Title"
+        aria-label="Đề xuất vào tri thức AI"
+        @onclick="HandleClick">
+    <i class="bi bi-robot"></i> Đề xuất AI
+</button>
+
+@code {
+    /// <summary>True when no preceding customer question exists — button disabled.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Tooltip explaining enabled/disabled state.</summary>
+    [Parameter] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Parent handler — the clicked message index is captured by the parent lambda.</summary>
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private Task HandleClick() => OnClick.InvokeAsync();
+}
