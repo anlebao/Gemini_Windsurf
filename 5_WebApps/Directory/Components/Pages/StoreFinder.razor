@@ -1,12 +1,238 @@
 ﻿@page "/stores"
 @page "/store-finder"
+@using VanAn.Directory.Services
+@using VanAn.UI.Platform.Components.Atomic
+@inject CatalogService CatalogService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+
+@* W2-3 (FR-U4, 2026-11-14): on-domain store finder — thay redirect sang khachvip.online.
+   Port tối thiểu: keyword search + nearby theo vị trí + Leaflet map (directory-map.js)
+   + danh sách cửa hàng. Voice search là nợ kỹ thuật (Home đã có — có thể port sau). *@
+
+<PageTitle>Tìm cửa hàng — Danh bạ Vạn An</PageTitle>
+
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
+        <h3 class="mt-2 mb-1">Tìm cửa hàng</h3>
+        <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí gần bạn</p>
+    </div>
+
+    <VanAnCard CssClass="mb-4 py-4">
+        <div class="input-group input-group-lg">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="bi bi-search text-primary"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 border-end-0"
+                   @bind="_keyword"
+                   @onkeyup="OnKeyUp"
+                   placeholder="Tên cửa hàng, sản phẩm, dịch vụ..."
+                   aria-label="Tìm cửa hàng" />
+            <button type="button" class="btn btn-primary" @onclick="SearchAsync" disabled="@_loading">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="UseMyLocationAsync" Disabled="@_loading">
+                <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
+            </VanAnButton>
+            @if (!string.IsNullOrEmpty(_keyword))
+            {
+                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="ClearSearch">
+                    <i class="bi bi-x-circle me-1"></i> Xóa
+                </VanAnButton>
+            }
+        </div>
+        @if (_geoError is not null)
+        {
+            <div class="text-danger small mt-2">@_geoError</div>
+        }
+    </VanAnCard>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Đang tải...</p>
+        </div>
+    }
+    else if (_searched && _stores.Count == 0)
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+            <p class="mt-2">Không tìm thấy cửa hàng nào.</p>
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearSearch">Tìm kiếm lại</VanAnButton>
+        </div>
+    }
+    else if (_stores.Count > 0)
+    {
+        @if (_searchedByLocation)
+        {
+            <p class="text-muted small mb-2"><i class="bi bi-signpost"></i> Cửa hàng gần bạn (bán kính 5km)</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(_keyword))
+        {
+            <p class="text-muted small mb-2">@_stores.Count cửa hàng phù hợp với "@_keyword"</p>
+        }
+
+        <!-- Map (Leaflet qua directory-map.js — đã load trong App.razor) -->
+        <div id="store-finder-map" class="store-map mb-3"></div>
+
+        <div class="row g-3">
+            @foreach (var store in _stores)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <VanAnCard CssClass="h-100 store-card">
+                        <div class="d-flex align-items-start gap-3">
+                            @if (!store.IsPending && !string.IsNullOrEmpty(store.LogoUrl))
+                            {
+                                <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
+                            }
+                            else
+                            {
+                                <i class="bi @(store.IsPending ? "bi-hourglass-split text-warning" : "bi-shop text-primary")" style="font-size: 2rem;"></i>
+                            }
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">@store.Name</h5>
+                                @if (store.IsPending)
+                                {
+                                    <span class="badge bg-warning text-dark mb-2">Chờ xác minh</span>
+                                }
+                                else
+                                {
+                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    {
+                                        <p class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> @store.Address</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(store.Phone))
+                                    {
+                                        <p class="small mb-1"><a href="tel:@store.Phone" class="text-decoration-none"><i class="bi bi-telephone"></i> @store.Phone</a></p>
+                                    }
+                                    @if (store.DistanceKm.HasValue)
+                                    {
+                                        <p class="small text-primary mb-1"><i class="bi bi-signpost"></i> @store.DistanceKm.Value.ToString("F1") km</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(store.Slug))
+                                    {
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store))">
+                                            <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                        </VanAnButton>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </VanAnCard>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-search" style="font-size: 2rem;"></i>
+            <p class="mt-2">Nhập tên cửa hàng hoặc bấm "Dùng vị trí của tôi" để tìm gần bạn.</p>
+        </div>
+    }
+</div>
+
+<style>
+.store-logo-sm { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.store-card { transition: transform 0.2s; }
+.store-card:hover { transform: translateY(-2px); }
+.store-map { height: 320px; border-radius: 12px; overflow: hidden; }
+</style>
 
 @code {
-    protected override void OnInitialized()
+    private string _keyword = "";
+    private List<TenantStoreDto> _stores = new();
+    private bool _loading;
+    private bool _searched;
+    private bool _searchedByLocation;
+    private string? _geoError;
+    private double? _userLat;
+    private double? _userLng;
+    private bool _mapRendered;
+
+    private async Task OnKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
-        // Issue #160 DRY: Directory StoreFinder is a duplicate of KhachLink StoreFinder.
-        // Redirect to KhachLink's full-featured store finder (voice search, PWA geolocation).
-        Navigation.NavigateTo("https://khachvip.online/stores", forceLoad: true);
+        if (e.Key == "Enter") await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _loading = true;
+        _searched = true;
+        _searchedByLocation = false;
+        var result = await CatalogService.SearchStoresAsync(_keyword);
+        _stores = result.Results;
+        _loading = false;
+        await RenderMapAsync();
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        _geoError = null;
+        _loading = true;
+        try
+        {
+            var pos = await JSRuntime.InvokeAsync<GeoPositionResult>("directoryMap.getUserLocation");
+            _userLat = pos.Lat;
+            _userLng = pos.Lng;
+            _stores = await CatalogService.GetNearbyStoresAsync(pos.Lat, pos.Lng, 5);
+            _searched = true;
+            _searchedByLocation = true;
+        }
+        catch (Exception ex)
+        {
+            _geoError = "Không lấy được vị trí. Hãy cấp quyền vị trí cho trình duyệt rồi thử lại.";
+            System.Console.WriteLine($"[StoreFinder] geolocation failed: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            await RenderMapAsync();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        _keyword = "";
+        _searched = false;
+        _searchedByLocation = false;
+        _stores = new();
+        _mapRendered = false;
+    }
+
+    /// <summary>Render Leaflet map sau khi có kết quả (chỉ 1 lần / kết quả mới).</summary>
+    private async Task RenderMapAsync()
+    {
+        if (_stores.Count == 0) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("directoryMap.render", "store-finder-map", _stores, _userLat, _userLng);
+            _mapRendered = true;
+        }
+        catch (Exception ex)
+        {
+            // Map là enhancement — list vẫn dùng được nếu Leaflet/JS lỗi.
+            System.Console.WriteLine($"[StoreFinder] map render failed: {ex.Message}");
+        }
+    }
+
+    private void NavigateToStore(TenantStoreDto store)
+    {
+        if (string.IsNullOrEmpty(store.Slug)) return;
+        var domain = !string.IsNullOrEmpty(store.KhachLinkDomain)
+            ? store.KhachLinkDomain
+            : (Configuration["KhachLink:DefaultDomain"] ?? "khachvip.online");
+        Navigation.NavigateTo($"https://{domain}/store/{store.Slug}", forceLoad: true);
+    }
+
+    private sealed class GeoPositionResult
+    {
+        public double Lat { get; set; }
+        public double Lng { get; set; }
     }
 }

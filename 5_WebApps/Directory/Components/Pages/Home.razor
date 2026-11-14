@@ -114,7 +114,85 @@
         }
         else if (!_hasSearched)
         {
-            <!-- Initial state — no search performed yet, don't show any list -->
+            @* W2-3 (FR-U1): below-fold retention — recent searches + category chips + featured stores *@
+            <div class="below-fold">
+                @if (_recentKeywords.Count > 0)
+                {
+                    <div class="mb-3">
+                        <div class="text-muted small mb-2"><i class="bi bi-clock-history me-1"></i>Tìm gần đây</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var kw in _recentKeywords)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => SearchWithKeyword(kw))">@kw</button>
+                            }
+                        </div>
+                    </div>
+                }
+                <div class="mb-3">
+                    <div class="text-muted small mb-2"><i class="bi bi-grid me-1"></i>Duyệt theo ngành</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var cat in _categoryChips)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="@(() => SearchCategory(cat))">@cat</button>
+                        }
+                    </div>
+                </div>
+                <div>
+                    <div class="text-muted small mb-2"><i class="bi bi-star me-1"></i>Cửa hàng nổi bật</div>
+                    @if (_featuredLoading)
+                    {
+                        <div class="row g-3">
+                            @for (var i = 0; i < 3; i++)
+                            {
+                                <div class="col-md-6 col-lg-4"><div class="vanan-skeleton" style="height:110px;border-radius:12px;"></div></div>
+                            }
+                        </div>
+                    }
+                    else if (_featuredStores.Count == 0)
+                    {
+                        <p class="text-muted small mb-0">Chưa có cửa hàng nổi bật — hãy là người đầu tiên khám phá!</p>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            @foreach (var store in _featuredStores)
+                            {
+                                <div class="col-md-6 col-lg-4">
+                                    <VanAnCard CssClass="h-100 store-card">
+                                        <div class="d-flex align-items-center gap-3">
+                                            @if (!string.IsNullOrEmpty(store.LogoUrl))
+                                            {
+                                                <img src="@store.LogoUrl" alt="@store.Name" class="store-logo-sm" />
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-shop text-primary" style="font-size: 2rem;"></i>
+                                            }
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">@store.Name</h6>
+                                                @if (!string.IsNullOrEmpty(store.Address))
+                                                {
+                                                    <p class="small text-muted mb-1"><i class="bi bi-geo-alt"></i> @store.Address</p>
+                                                }
+                                                @if (store.DistanceKm.HasValue)
+                                                {
+                                                    <p class="small text-primary mb-1"><i class="bi bi-signpost"></i> @store.DistanceKm.Value.ToString("F1") km</p>
+                                                }
+                                                @if (!string.IsNullOrEmpty(store.Slug))
+                                                {
+                                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => NavigateToStore(store.Slug, store.KhachLinkDomain, store.Id))">
+                                                        <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                                    </VanAnButton>
+                                                }
+                                            </div>
+                                        </div>
+                                    </VanAnCard>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
         }
         else if (_searchMode == "product" && _products.Count == 0)
         {
@@ -275,11 +353,36 @@
     private string? _voiceError;
     private DotNetObjectReference<Home>? _voiceRef;
 
+    // W2-3 (FR-U1): below-fold retention state
+    private static readonly string[] _categoryChips =
+        ["Quán ăn", "Cà phê", "Sửa xe", "Spa", "Tạp hoá", "Thời trang", "Tiệm nail", "Gym"];
+    private List<string> _recentKeywords = new();
+    private List<TenantStoreDto> _featuredStores = new();
+    private bool _featuredLoading = true;
+    private const string RecentSearchesKey = "directory_recent_searches";
+
     protected override async Task OnInitializedAsync()
     {
-        // Issue #157 point 2: don't load tenant list on page entry.
-        // User must explicitly search before any results appear.
-        await Task.CompletedTask;
+        // Issue #157 point 2: don't load tenant list on page entry for SEARCH,
+        // nhưng W2-3: featured stores (top 6) load sẵn cho below-fold section.
+        await LoadFeaturedStoresAsync();
+    }
+
+    private async Task LoadFeaturedStoresAsync()
+    {
+        try
+        {
+            var result = await CatalogService.SearchStoresAsync(null);
+            _featuredStores = result.Results.Take(6).ToList();
+        }
+        catch
+        {
+            _featuredStores = new();
+        }
+        finally
+        {
+            _featuredLoading = false;
+        }
     }
 
     private async Task SearchStores()
@@ -305,6 +408,7 @@
             _products = new();
         }
         _loading = false;
+        await SaveRecentKeywordAsync();
 
         // Phí nền tảng P4 (hook c): directory.search — platform tenant, kw hashed (privacy),
         // fire-and-forget (G9). Unique key per action — distinct searches each count.
@@ -339,6 +443,42 @@
         await SearchStores();
     }
 
+    /// <summary>W2-3: category chip → store-mode search với keyword ngành.</summary>
+    private async Task SearchCategory(string category)
+    {
+        _searchMode = "store";
+        _searchKeyword = category;
+        await SearchStores();
+    }
+
+    /// <summary>W2-3: load last-5 search keywords từ localStorage (sau first render — JS interop).</summary>
+    private async Task LoadRecentKeywordsAsync()
+    {
+        try
+        {
+            var json = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", RecentSearchesKey);
+            if (!string.IsNullOrEmpty(json))
+                _recentKeywords = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new();
+        }
+        catch { /* localStorage unavailable — recent chips ẩn */ }
+    }
+
+    /// <summary>W2-3: persist keyword vừa search (dedupe + max 5, mới nhất đầu).</summary>
+    private async Task SaveRecentKeywordAsync()
+    {
+        try
+        {
+            var kw = _searchKeyword?.Trim();
+            if (string.IsNullOrEmpty(kw)) return;
+            _recentKeywords.RemoveAll(k => string.Equals(k, kw, StringComparison.OrdinalIgnoreCase));
+            _recentKeywords.Insert(0, kw);
+            if (_recentKeywords.Count > 5) _recentKeywords.RemoveRange(5, _recentKeywords.Count - 5);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", RecentSearchesKey,
+                System.Text.Json.JsonSerializer.Serialize(_recentKeywords));
+        }
+        catch { /* non-critical */ }
+    }
+
     private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
@@ -368,6 +508,10 @@
             {
                 _speechSupported = false; // script not loaded — mic hidden
             }
+
+            // W2-3: recent searches cần JS interop → load sau first render
+            await LoadRecentKeywordsAsync();
+            StateHasChanged();
         }
     }
 
@@ -437,8 +581,8 @@
 
     private void GoToStoreFinder()
     {
-        // Issue #160 DRY: redirect to KhachLink's store finder (full-featured: voice search, PWA geolocation)
-        Navigation.NavigateTo("https://khachvip.online/stores", forceLoad: true);
+        // W2-3 (FR-U4): giữ traffic on-domain — StoreFinder nội bộ thay vì redirect khachvip.online
+        Navigation.NavigateTo("/stores");
     }
 
     private void ShowPendingMessage(string storeName)
