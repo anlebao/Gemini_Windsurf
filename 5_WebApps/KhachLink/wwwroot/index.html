@@ -19,7 +19,32 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Tìm Là Thấy" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="description" content="timlathay.com — Danh bạ doanh nghiệp địa phương, tìm cửa hàng và dịch vụ gần bạn" />
+    <meta name="description" content="Vạn An — ứng dụng của bạn" />
+    <title>Vạn An App</title>
+    <script>
+        // W3-2 (FR-L7): head meta động theo instance — fetch /api/public/khachlink-instances/head-meta
+        // (nginx proxy → Gateway, resolve theo Host) rồi set title/description/theme-color
+        // TRƯỚC khi WASM boot. Fail → giữ default tĩnh (offline-safe).
+        (function () {
+            fetch('/api/public/khachlink-instances/head-meta', { cache: 'no-store' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (m) {
+                    if (!m) return;
+                    if (m.name) document.title = m.name;
+                    if (m.description) {
+                        var d = document.querySelector('meta[name="description"]');
+                        if (d) d.setAttribute('content', m.description);
+                    }
+                    if (m.themeColor) {
+                        var t = document.querySelector('meta[name="theme-color"]');
+                        if (t) t.setAttribute('content', m.themeColor);
+                        var a = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+                        if (a && m.name) a.setAttribute('content', m.name);
+                    }
+                })
+                .catch(function () { /* offline / endpoint lỗi → default tĩnh */ });
+        })();
+    </script>
     <script src="/js/lib/qr/html5-qrcode.min.js"></script>
     <script src="/js/lib/qr/jsQR.js"></script>
 </head>

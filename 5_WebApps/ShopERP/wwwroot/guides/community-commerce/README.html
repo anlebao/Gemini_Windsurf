@@ -817,6 +817,33 @@ summary cards. Hybrid persist: Accounting SYNC, Security+KhachLink ASYNC
 <code>/admin/khachlink-instances</code> (SystemAdmin) — set
 <code>ProfileType</code> enum. Customer thấy thay đổi sau SW update
 (<code>vananTriggerSWUpdate()</code>).</p>
+<p><strong>Profile Hoptacxa (W1, 2026-11):</strong> ngoài FullCommerce /
+Directory / Reseller còn có profile <strong>Hoptacxa</strong> —
+cổng thông tin hợp tác xã (platform portal, <code>OwnerTenantId=null</code>,
+phục vụ NHIỀU HTX cùng lúc). Domain:
+<code>hoptacxa.timlathay.com</code> (commienphi.timlathay.com giữ nguyên
+vai trò Reseller). Đặc điểm:</p>
+<ul>
+<li>Browse-only preset: Home / Stores / Campaigns / Community / Profile ON;
+commerce flags (Cart/Orders/Scan/QrClaim/Loyalty/Missions/Rewards/
+AllianceWallet/StaffDashboard) OFF.</li>
+<li>Nội dung: hero + module cards (Cơm từ thiện, Cộng tác viên, Mua chung
+"Sắp ra mắt", Sàn việc "Sắp ra mắt") + danh sách HTX + member shop cards
+(link sang storefront riêng của từng member tenant).</li>
+<li>Member cards mang <code>data-tenant-id</code> + nút "Hỏi AI" / "Gọi"
+khi tenant bật flagship toggles (xem mục Feature Visibility Matrix).</li>
+<li>Icon PWA riêng theo instance (<code>khachlink-icons/hoptacxa.png</code>
+mặc định; admin upload icon riêng tại
+<code>/admin/khachlink-instances</code> → tab Icon ứng dụng).</li>
+<li>PWA install trên <code>hoptacxa.timlathay.com</code> dùng chung flow
+"Cài app" trên header/home — manifest + icon resolve động theo Host
+(cùng cơ chế <code>/manifest.json</code> proxy).</li>
+</ul>
+<p>Quản trị member HTX: <code>/admin/membership/members</code>
+(SystemAdmin) — nút "Bật flagship mặc định (AI/Voice)" bật
+AIChat + VoiceCall + VoiceNote cho member Active; ma trận tra cứu
+instance → nav flags + tenant toggles tại
+<code>/admin/feature-visibility</code>.</p>
 <hr />
 <h2 id="9-customer-onboarding-via-google-login--pr-171">9. CUSTOMER
 ONBOARDING VIA GOOGLE LOGIN — PR #171</h2>

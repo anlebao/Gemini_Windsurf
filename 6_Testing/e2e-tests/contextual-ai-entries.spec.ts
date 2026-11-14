@@ -9,7 +9,6 @@ import { loadEnvConfig } from '../utils/env-config';
 
 const config = loadEnvConfig();
 const PORTAL = process.env.HOPTACXA_URL || 'https://hoptacxa.timlathay.com';
-const KHACHLINK_FALLBACK = process.env.KHACHLINK_FALLBACK_DOMAIN || 'khachvip.online';
 
 interface CoopMember {
   tenantId: string;
@@ -46,17 +45,19 @@ test.describe('W3-1 contextual AI/voice entries', () => {
     const aiCount = await aiLinks.count();
     const callCount = await callLinks.count();
 
-    // Mọi action link phải tuân contract deep-link (không link chết / sai format)
+    // Mọi action link phải tuân contract deep-link (không link chết / sai format).
+    // Member không có KhachLinkDomain → relative /store/by-id trên portal domain
+    // (apex khachvip.online đã chết — không được fallback tới đó).
     for (let i = 0; i < aiCount; i++) {
       const href = await aiLinks.nth(i).getAttribute('href');
       expect(href).toContain('?chat=ai');
-      expect(href).toMatch(/^https:\/\//);
+      expect(href).toMatch(/^(https:\/\/|\/store\/)/);
       expect(await aiLinks.nth(i).getAttribute('target')).toBe('_blank');
     }
     for (let i = 0; i < callCount; i++) {
       const href = await callLinks.nth(i).getAttribute('href');
       expect(href).toContain('?chat=human');
-      expect(href).toMatch(/^https:\/\//);
+      expect(href).toMatch(/^(https:\/\/|\/store\/)/);
     }
 
     // Render rule: action chỉ tồn tại trên card có flag ON — không có nút mồ côi
@@ -76,17 +77,18 @@ test.describe('W3-1 contextual AI/voice entries', () => {
     let target: CoopMember | null = null;
     for (const coop of coops) {
       const members = await fetchJson<CoopMember[]>(request, `${PORTAL}/api/cooperatives/${coop.tenantId}/members`);
-      target = members?.find((m) => m.aiChatEnabled) ?? null;
+      // Chỉ member có storefront domain riêng — cross-domain deep-link test.
+      target = members?.find((m) => m.aiChatEnabled && m.khachLinkDomain) ?? null;
       if (target) break;
     }
     if (!target) {
-      test.skip(true, 'Không member nào bật AIChat_Enabled trên prod — entry đúng là không render');
+      test.skip(true, 'Không member nào bật AIChat_Enabled + có KhachLinkDomain trên prod');
       return;
     }
 
-    const domain = target.khachLinkDomain || KHACHLINK_FALLBACK;
+    const domain = target.khachLinkDomain!;
     const storePath = target.slug ? `/store/${target.slug}` : `/store/by-id/${target.tenantId}`;
-    await page.goto(`https://${domain}${storePath}?chat=ai`, { waitUntil: 'networkidle' });
+    await page.goto(`https://${domain}${storePath}?chat=ai`, { waitUntil: 'domcontentloaded' });
 
     // Store page load xong → AI widget phải mở panel (OpenPanel consumed once)
     await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 60000 });
@@ -102,17 +104,18 @@ test.describe('W3-1 contextual AI/voice entries', () => {
     let target: CoopMember | null = null;
     for (const coop of coops) {
       const members = await fetchJson<CoopMember[]>(request, `${PORTAL}/api/cooperatives/${coop.tenantId}/members`);
-      target = members?.find((m) => m.voiceCallEnabled) ?? members?.[0] ?? null;
+      target = members?.find((m) => m.voiceCallEnabled && m.khachLinkDomain)
+            ?? members?.find((m) => m.khachLinkDomain) ?? null;
       if (target) break;
     }
     if (!target) {
-      test.skip(true, 'Chưa có member data trên prod');
+      test.skip(true, 'Chưa có member data + storefront domain trên prod');
       return;
     }
 
-    const domain = target.khachLinkDomain || KHACHLINK_FALLBACK;
+    const domain = target.khachLinkDomain!;
     const storePath = target.slug ? `/store/${target.slug}` : `/store/by-id/${target.tenantId}`;
-    await page.goto(`https://${domain}${storePath}?chat=human`, { waitUntil: 'networkidle' });
+    await page.goto(`https://${domain}${storePath}?chat=human`, { waitUntil: 'domcontentloaded' });
 
     // Human mode: panel mở + header "Chủ quán" (hoặc human surface). WASM chậm → timeout rộng.
     await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 60000 });

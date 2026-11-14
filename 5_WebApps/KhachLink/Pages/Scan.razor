@@ -55,7 +55,7 @@
                                          alt="@_scannedProduct.Name"
                                          class="rounded"
                                          style="width: 80px; height: 80px; object-fit: cover;"
-                                         onerror="this.onerror=null; this.src='https://placehold.co/100x100?text=@(System.Uri.EscapeDataString(_scannedProduct.Name))';" />
+                                         onerror="this.onerror=null; this.src='/images/placeholder-product.svg';" />
                                 </div>
                                 <div class="scan-product-info">
                                     <h5 class="mb-1 scan-product-name">@_scannedProduct.Name</h5>
@@ -436,12 +436,12 @@
 
     /// <summary>
     /// Resolve product image URL — handles absolute URLs, relative paths (prefix with gateway base),
-    /// and null/empty (fallback to placeholder with product name).
+    /// and null/empty (fallback to local placeholder SVG — W3-2 FR-L8, offline-safe).
     /// </summary>
     private string GetProductImageUrl(ProductDto product)
     {
         if (product == null || string.IsNullOrWhiteSpace(product.ImageUrl))
-            return $"https://placehold.co/100x100?text={System.Uri.EscapeDataString(product?.Name ?? "Sản phẩm")}";
+            return "/images/placeholder-product.svg";
 
         string url = product.ImageUrl;
         // Already absolute URL (http/https) → use as-is

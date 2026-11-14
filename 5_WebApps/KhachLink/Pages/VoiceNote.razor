@@ -54,7 +54,7 @@ else
     @* W3-T1: Voice note toggle ON — show STT UI *@
     <div class="voice-note-container" data-testid="voice-note-container">
         <div class="voice-header">
-            <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
+            <h2 data-testid="voice-note-header"><i class="bi bi-mic-fill me-1"></i>Ghi chú giọng nói</h2>
             <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
         </div>
 
@@ -66,10 +66,10 @@ else
         {
             <div class="voice-controls">
                 <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
-                    @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
+                    <i class="bi @(isRecording ? "bi-stop-fill" : "bi-mic-fill") me-1"></i>@(isRecording ? "Dừng ghi âm" : "Bắt đầu ghi âm")
                 </VanAnButton>
                 <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
-                    🗑️ Xóa
+                    <i class="bi bi-trash me-1"></i>Xóa
                 </VanAnButton>
             </div>
 

@@ -158,7 +158,12 @@
 </style>
 
 @code {
+    /// <summary>W3-2 (FR-U6): footer category links → /stores?q={category} prefill + auto-search.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
     private string _keyword = "";
+    private bool _queryApplied;
     private List<TenantStoreDto> _stores = new();
     private bool _loading;
     private bool _searched;
@@ -167,6 +172,18 @@
     private double? _userLat;
     private double? _userLng;
     private bool _mapRendered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // W3-2 (FR-U6): áp dụng ?q= một lần sau first render (InteractiveServer —
+        // SupplyParameterFromQuery set trong OnInitialized, search cần sau render).
+        if (firstRender && !_queryApplied && !string.IsNullOrWhiteSpace(Q))
+        {
+            _queryApplied = true;
+            _keyword = Q;
+            await SearchAsync();
+        }
+    }
 
     private async Task OnKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
     {

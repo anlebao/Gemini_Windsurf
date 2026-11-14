@@ -224,12 +224,15 @@
         _loading = false;
     }
 
-    /// <summary>W3-1: storefront URL cho contextual deep-link — slug nếu có, else by-id;
-    /// fallback domain mặc định khi member chưa có KhachLinkInstance riêng.</summary>
+    /// <summary>W3-1: storefront URL cho contextual deep-link — slug nếu có, else by-id.
+    /// Member có KhachLinkDomain riêng → domain đó; không có → relative path trên portal
+    /// domain hiện tại (/store/by-id resolve qua Gateway store-info, domain-agnostic).
+    /// KHÔNG fallback khachvip.online — apex DNS đã chết (fix 2026-10-09).</summary>
     private static string MemberStoreBaseUrl(CooperativeMemberDto m)
     {
-        var domain = !string.IsNullOrEmpty(m.KhachLinkDomain) ? m.KhachLinkDomain : "khachvip.online";
         var path = !string.IsNullOrEmpty(m.Slug) ? $"/store/{m.Slug}" : $"/store/by-id/{m.TenantId}";
-        return $"https://{domain}{path}";
+        return !string.IsNullOrEmpty(m.KhachLinkDomain)
+            ? $"https://{m.KhachLinkDomain}{path}"
+            : path;
     }
 }

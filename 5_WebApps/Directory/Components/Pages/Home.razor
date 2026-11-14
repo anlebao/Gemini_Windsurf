@@ -159,6 +159,11 @@
                             {
                                 <div class="col-md-6 col-lg-4">
                                     <VanAnCard CssClass="h-100 store-card">
+                                        @* W3-2 (FR-U6): JSON-LD LocalBusiness per store card *@
+                                        @if (!store.IsPending)
+                                        {
+                                            <script type="application/ld+json">@((MarkupString)LocalBusinessJsonLd(store))</script>
+                                        }
                                         <div class="d-flex align-items-center gap-3">
                                             @if (!string.IsNullOrEmpty(store.LogoUrl))
                                             {
@@ -279,6 +284,11 @@
                 {
                     <div class="col-md-6 col-lg-4">
                         <VanAnCard CssClass="h-100 store-card">
+                            @* W3-2 (FR-U6): JSON-LD LocalBusiness per store card *@
+                            @if (!store.IsPending)
+                            {
+                                <script type="application/ld+json">@((MarkupString)LocalBusinessJsonLd(store))</script>
+                            }
                             <div class="d-flex align-items-start gap-3">
                                 @if (!store.IsPending && !string.IsNullOrEmpty(store.LogoUrl))
                                 {
@@ -615,6 +625,34 @@
     {
         // Show alert instead of redirecting to tenant profile
         _pendingAlert = $"{storeName} đang chờ xác minh thông tin từ chủ doanh nghiệp. Vui lòng quay lại sau.";
+    }
+
+    /// <summary>W3-2 (FR-U6): JSON-LD LocalBusiness cho store card — name/address/telephone/url
+    /// (url = storefront domain của tenant khi có; schema.org LocalBusiness, không phải pending).</summary>
+    private static string LocalBusinessJsonLd(TenantStoreDto store)
+    {
+        var url = !string.IsNullOrEmpty(store.KhachLinkDomain) && !string.IsNullOrEmpty(store.Slug)
+            ? $"https://{store.KhachLinkDomain}/store/{store.Slug}"
+            : null;
+        var json = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "LocalBusiness",
+            ["name"] = store.Name,
+            ["address"] = string.IsNullOrEmpty(store.Address) ? null : new Dictionary<string, object?>
+            {
+                ["@type"] = "PostalAddress",
+                ["streetAddress"] = store.Address
+            },
+            ["telephone"] = string.IsNullOrEmpty(store.Phone) ? null : store.Phone,
+            ["url"] = url,
+            ["latitude"] = store.Latitude,
+            ["longitude"] = store.Longitude
+        }, new System.Text.Json.JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        });
+        return json;
     }
 
     private void NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId, string? chatMode = null)

@@ -211,7 +211,7 @@
 
                 <div class="form-group">
                     <div class="d-flex justify-content-between align-items-center">
-                        <label class="mb-0">Nav Flags (15 toggles)</label>
+                        <label class="mb-0">Nav Flags (@_flagToggles.Count toggles)</label>
                         <VanAButton Variant="outline" Size="small" OnClick="ApplyPreset">Apply Profile Preset</VanAButton>
                     </div>
                     <div class="nav-flags-grid">
@@ -224,6 +224,10 @@
                                            @onchange="e => flag.SetValue(_isEdit ? _editForm.NavFlags : GetOrCreateFormNavFlags(), e.Value is true)" />
                                     @flag.Label
                                 </label>
+                                @if (!string.IsNullOrEmpty(flag.Hint))
+                                {
+                                    <small class="text-muted d-block" style="font-size:.72rem;">@flag.Hint</small>
+                                }
                             </div>
                         }
                     </div>
@@ -423,13 +427,15 @@
         new("ShowLoyaltyHistory", "Lịch sử tích điểm"),
         new("ShowMissions", "Nhiệm vụ"),
         new("ShowRewards", "Đổi điểm"),
-        new("ShowAllianceWallet", "Ví liên minh"),
+        // W3-2 (FR-V5): gate kép — flag ON vẫn chưa đủ, tenant phải ở Loyalty Alliance mode.
+        new("ShowAllianceWallet", "Ví liên minh", "Chỉ hiện khi flag ON VÀ tenant bật Loyalty Alliance mode"),
         new("ShowStores", "Cửa hàng"),
         new("ShowCampaigns", "Khuyến mãi"),
         new("ShowScan", "Quét QR"),
         new("ShowQrClaim", "QR gửi xe"),
         new("ShowCommunity", "Community"),
-        new("ShowJobs", "Sàn việc (R3)"),
+        // W3-2 (FR-V3): ShowJobs ẩn khỏi admin — dead flag, /jobs chưa ship (chờ M1).
+        // Flag vẫn trong DTO/preset; bật lại khi M1 land.
         new("ShowProfile", "Tài khoản"),
         new("ShowStaffDashboard", "Staff Dashboard")
     };
@@ -783,7 +789,7 @@
     }
 
     // ── Flag toggle helper (reflection) ─────────────────────────────────────
-    private sealed record FlagToggle(string PropertyName, string Label)
+    private sealed record FlagToggle(string PropertyName, string Label, string? Hint = null)
     {
         public bool GetValue(KhachLinkNavFlagsDto flags)
             => (bool)(typeof(KhachLinkNavFlagsDto).GetProperty(PropertyName)?.GetValue(flags) ?? false);

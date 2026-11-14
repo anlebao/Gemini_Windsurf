@@ -147,20 +147,49 @@ public class PublicKhachLinkIconController(
             host), "application/manifest+json");
     }
 
+    /// <summary>
+    /// W3-2 (FR-L7): head meta động theo Host header — index.html inline script fetch
+    /// endpoint này same-origin (nginx proxy) rồi set document.title + meta description
+    /// + theme-color TRƯỚC khi WASM boot. Unknown domain → generic "Vạn An App".
+    /// </summary>
+    [HttpGet("head-meta")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetHeadMeta(CancellationToken ct = default)
+    {
+        string? host = Request.Host.Host?.ToLowerInvariant();
+        var instance = string.IsNullOrWhiteSpace(host)
+            ? null
+            : await _instanceService.GetByDomainAsync(host, ct);
+
+        var name = instance is not null && !LooksLikeSlug(instance.Label)
+            ? instance.Label
+            : "Vạn An App";
+
+        return Ok(new
+        {
+            name,
+            description = ProfileDescription(instance?.Profile),
+            themeColor = instance?.HeaderColor ?? "#2563eb"
+        });
+    }
+
+    /// <summary>Profile → mô tả ngắn cho meta description / manifest (dùng chung).</summary>
+    private static string ProfileDescription(KhachLinkProfile? profile) => profile switch
+    {
+        KhachLinkProfile.Directory => "Danh bạ doanh nghiệp địa phương — tìm cửa hàng, dịch vụ gần bạn",
+        KhachLinkProfile.Logistics => "Sàn giao nhận — giao hàng nhanh, đặt xe tải",
+        KhachLinkProfile.JobMarket => "Chợ việc làm — kết nối người tìm việc và nhà tuyển dụng",
+        KhachLinkProfile.Reseller => "Nền tảng bán hàng trung gian — kinh doanh online dễ dàng",
+        KhachLinkProfile.Hoptacxa => "Cổng hợp tác xã — kết nối hợp tác xã và thành viên",
+        KhachLinkProfile.FullCommerce => "Mua sắm trực tuyến — nhiều ưu đãi và quà tặng",
+        _ => "Vạn An — ứng dụng của bạn"
+    };
+
     private string BuildManifest(string name, string shortName, string? themeColor, string? backgroundColor, string iconSrc, KhachLinkProfile? profile, string? host)
     {
         string theme = themeColor ?? "#2563eb";
         string background = backgroundColor ?? "#ffffff";
-        string description = profile switch
-        {
-            KhachLinkProfile.Directory => "Danh bạ doanh nghiệp địa phương — tìm cửa hàng, dịch vụ gần bạn",
-            KhachLinkProfile.Logistics => "Sàn giao nhận — giao hàng nhanh, đặt xe tải",
-            KhachLinkProfile.JobMarket => "Chợ việc làm — kết nối người tìm việc và nhà tuyển dụng",
-            KhachLinkProfile.Reseller => "Nền tảng bán hàng trung gian — kinh doanh online dễ dàng",
-            KhachLinkProfile.Hoptacxa => "Cổng hợp tác xã — kết nối hợp tác xã và thành viên",
-            KhachLinkProfile.FullCommerce => "Mua sắm trực tuyến — nhiều ưu đãi và quà tặng",
-            _ => "Vạn An — ứng dụng của bạn"
-        };
+        string description = ProfileDescription(profile);
 
         // Icon src relative — nginx proxy /khachlink-icons/* → Gateway icons endpoint.
         // 2026-10-24 (v28-lite experiment): KHÔNG serve related_applications + launch_handler.
@@ -240,6 +269,7 @@ public class PublicKhachLinkIconController(
             KhachLinkProfile.Logistics => "logistics.png",
             KhachLinkProfile.JobMarket => "jobmarket.png",
             KhachLinkProfile.Reseller => "reseller.png",
+            KhachLinkProfile.Hoptacxa => "hoptacxa.png",
             _ => "default.png"
         };
 

@@ -2,6 +2,7 @@
 @page "/store-finder"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -12,6 +13,8 @@
 <PageTitle>Tìm cửa hàng gần bạn — KhachLink</PageTitle>
 
 <KhachLinkLayout>
+    @* W3-2 (FR-V4): đồng nhất enforcement — ShowStores=false → redirect + toast *@
+    <ProfileGuard RequiredFlag="ShowStores" FeatureName="Cửa hàng">
     <div class="container py-4 store-finder-page">
         <!-- Hero header -->
         <div class="store-finder-hero text-center mb-4">
@@ -44,11 +47,11 @@
                                 aria-label="Tìm kiếm bằng giọng nói">
                             @if (isRecording)
                             {
-                                <span class="recording-pulse">⏹️</span>
+                                <i class="bi bi-stop-fill"></i>
                             }
                             else
                             {
-                                <span>🎤</span>
+                                <i class="bi bi-mic-fill"></i>
                             }
                         </button>
                     }
@@ -205,6 +208,27 @@
                                             </VanAnButton>
                                         }
                                     </div>
+                                    @* W3-1/W3-2 (FR-V10): contextual entries — same-origin deep-link,
+                                       ?chat=ai mở AI bubble, ?chat=human mở human chat (chứa nút Gọi). *@
+                                    @if (store.AiChatEnabled || store.VoiceCallEnabled)
+                                    {
+                                        <div class="mt-2 d-flex gap-2">
+                                            @if (store.AiChatEnabled)
+                                            {
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                             OnClick="@(() => GoToStoreChat(store, "ai"))">
+                                                    <i class="bi bi-robot me-1"></i> Hỏi AI
+                                                </VanAnButton>
+                                            }
+                                            @if (store.VoiceCallEnabled)
+                                            {
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                             OnClick="@(() => GoToStoreChat(store, "human"))">
+                                                    <i class="bi bi-telephone me-1"></i> Gọi
+                                                </VanAnButton>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </VanAnCard>
@@ -213,6 +237,7 @@
             </div>
         }
     </div>
+    </ProfileGuard>
 </KhachLinkLayout>
 
 <style>
@@ -511,6 +536,13 @@
         }
     }
 
+    /// <summary>W3-1: contextual deep-link — same-origin /store route + ?chat=ai|human.</summary>
+    private void GoToStoreChat(StoreDto store, string chatMode)
+    {
+        var path = !string.IsNullOrEmpty(store.Slug) ? $"/store/{store.Slug}" : $"/store/by-id/{store.Id}";
+        Navigation.NavigateTo($"{path}?chat={chatMode}");
+    }
+
     private async Task LoadAllStores()
     {
         _userLat = null;
@@ -530,6 +562,9 @@
         public double? DistanceKm { get; set; }
         public string? Slug { get; set; }
         public string? KhachLinkDomain { get; set; }
+        // W3-1 (FR-V8): flagship toggles từ Gateway TenantStoreDto — render "Hỏi AI"/"Gọi".
+        public bool AiChatEnabled { get; set; }
+        public bool VoiceCallEnabled { get; set; }
     }
 
     /// <summary>Issue #166 comment: Wrapper matching Gateway TenantSearchResultDto.</summary>

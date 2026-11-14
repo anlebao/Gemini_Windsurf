@@ -77,11 +77,11 @@
                             aria-label="Tìm kiếm bằng giọng nói">
                         @if (_homeVoiceRecording)
                         {
-                            <span class="recording-pulse">⏹️</span>
+                            <i class="bi bi-stop-fill"></i>
                         }
                         else
                         {
-                            <span>🎤</span>
+                            <i class="bi bi-mic-fill"></i>
                         }
                     </button>
                 }
@@ -362,7 +362,7 @@
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
                                     <img id="@imgId"
-                                         src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
+                                         src="@(string.IsNullOrEmpty(item.ImageUrl) ? "/images/placeholder-product.svg" : item.ImageUrl)"
                                          class="card-img-top product-card-img"
                                          alt="@item.DisplayName" />
                                 </div>
@@ -446,7 +446,7 @@
                         <div class="col-6 col-md-3 mb-3">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
-                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? "/images/placeholder-product.svg" : item.ImageUrl)"
                                          class="card-img-top product-card-img-sm"
                                          alt="@item.DisplayName" />
                                 </div>
@@ -486,7 +486,7 @@
                         <div class="col-6 col-md-3 mb-3">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
-                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? "/images/placeholder-product.svg" : item.ImageUrl)" 
                                          class="card-img-top product-card-img-sm" 
                                          alt="@item.Name" />
                                 </div>
