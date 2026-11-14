@@ -6,6 +6,10 @@
 @inject CommunityHttpService CommunityHttp
 @inject LoyaltyModeHttpService LoyaltyModeHttp
 
+@* Variant: "all" (default, legacy single-instance) | "sidebar" (desktop only) | "mobile" (bottom tab bar only).
+   MainLayout renders two instances — without Variant each emits BOTH markups → duplicate .mobile-bottom-nav + #nav-more-mobile. *@
+@if (!IsMobileVariant)
+{
 <!-- Desktop sidebar nav — #125 fix: hide on mobile via d-none d-md-block (was relying on parent only) -->
 <div class="nav-desktop d-none d-md-block">
     <VanAnCard CssClass="nav-menu-card" Shadow="false">
@@ -221,14 +225,14 @@
         </nav>
     </VanAnCard>
 </div>
+}
 
-<!-- Mobile bottom tab bar — #125 fix: d-md-none ensures hidden on desktop even without parent wrapper -->
-@* FR-L1: tối đa 5 slot — 4 tab chính + "Thêm" overflow sheet cho tab ít dùng. *@
-@{
+@if (!IsSidebarVariant)
+{
+@* FR-L1: mobile bottom nav cap — primary tabs (≤4) + overflow "Thêm" sheet. *@
     var primaryItems = GetPrimaryNavItems();
     var overflowItems = GetOverflowNavItems();
     var useOverflowTab = primaryItems.Count + overflowItems.Count > 5;
-}
 <div class="mobile-bottom-nav d-md-none">
     @foreach (var item in primaryItems)
     {
@@ -310,6 +314,7 @@
 </div>
 @* FR-L2: community row chiếm thêm ~64px — báo cho content/footer padding qua CSS var *@
 <style>:root { --mobile-nav-total: 128px; }</style>
+}
 }
 
 <style>
@@ -463,6 +468,12 @@
     // Default all true (FullCommerce fallback) — when feature flag OFF, layout never overrides.
     [CascadingParameter(Name = "NavFlags")]
     private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
+    /// <summary>"all" | "sidebar" | "mobile" — xem comment đầu file.</summary>
+    [Parameter] public string Variant { get; set; } = "all";
+
+    private bool IsMobileVariant => string.Equals(Variant, "mobile", StringComparison.OrdinalIgnoreCase);
+    private bool IsSidebarVariant => string.Equals(Variant, "sidebar", StringComparison.OrdinalIgnoreCase);
 
     private bool _isLoggedIn = false;
     private bool _isStaff = false;
