@@ -103,8 +103,9 @@
     </VanAnCard>
 
     @* W2-4 FR-U3 (2026-11-14): new-user hero strip — chỉ khi đã resolve lastTenant
-       và user CHƯA có tenant (tránh flash cho returning user). *@
-    @if (_lastTenantLoaded && !_lastTenantId.HasValue)
+       và user CHƯA có tenant (tránh flash cho returning user).
+       Lưu ý: GetLastTenantIdAsync trả Guid.Empty (không phải null) cho new user. *@
+    @if (_lastTenantLoaded && (!_lastTenantId.HasValue || _lastTenantId.Value == Guid.Empty))
     {
     <VanAnCard CssClass="new-user-hero mb-4">
         <div class="text-center">
