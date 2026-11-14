@@ -14,7 +14,7 @@ test.describe('W3-2 polish pack', () => {
   test('FR-V4: /stores render bình thường khi ShowStores ON (guard không chặn nhầm)', async ({ page }) => {
     await page.goto(`${BASE}/stores`, { waitUntil: 'domcontentloaded' });
     // ProfileGuard allow → trang finder render (hero "Tìm cửa hàng")
-    await expect(page.locator('.store-finder-page, .store-finder-hero')).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('.store-finder-page').first()).toBeVisible({ timeout: 60000 });
     await expect(page.locator('h3, h1').filter({ hasText: 'Tìm cửa hàng' }).first()).toBeVisible();
   });
 

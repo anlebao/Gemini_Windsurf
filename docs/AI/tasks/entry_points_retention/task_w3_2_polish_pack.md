@@ -1,6 +1,6 @@
 # Task W3-2 — POLISH PACK (FR-V3–V5, FR-P3, FR-L3/L5/L7–L9, FR-U6, FR-D5)
 
-> **Status:** PENDING · **Wave:** W3 · **Gate 4:** CÓ cho phần layout
+> **Status:** DONE `5a01f0e1` (2026-11-15) · CD `43621092132` SUCCESS · RV prod PASS · **Wave:** W3 · **Gate 4:** CÓ cho phần layout
 > **Phụ thuộc:** W1–W2 xong (gom đuôi).
 
 ## Mục tiêu giá trị
