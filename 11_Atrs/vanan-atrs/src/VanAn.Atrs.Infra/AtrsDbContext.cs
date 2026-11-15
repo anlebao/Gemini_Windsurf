@@ -16,6 +16,9 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<AccountTrustProfile> AccountTrustProfiles => Set<AccountTrustProfile>();
     public DbSet<AccountSecurityEvent> AccountSecurityEvents => Set<AccountSecurityEvent>();
     public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
+    public DbSet<RecoveryCodeSet> RecoveryCodeSets => Set<RecoveryCodeSet>();
+    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
+    public DbSet<RecoveryRequest> RecoveryRequests => Set<RecoveryRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,5 +78,33 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         consent.Property(e => e.EvidenceRef).HasMaxLength(128);
         consent.HasIndex(e => new { e.TrustSubjectId, e.Purpose })
             .HasDatabaseName("ix_consent_records_subject_purpose");
+
+        var codeSet = modelBuilder.Entity<RecoveryCodeSet>();
+        codeSet.ToTable("recovery_code_sets");
+        codeSet.HasKey(e => e.Id);
+        codeSet.Property(e => e.Id).ValueGeneratedNever();
+        codeSet.Property(e => e.Status).HasConversion<int>();
+        codeSet.HasIndex(e => new { e.TrustSubjectId, e.Status })
+            .HasDatabaseName("ix_recovery_code_sets_subject_status");
+
+        var code = modelBuilder.Entity<RecoveryCode>();
+        code.ToTable("recovery_codes");
+        code.HasKey(e => e.Id);
+        code.Property(e => e.Id).ValueGeneratedNever();
+        code.Property(e => e.CodeHash).HasMaxLength(64).IsRequired();
+        code.HasIndex(e => e.SetId).HasDatabaseName("ix_recovery_codes_set");
+
+        var req = modelBuilder.Entity<RecoveryRequest>();
+        req.ToTable("recovery_requests");
+        req.HasKey(e => e.Id);
+        req.Property(e => e.Id).ValueGeneratedNever();
+        req.Property(e => e.RequestType).HasConversion<int>();
+        req.Property(e => e.Status).HasConversion<int>();
+        req.Property(e => e.IdempotencyKey).HasMaxLength(64).IsRequired();
+        req.Property(e => e.EvidenceSummaryJson).HasColumnType("TEXT");
+        req.Property(e => e.RiskDecisionJson).HasColumnType("TEXT");
+        req.Property(e => e.DecisionReasonCode).HasMaxLength(64);
+        req.HasIndex(e => e.IdempotencyKey).IsUnique().HasDatabaseName("ux_recovery_requests_idempotency");
+        req.HasIndex(e => new { e.TrustSubjectId, e.Status }).HasDatabaseName("ix_recovery_requests_subject_status");
     }
 }

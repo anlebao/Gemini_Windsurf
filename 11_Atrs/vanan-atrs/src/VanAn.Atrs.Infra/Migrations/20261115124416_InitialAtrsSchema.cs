@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+#pragma warning disable CA1861
 
 #nullable disable
 

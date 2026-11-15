@@ -20,6 +20,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="FluentAssertions" />
   </ItemGroup>
 
   <ItemGroup>

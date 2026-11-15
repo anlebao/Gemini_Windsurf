@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using VanAn.Atrs.Domain;
 using VanAn.Atrs.Infra;
 
 namespace VanAn.Atrs.Api;
 
 /// <summary>
 /// vanan-atrs — Account Trust & Recovery Service (SRS v1.0, ADR-001).
-/// Wave 1 skeleton: health + DbContext + JWT auth wiring (staff/admin).
+/// Wave 1 skeleton: health + DbContext + JWT auth wiring (staff/admin) + services.
 /// Auth chi tiết (StaffJwtValidator clone + TokenVersionValidator + customer
 /// token forward) được bổ sung ở wave ATRS-3.
 /// </summary>
@@ -23,6 +24,12 @@ public static class Program
                     builder.Configuration.GetConnectionString("Atrs")
                     ?? throw new InvalidOperationException("ConnectionStrings:Atrs is required."))
                 .UseSnakeCaseNamingConvention());
+
+        builder.Services.AddMemoryCache();
+        builder.Services.Configure<RecoveryCodeOptions>(builder.Configuration.GetSection("Atrs:RecoveryCodes"));
+        builder.Services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
+        builder.Services.AddSingleton<IRiskPolicyEngine, RiskPolicyEngine>();
+        builder.Services.AddScoped<IRecoveryCaseManager, RecoveryCaseManager>();
 
         var jwtSecret = builder.Configuration["Jwt:Secret"];
         if (!string.IsNullOrEmpty(jwtSecret))

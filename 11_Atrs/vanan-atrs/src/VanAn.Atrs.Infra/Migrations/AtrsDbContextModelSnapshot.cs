@@ -192,6 +192,136 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("consent_records", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<Guid>("SetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_id");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid?>("UsedFromDeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("used_from_device_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recovery_codes");
+
+                    b.HasIndex("SetId")
+                        .HasDatabaseName("ix_recovery_codes_set");
+
+                    b.ToTable("recovery_codes", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCodeSet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generated_at");
+
+                    b.Property<DateTime?>("RegeneratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("regenerated_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recovery_code_sets");
+
+                    b.HasIndex("TrustSubjectId", "Status")
+                        .HasDatabaseName("ix_recovery_code_sets_subject_status");
+
+                    b.ToTable("recovery_code_sets", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DecisionReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("decision_reason_code");
+
+                    b.Property<string>("EvidenceSummaryJson")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("evidence_summary_json");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<Guid?>("NewDeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("new_device_id");
+
+                    b.Property<int>("RequestType")
+                        .HasColumnType("integer")
+                        .HasColumnName("request_type");
+
+                    b.Property<Guid?>("ReviewerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewer_id");
+
+                    b.Property<string>("RiskDecisionJson")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("risk_decision_json");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recovery_requests");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_recovery_requests_idempotency");
+
+                    b.HasIndex("TrustSubjectId", "Status")
+                        .HasDatabaseName("ix_recovery_requests_subject_status");
+
+                    b.ToTable("recovery_requests", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.TrustSubject", b =>
                 {
                     b.Property<Guid>("Id")
