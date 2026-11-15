@@ -9,6 +9,9 @@ import { test, expect } from '@playwright/test';
 // Env: KHACHLINK_URL (default https://commienphi.timlathay.com),
 //      HOPTACXA_URL (default https://hoptacxa.timlathay.com).
 
+// WASM boot chậm trên prod — cần timeout rộng hơn default 30s
+test.describe.configure({ timeout: 150_000 });
+
 const KHACHLINK = process.env.KHACHLINK_URL || 'https://commienphi.timlathay.com';
 const PORTAL = process.env.HOPTACXA_URL || 'https://hoptacxa.timlathay.com';
 
@@ -52,10 +55,11 @@ test.describe('W3-2d KhachLink search rollout — StoreFinder', () => {
     await input.fill('samo');
     await input.press('Enter');
 
-    // Chip render + click → search lại với suggestion
-    const chip = page.locator('button', { hasText: 'Ý bạn là' }).first();
+    // Chip render + click → search lại với suggestion.
+    // Markup: VanAnAlert chứa text "Ý bạn là:" + <button>Samho</button> — button chỉ chứa suggestion.
+    const chip = page.locator('.alert', { hasText: 'Ý bạn là' })
+      .locator('button', { hasText: dto.didYouMean });
     await expect(chip).toBeVisible({ timeout: 60000 });
-    await expect(chip).toContainText(dto.didYouMean);
     await chip.click();
     await expect(input).toHaveValue(dto.didYouMean, { timeout: 30000 });
   });
