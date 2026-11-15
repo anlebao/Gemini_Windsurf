@@ -13,33 +13,38 @@
 <PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
 
 <div class="container py-4">
-        <!-- Hero -->
-        <div class="text-center mb-4">
-            <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
-            <h3 class="mt-2 mb-1">Tìm cửa hàng gần bạn</h3>
-            <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí</p>
+        <!-- Hero — W3-2c (Pattern A): compact, search card lên gần đầu trang -->
+        <div class="text-center mb-3">
+            <i class="bi bi-geo-alt-fill text-primary dir-hero-icon"></i>
+            <h5 class="mt-1 mb-1 fw-bold">Tìm cửa hàng gần bạn</h5>
+            <p class="text-muted small mb-0">Tên, sản phẩm hoặc vị trí</p>
         </div>
 
         <!-- Search box -->
-        <VanAnCard CssClass="mb-4 py-4">
+        <VanAnCard CssClass="mb-3 dir-search-card">
             <!-- Tab toggle: Tìm cửa hàng | Tìm sản phẩm (open-closed: existing store search kept, product search added) -->
-            <div class="mb-3">
-                <button type="button" class="btn btn-sm @(_searchMode == "store" ? "btn-primary" : "btn-outline-primary")" @onclick="@(() => SetSearchMode("store"))">
-                    <i class="bi bi-shop"></i> Tìm cửa hàng
-                </button>
-                <button type="button" class="btn btn-sm @(_searchMode == "product" ? "btn-primary" : "btn-outline-primary") ms-1" @onclick="@(() => SetSearchMode("product"))">
-                    <i class="bi bi-bag"></i> Tìm sản phẩm
-                </button>
+            <div class="mb-2">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn @(_searchMode == "store" ? "btn-primary" : "btn-outline-primary")" @onclick="@(() => SetSearchMode("store"))">
+                        <i class="bi bi-shop"></i> Cửa hàng
+                    </button>
+                    <button type="button" class="btn @(_searchMode == "product" ? "btn-primary" : "btn-outline-primary")" @onclick="@(() => SetSearchMode("product"))">
+                        <i class="bi bi-bag"></i> Sản phẩm
+                    </button>
+                </div>
             </div>
-            <div class="input-group input-group-lg">
+            @* W3-2c (Pattern A): input size thường + enterkeyhint=search; nút Tìm kiếm nằm
+               TRONG input-group → không bị bàn phím ảo che, tầm tay cái ngay. *@
+            <div class="input-group">
                 <span class="input-group-text bg-white border-end-0">
                     <i class="bi bi-search text-primary"></i>
                 </span>
-                <input type="text" class="form-control border-start-0 border-end-0"
+                <input type="text" class="form-control border-start-0 border-end-0 dir-search-input"
                        @bind="_searchKeyword"
                        @bind:event="oninput"
                        @onkeyup="OnSearchKeyUp"
-                       placeholder="@(_listening ? "Đang nghe..." : (_searchMode == "product" ? "Tìm theo tên sản phẩm, dịch vụ..." : "Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."))"
+                       enterkeyhint="search"
+                       placeholder="@(_listening ? "Đang nghe..." : (_searchMode == "product" ? "Tên sản phẩm, dịch vụ..." : "Tên cửa hàng, sản phẩm..."))"
                        aria-label="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")" />
                 @* SF-W3 (2026-11-08): voice input — nói thay vì gõ (vananVoiceInput, browser-gated). *@
                 @if (_speechSupported)
@@ -53,10 +58,13 @@
                 }
                 @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                 {
-                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch" aria-label="Xóa từ khóa">
                         <i class="bi bi-x-circle"></i>
                     </button>
                 }
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStores">
+                    <i class="bi bi-search"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
+                </VanAnButton>
             </div>
             @if (_listening)
             {
@@ -69,11 +77,8 @@
             {
                 <div class="text-danger small mt-2">@_voiceError</div>
             }
-            <div class="d-flex gap-2 mt-3">
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStores">
-                    <i class="bi bi-search me-1"></i> Tìm kiếm
-                </VanAnButton>
-                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoToStoreFinder">
+            <div class="mt-2">
+                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToStoreFinder">
                     <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
                 </VanAnButton>
             </div>
@@ -85,6 +90,15 @@
         @if (!string.IsNullOrEmpty(_pendingAlert))
         {
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />
+        }
+
+        @* W3-2c (Pattern B): fuzzy match → "Ý bạn là: X?" chip 1-tap *@
+        @if (!string.IsNullOrEmpty(_didYouMean))
+        {
+            <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3">
+                <i class="bi bi-search me-1"></i> Ý bạn là:
+                <button class="btn btn-sm btn-primary ms-1" @onclick="@(() => SearchWithKeyword(_didYouMean))">@_didYouMean</button> ?
+            </VanAnAlert>
         }
 
         <!-- Issue #166 comment: Suggested keywords when no direct match -->
@@ -371,6 +385,10 @@
 }
 .store-card { transition: transform 0.2s; }
 .store-card:hover { transform: translateY(-2px); }
+/* W3-2c (Pattern A): compact hero + touch-friendly search input */
+.dir-hero-icon { font-size: 1.25rem; }
+.dir-search-input { font-size: 1rem; min-height: 44px; }
+.dir-search-card .input-group .btn { min-height: 44px; }
 </style>
 
 @code {
@@ -380,6 +398,8 @@
     private List<ProductSearchItem> _products = new();
     private List<string> _suggestedKeywords = new();
     private string _matchStrategy = "all";
+    // W3-2c (Pattern B): fuzzy "Ý bạn là: X?" — null khi không fuzzy/không gợi ý.
+    private string? _didYouMean;
     private bool _loading;
     private bool _hasSearched;
 
@@ -432,6 +452,7 @@
             _products = result?.Products ?? new();
             _stores = new();
             _suggestedKeywords = new();
+            _didYouMean = null;
             _matchStrategy = "all";
         }
         else
@@ -441,6 +462,7 @@
             _stores = result.Results;
             _suggestedKeywords = result.SuggestedKeywords;
             _matchStrategy = result.MatchStrategy;
+            _didYouMean = result.DidYouMean;
             _products = new();
         }
         _loading = false;
@@ -470,6 +492,7 @@
         _stores = new();
         _products = new();
         _suggestedKeywords = new();
+        _didYouMean = null;
     }
 
     /// <summary>Issue #166 comment: search with a suggested keyword (clicking "Did you mean...?").</summary>
@@ -527,6 +550,7 @@
         _hasSearched = false;
         _stores = new();
         _suggestedKeywords = new();
+        _didYouMean = null;
         _matchStrategy = "all";
     }
 

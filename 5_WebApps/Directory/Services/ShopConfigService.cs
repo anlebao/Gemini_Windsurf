@@ -130,6 +130,8 @@ public class TenantSearchResultDto
 {
     public List<TenantStoreDto> Results { get; init; } = new();
     public List<string> SuggestedKeywords { get; init; } = new();
-    /// <summary>"all" | "contains" | "token" | "prefix" | "suggested"</summary>
+    /// <summary>"all" | "contains" | "token" | "prefix" | "fuzzy" | "suggested"</summary>
     public string MatchStrategy { get; init; } = "all";
+    /// <summary>W3-2c (Pattern B): gợi ý "Ý bạn là: X?" khi fuzzy match chưa chắc.</summary>
+    public string? DidYouMean { get; init; }
 }

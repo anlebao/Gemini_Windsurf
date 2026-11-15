@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -208,7 +210,7 @@ namespace VanAn.Gateway.Controllers
         /// </summary>
         [HttpGet("search")]
         [AllowAnonymous]
-        public async Task<ActionResult<TenantSearchResultDto>> Search([FromQuery] string? name, [FromQuery] double? lat, [FromQuery] double? lng)
+        public async Task<ActionResult<TenantSearchResultDto>> Search([FromQuery] string? name, [FromQuery] double? lat, [FromQuery] double? lng, CancellationToken ct = default)
         {
             try
             {
@@ -217,8 +219,11 @@ namespace VanAn.Gateway.Controllers
                     .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
                     .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending);
 
-                string matchStrategy = "all"; // all | contains | token | prefix | suggested
+                string matchStrategy = "all"; // all | contains | token | prefix | fuzzy | suggested
                 List<Tenant> tenants;
+                // W3-2c (Pattern B): fuzzy score map + DidYouMean — chỉ set khi strategy="fuzzy".
+                Dictionary<Guid, double>? fuzzyScores = null;
+                string? didYouMean = null;
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
@@ -276,13 +281,28 @@ namespace VanAn.Gateway.Controllers
                             }
                             else
                             {
-                                // ── Level 4: Suggested — return top 10 Active tenants (avoid empty) ──
-                                tenants = await baseQuery
-                                    .Where(t => t.Status == TenantStatus.Active)
-                                    .OrderBy(t => t.Name)
-                                    .Take(10)
-                                    .ToListAsync();
-                                matchStrategy = "suggested";
+                                // ── Level 3.5: Fuzzy — normalize bỏ dấu + similarity (chịu sai chính tả).
+                                // In-memory trên bounded candidates — không cần pg_trgm/unaccent.
+                                var fuzzy = await FuzzyMatchTenantsAsync(baseQuery, q, ct);
+                                if (fuzzy.Count > 0)
+                                {
+                                    matchStrategy = "fuzzy";
+                                    tenants = fuzzy.Select(f => f.Tenant).ToList();
+                                    fuzzyScores = fuzzy.ToDictionary(f => f.Tenant.Id.Value, f => f.Score);
+                                    // DidYouMean chỉ khi match chưa chắc (score < 0.8) — gần đúng thì không gợi ý.
+                                    if (fuzzy[0].Score < 0.8)
+                                        didYouMean = fuzzy[0].Tenant.Name;
+                                }
+                                else
+                                {
+                                    // ── Level 4: Suggested — return top 10 Active tenants (avoid empty) ──
+                                    tenants = await baseQuery
+                                        .Where(t => t.Status == TenantStatus.Active)
+                                        .OrderBy(t => t.Name)
+                                        .Take(10)
+                                        .ToListAsync();
+                                    matchStrategy = "suggested";
+                                }
                             }
                         }
                     }
@@ -318,6 +338,8 @@ namespace VanAn.Gateway.Controllers
                         : matchStrategy == "token" ? 2
                         : matchStrategy == "prefix" ? 1
                         : 0)
+                    // W3-2c: fuzzy — order theo similarity score (non-fuzzy → all 0, no-op)
+                    .ThenByDescending(d => fuzzyScores?.GetValueOrDefault(d.Id) ?? 0)
                     .ThenBy(d => d.DistanceKm ?? double.MaxValue) // closer first (if location provided)
                     .ThenBy(d => d.Name)
                     .ToList();
@@ -345,7 +367,8 @@ namespace VanAn.Gateway.Controllers
                 {
                     Results = dtos,
                     SuggestedKeywords = suggestedKeywords,
-                    MatchStrategy = matchStrategy
+                    MatchStrategy = matchStrategy,
+                    DidYouMean = didYouMean
                 });
             }
             catch (Exception ex)
@@ -451,6 +474,93 @@ namespace VanAn.Gateway.Controllers
             double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
             return R * c;
         }
+
+        // ── W3-2c: fuzzy search helpers (Pattern B — mobile-search-ux-pattern.md) ──
+
+        private const int FuzzyCandidateLimit = 500;
+        private const double FuzzyThreshold = 0.55;
+
+        private sealed record FuzzyHit(Tenant Tenant, double Score);
+
+        /// <summary>Fuzzy match: normalize (bỏ dấu tiếng Việt) + similarity trên bounded candidates.
+        /// Trả hits ≥ threshold, order score desc. Bỏ qua query &lt; 3 ký tự normalized.</summary>
+        private async Task<List<FuzzyHit>> FuzzyMatchTenantsAsync(
+            IQueryable<Tenant> baseQuery, string rawQuery, CancellationToken ct)
+        {
+            var qNorm = NormalizeSearchText(rawQuery);
+            if (qNorm.Length < 3)
+                return new List<FuzzyHit>();
+
+            var candidates = await baseQuery
+                .OrderBy(t => t.Name)
+                .Take(FuzzyCandidateLimit)
+                .ToListAsync(ct);
+
+            var hits = new List<FuzzyHit>(16);
+            foreach (var t in candidates)
+            {
+                var score = SearchSimilarity(qNorm, NormalizeSearchText(t.Name));
+                if (score >= FuzzyThreshold)
+                    hits.Add(new FuzzyHit(t, score));
+            }
+            hits.Sort((a, b) => b.Score.CompareTo(a.Score));
+            return hits.Take(20).ToList();
+        }
+
+        /// <summary>Bỏ dấu tiếng Việt + lowercase + collapse spaces.
+        /// LƯU Ý: 'đ/Đ' KHÔNG decompose qua FormD — phải replace thủ công.</summary>
+        internal static string NormalizeSearchText(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+            var decomposed = s.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(decomposed.Length);
+            foreach (var c in decomposed)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
+                    continue;
+                sb.Append(c == 'đ' || c == 'Đ' ? 'd' : char.ToLowerInvariant(c));
+            }
+            return string.Join(' ', sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        /// <summary>Similarity 0..1 = max(levenshtein ratio full-string, token Dice coefficient).</summary>
+        internal static double SearchSimilarity(string qNorm, string nameNorm)
+        {
+            if (qNorm.Length == 0 || nameNorm.Length == 0) return 0;
+
+            var maxLen = Math.Max(qNorm.Length, nameNorm.Length);
+            var levRatio = 1.0 - (double)LevenshteinDistance(qNorm, nameNorm) / maxLen;
+
+            var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var nTokens = nameNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var intersection = qTokens.Count(nTokens.Contains);
+            var dice = qTokens.Count + nTokens.Count == 0
+                ? 0
+                : 2.0 * intersection / (qTokens.Count + nTokens.Count);
+
+            return Math.Max(levRatio, dice);
+        }
+
+        /// <summary>Levenshtein distance (DP, 2 rows) — strings ngắn nên đủ nhanh.</summary>
+        internal static int LevenshteinDistance(string a, string b)
+        {
+            if (a.Length == 0) return b.Length;
+            if (b.Length == 0) return a.Length;
+            var prev = new int[b.Length + 1];
+            var curr = new int[b.Length + 1];
+            for (var j = 0; j <= b.Length; j++) prev[j] = j;
+            for (var i = 1; i <= a.Length; i++)
+            {
+                curr[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    curr[j] = Math.Min(Math.Min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+                }
+                (prev, curr) = (curr, prev);
+            }
+            return prev[b.Length];
+        }
     }
 
     public record TenantStoreDto
@@ -511,8 +621,11 @@ namespace VanAn.Gateway.Controllers
         /// <summary>Suggested keywords extracted from tenant names when no direct match found.
         /// Empty list when matchStrategy is "all" or "contains" (direct match — no suggestions needed).</summary>
         public List<string> SuggestedKeywords { get; init; } = new();
-        /// <summary>How results were matched: "all" (no keyword) | "contains" | "token" | "prefix" | "suggested".
+        /// <summary>How results were matched: "all" (no keyword) | "contains" | "token" | "prefix" | "fuzzy" | "suggested".
         /// UI uses this to show "Không tìm thấy kết quả chính xác, gợi ý cho bạn:" message.</summary>
         public string MatchStrategy { get; init; } = "all";
+        /// <summary>W3-2c (Pattern B): tên match tốt nhất khi strategy="fuzzy" và score chưa chắc —
+        /// UI hiển thị chip "Ý bạn là: X?". Null khi match exact/contains hoặc không có gợi ý.</summary>
+        public string? DidYouMean { get; init; }
     }
 }
