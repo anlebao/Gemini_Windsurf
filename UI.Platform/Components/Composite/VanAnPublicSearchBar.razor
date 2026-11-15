@@ -50,7 +50,8 @@
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
 
     [Parameter] public string? Placeholder { get; set; }
-    [Parameter] public string? AriaLabel { get; set; }
+    // AriaLabel/Disabled/Loading/CssClass kế thừa từ BaseComponent — KHÔNG khai báo lại
+    // (parameter names case-insensitive, trùng tên → InvalidOperationException crash SSR).
     /// <summary>Extra class trên input (vd "dir-search-input" của Directory).</summary>
     [Parameter] public string? InputCssClass { get; set; }
     [Parameter] public string InputId { get; set; } = "vanan-public-search-input";
