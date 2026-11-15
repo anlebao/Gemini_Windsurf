@@ -1,0 +1,95 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@* W3-2d (Pattern A — docs/design/mobile-search-ux-pattern.md): public-facing mobile-first
+   search bar dùng chung cho Directory/KhachLink/portal. Khác VanAnSearchBar (admin,
+   ShopERP TransactionHistory): input size thường, nút search TRONG input-group
+   (không bị bàn phím ảo che), enterkeyhint=search, icon actions mic/clear.
+   Business logic KHÔNG nằm đây — parent truyền OnSearch. *@
+
+<div class="input-group">
+    <span class="input-group-text bg-white border-end-0">
+        <i class="bi bi-search text-primary"></i>
+    </span>
+    <input type="text" class="form-control border-start-0 border-end-0 @InputCssClass"
+           id="@InputId"
+           value="@Value"
+           @oninput="OnInput"
+           @onkeyup="OnKeyUp"
+           enterkeyhint="@EnterKeyHint"
+           placeholder="@Placeholder"
+           aria-label="@AriaLabel"
+           disabled="@(Disabled || Loading)" />
+    @if (ShowVoiceButton)
+    {
+        <button type="button" class="btn btn-outline-primary @(IsListening ? "text-danger" : "")"
+                @onclick="OnVoiceToggle" disabled="@(Disabled || Loading)"
+                title="@(IsListening ? "Dừng nói" : "Nói để tìm kiếm")"
+                aria-label="Tìm kiếm bằng giọng nói">
+            <i class="bi @(IsListening ? "bi-mic-fill" : "bi-mic")"></i>
+        </button>
+    }
+    @if (ShowClearButton && !string.IsNullOrWhiteSpace(Value))
+    {
+        <button class="btn btn-outline-secondary" type="button" @onclick="ClearAsync" aria-label="Xóa từ khóa">
+            <i class="bi bi-x-circle"></i>
+        </button>
+    }
+    <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchAsync" Disabled="@(Disabled || Loading)">
+        <i class="bi bi-search"></i><span class="d-none d-sm-inline ms-1">@SearchText</span>
+    </VanAnButton>
+</div>
+
+@code {
+    /// <summary>Two-way bound keyword.</summary>
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    /// <summary>Extra class trên input (vd "dir-search-input" của Directory).</summary>
+    [Parameter] public string? InputCssClass { get; set; }
+    [Parameter] public string InputId { get; set; } = "vanan-public-search-input";
+    /// <summary>Virtual-keyboard action — mobile search UX bắt buộc "search".</summary>
+    [Parameter] public string EnterKeyHint { get; set; } = "search";
+    /// <summary>Nhãn nút submit (icon bi-search luôn hiện; text ẩn trên mobile qua d-none d-sm-inline).</summary>
+    [Parameter] public string SearchText { get; set; } = "Tìm kiếm";
+
+    /// <summary>Enter key hoặc click nút → parent thực thi search.</summary>
+    [Parameter] public EventCallback OnSearch { get; set; }
+
+    /// <summary>Voice input slot — hiện khi surface hỗ trợ speech recognition.</summary>
+    [Parameter] public bool ShowVoiceButton { get; set; }
+    [Parameter] public bool IsListening { get; set; }
+    [Parameter] public EventCallback OnVoiceToggle { get; set; }
+
+    /// <summary>Nút X clear — tự ẩn khi Value rỗng. OnCleared cho parent reset state phụ (vd clear kết quả).</summary>
+    [Parameter] public bool ShowClearButton { get; set; } = true;
+    [Parameter] public EventCallback OnCleared { get; set; }
+
+    private async Task OnInput(ChangeEventArgs e)
+        => await ValueChanged.InvokeAsync(e.Value?.ToString());
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && OnSearch.HasDelegate)
+            await OnSearch.InvokeAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        if (OnSearch.HasDelegate)
+            await OnSearch.InvokeAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        await ValueChanged.InvokeAsync(string.Empty);
+        if (OnCleared.HasDelegate)
+            await OnCleared.InvokeAsync();
+    }
+}

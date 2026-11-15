@@ -1,0 +1,29 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@* W3-2d (Pattern B — docs/design/mobile-search-ux-pattern.md): chip "Ý bạn là: X?"
+   1-tap confirm cho fuzzy search suggestion (DidYouMean từ /api/tenants/search).
+   Chỉ render khi Suggestion non-empty — parent truyền null để ẩn. *@
+
+@if (!string.IsNullOrEmpty(Suggestion))
+{
+    <VanAnAlert Variant="AlertVariant.Info" CssClass="@($"mb-3 {CssClass}".Trim())">
+        <i class="bi bi-search me-1"></i> @Prompt
+        <button type="button" class="btn btn-sm btn-primary ms-1" @onclick="ApplyAsync">@Suggestion</button> ?
+    </VanAnAlert>
+}
+
+@code {
+    /// <summary>Tên gợi ý từ backend (DidYouMean). Null/rỗng → component không render.</summary>
+    [Parameter] public string? Suggestion { get; set; }
+    /// <summary>Prefix text trước nút gợi ý.</summary>
+    [Parameter] public string Prompt { get; set; } = "Ý bạn là:";
+    /// <summary>1-tap → parent re-search với Suggestion làm keyword.</summary>
+    [Parameter] public EventCallback<string> OnApply { get; set; }
+
+    private Task ApplyAsync()
+        => Suggestion is null ? Task.CompletedTask : OnApply.InvokeAsync(Suggestion);
+}

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Gateway.Controllers;
+using VanAn.Gateway.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
@@ -40,7 +41,7 @@ public class CooperativesControllerTests
     }
 
     private static CooperativesController NewController(VanAnDbContext ctx)
-        => new(ctx, NullLogger<CooperativesController>.Instance);
+        => new(ctx, new TenantSearchService(ctx), NullLogger<CooperativesController>.Instance);
 
     private static async Task SeedHtxAsync(VanAnDbContext ctx, Guid htxId = default)
     {

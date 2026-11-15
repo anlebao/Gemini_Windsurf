@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.Gateway.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers
@@ -20,9 +21,11 @@ namespace VanAn.Gateway.Controllers
     [EnableRateLimiting("catalog")]
     public class CatalogController(
         IVanAnDbContext dbContext,
+        ITenantSearchService tenantSearch,
         ILogger<CatalogController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly ITenantSearchService _tenantSearch = tenantSearch;
         private readonly ILogger<CatalogController> _logger = logger;
 
         /// <summary>
@@ -116,7 +119,7 @@ namespace VanAn.Gateway.Controllers
                 }
 
                 // W3-1 (FR-V8/V10): flagship toggles per tenant — "Hỏi AI về món này" trên featured card.
-                var flags = await BuildFeatureFlagMapAsync(tenantIds.ToList(), ct);
+                var flags = await _tenantSearch.GetFeatureFlagMapAsync(tenantIds, ct);
                 foreach (var r in results)
                 {
                     if (flags.TryGetValue(r.TenantId, out var f))
@@ -263,7 +266,7 @@ namespace VanAn.Gateway.Controllers
                 }
 
                 // W3-1 (FR-V8): flagship toggles per tenant (same as /recommended).
-                var flags = await BuildFeatureFlagMapAsync(tenantIds.ToList(), ct);
+                var flags = await _tenantSearch.GetFeatureFlagMapAsync(tenantIds, ct);
                 foreach (var r in results)
                 {
                     if (flags.TryGetValue(r.TenantId, out var f))
@@ -288,27 +291,6 @@ namespace VanAn.Gateway.Controllers
                 Page = page,
                 PageSize = pageSize
             });
-        }
-        /// <summary>
-        /// W3-1 (FR-V8): batch ShopFeatureSettings lookup — chỉ AIChat + VoiceCall,
-        /// 1 query cho toàn bộ tenant ids (không N+1). Tenant thiếu row → false.
-        /// </summary>
-        private async Task<Dictionary<Guid, TenantFeatureFlags>> BuildFeatureFlagMapAsync(List<Guid> tenantIds, CancellationToken ct)
-        {
-            if (tenantIds.Count == 0)
-                return new Dictionary<Guid, TenantFeatureFlags>();
-
-            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
-            var rows = await _dbContext.ShopFeatureSettings
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(s => idVos.Contains(s.TenantId))
-                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
-                .ToListAsync(ct);
-
-            return rows.ToDictionary(
-                r => r.Value,
-                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
         }
     }
 

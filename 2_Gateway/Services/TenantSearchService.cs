@@ -1,0 +1,533 @@
+using System.Text;
+using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Infrastructure;
+using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+
+namespace VanAn.Gateway.Services
+{
+    /// <summary>
+    /// W3-2d (anti-drift): single source cho mọi public tenant-read — store-info,
+    /// by-slug, nearby, search + batch flag/domain lookups. Trước đây logic này
+    /// nằm rải rác trong TenantStoreController/CatalogController/CooperativesController
+    /// (3 bản copy BuildFeatureFlagMapAsync) → fix 1 chỗ quên 2 chỗ.
+    /// Mọi tenant/member search PHẢI đi qua service này (xem mobile-search-ux-pattern.md).
+    /// </summary>
+    public interface ITenantSearchService
+    {
+        Task<TenantStoreDto?> GetStoreInfoAsync(Guid tenantId, CancellationToken ct = default);
+        /// <summary>Null khi slug trống / không tồn tại / tenant Suspended|Inactive|Converted.</summary>
+        Task<TenantStoreDto?> GetBySlugAsync(string slug, CancellationToken ct = default);
+        Task<TenantSearchResultDto> GetNearbyAsync(double lat, double lng, double radiusKm, CancellationToken ct = default);
+        Task<TenantSearchResultDto> SearchAsync(string? name, double? lat, double? lng, CancellationToken ct = default);
+        /// <summary>Batch ShopFeatureSettings lookup (AIChat + VoiceCall) — 1 query, không N+1.</summary>
+        Task<Dictionary<Guid, TenantFeatureFlags>> GetFeatureFlagMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
+        /// <summary>TenantId → KhachLink CustomDomain (active non-Directory, prefer FullCommerce).</summary>
+        Task<Dictionary<Guid, string>> GetKhachLinkDomainMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
+    }
+
+    public class TenantSearchService(IVanAnDbContext dbContext) : ITenantSearchService
+    {
+        private readonly IVanAnDbContext _dbContext = dbContext;
+
+        public async Task<TenantStoreDto?> GetStoreInfoAsync(Guid tenantId, CancellationToken ct = default)
+        {
+            // Tenant.Id là TenantId value object — so sánh qua new TenantId(guid)
+            // (Known Error Pattern #1: KHÔNG dùng EF.Property<Guid>).
+            var tenant = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == new TenantId(tenantId), ct);
+
+            if (tenant == null) return null;
+
+            var flags = await GetFeatureFlagMapAsync(new List<Guid> { tenantId }, ct);
+            return MapToStoreDto(tenant, featureFlags: flags);
+        }
+
+        public async Task<TenantStoreDto?> GetBySlugAsync(string slug, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(slug)) return null;
+
+            var normalizedSlug = slug.Trim().ToLowerInvariant();
+            var tenant = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Settings != null && t.Settings.Slug == normalizedSlug, ct);
+
+            if (tenant == null) return null;
+
+            // Crawl-to-Onboard (M3): không expose Suspended/Inactive/Converted
+            if (tenant.Status == TenantStatus.Suspended
+                || tenant.Status == TenantStatus.Inactive
+                || tenant.Status == TenantStatus.Converted)
+            {
+                return null;
+            }
+
+            var dto = MapToStoreDto(tenant, featureFlags:
+                await GetFeatureFlagMapAsync(new List<Guid> { tenant.Id.Value }, ct));
+
+            if (tenant.Status == TenantStatus.Pending)
+            {
+                // M3: HIDE SĐT — Phone=null, Email=null (Luật 91/2025 Điều 16)
+                return dto with
+                {
+                    Phone = null,
+                    Email = null,
+                    IsPending = true,
+                    ClaimUrl = $"/store/{normalizedSlug}/claim"
+                };
+            }
+
+            return dto;
+        }
+
+        public async Task<TenantSearchResultDto> GetNearbyAsync(double lat, double lng, double radiusKm, CancellationToken ct = default)
+        {
+            var tenants = await _dbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
+                .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending)
+                .ToListAsync(ct);
+
+            var nearby = tenants
+                .Where(t => t.Settings?.Latitude.HasValue == true && t.Settings?.Longitude.HasValue == true)
+                .Select(t => new { Tenant = t, Distance = HaversineKm(lat, lng, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value) })
+                .Where(x => x.Distance <= radiusKm)
+                .OrderBy(x => x.Distance)
+                .ToList();
+
+            var nearbyTenantIds = nearby.Select(x => x.Tenant.Id.Value).ToList();
+            var khachLinkDomainMap = await GetKhachLinkDomainMapAsync(nearbyTenantIds, ct);
+            var featureFlags = await GetFeatureFlagMapAsync(nearbyTenantIds, ct);
+
+            return new TenantSearchResultDto
+            {
+                Results = nearby.Select(x => MapToStoreDto(x.Tenant, x.Distance, khachLinkDomainMap, featureFlags)).ToList(),
+                SuggestedKeywords = [],
+                MatchStrategy = "nearby"
+            };
+        }
+
+        /// <summary>
+        /// Search tenants by name OR FeaturedProduct.DisplayName (PG-only).
+        /// Issue #166 ordering + W3-2c Pattern B (normalized in-memory contains/token/fuzzy + DidYouMean).
+        /// </summary>
+        public async Task<TenantSearchResultDto> SearchAsync(string? name, double? lat, double? lng, CancellationToken ct = default)
+        {
+            var baseQuery = _dbContext.Tenants
+                .AsNoTracking()
+                .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
+                .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Pending);
+
+            string matchStrategy = "all"; // all | contains | token | prefix | fuzzy | suggested
+            List<Tenant> tenants;
+            // W3-2c (Pattern B): fuzzy score map + DidYouMean — chỉ set khi strategy="fuzzy".
+            Dictionary<Guid, double>? fuzzyScores = null;
+            string? didYouMean = null;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                // No keyword — return all active tenants (legacy behavior, Take 50)
+                tenants = await baseQuery.Take(50).ToListAsync(ct);
+                matchStrategy = "all";
+            }
+            else
+            {
+                var q = name.Trim();
+
+                // ── Level 1: ILIKE contains on Name OR FeaturedProduct.DisplayName ──
+                var matched = await baseQuery
+                    .Where(t => EF.Functions.ILike(t.Name, $"%{q}%")
+                                || _dbContext.FeaturedProducts.Any(fp => fp.TenantId == t.Id && fp.IsActive && EF.Functions.ILike(fp.DisplayName, $"%{q}%")))
+                    .Take(50)
+                    .ToListAsync(ct);
+
+                if (matched.Count > 0)
+                {
+                    matchStrategy = "contains";
+                    tenants = matched;
+                }
+                else
+                {
+                    // ── Level 2+: normalized in-memory matching (Pattern B — mobile-search-ux-pattern.md) ──
+                    // Normalize bỏ dấu cho MỌI level → "tra sua" khớp "Trà Sữa 79";
+                    // fuzzy (levenshtein + Dice) chịu sai chính tả. Bounded 500 candidates,
+                    // không cần pg_trgm/unaccent. Level nhỏ nhất có kết quả thắng.
+                    var candidates = await baseQuery
+                        .OrderBy(t => t.Name)
+                        .Take(FuzzyCandidateLimit)
+                        .ToListAsync(ct);
+
+                    var qNorm = NormalizeSearchText(q);
+                    var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(tok => tok.Length >= 2).ToList();
+
+                    // level: 2=contains-norm · 3=token · 4=fuzzy (prefix ⊂ contains → dead, bỏ)
+                    var levelHits = new List<(int Level, Tenant T, double Score)>();
+                    foreach (var t in candidates)
+                    {
+                        var n = NormalizeSearchText(t.Name);
+                        if (n.Length == 0) continue;
+                        if (qNorm.Length > 0 && n.Contains(qNorm))
+                            levelHits.Add((2, t, 1));
+                        else if (qTokens.Count > 0 && qTokens.Any(tok => n.Contains(tok)))
+                            levelHits.Add((3, t, qTokens.Count(tok => n.Contains(tok))));
+                        else if (qNorm.Length >= 3)
+                        {
+                            var sim = SearchSimilarity(qNorm, n);
+                            if (sim >= FuzzyThreshold)
+                                levelHits.Add((4, t, sim));
+                        }
+                    }
+
+                    var bestLevel = levelHits.Count > 0 ? levelHits.Min(h => h.Level) : 0;
+                    var levelResult = levelHits
+                        .Where(h => h.Level == bestLevel)
+                        .OrderByDescending(h => h.Score)
+                        .ThenBy(h => h.T.Name)
+                        .Take(50)
+                        .ToList();
+
+                    if (bestLevel == 2)
+                    {
+                        matchStrategy = "contains";
+                        tenants = levelResult.Select(h => h.T).ToList();
+                    }
+                    else if (bestLevel == 3)
+                    {
+                        matchStrategy = "token";
+                        tenants = levelResult.Select(h => h.T).ToList();
+                    }
+                    else if (bestLevel == 4)
+                    {
+                        matchStrategy = "fuzzy";
+                        tenants = levelResult.Select(h => h.T).ToList();
+                        fuzzyScores = levelResult.ToDictionary(h => h.T.Id.Value, h => h.Score);
+                        // DidYouMean khi match chưa chắc (score < 0.9) — 0.8-0.9 vẫn nên cho
+                        // user confirm (vd "antam"→"An Tâm" 0.83); ≥0.9 là gần như chắc → ẩn chip.
+                        if (levelResult[0].Score < 0.9)
+                            didYouMean = levelResult[0].T.Name;
+                    }
+                    else
+                    {
+                        // ── Level 5: Suggested — return top 10 Active tenants (avoid empty) ──
+                        tenants = await baseQuery
+                            .Where(t => t.Status == TenantStatus.Active)
+                            .OrderBy(t => t.Name)
+                            .Take(10)
+                            .ToListAsync(ct);
+                        matchStrategy = "suggested";
+                    }
+                }
+            }
+
+            // Batch lookups (1 query mỗi loại — không N+1)
+            var tenantIds = tenants.Select(t => t.Id.Value).ToList();
+            var khachLinkDomainMap = await GetKhachLinkDomainMapAsync(tenantIds, ct);
+            var featureFlags = await GetFeatureFlagMapAsync(tenantIds, ct);
+
+            // Compute distance + sort theo Issue #166 ordering rules
+            var userLat = lat;
+            var userLng = lng;
+            var qForSort = name?.Trim() ?? "";
+
+            var dtos = tenants.Select(t =>
+            {
+                double? dist = null;
+                if (userLat.HasValue && userLng.HasValue
+                    && t.Settings?.Latitude.HasValue == true && t.Settings?.Longitude.HasValue == true)
+                {
+                    dist = HaversineKm(userLat.Value, userLng.Value, t.Settings!.Latitude!.Value, t.Settings!.Longitude!.Value);
+                }
+                return MapToStoreDto(t, dist, khachLinkDomainMap, featureFlags);
+            }).ToList();
+
+            // Issue #166 ordering: Active first, then Pending; within each: relevance, then distance
+            dtos = dtos
+                .OrderByDescending(d => !d.IsPending) // Active (false→1) before Pending (true→0)
+                .ThenByDescending(d =>
+                    string.Equals(d.Name, qForSort, StringComparison.OrdinalIgnoreCase) ? 5
+                    : d.Name.StartsWith(qForSort, StringComparison.OrdinalIgnoreCase) ? 4
+                    : d.Name.Contains(qForSort, StringComparison.OrdinalIgnoreCase) ? 3
+                    : matchStrategy == "token" ? 2
+                    : matchStrategy == "prefix" ? 1
+                    : 0)
+                // W3-2c: fuzzy — order theo similarity score (non-fuzzy → all 0, no-op)
+                .ThenByDescending(d => fuzzyScores?.GetValueOrDefault(d.Id) ?? 0)
+                .ThenBy(d => d.DistanceKm ?? double.MaxValue) // closer first (if location provided)
+                .ThenBy(d => d.Name)
+                .ToList();
+
+            // Suggested keywords (chỉ khi không có direct match)
+            List<string> suggestedKeywords = new();
+            if (matchStrategy is "token" or "prefix" or "suggested")
+            {
+                var inputTokens = qForSort.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.ToLowerInvariant())
+                    .ToHashSet();
+
+                suggestedKeywords = tenants
+                    .SelectMany(t => t.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                    .Where(w => w.Length >= 3)
+                    .Select(w => w.ToLowerInvariant())
+                    .Where(w => !inputTokens.Contains(w))
+                    .Distinct()
+                    .Take(5)
+                    .ToList();
+            }
+
+            return new TenantSearchResultDto
+            {
+                Results = dtos,
+                SuggestedKeywords = suggestedKeywords,
+                MatchStrategy = matchStrategy,
+                DidYouMean = didYouMean
+            };
+        }
+
+        public async Task<Dictionary<Guid, TenantFeatureFlags>> GetFeatureFlagMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, TenantFeatureFlags>();
+
+            var idList = tenantIds.Distinct().ToList();
+            var idVos = idList.Select(id => new TenantId(id)).ToList();
+            var rows = await _dbContext.ShopFeatureSettings
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(s => idVos.Contains(s.TenantId))
+                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
+                .ToListAsync(ct);
+
+            return rows.ToDictionary(
+                r => r.Value,
+                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
+        }
+
+        public async Task<Dictionary<Guid, string>> GetKhachLinkDomainMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, string>();
+
+            var idList = tenantIds.Distinct().ToList();
+            return (await _dbContext.KhachLinkInstances
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(i => i.OwnerTenantId != null
+                    && idList.Contains(i.OwnerTenantId.Value)
+                    && i.IsActive
+                    && i.Profile != KhachLinkProfile.Directory)
+                .OrderBy(i => i.Profile) // FullCommerce=0, Reseller=4 — prefer FullCommerce
+                .ToListAsync(ct))
+                .GroupBy(i => i.OwnerTenantId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().CustomDomain);
+        }
+
+        private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,
+            Dictionary<Guid, string>? khachLinkDomainMap = null,
+            IReadOnlyDictionary<Guid, TenantFeatureFlags>? featureFlags = null)
+        {
+            var isPending = t.Status == TenantStatus.Pending;
+            // W3-1 (FR-V8): expose flagship toggles cho contextual entries — Pending ẩn hết.
+            var flags = featureFlags != null && featureFlags.TryGetValue(t.Id.Value, out var f) ? f : default;
+            return new()
+            {
+                Id = t.Id.Value,
+                Name = t.Name,
+                // Pending: hide address/phone/email per Luật 91/2025 Điều 16 — only show name
+                Address = isPending ? string.Empty : (t.Settings?.Address ?? string.Empty),
+                Phone = isPending ? string.Empty : (t.Settings?.ContactPhone ?? string.Empty),
+                Email = isPending ? string.Empty : (t.Settings?.ContactEmail ?? string.Empty),
+                Latitude = isPending ? null : t.Settings?.Latitude,
+                Longitude = isPending ? null : t.Settings?.Longitude,
+                DistanceKm = distanceKm,
+                Slug = t.Settings?.Slug,
+                SocialLinksFb = isPending ? null : t.Settings?.SocialLinksFb,
+                SocialLinksTiktok = isPending ? null : t.Settings?.SocialLinksTiktok,
+                BrandStory = isPending ? null : t.Settings?.BrandStory,
+                LogoUrl = isPending ? null : t.Settings?.LogoUrl,
+                Theme = t.Settings?.Theme ?? ThemeType.Classic,
+                NavColor = t.Settings?.NavColor,
+                HeaderColor = t.Settings?.HeaderColor,
+                FooterColor = t.Settings?.FooterColor,
+                // Pending: no KhachLink domain link (don't redirect to profile)
+                KhachLinkDomain = isPending ? null : khachLinkDomainMap?.GetValueOrDefault(t.Id.Value),
+                IsPending = isPending,
+                ClaimUrl = isPending && !string.IsNullOrEmpty(t.Settings?.Slug)
+                    ? $"/store/{t.Settings.Slug}/claim"
+                    : null,
+                // W3-1 (FR-V8): chỉ 2 bool public-safe — không lộ config khác.
+                AiChatEnabled = !isPending && flags.AiChatEnabled,
+                VoiceCallEnabled = !isPending && flags.VoiceCallEnabled
+            };
+        }
+
+        private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
+        {
+            const double R = 6371.0; // Earth radius km
+            double dLat = (lat2 - lat1) * Math.PI / 180.0;
+            double dLng = (lng2 - lng1) * Math.PI / 180.0;
+            double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                       Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                       Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+
+        // ── W3-2c: fuzzy search helpers (Pattern B — mobile-search-ux-pattern.md) ──
+
+        private const int FuzzyCandidateLimit = 500;
+        private const double FuzzyThreshold = 0.55;
+
+        /// <summary>Bỏ dấu tiếng Việt + lowercase + collapse spaces.
+        /// LƯU Ý: runtime prod bật System.Globalization.Invariant → Normalize(FormD) là NO-OP,
+        /// nên PHẢI fold thủ công qua bảng map — KHÔNG dùng FormD/CharUnicodeInfo.</summary>
+        private static readonly IReadOnlyDictionary<char, char> DiacriticFold = BuildDiacriticFold();
+
+        private static Dictionary<char, char> BuildDiacriticFold()
+        {
+            var map = new Dictionary<char, char>();
+            void Add(string accented, char basis)
+            {
+                foreach (var c in accented)
+                    map[c] = basis;
+                foreach (var c in accented.ToUpperInvariant())
+                    map[c] = basis;
+            }
+            Add("àáảãạăằắẳẵặâầấẩẫậ", 'a');
+            Add("èéẻẽẹêềếểễệ", 'e');
+            Add("ìíỉĩị", 'i');
+            Add("òóỏõọôồốổỗộơờớởỡợ", 'o');
+            Add("ùúủũụưừứửữự", 'u');
+            Add("ỳýỷỹỵ", 'y');
+            Add("đ", 'd');
+            // Latin-1 bổ sung — search robust cho tên không phải tiếng Việt.
+            Add("äå", 'a'); Add("ç", 'c'); Add("ë", 'e'); Add("îï", 'i'); Add("ñ", 'n');
+            Add("öø", 'o'); Add("üû", 'u'); Add("ÿ", 'y');
+            return map;
+        }
+
+        /// <summary>Public: normalize helper dùng chung cho mọi search surface (anti-drift).</summary>
+        public static string NormalizeSearchText(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+            var sb = new StringBuilder(s.Length);
+            foreach (var c in s)
+            {
+                var lower = char.ToLowerInvariant(c);
+                sb.Append(DiacriticFold.TryGetValue(lower, out var basis) ? basis : lower);
+            }
+            // null separator → split mọi whitespace (space/tab/newline), collapse về 1 space
+            return string.Join(' ', sb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        /// <summary>Similarity 0..1 = max(levenshtein ratio full-string, token Dice coefficient).</summary>
+        public static double SearchSimilarity(string qNorm, string nameNorm)
+        {
+            if (qNorm.Length == 0 || nameNorm.Length == 0) return 0;
+
+            var maxLen = Math.Max(qNorm.Length, nameNorm.Length);
+            var levRatio = 1.0 - (double)LevenshteinDistance(qNorm, nameNorm) / maxLen;
+
+            var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var nTokens = nameNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var intersection = qTokens.Count(nTokens.Contains);
+            var dice = qTokens.Count + nTokens.Count == 0
+                ? 0
+                : 2.0 * intersection / (qTokens.Count + nTokens.Count);
+
+            return Math.Max(levRatio, dice);
+        }
+
+        /// <summary>Levenshtein distance (DP, 2 rows) — strings ngắn nên đủ nhanh.</summary>
+        public static int LevenshteinDistance(string a, string b)
+        {
+            if (a.Length == 0) return b.Length;
+            if (b.Length == 0) return a.Length;
+            var prev = new int[b.Length + 1];
+            var curr = new int[b.Length + 1];
+            for (var j = 0; j <= b.Length; j++) prev[j] = j;
+            for (var i = 1; i <= a.Length; i++)
+            {
+                curr[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    curr[j] = Math.Min(Math.Min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+                }
+                (prev, curr) = (curr, prev);
+            }
+            return prev[b.Length];
+        }
+    }
+
+    public record TenantStoreDto
+    {
+        public Guid Id { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public string Address { get; init; } = string.Empty;
+        public string Phone { get; init; } = string.Empty;
+        public string Email { get; init; } = string.Empty;
+        public double? Latitude { get; init; }
+        public double? Longitude { get; init; }
+        /// <summary>Distance from user location (km). Null if user location not shared or store has no coordinates.</summary>
+        public double? DistanceKm { get; init; }
+        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+        public string? Slug { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
+        public string? LogoUrl { get; init; }
+        public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization colors.</summary>
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
+
+        /// <summary>Directory redirect: KhachLink instance CustomDomain for this tenant (if any).
+        /// Null = tenant has no KhachLink instance → "Tìm hiểu" button hidden.
+        /// Non-null = button redirects to https://{KhachLinkDomain}/store/{slug}</summary>
+        public string? KhachLinkDomain { get; init; }
+
+        /// <summary>Crawl-to-Onboard (2026-08-25, M3): True if tenant is Pending (crawled, not yet verified).
+        /// KhachLink hides commerce UI + shows Pending banner + Claim button when true.
+        /// SĐT section HIDDEN (Phone=null) per Luật 91/2025 Điều 16.</summary>
+        public bool IsPending { get; init; }
+
+        /// <summary>Crawl-to-Onboard (2026-08-25): URL to Claim form for Pending tenants.
+        /// Null for Active tenants. Format: /store/{slug}/claim</summary>
+        public string? ClaimUrl { get; init; }
+
+        /// <summary>W3-1 (FR-V8): tenant bật AI Chat — Directory/portal hiện entry "Hỏi AI".
+        /// Chỉ 2 bool public-safe; config khác không expose. Pending tenant → luôn false.</summary>
+        public bool AiChatEnabled { get; init; }
+        /// <summary>W3-1 (FR-V8): tenant bật voice call trong chat — entry "Gọi cửa hàng".</summary>
+        public bool VoiceCallEnabled { get; init; }
+    }
+
+    /// <summary>W3-1 (FR-V8): flagship feature flags per tenant — shared giữa TenantStore + Cooperatives + Catalog.</summary>
+    public readonly record struct TenantFeatureFlags(bool AiChatEnabled, bool VoiceCallEnabled);
+
+    /// <summary>
+    /// Issue #166 comment (2026-08-27): Search response wrapper with results + suggested keywords.
+    /// When MatchStrategy is "suggested"/"token"/"prefix", SuggestedKeywords contains distinct
+    /// words from matched tenant names that are similar to the input keyword (for "Did you mean...?" UI).
+    /// </summary>
+    public record TenantSearchResultDto
+    {
+        public List<TenantStoreDto> Results { get; init; } = new();
+        /// <summary>Suggested keywords extracted from tenant names when no direct match found.
+        /// Empty list when matchStrategy is "all" or "contains" (direct match — no suggestions needed).</summary>
+        public List<string> SuggestedKeywords { get; init; } = new();
+        /// <summary>How results were matched: "all" (no keyword) | "contains" | "token" | "prefix" | "fuzzy" | "suggested".
+        /// UI uses this to show "Không tìm thấy kết quả chính xác, gợi ý cho bạn:" message.</summary>
+        public string MatchStrategy { get; init; } = "all";
+        /// <summary>W3-2c (Pattern B): tên match tốt nhất khi strategy="fuzzy" và score chưa chắc —
+        /// UI hiển thị chip "Ý bạn là: X?". Null khi match exact/contains hoặc không có gợi ý.</summary>
+        public string? DidYouMean { get; init; }
+    }
+}

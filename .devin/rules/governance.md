@@ -142,6 +142,7 @@ Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity
 
 ## SUBSYSTEM RULES
 - **Metering "Phí nền tảng" (vanan-metering):** `.devin/rules/metering.md` — architecture, API contract, wallet/topup semantics, SQLite pitfalls. Mandatory read for any metering-related task.
+- **Public Search (anti-drift, W3-2d):** mọi search UI trên public surface (Directory/KhachLink/portal) PHẢI dùng `VanAn.UI.Platform.Components.Composite.VanAnPublicSearchBar` + `VanAnDidYouMeanChip`; mọi tenant/member search PHẢI đi qua `ITenantSearchService` (`2_Gateway/Services/TenantSearchService.cs`) hoặc endpoint `/api/tenants/search` — **CẤM** implement matcher/normalize/fuzzy riêng trong app hoặc controller. Pattern doc: `docs/design/mobile-search-ux-pattern.md`.
 
 ## VOUCHER PLATFORM (Task PH — BẮT BUỘC cho mọi phiếu chứng từ mới)
 

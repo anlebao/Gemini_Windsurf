@@ -1143,6 +1143,10 @@ namespace VanAn.Gateway
 
             _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
 
+            // W3-2d: public tenant-read single source (search/nearby/store-info/by-slug + flag/domain maps)
+
+            _ = builder.Services.AddScoped<VanAn.Gateway.Services.ITenantSearchService, VanAn.Gateway.Services.TenantSearchService>();
+
 
 
             // Register Onboarding Service

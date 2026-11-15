@@ -45,10 +45,21 @@ contains/exact — tránh noise).
 
 ## 4. Áp dụng cho instance khác — checklist
 
-- [ ] **timlathay.com (Directory, Blazor Server)** — DONE 2026-11-15 (`Home.razor` + `TenantStoreController.Search`)
+**Single-source (W3-2d, anti-drift):**
+- Search UI: `VanAn.UI.Platform.Components.Composite.VanAnPublicSearchBar` +
+  `VanAnDidYouMeanChip` — KHÔNG copy markup. `VanAnSearchBar` (admin) là component khác,
+  dành cho ShopERP nội bộ — không dùng cho public surface.
+- Search backend: `ITenantSearchService` (`2_Gateway/Services/TenantSearchService.cs`) —
+  chứa toàn bộ matching levels + normalize/fuzzy helpers + batch flag/domain maps.
+  Controller chỉ HTTP-wrap. Member-scope/portal search mới → mở rộng service này.
+- Governance rule: `.devin/rules/governance.md` §SUBSYSTEM RULES — CẤM matcher riêng.
+
+- [ ] **timlathay.com (Directory, Blazor Server)** — DONE 2026-11-15 (`Home.razor` dùng
+      `VanAnPublicSearchBar`/`VanAnDidYouMeanChip`; backend `TenantSearchService`)
 - [ ] **KhachLink WASM instances** (hoptacxa/vanan/commienphi/diemthuong2): search surface là
       `Pages/StoreFinder.razor` + `Pages/Home.razor` (semantic search bar) — port cùng rules;
-      voice input `vananVoiceInput` đã có sẵn trên WASM.
+      voice input `vananVoiceInput` đã có sẵn trên WASM. Tenant-search trên WASM gọi
+      `/api/tenants/search` (đã có fuzzy+DidYouMean sẵn — chỉ cần UI consume).
 - [ ] Mỗi instance: verify Enter-key submit + keyboard không che nút search ở 375px.
 - [ ] E2E: layout change → spec mới theo Gate 4.
 
@@ -61,4 +72,5 @@ contains/exact — tránh noise).
 - Fuzzy quét bounded candidates (≤500) — đủ cho quy mô directory hiện tại; nếu tenant > ~2k
   thì chuyển sang `pg_trgm` sau.
 - `DidYouMean` là additive field — client cũ bỏ qua an toàn.
-- Giữ nguyên match order hiện có (contains→token→prefix) — fuzzy CHỈ chạy khi các level trên fail.
+- Level 1 giữ `ILIKE` gốc (accent-sensitive, exact substring nhanh); Level 2-4 chạy
+  normalized in-memory (contains→token→fuzzy) trên ≤500 candidates — level nhỏ nhất thắng.

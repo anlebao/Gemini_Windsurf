@@ -33,39 +33,19 @@
                     </button>
                 </div>
             </div>
-            @* W3-2c (Pattern A): input size thường + enterkeyhint=search; nút Tìm kiếm nằm
-               TRONG input-group → không bị bàn phím ảo che, tầm tay cái ngay. *@
-            <div class="input-group">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-primary"></i>
-                </span>
-                <input type="text" class="form-control border-start-0 border-end-0 dir-search-input"
-                       @bind="_searchKeyword"
-                       @bind:event="oninput"
-                       @onkeyup="OnSearchKeyUp"
-                       enterkeyhint="search"
-                       placeholder="@(_listening ? "Đang nghe..." : (_searchMode == "product" ? "Tên sản phẩm, dịch vụ..." : "Tên cửa hàng, sản phẩm..."))"
-                       aria-label="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")" />
-                @* SF-W3 (2026-11-08): voice input — nói thay vì gõ (vananVoiceInput, browser-gated). *@
-                @if (_speechSupported)
-                {
-                    <button type="button" class="btn btn-outline-primary @(_listening ? "text-danger" : "")"
-                            @onclick="ToggleVoiceAsync" disabled="@_loading"
-                            title="@(_listening ? "Dừng nói" : "Nói để tìm kiếm")"
-                            aria-label="Tìm kiếm bằng giọng nói">
-                        <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
-                    </button>
-                }
-                @if (!string.IsNullOrWhiteSpace(_searchKeyword))
-                {
-                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch" aria-label="Xóa từ khóa">
-                        <i class="bi bi-x-circle"></i>
-                    </button>
-                }
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStores">
-                    <i class="bi bi-search"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
-                </VanAnButton>
-            </div>
+            @* W3-2d: VanAnPublicSearchBar (UI.Platform) — Pattern A mobile-first.
+               Nút search trong input-group, enterkeyhint=search, icon mic/clear. *@
+            <VanAnPublicSearchBar @bind-Value="_searchKeyword"
+                                  Placeholder="@(_listening ? "Đang nghe..." : (_searchMode == "product" ? "Tên sản phẩm, dịch vụ..." : "Tên cửa hàng, sản phẩm..."))"
+                                  AriaLabel="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")"
+                                  InputCssClass="dir-search-input"
+                                  SearchText="Tìm kiếm"
+                                  Loading="_loading"
+                                  ShowVoiceButton="_speechSupported"
+                                  IsListening="_listening"
+                                  OnVoiceToggle="ToggleVoiceAsync"
+                                  OnSearch="SearchStores"
+                                  OnCleared="ClearSearch" />
             @if (_listening)
             {
                 <div class="text-danger small mt-2">
@@ -92,14 +72,8 @@
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_pendingAlert" CssClass="mb-3" />
         }
 
-        @* W3-2c (Pattern B): fuzzy match → "Ý bạn là: X?" chip 1-tap *@
-        @if (!string.IsNullOrEmpty(_didYouMean))
-        {
-            <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3">
-                <i class="bi bi-search me-1"></i> Ý bạn là:
-                <button class="btn btn-sm btn-primary ms-1" @onclick="@(() => SearchWithKeyword(_didYouMean))">@_didYouMean</button> ?
-            </VanAnAlert>
-        }
+        @* W3-2d (Pattern B): fuzzy match → "Ý bạn là: X?" chip 1-tap (VanAnDidYouMeanChip) *@
+        <VanAnDidYouMeanChip Suggestion="_didYouMean" OnApply="SearchWithKeyword" />
 
         <!-- Issue #166 comment: Suggested keywords when no direct match -->
         @if (_hasSearched && !_loading && _suggestedKeywords.Count > 0)
@@ -536,12 +510,6 @@
                 System.Text.Json.JsonSerializer.Serialize(_recentKeywords));
         }
         catch { /* non-critical */ }
-    }
-
-    private async Task OnSearchKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-            await SearchStores();
     }
 
     private void ClearSearch()

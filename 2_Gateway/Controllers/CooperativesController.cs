@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.Gateway.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.MembershipAggregate;
@@ -25,9 +26,11 @@ namespace VanAn.Gateway.Controllers
     [EnableRateLimiting("cooperatives-public")]
     public class CooperativesController(
         IVanAnDbContext dbContext,
+        ITenantSearchService tenantSearch,
         ILogger<CooperativesController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly ITenantSearchService _tenantSearch = tenantSearch;
         private readonly ILogger<CooperativesController> _logger = logger;
 
         /// <summary>List HTX đang active + member-shop count (portal landing).</summary>
@@ -70,9 +73,9 @@ namespace VanAn.Gateway.Controllers
                 .Select(t => new { t.Id.Value, t.Name, Slug = t.Settings.Slug, LogoUrl = t.Settings.LogoUrl })
                 .ToDictionaryAsync(t => t.Value, ct);
 
-            var domainMap = await BuildKhachLinkDomainMapAsync(memberTenantIdGuids, ct);
+            var domainMap = await _tenantSearch.GetKhachLinkDomainMapAsync(memberTenantIdGuids, ct);
             // W3-1 (FR-V8): flagship toggles per member tenant — batch 1 query.
-            var featureFlags = await BuildFeatureFlagMapAsync(memberTenantIdGuids, ct);
+            var featureFlags = await _tenantSearch.GetFeatureFlagMapAsync(memberTenantIdGuids, ct);
 
             return Ok(members
                 .Where(m => tenants.ContainsKey(m.MemberTenantId!.Value))
@@ -133,10 +136,10 @@ namespace VanAn.Gateway.Controllers
 
             var htxIdVos = htxRows.Select(h => h.HtxTenantIdVo).ToList();
             var memberCounts = await GetMemberShopCountsAsync(htxIdVos, ct);
-            var domainMap = await BuildKhachLinkDomainMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
+            var domainMap = await _tenantSearch.GetKhachLinkDomainMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
             // W3-2b: HTX tenant tự nó cũng là storefront (vd Vạn An Trading → commienphi) —
             // cần flagship flags để portal render Hỏi AI/Gọi trên self card.
-            var featureFlags = await BuildFeatureFlagMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
+            var featureFlags = await _tenantSearch.GetFeatureFlagMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
 
             return htxRows.Select(h =>
             {
@@ -197,44 +200,6 @@ namespace VanAn.Gateway.Controllers
             return rows.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
         }
 
-        /// <summary>
-        /// W3-1 (FR-V8): batch ShopFeatureSettings lookup — chỉ AIChat + VoiceCall,
-        /// 1 query cho toàn bộ member tenants (không N+1). Tenant thiếu row → false.
-        /// </summary>
-        private async Task<Dictionary<Guid, TenantFeatureFlags>> BuildFeatureFlagMapAsync(List<Guid> tenantIds, CancellationToken ct)
-        {
-            if (tenantIds.Count == 0)
-                return new Dictionary<Guid, TenantFeatureFlags>();
-
-            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
-            var rows = await _dbContext.ShopFeatureSettings
-                .IgnoreQueryFilters().AsNoTracking()
-                .Where(s => idVos.Contains(s.TenantId))
-                .Select(s => new { s.TenantId.Value, s.AIChat_Enabled, s.Voice_Call_Enabled })
-                .ToListAsync(ct);
-
-            return rows.ToDictionary(
-                r => r.Value,
-                r => new TenantFeatureFlags(r.AIChat_Enabled, r.Voice_Call_Enabled));
-        }
-
-        /// <summary>TenantId → KhachLink CustomDomain (active non-Directory instance, prefer FullCommerce) — pattern TenantStoreController.</summary>
-        private async Task<Dictionary<Guid, string>> BuildKhachLinkDomainMapAsync(List<Guid> tenantIds, CancellationToken ct)
-        {
-            if (tenantIds.Count == 0)
-                return new Dictionary<Guid, string>();
-
-            return (await _dbContext.KhachLinkInstances
-                .IgnoreQueryFilters().AsNoTracking()
-                .Where(i => i.OwnerTenantId != null
-                    && tenantIds.Contains(i.OwnerTenantId.Value)
-                    && i.IsActive
-                    && i.Profile != KhachLinkProfile.Directory)
-                .OrderBy(i => i.Profile)
-                .ToListAsync(ct))
-                .GroupBy(i => i.OwnerTenantId!.Value)
-                .ToDictionary(g => g.Key, g => g.First().CustomDomain);
-        }
     }
 
     // ── DTOs ──────────────────────────────────────────────────────────────
