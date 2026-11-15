@@ -5,6 +5,8 @@
 @inject KhachLinkHomeSettingsHttpService HomeSettingsService
 @inject VanAn.KhachLink.Services.InstanceContextService InstanceContext
 @inject NotificationHttpService NotificationHttp
+@inject ITenantService TenantService
+@inject ShopConfigHttpService ShopConfigService
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 @inherits LayoutComponentBase
@@ -23,6 +25,7 @@
 else
 {
 <CascadingValue Value="_navFlags" Name="NavFlags">
+<CascadingValue Value="_branding" Name="Branding">
 <div class="khachlink-app-layout">
     <!-- Mobile-friendly header -->
     <header class="khachlink-app-header">
@@ -82,6 +85,7 @@ else
         </div>
     }
 </div>
+</CascadingValue>
 </CascadingValue>
 }
 
@@ -149,6 +153,11 @@ else
         height: calc(100vh - 56px);
         overflow-y: auto;
     }
+    /* W3-3 Option A: icon-rail trên tablet/small-desktop (768–1199px) —
+       NavMenu collapse labels, sidebar thu còn icon-only. */
+    @@media (min-width: 768px) and (max-width: 1199px) {
+        .khachlink-sidebar { width: 76px; }
+    }
     .khachlink-app-main {
         flex: 1;
         padding: 1rem;
@@ -202,6 +211,9 @@ else
     // If instance is disabled, show "Instance tạm ngưng" page instead of @Body.
     private bool _isInstanceDisabled;
     private KhachLinkNavFlagsDto _navFlags = new(); // default: all true (FullCommerce fallback)
+    /// <summary>W3-3 Option A: branding cho sidebar — ShopName (ShopConfig) + LogoUrl (instance override → ShopConfig).</summary>
+    private KhachLinkBrandingDto _branding = new();
+    private KhachLinkInstanceConfig? _instanceStyle;
 
     // Notification Hub (2026-10-15): badge số thông báo chưa đọc (khách).
     private string? _customerToken;
@@ -223,11 +235,29 @@ else
                     return; // Skip rest of init — disabled page will render
                 }
                 _navFlags = instanceConfig.NavFlags;
+                _instanceStyle = instanceConfig;
             }
         }
         catch (Exception ex)
         {
             System.Console.WriteLine($"[MainLayout] Instance config fetch failed: {ex.Message}");
+        }
+
+        // W3-3 Option A: build sidebar branding — ShopName từ ShopConfig của tenant,
+        // LogoUrl ưu tiên instance override rồi ShopConfig. Fail-safe → defaults.
+        try
+        {
+            var tenantId = TenantService.GetCurrentTenantId();
+            var shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
+            _branding = new KhachLinkBrandingDto
+            {
+                ShopName = string.IsNullOrWhiteSpace(shopConfig?.ShopName) ? "Vạn An KhachLink" : shopConfig.ShopName,
+                LogoUrl = _instanceStyle?.LogoUrl ?? shopConfig?.LogoUrl?.ToString()
+            };
+        }
+        catch
+        {
+            // Branding là enhancement — giữ defaults, không chặn layout.
         }
 
         // Fetch home settings (nav menu toggle)

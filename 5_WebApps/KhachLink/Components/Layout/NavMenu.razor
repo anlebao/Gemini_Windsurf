@@ -14,7 +14,14 @@
 <div class="nav-desktop d-none d-md-block">
     <VanAnCard CssClass="nav-menu-card" Shadow="false">
         <div class="nav-header">
-            <a class="nav-brand" href="/">Vạn An KhachLink</a>
+            <a class="nav-brand" href="/">
+                @* W3-3 Option A: tenant branding — logo + shop name thay "Vạn An KhachLink" hardcode *@
+                @if (!string.IsNullOrEmpty(_branding?.LogoUrl))
+                {
+                    <img src="@_branding.LogoUrl" alt="" class="nav-brand-logo" />
+                }
+                <span class="nav-brand-name">@(_branding?.ShopName ?? "Vạn An KhachLink")</span>
+            </a>
         </div>
         <nav class="nav-scrollable">
             @if (_navFlags.ShowHome)
@@ -29,7 +36,8 @@
             @* === Mua sắm group === *@
             @if (_navFlags.ShowCart || _navFlags.ShowOrders || _navFlags.ShowStores || _navFlags.ShowCampaigns)
             {
-                <details class="nav-group">
+                @* W3-3 Option A: group chứa trang active tự expand (open attr theo URI) *@
+                <details class="nav-group" open="@OpenAttr("/cart", "/my-orders", "/stores", "/campaigns")">
                     <summary class="nav-group-summary">
                         <span class="bi bi-bag-fill me-2" aria-hidden="true"></span> Mua sắm
                         <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
@@ -74,7 +82,7 @@
             @* === Tích điểm group === *@
             @if (_navFlags.ShowLoyaltyHistory || _navFlags.ShowMissions || _navFlags.ShowRewards || (_navFlags.ShowAllianceWallet && _isAllianceMode))
             {
-                <details class="nav-group">
+                <details class="nav-group" open="@OpenAttr("/my-loyalty", "/missions", "/rewards", "/alliance-wallet")">
                     <summary class="nav-group-summary">
                         <span class="bi bi-award-fill me-2" aria-hidden="true"></span> Tích điểm
                         <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
@@ -119,7 +127,7 @@
             @* === Tiện ích group === *@
             @if (_navFlags.ShowScan || _navFlags.ShowQrClaim)
             {
-                <details class="nav-group">
+                <details class="nav-group" open="@OpenAttr("/scan", "/qr/wallet", "/qr/claim")">
                     <summary class="nav-group-summary">
                         <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Tiện ích
                         <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
@@ -148,7 +156,7 @@
             @* === Cộng tác viên group === *@
             @if (_navFlags.ShowCommunity && (_isShipper || _isShopOwner || _isSalesman))
             {
-                <details class="nav-group">
+                <details class="nav-group" open="@OpenAttr("/community")">
                     <summary class="nav-group-summary">
                         <span class="bi bi-people-fill me-2" aria-hidden="true"></span> Cộng tác viên
                         <span class="bi bi-chevron-down nav-group-chevron ms-auto" aria-hidden="true"></span>
@@ -461,6 +469,54 @@
     .nav-more-item i { font-size: 1.2rem; color: #8B4513; width: 24px; text-align: center; }
     .nav-more-item:active { background: #f5f5f5; }
     button.mobile-tab-item { background: none; border: none; }
+
+    /* ===== W3-3 Option A: storefront-grade sidebar polish ===== */
+    /* Brand: logo + tenant name */
+    .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .nav-brand-logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #fff;
+        flex-shrink: 0;
+    }
+    .nav-brand-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    /* Active link: pill đậm hơn + accent bar theo --shop-primary (tenant brand) */
+    .nav-link.active {
+        background: rgba(255, 255, 255, 0.16);
+        font-weight: 600;
+        box-shadow: inset 3px 0 0 var(--shop-primary, #8B4513);
+    }
+    /* Group summary: section-label feel */
+    .nav-group-summary { letter-spacing: 0.02em; }
+
+    /* Icon-rail 768–1199px: ẩn text label (font-size:0 trick — text node không
+       target được bằng CSS), giữ icon .bi; width do MainLayout .khachlink-sidebar set. */
+    @@media (min-width: 768px) and (max-width: 1199px) {
+        .nav-desktop .nav-header { text-align: center; padding: 0.75rem 0.25rem; }
+        .nav-desktop .nav-brand { justify-content: center; }
+        .nav-desktop .nav-brand-name { display: none; }
+        .nav-desktop .nav-link,
+        .nav-desktop .nav-group-summary { font-size: 0; }
+        .nav-desktop .nav-link .bi,
+        .nav-desktop .nav-group-summary .bi { font-size: 1rem; }
+        .nav-desktop .nav-group-chevron { display: none; }
+        .nav-desktop .nav-item { padding: 0.35rem 0.25rem; }
+        .nav-desktop .nav-link { justify-content: center; padding: 0.5rem 0.25rem; }
+        .nav-desktop .nav-group-children { padding-left: 0.25rem; }
+        .nav-desktop .nav-group-children .nav-item { padding: 0.2rem 0.25rem; }
+        .nav-desktop .nav-group-children .nav-link { justify-content: center; font-size: 0; }
+        .nav-desktop .nav-group-children .nav-link .bi { font-size: 0.95rem; }
+    }
 </style>
 
 @code {
@@ -468,6 +524,10 @@
     // Default all true (FullCommerce fallback) — when feature flag OFF, layout never overrides.
     [CascadingParameter(Name = "NavFlags")]
     private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
+    /// <summary>W3-3 Option A: branding cascade từ MainLayout (shop name + logo).</summary>
+    [CascadingParameter(Name = "Branding")]
+    private KhachLinkBrandingDto? _branding { get; set; }
 
     /// <summary>"all" | "sidebar" | "mobile" — xem comment đầu file.</summary>
     [Parameter] public string Variant { get; set; } = "all";
@@ -538,13 +598,22 @@
 
     private string IsActive(params string[] paths)
     {
+        return GroupIsActive(paths) ? "tab-active" : "";
+    }
+
+    /// <summary>W3-3 Option A: group chứa trang active → details render sẵn open.</summary>
+    private string? OpenAttr(params string[] paths)
+        => GroupIsActive(paths) ? "" : null;
+
+    private bool GroupIsActive(params string[] paths)
+    {
         var currentUri = Navigation.Uri;
         foreach (var path in paths)
         {
             var absoluteUri = Navigation.ToAbsoluteUri(path).ToString();
             if (currentUri == absoluteUri || currentUri.StartsWith(absoluteUri.TrimEnd('/') + "/"))
-                return "tab-active";
+                return true;
         }
-        return "";
+        return false;
     }
 }
