@@ -857,6 +857,10 @@ namespace VanAn.Shared.Domain
         // Device tracking for anonymous customer identification
         public Guid? DeviceId { get; protected set; }
 
+        // ATRS-3 (2026-11-15, D3): TokenVersion — customer token (IDataProtector) chứa
+        // version; /me từ chối token cũ khi version đã bump (recovery/dispute security).
+        public int TokenVersion { get; protected set; }
+
         // Navigation Properties
         public virtual ICollection<Order> Orders { get; } = new Collection<Order>();
         // Loyalty Points Integrity (Batch 2): 1:N — a customer holds ONE Silo row PER awarding tenant
@@ -907,6 +911,16 @@ namespace VanAn.Shared.Domain
         {
             if (IdentityLevel > IdentityLevel.Social) return;
             IdentityLevel = IdentityLevel.Guest;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// ATRS-3 (D3): bump token version — mọi customer token cũ (version cũ hơn) bị từ chối tại /me.
+        /// Gọi khi recovery COMPLETED hoặc security event yêu cầu revoke.
+        /// </summary>
+        public void BumpTokenVersion()
+        {
+            TokenVersion++;
             UpdateAudit();
         }
 

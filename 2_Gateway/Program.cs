@@ -893,6 +893,31 @@ namespace VanAn.Gateway
 
                     };
 
+                    // ATRS-3 (D3): token version check — claim `tv` so với version hiện tại (PG).
+                    // Lệch → token đã bị revoke (recovery COMPLETED/security event) → 401.
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = async context =>
+                        {
+                            var sub = context.Principal?.FindFirst("sub")?.Value;
+                            if (Guid.TryParse(sub, out var userId) && userId != Guid.Empty)
+                            {
+                                var versionService = context.HttpContext.RequestServices
+                                    .GetRequiredService<VanAn.Gateway.Services.ITokenVersionService>();
+                                var version = await versionService.GetVersionAsync(userId, context.HttpContext.RequestAborted);
+                                if (version.HasValue)
+                                {
+                                    var tv = int.TryParse(context.Principal?.FindFirst("tv")?.Value, out var v) ? v : 0;
+                                    if (tv != version.Value)
+                                    {
+                                        context.Fail("Token version mismatch — token đã bị thu hồi.");
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    };
+
                 });
 
 
@@ -1406,6 +1431,9 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<IAudioStorageService, AudioStorageService>();
 
             _ = builder.Services.AddMemoryCache();
+
+            // ATRS-3 (D3): token version service — revoke token cũ qua claim tv
+            _ = builder.Services.AddScoped<VanAn.Gateway.Services.ITokenVersionService, VanAn.Gateway.Services.TokenVersionService>();
 
             _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 

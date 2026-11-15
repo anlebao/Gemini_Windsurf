@@ -65,7 +65,7 @@ public class UserManagementPageTests : ComponentTestBase
         Services.AddSingleton<AuthenticationStateProvider, SysAdminAuthProvider>();
 
         var jwt = new Mock<IJwtTokenService>();
-        jwt.Setup(j => j.GenerateToken(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<IEnumerable<Claim>?>()))
+        jwt.Setup(j => j.GenerateToken(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<IEnumerable<Claim>?>(), It.IsAny<int?>()))
            .Returns("test-jwt");
         Services.AddSingleton(jwt.Object);
 

@@ -37,7 +37,8 @@ public class JwtTokenService : IJwtTokenService
         string email,
         UserRole role,
         Guid tenantId,
-        IEnumerable<Claim>? additionalClaims = null)
+        IEnumerable<Claim>? additionalClaims = null,
+        int? tokenVersion = null)
     {
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -52,6 +53,11 @@ public class JwtTokenService : IJwtTokenService
             // standard role claim compatible with RequireRole() policies
             new(ClaimTypes.Role, role.ToString()),
         };
+
+        // ATRS-3 (2026-11-15, D3): token version claim — validator so sánh với version
+        // hiện tại của user; missing tv = version 0 (system tokens / legacy).
+        if (tokenVersion.HasValue)
+            claims.Add(new Claim("tv", tokenVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
         if (additionalClaims != null)
             claims.AddRange(additionalClaims);
@@ -76,7 +82,8 @@ public class JwtTokenService : IJwtTokenService
         string email,
         string role,
         Guid tenantId,
-        IEnumerable<Claim>? additionalClaims = null)
+        IEnumerable<Claim>? additionalClaims = null,
+        int? tokenVersion = null)
     {
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -91,6 +98,10 @@ public class JwtTokenService : IJwtTokenService
             // standard role claim compatible with RequireRole() policies
             new(ClaimTypes.Role, role),
         };
+
+        // ATRS-3 (D3): token version claim (additive — system tokens không có claim này).
+        if (tokenVersion.HasValue)
+            claims.Add(new Claim("tv", tokenVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
         if (additionalClaims != null)
             claims.AddRange(additionalClaims);

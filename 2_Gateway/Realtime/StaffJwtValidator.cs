@@ -1,6 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using VanAn.Gateway.Services;
 
 namespace VanAn.Gateway.Realtime;
 
@@ -14,27 +16,28 @@ namespace VanAn.Gateway.Realtime;
 /// Transport: query string <c>access_token</c> (the SignalR convention for WebSocket handshakes),
 /// then the <c>Authorization: Bearer</c> header.
 ///
-/// Staff identity is the JWT <c>sub</c> claim. No authorizer is registered for staff-only subjects
-/// yet, so a staff token is accepted but still denied access by the default-deny authorizer lookup —
-/// this validator exists so a future Shop/staff subject can plug in without touching the hub.
+/// ATRS-3 (D3): kiểm tra claim `tv` so với version hiện tại (TokenVersionService) — token đã
+/// revoke (recovery COMPLETED / security event) bị từ chối kể cả qua SignalR.
 /// </summary>
 public class StaffJwtValidator(
     IConfiguration configuration,
+    ITokenVersionService tokenVersionService,
     ILogger<StaffJwtValidator> logger) : IRealtimeTokenValidator
 {
     private const string QueryKey = "access_token";
     private const string HeaderKey = "Authorization";
 
     private readonly IConfiguration _configuration = configuration;
+    private readonly ITokenVersionService _tokenVersionService = tokenVersionService;
     private readonly ILogger<StaffJwtValidator> _logger = logger;
 
     public string Name => "StaffJwt";
 
-    public Task<RealtimeIdentity?> ValidateAsync(HttpContext httpContext, CancellationToken ct = default)
+    public async Task<RealtimeIdentity?> ValidateAsync(HttpContext httpContext, CancellationToken ct = default)
     {
         var token = RealtimeRequestReader.ReadCredential(httpContext, QueryKey, HeaderKey);
         if (string.IsNullOrEmpty(token))
-            return Task.FromResult<RealtimeIdentity?>(null);
+            return null;
 
         // The header carries the scheme ("Bearer <jwt>"), the query string does not.
         if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -42,7 +45,7 @@ public class StaffJwtValidator(
 
         var secret = _configuration["Jwt:Secret"];
         if (string.IsNullOrEmpty(secret))
-            return Task.FromResult<RealtimeIdentity?>(null);
+            return null;
 
         try
         {
@@ -58,15 +61,27 @@ public class StaffJwtValidator(
                 ValidAudience = _configuration["Jwt:Audience"] ?? "VanAnApi",
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero,
-                RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+                RoleClaimType = ClaimTypes.Role,
                 NameClaimType = "sub"
             }, out _);
 
             var sub = principal.FindFirst("sub")?.Value
-                ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (Guid.TryParse(sub, out var userId) && userId != Guid.Empty)
             {
+                // ATRS-3 (D3): token version check — lệch → token đã bị thu hồi.
+                var version = await _tokenVersionService.GetVersionAsync(userId, ct);
+                if (version.HasValue)
+                {
+                    var tv = int.TryParse(principal.FindFirst("tv")?.Value, out var v) ? v : 0;
+                    if (tv != version.Value)
+                    {
+                        _logger.LogDebug("StaffJwtValidator: token version mismatch for {UserId} (tv={Tv}, expected={Expected})", userId, tv, version.Value);
+                        return null;
+                    }
+                }
+
                 // P5: the staff JWT carries tenant_id (see JwtTokenService) — the shop side of a
                 // Shop conversation is a tenant, so the identity carries it for the authorizer.
                 Guid? tenantId = null;
@@ -75,16 +90,16 @@ public class StaffJwtValidator(
                 if (Guid.TryParse(tenantClaim, out var tid) && tid != Guid.Empty)
                     tenantId = tid;
 
-                return Task.FromResult<RealtimeIdentity?>(new RealtimeIdentity(userId, RealtimeIdentityKind.Staff, tenantId));
+                return new RealtimeIdentity(userId, RealtimeIdentityKind.Staff, tenantId);
             }
 
             _logger.LogDebug("StaffJwtValidator: token has no usable sub claim ({Sub})", sub);
-            return Task.FromResult<RealtimeIdentity?>(null);
+            return null;
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "StaffJwtValidator: bearer token rejected");
-            return Task.FromResult<RealtimeIdentity?>(null);
+            return null;
         }
     }
 }

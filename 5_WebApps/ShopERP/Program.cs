@@ -717,6 +717,8 @@ namespace VanAn.ShopERP
             });
             _ = builder.Services.AddScoped<VanAn.Shared.Services.ILoyaltyModeResolver, VanAn.ShopERP.Services.LoyaltyModeResolverHttpProxy>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IAllianceWalletService, VanAn.ShopERP.Services.AllianceWalletServiceHttpProxy>();
+            // ATRS-3 (D3): token version client — login đọc version từ Gateway (PG) cho claim tv
+            _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ITokenVersionApiClient, VanAn.ShopERP.Services.TokenVersionApiClient>();
             // Loyalty Consistency Fix Phase 2: shared balance-read helper (mode-aware)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.LoyaltyReadRouter>();
 

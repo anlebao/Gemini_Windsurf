@@ -160,7 +160,7 @@ public class RealtimeGatewayP3Tests
         config.Setup(c => c["Jwt:Issuer"]).Returns("VanAnShopERP");
         config.Setup(c => c["Jwt:Audience"]).Returns("VanAnApi");
 
-        var validator = new StaffJwtValidator(config.Object, NullLogger<StaffJwtValidator>.Instance);
+        var validator = new StaffJwtValidator(config.Object, new NoVersionTokenVersionService(), NullLogger<StaffJwtValidator>.Instance);
 
         // No credential at all.
         Assert.Null(await validator.ValidateAsync(new DefaultHttpContext()));
@@ -263,4 +263,12 @@ public class RealtimeGatewayP3Tests
             }
         }
     }
+}
+
+
+/// <summary>ATRS-3: stub trả null version → StaffJwtValidator bỏ qua check (test cũ không enforce).</summary>
+internal sealed class NoVersionTokenVersionService : VanAn.Gateway.Services.ITokenVersionService
+{
+    public Task<int?> GetVersionAsync(Guid userId, CancellationToken ct = default) => Task.FromResult<int?>(null);
+    public Task InvalidateAsync(Guid userId) => Task.CompletedTask;
 }

@@ -64,7 +64,7 @@ public class ReconcilePageTests : ComponentTestBase
         factory.Setup(f => f.CreateClient("GatewayClient")).Returns(http);
         var config = new ConfigurationBuilder().Build();
         var jwt = new Mock<IJwtTokenService>();
-        jwt.Setup(j => j.GenerateToken(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<IEnumerable<System.Security.Claims.Claim>?>()))
+        jwt.Setup(j => j.GenerateToken(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<IEnumerable<System.Security.Claims.Claim>?>(), It.IsAny<int?>()))
             .Returns(jwtToken!);
         var auth = new TestAuthenticationStateProvider();
         auth.SetRoles("SystemAdmin");

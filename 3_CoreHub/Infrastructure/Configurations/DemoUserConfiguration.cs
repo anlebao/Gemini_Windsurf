@@ -54,6 +54,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.MfaEnabled);
             _ = builder.Property(e => e.TrustedDeviceHash).HasMaxLength(128);
 
+            // ATRS-3 (2026-11-15): TokenVersion — token revocation (additive int)
+            _ = builder.Property(e => e.TokenVersion);
+
             // Enum conversion for UserRole
             _ = builder.Property(e => e.Role)
                 .HasConversion<int>();

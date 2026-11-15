@@ -55,6 +55,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             _ = builder.Property(e => e.DeviceId);
 
+            // ATRS-3 (2026-11-15): TokenVersion — token revocation (additive int)
+            _ = builder.Property(e => e.TokenVersion);
+
             // TenantId converter
             _ = builder.Property(e => e.TenantId)
                 .IsRequired();

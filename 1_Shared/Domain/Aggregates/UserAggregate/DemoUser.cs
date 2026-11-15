@@ -30,6 +30,11 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
         public string? MfaSecret { get; private set; }   // TOTP secret — EF encrypt at rest
         public string? TrustedDeviceHash { get; private set; } // SHA-256 token hash — 1 device MVP
 
+        // ── ATRS-3 (2026-11-15, user duyệt D3): TokenVersion — revoke mọi JWT cũ ─
+        // Claim `tv` trong JWT; validator so với version hiện tại. Bump khi:
+        // recovery COMPLETED · đổi password/MFA · revoke device · break-glass.
+        public int TokenVersion { get; private set; }
+
         // EF Core requires parameterless constructor
         private DemoUser() { }
 
@@ -206,6 +211,16 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
         public void ClearTrustedDevice()
         {
             TrustedDeviceHash = null;
+        }
+
+        /// <summary>
+        /// ATRS-3 (D3): bump token version — mọi JWT cũ (claim tv < version) bị từ chối.
+        /// Gọi khi recovery COMPLETED, đổi password/MFA, revoke device, break-glass.
+        /// </summary>
+        public void BumpTokenVersion()
+        {
+            TokenVersion++;
+            UpdateAudit();
         }
 
         private static string NormalizePhone(string phone)

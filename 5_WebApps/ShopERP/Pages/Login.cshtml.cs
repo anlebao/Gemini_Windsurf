@@ -27,12 +27,14 @@ namespace VanAn.ShopERP.Pages
         IAntiforgery antiforgery,
         IVanAnDbContext dbContext,
         IJwtTokenService jwtTokenService,
-        IMfaService mfaService) : PageModel
+        IMfaService mfaService,
+        ITokenVersionApiClient tokenVersionApiClient) : PageModel
     {
         private readonly IAntiforgery _antiforgery = antiforgery;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
         private readonly IMfaService _mfaService = mfaService;
+        private readonly ITokenVersionApiClient _tokenVersionApiClient = tokenVersionApiClient;
 
         // MFA-1 (2026-11-10): tên cookie trusted device + config
         public const string TrustedMfaCookie = "va_mfa_trust";
@@ -225,11 +227,14 @@ namespace VanAn.ShopERP.Pages
         private async Task<IActionResult> SignInUserAsync(DemoUser user, Guid tenantId, bool rememberMe)
         {
             // Issue JWT token with full claims
+            // ATRS-3 (D3): tv claim từ Gateway (PG — source of truth); fail-open = 0.
+            var tokenVersion = await _tokenVersionApiClient.GetTokenVersionAsync(user.Id, HttpContext.RequestAborted);
             var jwtToken = _jwtTokenService.GenerateToken(
                 userId: user.Id,
                 email: user.Username,
                 role: user.Role,
-                tenantId: tenantId);
+                tenantId: tenantId,
+                tokenVersion: tokenVersion);
 
             // Cookie claims for Blazor Server-side UI
             List<Claim> claims =
