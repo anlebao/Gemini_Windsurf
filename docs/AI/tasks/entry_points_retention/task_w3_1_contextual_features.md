@@ -1,6 +1,6 @@
 # Task W3-1 — CONTEXTUAL FEATURE SURFACING (FR-V8/V9/V10)
 
-> **Status:** PENDING · **Wave:** W3
+> **Status:** DONE `bcccb3dc`+fix `5a01f0e1` (2026-11-15) · CD `43611224390` SUCCESS · contextual-ai-entries.spec 3P prod
 > **Phụ thuộc:** W2-5 (`FeatureContextService`), W2-2 (portal member cards), W2-1 (member list).
 
 ## Mục tiêu giá trị

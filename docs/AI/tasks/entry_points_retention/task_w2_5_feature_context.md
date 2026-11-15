@@ -1,6 +1,6 @@
 # Task W2-5 — FEATURE CONTEXT SERVICE + RENDER RULE + VISIBILITY (FR-V6/V7/V1/V2)
 
-> **Status:** PENDING · **Wave:** W2
+> **Status:** DONE `fb5b44b5` (2026-11-14) · 12 unit tests · manual RV user-confirmed (matrix + flagship button)
 > **Phụ thuộc:** không. Unblocks: W3-1 (per-card AI/voice).
 
 ## Mục tiêu giá trị

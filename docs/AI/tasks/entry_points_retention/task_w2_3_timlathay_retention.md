@@ -1,6 +1,6 @@
 # Task W2-3 — TIMLATHAY.COM RETENTION (FR-U1, FR-U4)
 
-> **Status:** PENDING · **Wave:** W2 · **Gate 4:** CÓ (Directory SSR layout)
+> **Status:** DONE `05e4cc23` (2026-11-14) · directory-retention.spec 3P prod
 > **Phụ thuộc:** không (endpoint featured/cooperatives có thể dùng dữ liệu có sẵn — fallback graceful nếu W2-1 chưa xong).
 
 ## Mục tiêu giá trị

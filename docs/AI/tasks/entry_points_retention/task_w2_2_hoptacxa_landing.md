@@ -1,6 +1,6 @@
 # Task W2-2 — HOPTACXA PORTAL LANDING (FR-D4 + FR-U2 reframed)
 
-> **Status:** PENDING · **Wave:** W2 · **Gate 4:** CÓ
+> **Status:** DONE `a3b2f2fc` (2026-11-14) · CD `43597415844` SUCCESS · hoptacxa-portal.spec PASS · guide docs/HopTacXa/
 > **Phụ thuộc:** W1-1 (instance/profile live), W2-1 (cooperative endpoints) — hero/shell có thể làm trước, member list đợi W2-1.
 
 ## Mục tiêu giá trị

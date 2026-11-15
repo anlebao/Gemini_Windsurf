@@ -1,6 +1,6 @@
 # Task W2-1 — COOPERATIVE GROUPING MODEL + PORTAL ENDPOINTS (FR-G1/G2)
 
-> **Status:** PENDING · **Wave:** W2 · **Gate 5:** CÓ — model mới, cần approve design trước khi sửa
+> **Status:** DONE `176d4aae` (2026-11-14) · reuse Membership Infra (HtxProfile+Member) · 8 Core.Tests PASS · CD SUCCESS · /api/cooperatives prod data thật
 > **Phụ thuộc:** W1-1 (instance tồn tại). Unblocks: W2-2 member listing, FR-V2 member toggles.
 
 ## Mục tiêu giá trị

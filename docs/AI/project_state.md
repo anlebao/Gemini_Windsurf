@@ -52,7 +52,7 @@
 
 ## 4. Next Actions
 
-**▶ ENTRY POINTS RETENTION — ✅ W1+W2+W3 DONE 100% (W3-2 `5a01f0e1` deployed, RV PASS) → còn M1 `/jobs`:**
+**▶ ENTRY POINTS RETENTION — ✅ W1+W2+W3 DONE 100% (W3-2 `5a01f0e1` deployed, RV PASS) · M1/M2 ⏸ DEFERRED (user 2026-11-15):**
 - [x] **FIX nav duplicate (RV finding)** — `NavMenu Variant` param (all|sidebar|mobile); MainLayout truyền variant → 1 `.mobile-bottom-nav` + 1 `#nav-more-mobile` trên DOM. Deployed `708dc8ef`.
 - [x] **RV W1** — spec de-flaked `d04612be` (by-domain response + nav visible + stable-count poll); mobile-layout.spec PASS cả hoptacxa (3P/2S) + diemthuong2 (chromium 3P/2S, firefox+MobileChrome 5P/4S/1flaky→pass). Skips legit: ≤5 items → no "Thêm"; no featured products → skip grid. Webkit env WASM-timeout (pre-existing).
 - [x] **W2-1 Cooperative model** `176d4aae` — **QUYẾT ĐỊNH: reuse Membership Infrastructure** (user duyệt) thay entity Cooperative mới: HTX = Tenant có `HtxProfile`, member shops = `Member.MemberTenantId` Active. Public `GET /api/cooperatives` + `/{htxId}/members` + `/by-domain/{domain}` ([AllowAnonymous] + `cooperatives-public` 60rpm + nginx `dir_api_cache` 5m). Admin CRUD tái dùng `/api/admin/membership/*` + `/admin/membership/members` (SystemAdmin). 8 Core.Tests PASS. Arch-test exempt thêm `CooperativesController`.
@@ -64,7 +64,8 @@
 - [x] **W2 manual RV** — user confirmed 2026-11-14: menu "Hệ thống" → "Thành viên HTX" + "Feature Visibility" hiển thị, nút "Bật flagship mặc định (AI/Voice)" test OK (flagship toggles đã bật cho HTX member tenants).
 - [x] **W3-1 contextual AI/voice** `bcccb3dc` + dead-domain fix `5a01f0e1` — FR-V8: `AiChatEnabled`/`VoiceCallEnabled` trên TenantStoreDto + CooperativeMemberDto + RecommendedProductDto (batch ShopFeatureSettings, không N+1); FR-V10 entries: Directory Home/StoreFinder "Hỏi AI"/"Gọi cửa hàng" → `?chat=ai|human`, HoptacxaPortal member pills → `/store/{slug|by-id}?chat=`, KhachLink Home featured "Hỏi AI"(`?chat=ai&ask=`)+"Gọi"; `AiChatWidget.OpenPanel` consume-once; Store.razor đọc `?chat=ai|human&ask=` gate `AiFeaturesVisible`; fix thiếu `[Authorize(SystemAdmin)]` trên FeatureVisibility. **RV prod PASS 3/3** (`contextual-ai-entries.spec.ts`) sau khi fix `MemberStoreBaseUrl` fallback → same-origin `/store/by-id/{id}` (khachvip.online apex dead → ERR_CONNECTION_TIMED_OUT). CD `43611224390` SUCCESS.
 - [x] **W3-2 polish pack** `5a01f0e1` — FR-V3 ShowJobs ẩn khỏi admin (dead flag chờ M1) · FR-V4 ProfileGuard `ShowStores` trên `/stores` · FR-V5 note gate kép `ShowAllianceWallet` (flag + Loyalty Alliance mode) · FR-L3 header <400px ≤3 icon + menu ⋮ · FR-L5 emoji→`bi-mic-fill`/`bi-stop-fill` · FR-L7 `GET /api/public/khachlink-instances/head-meta` + index.html inline fetch (title/desc/theme-color trước WASM boot) · FR-L8 `placeholder-product.svg` local thay placehold.co · FR-P3 `hoptacxa.png` icon + head-meta case · FR-U6 Directory JSON-LD WebSite+LocalBusiness + footer category links · FR-D5/L9 guides + `docs/design/mobile-design-tokens.md`. E2E `w3-2-polish.spec.ts` 3P/1S-legit. CD `43621092132` SUCCESS. **RV prod PASS**: head-meta per-domain đúng, hoptacxa icon 1987B = hoptacxa.png, manifest "Hợp tác xã", JSON-LD WebSite+6×LocalBusiness live, placeholder svg 200.
-- [ ] **M1 sàn việc `/jobs`** — ship page rồi bật `ShowJobs` trong preset (FR-V3 đã ẩn toggle khỏi admin)
+- [ ] **M1 sàn việc `/jobs`** ⏸ DEFERRED (user 2026-11-15) — ship page rồi bật `ShowJobs` trong preset (FR-V3 đã ẩn toggle khỏi admin)
+- [ ] **M2 mua chung** ⏸ DEFERRED (user 2026-11-15) — cần SRS riêng trước khi có task card thật
 - [ ] **Ops còn lại hoptacxa** — icon riêng (iconUrl đang default) · branding colors
 
 **▶ VOICE SERVICE — P5 PILOT (automated DONE · real-call pilot CHỜ user) → P6 ROLLOUT:**

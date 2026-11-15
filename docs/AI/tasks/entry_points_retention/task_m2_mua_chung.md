@@ -1,6 +1,6 @@
 # Task M2 — MUA CHUNG (Group-Buy) — PLACEHOLDER
 
-> **Status:** DEFERRED — cần SRS riêng trước khi có task card thật
+> **Status:** DEFERRED (2026-11-15, user) — cần SRS riêng trước khi có task card thật
 > **Wave:** M · **SRS:** §7.2.1 ("sẽ implement rất sớm")
 
 ## Ghi nhận phạm vi

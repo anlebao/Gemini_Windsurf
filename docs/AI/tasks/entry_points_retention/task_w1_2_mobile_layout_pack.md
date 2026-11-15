@@ -1,6 +1,6 @@
 # Task W1-2 — MOBILE LAYOUT PACK (FR-L1/L2/L4/L6/L10)
 
-> **Status:** PENDING · **Wave:** W1 — `docs/AI/plans/entry-points-retention-master-plan.md`
+> **Status:** DONE `9d79a106`+`708dc8ef`+`d04612be` (2026-11-14) · CD SUCCESS · mobile-layout.spec PASS prod
 > **SRS refs:** FR-L1, FR-L2, FR-L4, FR-L6, FR-L10 · **Gate 4:** CÓ (layout change → E2E bắt buộc)
 > **Phụ thuộc:** không — chạy song song W1-1
 

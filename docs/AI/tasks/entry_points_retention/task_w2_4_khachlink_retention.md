@@ -1,6 +1,6 @@
 # Task W2-4 — KHACHLINK HOME RETENTION (FR-U3, FR-U5)
 
-> **Status:** PENDING · **Wave:** W2 · **Gate 4:** CÓ
+> **Status:** DONE `0854a080`+fix `5dea1e27` (2026-11-14) · khachlink-retention.spec 2P prod
 > **Phụ thuộc:** W1-2 (đừng đụng cùng vùng Home.razor đồng thời — làm sau hoặc rebase cẩn thận).
 
 ## Mục tiêu giá trị

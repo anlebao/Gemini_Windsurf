@@ -1,7 +1,7 @@
 # MASTER PLAN — ENTRY POINTS RETENTION UPGRADE
 
 > Created: 2026-11-14 · SRS: `docs/specs/SRS_EntryPoints_Retention_Upgrade_v1.0.md` (✅ APPROVED)
-> Status: PLAN APPROVED — chờ implement theo wave
+> Status: ✅ W1+W2+W3 DONE 100% (2026-11-15) — deployed + RV prod PASS · **M1/M2 DEFERRED (user, 2026-11-15)**
 > Scope: 3 public entry points — `timlathay.com` (Directory SSR), `diemthuong2.khachvip.online` (KhachLink FullCommerce), `commienphi.timlathay.com` (Reseller, giữ nguyên) + portal MỚI `hoptacxa.timlathay.com` (profile `Hoptacxa`, platform multi-tenant)
 
 ---
@@ -42,7 +42,7 @@ hoptacxa.timlathay.com  = PORTAL platform (KHÔNG OwnerTenantId)
 | **W1 — "hoptacxa live + mobile không bể"** | Domain mới truy cập được với nav riêng; bottom nav ≤5 tab, không che nội dung; product grid 2 cột; splash skeleton | W1-1 (provision), W1-2 (mobile pack) | FR-D1/D2, FR-P1/P2, FR-L1/L2/L4/L6/L10 |
 | **W2 — "portal có nội dung + retention"** | Portal landing có member shops + module cards; timlathay below-fold không rỗng; new user có hero + CTA; AI/voice entry có context | W2-1 (Cooperative + endpoints), W2-2 (portal landing), W2-3 (timlathay retention), W2-4 (KhachLink retention), W2-5 (FeatureContext + visibility) | FR-G1/G2, FR-D4, FR-U1–U5, FR-V1/V2/V6/V7 |
 | **W3 — "contextual features + polish"** | AI/voice entry per member-card; icon/meta/SEO chuẩn | W3-1 (contextual surfacing), W3-2 (polish pack) | FR-V3–V5/V8–V10, FR-P3, FR-L3/L5/L7–L9, FR-U6, FR-D5 |
-| **M — module waves (song song, rất sớm)** | Sàn việc live; Mua chung | M1 (`/jobs` + ShowJobs), M2 (spec trước) | SRS §7.2.1 |
+| **M — module waves** | Sàn việc live; Mua chung | M1 (`/jobs` + ShowJobs), M2 (spec trước) | SRS §7.2.1 — **DEFERRED 2026-11-15 (user)** |
 
 ### Dependencies
 
@@ -77,14 +77,14 @@ M1 (jobs) ── độc lập; preset Hoptacxa đã bật ShowJobs sẵn ở W1-
 
 | Card | Wave | Nội dung |
 |---|---|---|
-| `task_w1_1_hoptacxa_provision.md` | W1 | Profile enum + preset + labels + instance row + DNS/cert checklist |
-| `task_w1_2_mobile_layout_pack.md` | W1 | FR-L1/L2/L4/L6/L10 + E2E mobile 375px |
-| `task_w2_1_cooperative_model.md` | W2 | Cooperative grouping + portal endpoints (Gate 5) |
-| `task_w2_2_hoptacxa_landing.md` | W2 | Portal landing: hero + module cards + member shops |
-| `task_w2_3_timlathay_retention.md` | W2 | Below-fold content + on-domain finder |
-| `task_w2_4_khachlink_retention.md` | W2 | New-user hero + empty-state CTA + retention teasers |
-| `task_w2_5_feature_context.md` | W2 | FeatureContextService + render rule + visibility matrix + member toggles |
-| `task_w3_1_contextual_features.md` | W3 | Public feature exposure + per-card AI/voice entries |
-| `task_w3_2_polish_pack.md` | W3 | FR-V3–V5, icon/meta/SEO polish, guides |
-| `task_m1_san_viec_jobs.md` | M | `/jobs` page + ShowJobs activation (spec stub — viết chi tiết khi bắt đầu) |
-| `task_m2_mua_chung.md` | M | Group-buy — spec riêng, chỉ placeholder |
+| `task_w1_1_hoptacxa_provision.md` | W1 ✅ `9d79a106` | Profile enum + preset + labels + instance row + DNS/cert checklist |
+| `task_w1_2_mobile_layout_pack.md` | W1 ✅ `708dc8ef`/`d04612be` | FR-L1/L2/L4/L6/L10 + E2E mobile 375px |
+| `task_w2_1_cooperative_model.md` | W2 ✅ `176d4aae` | Cooperative grouping + portal endpoints (Gate 5 — reuse Membership Infra) |
+| `task_w2_2_hoptacxa_landing.md` | W2 ✅ `a3b2f2fc` | Portal landing: hero + module cards + member shops |
+| `task_w2_3_timlathay_retention.md` | W2 ✅ `05e4cc23` | Below-fold content + on-domain finder |
+| `task_w2_4_khachlink_retention.md` | W2 ✅ `0854a080`+`5dea1e27` | New-user hero + empty-state CTA + retention teasers |
+| `task_w2_5_feature_context.md` | W2 ✅ `fb5b44b5` | FeatureContextService + render rule + visibility matrix + member toggles |
+| `task_w3_1_contextual_features.md` | W3 ✅ `bcccb3dc`+`5a01f0e1` | Public feature exposure + per-card AI/voice entries |
+| `task_w3_2_polish_pack.md` | W3 ✅ `5a01f0e1` | FR-V3–V5, icon/meta/SEO polish, guides |
+| `task_m1_san_viec_jobs.md` | M ⏸ DEFERRED | `/jobs` page + ShowJobs activation (spec stub — viết chi tiết khi bắt đầu) |
+| `task_m2_mua_chung.md` | M ⏸ DEFERRED | Group-buy — spec riêng, chỉ placeholder |

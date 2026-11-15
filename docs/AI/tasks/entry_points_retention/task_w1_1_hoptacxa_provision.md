@@ -1,6 +1,6 @@
 # Task W1-1 — HOPTACXA PROVISION: profile `Hoptacxa` + instance `hoptacxa.timlathay.com`
 
-> **Status:** PENDING · **Wave:** W1 — `docs/AI/plans/entry-points-retention-master-plan.md`
+> **Status:** DONE `9d79a106` (2026-11-13) · CD SUCCESS · RV prod PASS
 > **SRS refs:** FR-D1, FR-D2, FR-P1, FR-P2 · **Gate 5:** CÓ (thêm enum `KhachLinkProfile.Hoptacxa` — user đã duyệt qua SRS)
 > **Phụ thuộc:** không — chạy song song W1-2
 

@@ -1,6 +1,6 @@
 # Task M1 — SÀN VIỆC (Job Market): `/jobs` page + ShowJobs activation
 
-> **Status:** STUB — spec chi tiết khi bắt đầu module wave (user: "sẽ implement rất sớm")
+> **Status:** DEFERRED (2026-11-15, user) — spec chi tiết khi bắt đầu module wave
 > **Wave:** M (song song W1–W3) · **SRS:** §7.2.1
 > **Phụ thuộc:** W1-1 (preset `Hoptacxa` — hiện `ShowJobs=false`, bật khi page ship).
 
