@@ -28,10 +28,15 @@
 
 Backend search thêm 1 level trước `suggested`:
 
-1. **Normalize tiếng Việt:** strip dấu + lowercase (`FormD` + remove NonSpacingMark) →
+1. **Normalize tiếng Việt:** strip dấu + lowercase. ⚠️ **KHÔNG dùng `string.Normalize(FormD)`** —
+   Gateway prod chạy `System.Globalization.Invariant=true` (runtimeconfig) → FormD là NO-OP,
+   dấu không bao giờ bị strip (bug thật 2026-11-15). Dùng fold map thủ công
+   (`DiacriticFold` trong `TenantStoreController`) — 67 ký tự TV + Latin-1, ICU-free.
    "sua hang" khớp được "Sửa chữa"/"cửa hàng" sau normalize.
-2. **Fuzzy fallback:** khi contains/token/prefix fail → chấm similarity (normalized token
-   Dice/Levenshtein) trên candidates (Active+Pending, bounded Take ~500) → `matchStrategy="fuzzy"`.
+2. **Normalized matching ở MỌI level** (chứa→token→fuzzy), không chỉ fuzzy fallback:
+   token-level `ILIKE` accent-sensitive + ANY-token quá lỏng → chặn fuzzy, relevance sai
+   ("tra sua" → Central Mall thay vì "Trà Sữa 79"). Load bounded candidates (≤500) 1 lần,
+   match in-memory trên normalized text.
 3. **`DidYouMean`:** field mới trong `TenantSearchResultDto` — tên match tốt nhất khi
    không có exact/contains → UI hiển thị chip "Ý bạn là: **X**?" 1-tap search lại.
 
@@ -50,6 +55,9 @@ contains/exact — tránh noise).
 ## 5. Lưu ý kỹ thuật
 
 - Normalize in-memory (C#) — KHÔNG cần PG `unaccent`/`pg_trgm` extension (tránh migration risk).
+- **InvariantGlobalization gotcha:** mọi API phụ thuộc ICU normalization/casing mở rộng
+  (FormD, CharUnicodeInfo, CompareOptions.IgnoreNonSpace) đều NO-OP trên Gateway prod —
+  luôn verify trên prod, không tin local test (local có ICU đầy đủ).
 - Fuzzy quét bounded candidates (≤500) — đủ cho quy mô directory hiện tại; nếu tenant > ~2k
   thì chuyển sang `pg_trgm` sau.
 - `DidYouMean` là additive field — client cũ bỏ qua an toàn.
