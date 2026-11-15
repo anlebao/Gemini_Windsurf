@@ -9,6 +9,9 @@ namespace VanAn.KhachLink.Models
         public string? LogoUrl { get; set; }
         public int MemberCount { get; set; }
         public string? KhachLinkDomain { get; set; }
+        /// <summary>W3-2b: flagship toggles của chính tenant HTX (self storefront card).</summary>
+        public bool AiChatEnabled { get; set; }
+        public bool VoiceCallEnabled { get; set; }
     }
 
     /// <summary>W2-1: Member shop card — mirrors Gateway CooperativeMemberDto.</summary>

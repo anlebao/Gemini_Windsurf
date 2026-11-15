@@ -42,6 +42,14 @@ window.vananRealtime = {
         if (el) el.scrollTop = el.scrollHeight;
     },
 
+    // W3-2b (2026-11-15): scrollToSection was missing — StoreNav anchor buttons
+    // called vananRealtime.scrollToSection → undefined → silent catch → dead nav.
+    // Ported from KhachLink pwa.js (same behaviour: smooth scrollIntoView).
+    scrollToSection(elementId) {
+        const el = document.getElementById(elementId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
     // SF-W3: scroll a container to top (newest-first chat surfaces — AI widget
     // renders newest message at top, so "scroll to latest" = scrollTop 0).
     scrollToTop(elementId) {

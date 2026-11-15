@@ -220,6 +220,25 @@
             _membersByHtx[coop.TenantId] = members;
             _allMembers.AddRange(members);
         }
+        // W3-2b: HTX tenant tự nó cũng là storefront (vd Vạn An Trading → commienphi) —
+        // thêm self card vào member grid khi có KhachLink domain, đủ link storefront +
+        // Hỏi AI/Gọi theo flagship flags của chính tenant đó.
+        foreach (var coop in _cooperatives.Where(c => !string.IsNullOrEmpty(c.KhachLinkDomain)))
+        {
+            _allMembers.Add(new CooperativeMemberDto
+            {
+                MemberId = coop.TenantId,
+                MemberNumber = string.Empty,
+                TenantId = coop.TenantId,
+                Name = $"{coop.Name} (HTX)",
+                Slug = coop.Slug,
+                LogoUrl = coop.LogoUrl,
+                KhachLinkDomain = coop.KhachLinkDomain,
+                JoinedAt = DateTime.MinValue,
+                AiChatEnabled = coop.AiChatEnabled,
+                VoiceCallEnabled = coop.VoiceCallEnabled
+            });
+        }
         _allMembers = _allMembers.OrderBy(m => m.Name).ToList();
         _loading = false;
     }

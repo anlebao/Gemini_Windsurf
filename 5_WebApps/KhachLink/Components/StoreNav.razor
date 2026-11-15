@@ -20,7 +20,15 @@
                 <button type="button" class="store-nav-link" @onclick="() => ScrollToSectionAsync(link.Id)">@link.Label</button>
             }
         </div>
-        @if (!string.IsNullOrWhiteSpace(Phone))
+        @* W3-2b: "Gọi" ưu tiên Voice Call trong app (mở human chat chứa nút gọi)
+           khi tenant bật Voice_Call_Enabled; fallback tel: khi flag OFF. *@
+        @if (VoiceCallEnabled && OnVoiceCall.HasDelegate)
+        {
+            <button type="button" class="store-nav-cta" @onclick="OnVoiceCall">
+                <i class="bi bi-telephone-fill"></i><span class="store-nav-cta-text">Gọi</span>
+            </button>
+        }
+        else if (!string.IsNullOrWhiteSpace(Phone))
         {
             <a href="tel:@Phone" class="store-nav-cta"><i class="bi bi-telephone-fill"></i><span class="store-nav-cta-text">Gọi</span></a>
         }
@@ -36,6 +44,10 @@
     [Parameter] public string? Phone { get; set; }
     /// <summary>(sectionId, label) anchors — host builds from enabled features only.</summary>
     [Parameter] public IReadOnlyList<(string Id, string Label)> Links { get; set; } = [];
+    /// <summary>W3-2b: tenant bật Voice_Call_Enabled → "Gọi" mở human chat (voice call), không tel:.</summary>
+    [Parameter] public bool VoiceCallEnabled { get; set; }
+    /// <summary>W3-2b: handler mở human chat panel (chứa nút gọi thoại).</summary>
+    [Parameter] public EventCallback OnVoiceCall { get; set; }
 
     /// <summary>
     /// FIX (user report 2026-11-07): href="#id" resolves against &lt;base href="/"&gt; →
@@ -43,6 +55,8 @@
     /// </summary>
     private async Task ScrollToSectionAsync(string sectionId)
     {
+        // W3-2b: vananRealtime.scrollToSection giờ tồn tại trong UI.Platform realtime.js
+        // (trước đây thiếu → click nav-anchor chết ngầm trong catch).
         try { await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToSection", sectionId); }
         catch { /* JS unavailable during prerender */ }
     }

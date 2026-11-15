@@ -134,14 +134,23 @@ namespace VanAn.Gateway.Controllers
             var htxIdVos = htxRows.Select(h => h.HtxTenantIdVo).ToList();
             var memberCounts = await GetMemberShopCountsAsync(htxIdVos, ct);
             var domainMap = await BuildKhachLinkDomainMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
+            // W3-2b: HTX tenant tự nó cũng là storefront (vd Vạn An Trading → commienphi) —
+            // cần flagship flags để portal render Hỏi AI/Gọi trên self card.
+            var featureFlags = await BuildFeatureFlagMapAsync(htxRows.Select(h => h.TenantId).ToList(), ct);
 
-            return htxRows.Select(h => new CooperativeDto(
-                TenantId: h.TenantId,
-                Name: h.Name,
-                Slug: h.Slug,
-                LogoUrl: h.LogoUrl,
-                MemberCount: memberCounts.GetValueOrDefault(h.TenantId),
-                KhachLinkDomain: domainMap.GetValueOrDefault(h.TenantId))).ToList();
+            return htxRows.Select(h =>
+            {
+                featureFlags.TryGetValue(h.TenantId, out var flags);
+                return new CooperativeDto(
+                    TenantId: h.TenantId,
+                    Name: h.Name,
+                    Slug: h.Slug,
+                    LogoUrl: h.LogoUrl,
+                    MemberCount: memberCounts.GetValueOrDefault(h.TenantId),
+                    KhachLinkDomain: domainMap.GetValueOrDefault(h.TenantId),
+                    AiChatEnabled: flags.AiChatEnabled,
+                    VoiceCallEnabled: flags.VoiceCallEnabled);
+            }).ToList();
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
@@ -237,7 +246,11 @@ namespace VanAn.Gateway.Controllers
         string? Slug,
         string? LogoUrl,
         int MemberCount,
-        string? KhachLinkDomain);
+        string? KhachLinkDomain,
+        // W3-2b: flagship toggles của CHÍNH tenant HTX — portal render self card
+        // (storefront/Hỏi AI/Gọi) khi HTX tenant có KhachLink storefront.
+        bool AiChatEnabled = false,
+        bool VoiceCallEnabled = false);
 
     /// <summary>Member shop card — tenant-member Active của HTX.</summary>
     public sealed record CooperativeMemberDto(

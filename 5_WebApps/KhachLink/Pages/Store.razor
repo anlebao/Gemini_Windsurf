@@ -129,7 +129,8 @@ else
     </section>
 
     @* SF-W1: sticky glass navbar — sticks when scrolled past the hero (pure CSS). *@
-    <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks" />
+    <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks"
+              VoiceCallEnabled="_features.Voice_Call_Enabled" OnVoiceCall="OpenHumanChat" />
 
     <div class="store-body">
 
