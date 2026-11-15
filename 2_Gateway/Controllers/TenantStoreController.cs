@@ -249,75 +249,73 @@ namespace VanAn.Gateway.Controllers
                     }
                     else
                     {
-                        // ── Level 2: Token-based match — split keyword by spaces, match ANY token ──
-                        var tokens = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        if (tokens.Length > 1)
+                        // ── Level 2+: normalized in-memory matching (Pattern B — mobile-search-ux-pattern.md) ──
+                        // Normalize bỏ dấu cho MỌI level → "tra sua" khớp "Trà Sữa 79";
+                        // fuzzy (levenshtein + Dice) chịu sai chính tả. Bounded 500 candidates,
+                        // không cần pg_trgm/unaccent. Level nhỏ nhất có kết quả thắng.
+                        var candidates = await baseQuery
+                            .OrderBy(t => t.Name)
+                            .Take(FuzzyCandidateLimit)
+                            .ToListAsync(ct);
+
+                        var qNorm = NormalizeSearchText(q);
+                        var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                            .Where(tok => tok.Length >= 2).ToList();
+
+                        // level: 2=contains-norm · 3=token · 4=fuzzy (prefix ⊂ contains → dead, bỏ)
+                        var levelHits = new List<(int Level, Tenant T, double Score)>();
+                        foreach (var t in candidates)
                         {
-                            // OR-match ANY token on Name. EF can't translate Any() over a local
-                            // array with ILike inside → query per token, merge + dedupe in memory.
-                            var seen = new HashSet<Guid>();
-                            matched = new List<Tenant>();
-                            foreach (var tok in tokens)
+                            var n = NormalizeSearchText(t.Name);
+                            if (n.Length == 0) continue;
+                            if (qNorm.Length > 0 && n.Contains(qNorm))
+                                levelHits.Add((2, t, 1));
+                            else if (qTokens.Count > 0 && qTokens.Any(tok => n.Contains(tok)))
+                                levelHits.Add((3, t, qTokens.Count(tok => n.Contains(tok))));
+                            else if (qNorm.Length >= 3)
                             {
-                                var part = await baseQuery
-                                    .Where(t => EF.Functions.ILike(t.Name, $"%{tok}%"))
-                                    .Take(50)
-                                    .ToListAsync(ct);
-                                foreach (var t in part)
-                                {
-                                    if (seen.Add(t.Id.Value))
-                                        matched.Add(t);
-                                }
-                                if (matched.Count >= 50)
-                                    break;
+                                var sim = SearchSimilarity(qNorm, n);
+                                if (sim >= FuzzyThreshold)
+                                    levelHits.Add((4, t, sim));
                             }
-                            matched = matched.Take(50).ToList();
                         }
 
-                        if (matched.Count > 0)
+                        var bestLevel = levelHits.Count > 0 ? levelHits.Min(h => h.Level) : 0;
+                        var levelResult = levelHits
+                            .Where(h => h.Level == bestLevel)
+                            .OrderByDescending(h => h.Score)
+                            .ThenBy(h => h.T.Name)
+                            .Take(50)
+                            .ToList();
+
+                        if (bestLevel == 2)
+                        {
+                            matchStrategy = "contains";
+                            tenants = levelResult.Select(h => h.T).ToList();
+                        }
+                        else if (bestLevel == 3)
                         {
                             matchStrategy = "token";
-                            tenants = matched;
+                            tenants = levelResult.Select(h => h.T).ToList();
+                        }
+                        else if (bestLevel == 4)
+                        {
+                            matchStrategy = "fuzzy";
+                            tenants = levelResult.Select(h => h.T).ToList();
+                            fuzzyScores = levelResult.ToDictionary(h => h.T.Id.Value, h => h.Score);
+                            // DidYouMean chỉ khi match chưa chắc (score < 0.8) — gần đúng thì không gợi ý.
+                            if (levelResult[0].Score < 0.8)
+                                didYouMean = levelResult[0].T.Name;
                         }
                         else
                         {
-                            // ── Level 3: Prefix match — Name starts with keyword (first 3+ chars) ──
-                            var prefix = q.Length >= 3 ? q : q;
-                            matched = await baseQuery
-                                .Where(t => EF.Functions.ILike(t.Name, $"{prefix}%"))
-                                .Take(50)
-                                .ToListAsync();
-
-                            if (matched.Count > 0)
-                            {
-                                matchStrategy = "prefix";
-                                tenants = matched;
-                            }
-                            else
-                            {
-                                // ── Level 3.5: Fuzzy — normalize bỏ dấu + similarity (chịu sai chính tả).
-                                // In-memory trên bounded candidates — không cần pg_trgm/unaccent.
-                                var fuzzy = await FuzzyMatchTenantsAsync(baseQuery, q, ct);
-                                if (fuzzy.Count > 0)
-                                {
-                                    matchStrategy = "fuzzy";
-                                    tenants = fuzzy.Select(f => f.Tenant).ToList();
-                                    fuzzyScores = fuzzy.ToDictionary(f => f.Tenant.Id.Value, f => f.Score);
-                                    // DidYouMean chỉ khi match chưa chắc (score < 0.8) — gần đúng thì không gợi ý.
-                                    if (fuzzy[0].Score < 0.8)
-                                        didYouMean = fuzzy[0].Tenant.Name;
-                                }
-                                else
-                                {
-                                    // ── Level 4: Suggested — return top 10 Active tenants (avoid empty) ──
-                                    tenants = await baseQuery
-                                        .Where(t => t.Status == TenantStatus.Active)
-                                        .OrderBy(t => t.Name)
-                                        .Take(10)
-                                        .ToListAsync();
-                                    matchStrategy = "suggested";
-                                }
-                            }
+                            // ── Level 5: Suggested — return top 10 Active tenants (avoid empty) ──
+                            tenants = await baseQuery
+                                .Where(t => t.Status == TenantStatus.Active)
+                                .OrderBy(t => t.Name)
+                                .Take(10)
+                                .ToListAsync(ct);
+                            matchStrategy = "suggested";
                         }
                     }
                 }
@@ -493,33 +491,6 @@ namespace VanAn.Gateway.Controllers
 
         private const int FuzzyCandidateLimit = 500;
         private const double FuzzyThreshold = 0.55;
-
-        private sealed record FuzzyHit(Tenant Tenant, double Score);
-
-        /// <summary>Fuzzy match: normalize (bỏ dấu tiếng Việt) + similarity trên bounded candidates.
-        /// Trả hits ≥ threshold, order score desc. Bỏ qua query &lt; 3 ký tự normalized.</summary>
-        private async Task<List<FuzzyHit>> FuzzyMatchTenantsAsync(
-            IQueryable<Tenant> baseQuery, string rawQuery, CancellationToken ct)
-        {
-            var qNorm = NormalizeSearchText(rawQuery);
-            if (qNorm.Length < 3)
-                return new List<FuzzyHit>();
-
-            var candidates = await baseQuery
-                .OrderBy(t => t.Name)
-                .Take(FuzzyCandidateLimit)
-                .ToListAsync(ct);
-
-            var hits = new List<FuzzyHit>(16);
-            foreach (var t in candidates)
-            {
-                var score = SearchSimilarity(qNorm, NormalizeSearchText(t.Name));
-                if (score >= FuzzyThreshold)
-                    hits.Add(new FuzzyHit(t, score));
-            }
-            hits.Sort((a, b) => b.Score.CompareTo(a.Score));
-            return hits.Take(20).ToList();
-        }
 
         /// <summary>Bỏ dấu tiếng Việt + lowercase + collapse spaces.
         /// LƯU Ý: 'đ/Đ' KHÔNG decompose qua FormD — phải replace thủ công.</summary>
