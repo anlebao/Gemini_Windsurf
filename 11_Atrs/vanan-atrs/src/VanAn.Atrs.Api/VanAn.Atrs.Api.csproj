@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VanAn.Atrs.Api</RootNamespace>
+    <AssemblyName>VanAn.Atrs.Api</AssemblyName>
+    <!-- Standalone service (ADR-001, D2) — NO ProjectReference to 1_Shared / 3_CoreHub. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VanAn.Atrs.Contracts\VanAn.Atrs.Contracts.csproj" />
+    <ProjectReference Include="..\VanAn.Atrs.Domain\VanAn.Atrs.Domain.csproj" />
+    <ProjectReference Include="..\VanAn.Atrs.Infra\VanAn.Atrs.Infra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
