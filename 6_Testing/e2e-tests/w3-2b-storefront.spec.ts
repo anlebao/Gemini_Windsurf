@@ -112,6 +112,24 @@ test.describe('W3-2b storefront fixes', () => {
     expect(scrolled, `Nav "${label}" click phải scroll tới 1 section`).toBeTruthy();
   });
 
+  test('Featured card mobile 375px: nút Mua/pills không tràn khỏi card', async ({ page }) => {
+    // User report: commienphi (Van An Trading) — nut Mua tran khoi card tren mobile.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('https://commienphi.timlathay.com/', { waitUntil: 'domcontentloaded' });
+    const cards = page.locator('.feature-card');
+    await cards.first().waitFor({ timeout: 60000 });
+    const count = Math.min(await cards.count(), 8);
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const cardBox = await card.boundingBox();
+      const btn = card.locator('button:has-text("Mua"), a:has-text("Mua")').first();
+      if ((await btn.count()) === 0 || !cardBox) continue;
+      const btnBox = await btn.boundingBox();
+      if (!btnBox) continue;
+      expect(btnBox.x + btnBox.width, `card ${i} nut Mua phai nam trong card`).toBeLessThanOrEqual(cardBox.x + cardBox.width + 1);
+    }
+  });
+
   test('StoreNav "Gọi": VoiceCall ON → button (không tel:); OFF → tel: fallback', async ({ page, request }) => {
     const voiceTarget = await firstStorefrontWithFlags(request, { voice: true });
     if (voiceTarget) {
