@@ -253,11 +253,25 @@ namespace VanAn.Gateway.Controllers
                         var tokens = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                         if (tokens.Length > 1)
                         {
-                            // Build OR predicate: Name ILIKE %token1% OR Name ILIKE %token2% OR ...
-                            matched = await baseQuery
-                                .Where(t => tokens.Any(tok => EF.Functions.ILike(t.Name, $"%{tok}%")))
-                                .Take(50)
-                                .ToListAsync();
+                            // OR-match ANY token on Name. EF can't translate Any() over a local
+                            // array with ILike inside → query per token, merge + dedupe in memory.
+                            var seen = new HashSet<Guid>();
+                            matched = new List<Tenant>();
+                            foreach (var tok in tokens)
+                            {
+                                var part = await baseQuery
+                                    .Where(t => EF.Functions.ILike(t.Name, $"%{tok}%"))
+                                    .Take(50)
+                                    .ToListAsync(ct);
+                                foreach (var t in part)
+                                {
+                                    if (seen.Add(t.Id.Value))
+                                        matched.Add(t);
+                                }
+                                if (matched.Count >= 50)
+                                    break;
+                            }
+                            matched = matched.Take(50).ToList();
                         }
 
                         if (matched.Count > 0)
