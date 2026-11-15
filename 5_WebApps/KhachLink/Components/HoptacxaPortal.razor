@@ -1,3 +1,4 @@
+@using VanAn.UI.Platform.Components.Composite
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Services.Http
 @inject CooperativeHttpService CooperativeHttp
@@ -59,6 +60,26 @@
         </div>
     </section>
 
+    <!-- W3-2d rollout: search HTX/member — VanAnPublicSearchBar (Pattern A) + client-side
+         filter trên data đã load (portal scale nhỏ vài chục member — không cần endpoint mới).
+         Accent-insensitive normalize tái dùng TenantSearchService phía Gateway; ở đây chỉ
+         cần contains-ignore-case trên Name/Domain vì list đã nhỏ. -->
+    <section class="htx-search mb-4">
+        <div class="mx-auto" style="max-width: 640px;">
+            <VanAnPublicSearchBar @bind-Value="_searchKeyword"
+                                  Placeholder="Tìm hợp tác xã hoặc cửa hàng thành viên..."
+                                  AriaLabel="Tìm hợp tác xã hoặc cửa hàng"
+                                  InputId="htx-portal-search"
+                                  SearchText="Tìm" />
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_searchKeyword) && !_loading)
+        {
+            <p class="text-center text-muted small mt-2 mb-0">
+                Kết quả: @FilteredCooperatives.Count hợp tác xã · @FilteredMembers.Count cửa hàng
+            </p>
+        }
+    </section>
+
     <!-- Các hợp tác xã -->
     <section id="htx-coops" class="mb-4">
         <h2 class="htx-section-title"><i class="bi bi-buildings me-2"></i>Các hợp tác xã</h2>
@@ -74,10 +95,16 @@
                 <p class="text-muted text-center mb-0 py-3">Chưa có hợp tác xã nào trên hệ thống. Vui lòng quay lại sau.</p>
             </VanAnCard>
         }
+        else if (FilteredCooperatives.Count == 0)
+        {
+            <VanAnCard>
+                <p class="text-muted text-center mb-0 py-3">Không tìm thấy hợp tác xã phù hợp với "<strong>@_searchKeyword</strong>".</p>
+            </VanAnCard>
+        }
         else
         {
             <div class="row g-3">
-                @foreach (var coop in _cooperatives)
+                @foreach (var coop in FilteredCooperatives)
                 {
                     var coopMembers = _membersByHtx.GetValueOrDefault(coop.TenantId) ?? new List<CooperativeMemberDto>();
                     <div class="col-12 col-md-6 col-lg-4">
@@ -117,12 +144,12 @@
     </section>
 
     <!-- Cửa hàng thành viên (flat grid — link tới storefront/domain) -->
-    @if (!_loading && _allMembers.Count > 0)
+    @if (!_loading && _allMembers.Count > 0 && FilteredMembers.Count > 0)
     {
         <section class="mb-4">
             <h2 class="htx-section-title"><i class="bi bi-shop me-2"></i>Cửa hàng thành viên</h2>
             <div class="row g-3">
-                @foreach (var member in _allMembers)
+                @foreach (var member in FilteredMembers)
                 {
                     var href = !string.IsNullOrEmpty(member.KhachLinkDomain)
                         ? $"https://{member.KhachLinkDomain}"
@@ -207,9 +234,26 @@
 
 @code {
     private bool _loading = true;
+    private string _searchKeyword = string.Empty;
     private List<CooperativeDto> _cooperatives = new();
     private List<CooperativeMemberDto> _allMembers = new();
     private Dictionary<Guid, List<CooperativeMemberDto>> _membersByHtx = new();
+
+    // W3-2d: client-side filter — chứa-ignore-case trên Name (+KhachLinkDomain cho member).
+    // Accent-insensitive đầy đủ nằm ở Gateway TenantSearchService cho tenant-search;
+    // portal list nhỏ nên contains là đủ, không nhân bản matcher.
+    private List<CooperativeDto> FilteredCooperatives =>
+        string.IsNullOrWhiteSpace(_searchKeyword)
+            ? _cooperatives
+            : _cooperatives.Where(c => Matches(c.Name)).ToList();
+
+    private List<CooperativeMemberDto> FilteredMembers =>
+        string.IsNullOrWhiteSpace(_searchKeyword)
+            ? _allMembers
+            : _allMembers.Where(m => Matches(m.Name) || (!string.IsNullOrEmpty(m.KhachLinkDomain) && Matches(m.KhachLinkDomain))).ToList();
+
+    private bool Matches(string? text)
+        => text?.Contains(_searchKeyword.Trim(), StringComparison.OrdinalIgnoreCase) == true;
 
     protected override async Task OnInitializedAsync()
     {

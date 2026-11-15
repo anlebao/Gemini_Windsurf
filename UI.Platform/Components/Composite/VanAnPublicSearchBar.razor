@@ -48,6 +48,9 @@
     /// <summary>Two-way bound keyword.</summary>
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    /// <summary>Optional: fired on every keystroke (parent dùng cho debounce/autocomplete).
+    /// ValueChanged vẫn fire bình thường — đây là hook phụ, không thay thế.</summary>
+    [Parameter] public EventCallback<string?> OnValueChanged { get; set; }
 
     [Parameter] public string? Placeholder { get; set; }
     // AriaLabel/Disabled/Loading/CssClass kế thừa từ BaseComponent — KHÔNG khai báo lại
@@ -73,7 +76,12 @@
     [Parameter] public EventCallback OnCleared { get; set; }
 
     private async Task OnInput(ChangeEventArgs e)
-        => await ValueChanged.InvokeAsync(e.Value?.ToString());
+    {
+        var v = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(v);
+        if (OnValueChanged.HasDelegate)
+            await OnValueChanged.InvokeAsync(v);
+    }
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {

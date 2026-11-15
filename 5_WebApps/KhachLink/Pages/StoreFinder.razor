@@ -1,6 +1,7 @@
 ﻿@page "/stores"
 @page "/store-finder"
 @using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
@@ -16,52 +17,29 @@
     @* W3-2 (FR-V4): đồng nhất enforcement — ShowStores=false → redirect + toast *@
     <ProfileGuard RequiredFlag="ShowStores" FeatureName="Cửa hàng">
     <div class="container py-4 store-finder-page">
-        <!-- Hero header -->
-        <div class="store-finder-hero text-center mb-4">
-            <h1 class="display-5 fw-bold mb-2">
+        <!-- Hero header — W3-2d Pattern A: compact hơn (display-5 → h4) -->
+        <div class="store-finder-hero text-center mb-3">
+            <h4 class="fw-bold mb-1">
                 <i class="bi bi-geo-alt-fill"></i> Tìm cửa hàng gần bạn
-            </h1>
-            <p class="text-muted mb-0">Khám phá các cửa hàng trong khu vực của bạn</p>
+            </h4>
+            <p class="text-muted small mb-0">Khám phá các cửa hàng trong khu vực của bạn</p>
         </div>
 
-        <!-- Search box -->
+        <!-- Search box — W3-2d: VanAnPublicSearchBar (Pattern A mobile-first + Pattern B DidYouMean) -->
         <div class="search-box-wrapper mb-4">
             <div class="search-box-card">
-                <div class="input-group input-group-lg">
-                    <button type="button" class="input-group-text bg-white border-end-0 btn-search-icon"
-                            @onclick="LoadStores" aria-label="Tìm kiếm" title="Tìm kiếm">
-                        <i class="bi bi-search text-primary"></i>
-                    </button>
-                    <input type="text" class="form-control border-start-0 ps-0"
-                           id="search-input"
-                           @bind="_searchKeyword"
-                           @oninput="OnSearchInput"
-                           @onkeyup="OnSearchKeyUp"
-                           placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
-                           aria-label="Tìm cửa hàng" />
-                    @if (_voiceSearchEnabled && _speechSupported)
-                    {
-                        <button type="button" class="btn btn-outline-primary voice-mic-btn @(isRecording ? "recording" : "")"
-                                @onclick="ToggleVoiceSearch" data-testid="storefinder-btn-voice-mic"
-                                title="@(isRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
-                                aria-label="Tìm kiếm bằng giọng nói">
-                            @if (isRecording)
-                            {
-                                <i class="bi bi-stop-fill"></i>
-                            }
-                            else
-                            {
-                                <i class="bi bi-mic-fill"></i>
-                            }
-                        </button>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(_searchKeyword))
-                    {
-                        <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
-                            <i class="bi bi-x-circle"></i>
-                        </button>
-                    }
-                </div>
+                <VanAnPublicSearchBar @bind-Value="_searchKeyword"
+                                      Placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
+                                      AriaLabel="Tìm cửa hàng"
+                                      InputId="search-input"
+                                      SearchText="Tìm kiếm"
+                                      Loading="_loading"
+                                      ShowVoiceButton="@(_voiceSearchEnabled && _speechSupported)"
+                                      IsListening="isRecording"
+                                      OnVoiceToggle="ToggleVoiceSearch"
+                                      OnSearch="OnSearchSubmit"
+                                      OnValueChanged="OnSearchValueChanged"
+                                      OnCleared="ClearSearch" />
                 @if (isRecording)
                 {
                     <div class="voice-recording-hint text-danger small mt-2">
@@ -88,6 +66,8 @@
                     </div>
                 </div>
             </div>
+            @* W3-2d (Pattern B): fuzzy suggestion chip — backend /api/tenants/search trả didYouMean *@
+            <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="ApplyDidYouMean" />
         </div>
 
         @if (_loading)
@@ -318,6 +298,7 @@
     private double? _userLat;
     private double? _userLng;
     private string _searchKeyword = "";
+    private string? _didYouMean;
     private System.Threading.CancellationTokenSource? _searchDebounce;
     // Voice search — reuses wwwroot/js/voice-note.js (loaded via index.html)
     private bool _voiceSearchEnabled = false;
@@ -435,9 +416,11 @@
         _voiceDotNetRef?.Dispose();
     }
 
-    private async Task OnSearchInput(ChangeEventArgs e)
+    // W3-2d: OnValueChanged = debounce gõ phím (giữ behavior cũ 300ms);
+    // OnSearch = Enter/button → search ngay (cancel debounce).
+    private async Task OnSearchValueChanged(string? value)
     {
-        _searchKeyword = e.Value?.ToString() ?? "";
+        _searchKeyword = value ?? "";
         _searchDebounce?.Cancel();
         _searchDebounce = new System.Threading.CancellationTokenSource();
         try
@@ -448,18 +431,24 @@
         catch (TaskCanceledException) { /* debounce */ }
     }
 
-    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    private async Task OnSearchSubmit()
     {
-        if (e.Key == "Enter")
-        {
-            _searchDebounce?.Cancel();
-            await LoadStores();
-        }
+        _searchDebounce?.Cancel();
+        await LoadStores();
+    }
+
+    /// <summary>W3-2d (Pattern B): 1-tap "Ý bạn là?" → re-search với suggestion.</summary>
+    private async Task ApplyDidYouMean(string suggestion)
+    {
+        _searchKeyword = suggestion;
+        _didYouMean = null;
+        await LoadStores();
     }
 
     private async Task ClearSearch()
     {
         _searchKeyword = "";
+        _didYouMean = null;
         await LoadStores();
     }
 
@@ -520,6 +509,7 @@
                 // (Results + SuggestedKeywords + MatchStrategy) instead of bare List<StoreDto>.
                 var result = await response.Content.ReadFromJsonAsync<SearchResultDto>();
                 _stores = result?.Results ?? new();
+                _didYouMean = result?.DidYouMean;
             }
             else
             {
@@ -548,6 +538,7 @@
         _userLat = null;
         _userLng = null;
         _searchKeyword = "";
+        _didYouMean = null;
         await LoadStores();
     }
 
@@ -573,6 +564,8 @@
         public List<StoreDto> Results { get; set; } = new();
         public List<string> SuggestedKeywords { get; set; } = new();
         public string MatchStrategy { get; set; } = "all";
+        /// <summary>W3-2d: fuzzy suggestion — "Ý bạn là?" chip khi match chưa chắc.</summary>
+        public string? DidYouMean { get; set; }
     }
 
     // Matches vananPWA.getCurrentPosition JS shape { lat, lng } (case-insensitive).
