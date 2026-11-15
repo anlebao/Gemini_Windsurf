@@ -8,7 +8,10 @@
 
 @inject ICssAdapter CssAdapter
 
-@if (!string.IsNullOrEmpty(Message))
+@* W3-2d fix: trước đây chỉ render khi Message non-empty → mọi usage truyền
+   ChildContent (DidYouMean chip, suggested keywords, Audit hints...) bị nuốt
+   hoàn toàn không render. Giờ render khi có Message HOẶC ChildContent. *@
+@if (!string.IsNullOrEmpty(Message) || ChildContent is not null)
 {
     <div class="@GetAlertClasses()" role="alert" @attributes="GetMergedAttributes()">
         <div class="d-flex align-items-center">
@@ -16,15 +19,22 @@
             {
                 <i class="fas fa-@GetIcon() me-2"></i>
             }
-            
+
             <div class="flex-grow-1">
-                @Message
+                @if (!string.IsNullOrEmpty(Message))
+                {
+                    @Message
+                }
+                else
+                {
+                    @ChildContent
+                }
             </div>
-            
+
             @if (Dismissible)
             {
-                <button type="button" 
-                        class="btn-close ms-2" 
+                <button type="button"
+                        class="btn-close ms-2"
                         aria-label="Close"
                         @onclick="HandleDismiss"
                         disabled="@State.IsDisabled">

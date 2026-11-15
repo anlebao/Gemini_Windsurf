@@ -73,7 +73,7 @@
         }
 
         @* W3-2d (Pattern B): fuzzy match → "Ý bạn là: X?" chip 1-tap (VanAnDidYouMeanChip) *@
-        <VanAnDidYouMeanChip Suggestion="_didYouMean" OnApply="SearchWithKeyword" />
+        <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="SearchWithKeyword" />
 
         <!-- Issue #166 comment: Suggested keywords when no direct match -->
         @if (_hasSearched && !_loading && _suggestedKeywords.Count > 0)
