@@ -50,8 +50,10 @@ test.describe('W3-2c search UX pattern', () => {
       ? realName.slice(0, Math.ceil(realName.length / 2)) + realName.slice(-2)
       : realName + 'x';
 
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForSelector('.dir-search-input', { timeout: 60000 });
+    await page.waitForFunction(() => (window as any).Blazor !== undefined, null, { timeout: 30000 });
+    await page.waitForTimeout(2500);
     await page.fill('.dir-search-input', typo);
     await page.keyboard.press('Enter'); // Enter submit — Pattern A giữ hành vi cũ
 
@@ -93,8 +95,12 @@ test.describe('W3-2c search UX pattern', () => {
     }
     if (!typo) { test.skip(true, 'Không tìm được fuzzy case có didYouMean trên prod data'); return; }
 
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForSelector('.dir-search-input', { timeout: 60000 });
+    // Blazor Server: chờ circuit sẵn sàng — Enter trước khi connect sẽ bị drop
+    // (event mất → search không chạy → flake).
+    await page.waitForFunction(() => (window as any).Blazor !== undefined, null, { timeout: 30000 });
+    await page.waitForTimeout(2500);
     await page.fill('.dir-search-input', typo);
     await page.keyboard.press('Enter');
 
