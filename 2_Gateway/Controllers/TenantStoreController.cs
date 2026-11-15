@@ -302,8 +302,9 @@ namespace VanAn.Gateway.Controllers
                             matchStrategy = "fuzzy";
                             tenants = levelResult.Select(h => h.T).ToList();
                             fuzzyScores = levelResult.ToDictionary(h => h.T.Id.Value, h => h.Score);
-                            // DidYouMean chỉ khi match chưa chắc (score < 0.8) — gần đúng thì không gợi ý.
-                            if (levelResult[0].Score < 0.8)
+                            // DidYouMean khi match chưa chắc (score < 0.9) — 0.8-0.9 vẫn nên cho
+                            // user confirm (vd "antam"→"An Tâm" 0.83); ≥0.9 là gần như chắc → ẩn chip.
+                            if (levelResult[0].Score < 0.9)
                                 didYouMean = levelResult[0].T.Name;
                         }
                         else
