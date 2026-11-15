@@ -167,6 +167,8 @@ public class AuthorizationEnforcementTests
             // Loyalty Consistency Fix Phase 0: Internal service-to-service API — uses custom [InternalApiKey]
             // attribute (IAsyncAuthorizationFilter validating X-Internal-Api-Key header), not JWT/Cookie auth.
             "InternalLoyaltyController",
+            // ATRS-3 (2026-11-15): internal token-version endpoints — [InternalApiKey] auth (same pattern)
+            "TokenVersionInternalController",
             // VALCN v2.0 Phase 3 + Phase 7: Internal service-to-service APIs — [InternalApiKey] auth (same pattern as InternalLoyaltyController)
             "LoyaltyBudgetController",
             "NetworkDashboardController",
