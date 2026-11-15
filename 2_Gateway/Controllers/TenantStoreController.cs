@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using VanAn.Shared.Services;
@@ -493,17 +492,41 @@ namespace VanAn.Gateway.Controllers
         private const double FuzzyThreshold = 0.55;
 
         /// <summary>Bỏ dấu tiếng Việt + lowercase + collapse spaces.
-        /// LƯU Ý: 'đ/Đ' KHÔNG decompose qua FormD — phải replace thủ công.</summary>
+        /// LƯU Ý: runtime prod bật System.Globalization.Invariant → Normalize(FormD) là NO-OP,
+        /// nên PHẢI fold thủ công qua bảng map — KHÔNG dùng FormD/CharUnicodeInfo.</summary>
+        private static readonly IReadOnlyDictionary<char, char> DiacriticFold = BuildDiacriticFold();
+
+        private static Dictionary<char, char> BuildDiacriticFold()
+        {
+            var map = new Dictionary<char, char>();
+            void Add(string accented, char basis)
+            {
+                foreach (var c in accented)
+                    map[c] = basis;
+                foreach (var c in accented.ToUpperInvariant())
+                    map[c] = basis;
+            }
+            Add("àáảãạăằắẳẵặâầấẩẫậ", 'a');
+            Add("èéẻẽẹêềếểễệ", 'e');
+            Add("ìíỉĩị", 'i');
+            Add("òóỏõọôồốổỗộơờớởỡợ", 'o');
+            Add("ùúủũụưừứửữự", 'u');
+            Add("ỳýỷỹỵ", 'y');
+            Add("đ", 'd');
+            // Latin-1 bổ sung — search robust cho tên không phải tiếng Việt.
+            Add("äå", 'a'); Add("ç", 'c'); Add("ë", 'e'); Add("îï", 'i'); Add("ñ", 'n');
+            Add("öø", 'o'); Add("üû", 'u'); Add("ÿ", 'y');
+            return map;
+        }
+
         internal static string NormalizeSearchText(string? s)
         {
             if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-            var decomposed = s.Normalize(NormalizationForm.FormD);
-            var sb = new StringBuilder(decomposed.Length);
-            foreach (var c in decomposed)
+            var sb = new StringBuilder(s.Length);
+            foreach (var c in s)
             {
-                if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
-                    continue;
-                sb.Append(c == 'đ' || c == 'Đ' ? 'd' : char.ToLowerInvariant(c));
+                var lower = char.ToLowerInvariant(c);
+                sb.Append(DiacriticFold.TryGetValue(lower, out var basis) ? basis : lower);
             }
             return string.Join(' ', sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
         }
