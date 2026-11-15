@@ -549,6 +549,13 @@
             font-size: 0.9rem;
         }
         .product-info .text-muted { font-size: 0.75rem; }
+        /* W3-2c (user report): col-6 card ~150px — giá + nút Mua + pill Hỏi AI/Gọi
+           trong flex không wrap → tràn khung. Cho wrap + ellipsis giá. */
+        .product-info > .d-flex { flex-wrap: wrap; gap: 0.4rem; }
+        .product-info .h5,
+        .product-info .badge { font-size: 0.85rem; }
+        .product-info .d-flex > .h5,
+        .product-info .d-flex > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     }
 </style>
 
