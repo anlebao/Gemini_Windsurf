@@ -71,6 +71,13 @@
                     <span>Lịch sử đơn hàng</span>
                     <i class="bi bi-chevron-right ms-auto"></i>
                 </a>
+                @* ATRS-11 subset (Wave 2): Security center entry — Tài khoản → Bảo mật tài khoản (UI SRS) *@
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+                   @onclick='() => Navigation.NavigateTo("/security")'>
+                    <i class="bi bi-shield-lock text-success"></i>
+                    <span>Bảo mật tài khoản</span>
+                    <i class="bi bi-chevron-right ms-auto"></i>
+                </a>
             </div>
 
             @* Phase 5: Push notification toggle *@

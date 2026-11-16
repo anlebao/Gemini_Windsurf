@@ -123,6 +123,8 @@ public sealed class DeviceServiceTests : IDisposable
     {
         var subject = Guid.NewGuid();
         var deviceId = await SeedDeviceAsync(subject);
+        var device = await _db.UserDevices.SingleAsync(d => d.Id == deviceId);
+        device.Activate();
         _db.DeviceCredentials.Add(new DeviceCredential(
             Guid.NewGuid(), subject, "cred-1", "pubkey-1", 0, "timlathay.com", deviceId, null, null, null, null));
         await _db.SaveChangesAsync();
@@ -146,7 +148,9 @@ public sealed class DeviceServiceTests : IDisposable
         Assert.NotNull(detail);
         var cred = Assert.Single(detail!.Credentials);
         Assert.Equal("cred-1", cred.CredentialId);
-        // KHÔNG lộ public key qua DTO (FR-004)
-        Assert.Equal("pubkey-1", Assert.IsType<DeviceCredential>(null)?.ToString()); // placeholder — real assert below
+        // KHÔNG lộ public key qua DTO (FR-004) — DTO chỉ có metadata an toàn
+        var dtoProps = typeof(VanAn.Atrs.Contracts.DeviceCredentialSummaryDto).GetProperties().Select(p => p.Name);
+        Assert.DoesNotContain("PublicKey", dtoProps);
+        Assert.DoesNotContain("PrivateKey", dtoProps);
     }
 }

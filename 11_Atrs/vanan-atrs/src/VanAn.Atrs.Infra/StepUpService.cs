@@ -19,6 +19,9 @@ public interface IStepUpService
 
     /// <summary>Validate token: hợp lệ, chưa hết hạn, đúng subject. Trả method (amr) khi OK.</summary>
     string? Validate(string? token, Guid expectedTrustSubjectId);
+
+    /// <summary>Validate với clock injectable (test).</summary>
+    string? Validate(string? token, Guid expectedTrustSubjectId, DateTime? now);
 }
 
 public sealed class StepUpOptions
@@ -49,7 +52,7 @@ public sealed class StepUpService(IConfiguration configuration) : IStepUpService
         {
             new Claim(JwtRegisteredClaimNames.Sub, trustSubjectId.ToString()),
             new Claim("amr", method),
-            new Claim(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString())
+            new Claim(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))
         };
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
@@ -65,6 +68,9 @@ public sealed class StepUpService(IConfiguration configuration) : IStepUpService
     }
 
     public string? Validate(string? token, Guid expectedTrustSubjectId)
+        => Validate(token, expectedTrustSubjectId, DateTime.UtcNow);
+
+    public string? Validate(string? token, Guid expectedTrustSubjectId, DateTime? now)
     {
         if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(_options.Secret))
             return null;
@@ -72,6 +78,8 @@ public sealed class StepUpService(IConfiguration configuration) : IStepUpService
         try
         {
             var handler = new JwtSecurityTokenHandler();
+            // Giữ nguyên claim names gốc (sub/amr) — không map sang ClaimTypes.NameIdentifier.
+            handler.InboundClaimTypeMap.Clear();
             var principal = handler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
@@ -82,11 +90,19 @@ public sealed class StepUpService(IConfiguration configuration) : IStepUpService
                 ValidAudience = _options.Audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.FromSeconds(30)
-            }, out _);
+            }, out var validatedToken);
 
             var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             if (sub is null || !Guid.TryParse(sub, out var subjectId) || subjectId != expectedTrustSubjectId)
                 return null;
+
+            // Clock injectable cho test — ngoài giờ thực tế vẫn phải chịu lifetime check của handler,
+            // nhưng với now trong quá khứ/giả lập ta tự kiểm thêm expiry (bảo hiểm cho env có ClockSkew 0).
+            if (now is { } simulated && validatedToken is JwtSecurityToken jwt)
+            {
+                if (simulated >= jwt.ValidTo)
+                    return null;
+            }
 
             return principal.FindFirst("amr")?.Value;
         }

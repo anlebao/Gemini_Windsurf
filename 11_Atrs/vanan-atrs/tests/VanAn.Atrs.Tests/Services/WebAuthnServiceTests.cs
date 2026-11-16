@@ -16,7 +16,6 @@ namespace VanAn.Atrs.Tests.Services;
 public sealed class WebAuthnServiceTests : IDisposable
 {
     private readonly AtrsDbContext _db;
-    private readonly MemoryCache _cache;
     private readonly WebAuthnService _service;
 
     public WebAuthnServiceTests()
@@ -25,7 +24,6 @@ public sealed class WebAuthnServiceTests : IDisposable
             .UseInMemoryDatabase($"webauthn-{Guid.NewGuid()}")
             .Options;
         _db = new AtrsDbContext(options);
-        _cache = new MemoryCache(new MemoryCacheOptions());
         _service = new WebAuthnService(
             _db,
             Options.Create(new WebAuthnOptions
@@ -33,14 +31,12 @@ public sealed class WebAuthnServiceTests : IDisposable
                 RpId = "timlathay.com",
                 Origins = ["https://vanan.timlathay.com", "https://commienphi.timlathay.com"],
                 ChallengeTtlMinutes = 5
-            }),
-            _cache);
+            }));
     }
 
     public void Dispose()
     {
         _db.Dispose();
-        _cache.Dispose();
         GC.SuppressFinalize(this);
     }
 

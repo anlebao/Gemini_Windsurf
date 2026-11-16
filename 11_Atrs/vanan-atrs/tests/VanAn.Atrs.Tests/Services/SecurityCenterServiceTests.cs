@@ -45,8 +45,10 @@ public sealed class SecurityCenterServiceTests : IDisposable
     {
         var subject = Guid.NewGuid();
         _db.AccountTrustProfiles.Add(new AccountTrustProfile(Guid.NewGuid(), subject));
-        _db.UserDevices.Add(new UserDevice(Guid.NewGuid(), subject, "dev-1",
-            RegistrationMethod.WEBAUTHN, DeviceType.Mobile, "Android 14", "Điện thoại"));
+        var device = new UserDevice(Guid.NewGuid(), subject, "dev-1",
+            RegistrationMethod.WEBAUTHN, DeviceType.Mobile, "Android 14", "Điện thoại");
+        device.Activate();
+        _db.UserDevices.Add(device);
         _db.DeviceCredentials.Add(new DeviceCredential(
             Guid.NewGuid(), subject, "cred-1", "pubkey-1", 0, "timlathay.com", null, null, null, null, null));
         _db.RecoveryCodeSets.Add(new RecoveryCodeSet(Guid.NewGuid(), subject));

@@ -120,6 +120,8 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.InstanceContextService>();
             _ = builder.Services.AddScoped<Services.Http.CooperativeHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();
+            // ATRS-11 subset (Wave 2, 2026-11-16): security center — passkey/device/recovery codes
+            _ = builder.Services.AddScoped<Services.Http.SecurityHttpService>();
 
             // Register Recently Viewed Service + LastInteractionService
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();

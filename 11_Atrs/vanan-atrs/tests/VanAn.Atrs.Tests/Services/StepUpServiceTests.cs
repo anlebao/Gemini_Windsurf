@@ -76,12 +76,22 @@ public sealed class StepUpServiceTests
     [Fact]
     public void Validate_ExpiredToken_ReturnsNull()
     {
-        // TTL 0 phút → token hết hạn ngay
-        var service = CreateService(ttlMinutes: 0);
+        var service = CreateService();
         var subject = Guid.NewGuid();
         var token = service.Issue(subject, "recovery-code");
 
-        Assert.Null(service.Validate(token, subject));
+        // Mô phỏng clock sau expiry (10') + skew → token đã hết hạn
+        Assert.Null(service.Validate(token, subject, DateTime.UtcNow.AddMinutes(11)));
+    }
+
+    [Fact]
+    public void Validate_SimulatedClockStillValid_ReturnsAmr()
+    {
+        var service = CreateService();
+        var subject = Guid.NewGuid();
+        var token = service.Issue(subject, "passkey");
+
+        Assert.Equal("passkey", service.Validate(token, subject, DateTime.UtcNow.AddMinutes(5)));
     }
 
     [Fact]

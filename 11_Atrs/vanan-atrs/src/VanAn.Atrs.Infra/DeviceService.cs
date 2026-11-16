@@ -17,7 +17,7 @@ public interface IDeviceService
     Task<bool> RevokeAsync(Guid trustSubjectId, Guid deviceId, string? reasonCode, CancellationToken ct = default);
     Task<bool> MarkLostAsync(Guid trustSubjectId, Guid deviceId, CancellationToken ct = default);
     Task<Guid> EnsureDeviceAsync(Guid trustSubjectId, string deviceId, RegistrationMethod method,
-        DeviceType deviceType, string? platform, string? friendlyName, CancellationToken ct = default);
+        DeviceType deviceType, string? platform = null, string? friendlyName = null, CancellationToken ct = default);
 }
 
 public sealed class DeviceService(AtrsDbContext db) : IDeviceService
@@ -98,7 +98,7 @@ public sealed class DeviceService(AtrsDbContext db) : IDeviceService
     }
 
     public async Task<Guid> EnsureDeviceAsync(Guid trustSubjectId, string deviceId, RegistrationMethod method,
-        DeviceType deviceType, string? platform, string? friendlyName, CancellationToken ct = default)
+        DeviceType deviceType, string? platform = null, string? friendlyName = null, CancellationToken ct = default)
     {
         var existing = await db.UserDevices
             .FirstOrDefaultAsync(d => d.TrustSubjectId == trustSubjectId && d.DeviceId == deviceId, ct);

@@ -15,8 +15,7 @@ namespace VanAn.Atrs.Infra;
 /// </summary>
 public sealed class WebAuthnService(
     AtrsDbContext db,
-    IOptions<WebAuthnOptions> options,
-    Microsoft.Extensions.Caching.Memory.IMemoryCache cache) : IWebAuthnService
+    IOptions<WebAuthnOptions> options) : IWebAuthnService
 {
     private const int MaxActiveChallengesPerSubject = 5;
     private readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web);
@@ -298,9 +297,11 @@ public sealed class WebAuthnService(
             DateTime.UtcNow.AddMinutes(opt.ChallengeTtlMinutes),
             JsonSerializer.Serialize(ceremonyOptions, _jsonOpts)));
         // Dọn challenge hết hạn cũ (mỗi lần begin — best-effort, không chặn luồng).
-        await db.WebAuthnChallenges
+        var expired = await db.WebAuthnChallenges
             .Where(c => c.ExpiresAt < DateTime.UtcNow && c.ConsumedAt == null)
-            .ExecuteDeleteAsync(ct);
+            .ToListAsync(ct);
+        if (expired.Count > 0)
+            db.WebAuthnChallenges.RemoveRange(expired);
         await db.SaveChangesAsync(ct);
         return challenge;
     }
