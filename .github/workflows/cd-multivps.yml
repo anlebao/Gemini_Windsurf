@@ -1459,8 +1459,8 @@ jobs:
           script: |
             mkdir -p /opt/vanan-atrs
             cat > /opt/vanan-atrs/.env <<'ENVEOF'
-${{ secrets.ATRS_ENV }}
-ENVEOF
+            ${{ secrets.ATRS_ENV }}
+            ENVEOF
             chmod 600 /opt/vanan-atrs/.env
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml pull atrs || true
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml up -d
