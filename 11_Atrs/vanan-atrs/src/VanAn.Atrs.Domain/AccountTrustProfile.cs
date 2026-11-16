@@ -12,8 +12,8 @@ public sealed class AccountTrustProfile
     public AssuranceState AssuranceState { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token (rowversion).")]
-    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+    /// <summary>Concurrency token — map tới system column xmin (PG, kiểu xid → uint).</summary>
+    public uint RowVersion { get; private set; }
 
     private AccountTrustProfile() { }
 

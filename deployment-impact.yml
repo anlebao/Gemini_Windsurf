@@ -57,6 +57,11 @@ apps:
     paths:
       - 10_Voice/**
       - docker-compose.voice.yml
+  atrs:
+    image: ghcr.io/anlebao/vanan-atrs
+    paths:
+      - 11_Atrs/**
+      - docker-compose.atrs.yml
 
 # ------------------------------------------------------------
 # Dependency graph — VERIFIED from *.csproj ProjectReference (2026-09-26)

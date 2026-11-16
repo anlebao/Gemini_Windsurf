@@ -29,7 +29,10 @@ public sealed class TokenVersionService(IMemoryCache cache, IVanAnDbContext db) 
 
         try
         {
+            // IgnoreQueryFilters: version là account-level (không tenant-scoped) — global
+            // multi-tenancy filter sẽ loại user ngoài tenant hiện tại → enforcement chết âm thầm.
             var version = await db.Users
+                .IgnoreQueryFilters()
                 .Where(u => u.Id == userId)
                 .Select(u => (int?)u.TokenVersion)
                 .FirstOrDefaultAsync(ct);

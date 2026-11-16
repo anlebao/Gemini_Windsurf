@@ -1,0 +1,42 @@
+# vanan-atrs — Account Trust & Recovery Service (ADR-001, D2)
+# Own PostgreSQL (trust registry CROSS-tenant) + own image, port 5080.
+services:
+  atrs:
+    image: ghcr.io/anlebao/vanan-atrs:latest
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__Atrs: ${ATRS_PG_CONNECTION}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Secret: ${JWT_SECRET}
+      Atrs__ShopErpBaseUrl: ${ATRS_SHOPERP_BASE_URL}
+      Atrs__GatewayBaseUrl: ${ATRS_GATEWAY_BASE_URL}
+      InternalLoyalty__ApiKey: ${INTERNAL_API_KEY}
+      ASPNETCORE_URLS: http://+:5080
+    ports:
+      - "5080:5080"
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ATRS_PG_DB}
+      POSTGRES_USER: ${ATRS_PG_USER}
+      POSTGRES_PASSWORD: ${ATRS_PG_PASSWORD}
+    volumes:
+      - atrs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ATRS_PG_USER} -d ${ATRS_PG_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  atrs_pgdata:

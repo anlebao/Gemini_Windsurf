@@ -16,7 +16,7 @@ namespace VanAn.Atrs.Api;
 /// </summary>
 public static class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +84,13 @@ public static class Program
         }
 
         var app = builder.Build();
+
+        // Apply EF migrations on startup (convention: ShopERP/Gateway/TenantAI đều MigrateAsync).
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AtrsDbContext>();
+            await db.Database.MigrateAsync();
+        }
 
         // Health endpoint — cơ chế probe cho CD/smoke test (pattern metering/voice).
         app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "vanan-atrs" }))

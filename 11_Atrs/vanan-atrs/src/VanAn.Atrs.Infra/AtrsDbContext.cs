@@ -44,7 +44,13 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         profile.Property(e => e.Id).ValueGeneratedNever();
         profile.Property(e => e.Status).HasConversion<int>();
         profile.Property(e => e.AssuranceState).HasConversion<int>();
-        profile.Property(e => e.RowVersion).IsRowVersion();
+        // Npgsql concurrency: RowVersion (uint) map tới system column xmin (kiểu xid).
+        // xmin tồn tại sẵn trong mọi bảng PG — EF không tạo cột, không insert, DB tự quản.
+        profile.Property(e => e.RowVersion)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
         profile.HasIndex(e => e.TrustSubjectId)
             .IsUnique()
             .HasDatabaseName("ux_account_trust_profiles_subject");

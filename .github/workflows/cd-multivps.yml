@@ -74,7 +74,7 @@ jobs:
           if (-not $result) {
             $result = [PSCustomObject]@{
               deploy_action    = "full"
-              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering", "tenantai", "voice")
+              deploy_set       = @("gateway", "khachlink", "shoperp", "directory", "crawler", "metering", "tenantai", "voice", "atrs")
               nginx_changed    = $false
               verification_set = @("build", "unit", "integration", "startup", "deploy_smoke", "targeted_rv")
             }
@@ -126,6 +126,9 @@ jobs:
           - app: voice
             file: 10_Voice/vanan-voice/Dockerfile
             image: vanan-voice
+          - app: atrs
+            file: 11_Atrs/vanan-atrs/Dockerfile
+            image: vanan-atrs
 
     outputs:
       image_tag: ${{ env.IMAGE_TAG }}
@@ -1422,3 +1425,44 @@ jobs:
           echo "1. Setup SSL certs (if not done): run scripts/init-ssl.sh on Gateway VPS"
           echo "2. Create ShopInstance record in Gateway PG (see Multi_VPS_Deployment_Guide.md §3 Bước 6)"
           echo "3. Onboard first tenant via Gateway API"
+
+  # ============================================================
+  # Job: Deploy to ATRS VPS (vanan-atrs — ADR-001, D2)
+  # ============================================================
+  deploy-atrs:
+    name: Deploy to ATRS VPS
+    runs-on: ubuntu-latest
+    needs: [impact-analysis, build-and-push, pre-deployment-validation]
+    if: ${{ !cancelled() && !failure() && contains(needs.impact-analysis.outputs.deploy_set, 'atrs') }}
+    timeout-minutes: 30
+    environment: production-atrs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy ATRS deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_ATRS_HOST }}
+          username: ${{ secrets.VPS_ATRS_USER }}
+          key: ${{ secrets.VPS_ATRS_SSH_PRIVATE_KEY }}
+          source: "docker-compose.atrs.yml"
+          target: "/opt/vanan-atrs"
+          overwrite: true
+
+      - name: Bootstrap & Deploy ATRS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_ATRS_HOST }}
+          username: ${{ secrets.VPS_ATRS_USER }}
+          key: ${{ secrets.VPS_ATRS_SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p /opt/vanan-atrs
+            cat > /opt/vanan-atrs/.env <<'ENVEOF'
+${{ secrets.ATRS_ENV }}
+ENVEOF
+            chmod 600 /opt/vanan-atrs/.env
+            sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml pull atrs || true
+            sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml up -d
+            sleep 20
+            curl -fsS --max-time 30 http://localhost:5080/health && echo "ATRS health OK"
