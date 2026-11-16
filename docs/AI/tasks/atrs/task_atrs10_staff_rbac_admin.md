@@ -64,3 +64,18 @@ Hệ phân quyền staff cho ATRS (8 nhóm quyền UI §4.2) + toàn bộ staff 
 - Lộ PII cho staff → masking + AccessClassification + audit mọi view (FR-012).
 - Permission table mới vs mở rộng UserRole — D5 chốt trong ATRS-1; nếu user chọn extend enum → điều chỉnh card.
 - Queue performance khi case lớn → server-side pagination bắt buộc (UI §A15 rule).
+
+## 7. IMPLEMENTATION STATUS (Wave 3 subset — 2026-11-16)
+
+**Status: SUBSET IMPLEMENTED** — permission backend + enforcement + grant admin + A17/A18/A19/A15-A16 backend. Phần còn lại (A14 dashboard, A20 audit explorer, A21 policy, A22 roles UI đầy đủ) thuộc wave sau.
+
+Đã làm:
+- `StaffPermissionGrant` entity + `AtrsPermissions` constants (recovery.view/review/approve, dispute.view/investigate/propose_adjustment/approve_adjustment, case.assign) + migration.
+- `IAtrsAuthorizationService`/`AtrsAuthorizationService`: grant active (chưa revoke/expire) + scope tenant fail-closed + SystemAdmin break-glass + legacy Owner→recovery.* map (transition).
+- Enforcement server-side trên mọi staff endpoint: `AdminDisputesController`, `AdminRecoveryController`, `AdminPermissionsController` (grant/revoke chỉ SystemAdmin), `InternalRecoveryController` (legacy route nâng cấp từ role-check → permission-check).
+- `StaffPrincipal` helper (sub→DemoUserId, roles từ JWT).
+- Audit: mọi staff view/action dispute → `AccountSecurityEvent` ActorType=Staff.
+- ShopERP `AtrsAdminApiClient` mint JWT **giữ role thật** (không SystemAdmin hoá) → RBAC atrs enforce đúng; grant được cấp qua `POST /admin/permissions`.
+
+Chưa làm:
+- A14 operations dashboard, A20 audit explorer, A21 security policy, A22 roles UI; staff MFA step-up cho tác vụ nhạy cảm; permission groups UI (8 nhóm đầy đủ — Wave 3 chỉ subset cần cho dispute/recovery).

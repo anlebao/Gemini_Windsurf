@@ -58,3 +58,21 @@ DisputeCase đầy đủ: user khiếu nại điểm/ví/giao dịch → evidenc
 - Ledger read API mới trên `ILoyaltyPointLedgerService` — đụng service đang stable (LoyaltyLedgerV2 flag) → additive only, không đổi write path.
 - Cross-tenant dispute (điểm nhiều tenant) — scope theo TrustSubject links; "luật Silo" ảnh hưởng adjustment tenant nào → cần rule rõ trong card khi implement.
 - Maker-checker bypass qua API trực tiếp → enforce ở service layer, không chỉ UI.
+
+## 7. IMPLEMENTATION STATUS (Wave 3 — 2026-11-16)
+
+**Status: IMPLEMENTED (backend + staff UI tối thiểu).** Commit `ATRS Wave 3` trên main.
+
+Đã làm:
+- Entities `DisputeCase`/`DisputeEvidenceItem`/`DisputeDecision` + enums + EF config + migration `20261116115723_DisputeCases_StaffGrants` (additive, snake_case).
+- `DisputeCaseManager` (vanan-atrs Infra): submit idempotent + anti-duplicate theo transaction ref, evidence (user luôn USER_VISIBLE, IntegrityHash SHA-256-hex validate), withdraw, user-safe detail (không lộ AccessClassification/fraud/internal), staff queue/assign/transition, propose→approve maker-checker, adjust qua `ILoyaltyGatewayClient` → Gateway `points/adjust-customer`, `ResolutionReference` = AllianceTransaction id, case RESOLVED chỉ sau ledger confirm; ledger fail → decision FAILED + case về UNDER_REVIEW (re-propose được, key mới).
+- `ILoyaltyPointLedgerService.GetEntriesAsync` (additive): union LoyaltyIssuanceRecord + AllianceTransaction + Silo history (SPEND only, tránh dup EARN); Gateway `GET /api/internal/loyalty/entries` + `POST /api/internal/loyalty/points/adjust-customer` (resolve `customer.DeviceId ?? customerId`); ShopERP proxy forward (fail-open rỗng).
+- Staff APIs: `AdminDisputesController` (`/api/v1/account-trust/admin/disputes*`), `AdminRecoveryController`, `AdminPermissionsController`; customer `DisputesController` + `TransactionsController` (X-Customer-Token, anti-enumeration 404).
+- Staff UI tối thiểu: `/admin/disputes` (A17 queue, filter+server paging, masked subject) + `/admin/disputes/{id}` (A18 evidence/decisions/ledger txs + A19 propose/approve/reject) qua `AtrsAdminApiClient` (JWT giữ role thật — SystemAdmin break-glass, còn lại check grant); NavMenu Owner + SystemAdmin.
+- Tests: `DisputeCaseManagerTests` + `AtrsAuthorizationServiceTests` — 26 tests PASS (lifecycle, self-approval reject, idempotent adjust, ledger-fail→re-propose, evidence access class, permission matrix/scope/expiry).
+
+Chưa làm (wave sau):
+- Evidence attachments R2 signed-URL upload (D9) — hiện chỉ metadata + IntegrityHash; `AddDisputeEvidenceRequest` đã có chỗ cho file ref.
+- `FlagExternalEvidencePending` chưa có trigger tự động khi phát hiện ledger reversal ngoài hệ thống (method sẵn, cần job/poll).
+- Metering wallet vẫn out of scope (đúng card); transaction selector UI phía customer (KhachLink) chưa làm — chỉ backend `GET /transactions`.
+- E2E authenticated staff flow cần `DISPUTE_STAFF_TOKEN` post-deploy RV.
