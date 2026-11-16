@@ -28,6 +28,11 @@ Code can build + pass CI but still fail at runtime due to:
 3. **Sweep phải re-run được**: self-cleanup dữ liệu test (cancel/complete) + dùng ngày/slot/đối tượng ĐỘNG mỗi run (hết slot hôm nay → dùng ngày mai).
 4. **Fix theo nhóm → 1 deploy → re-sweep TOÀN BỘ** (không chỉ re-test case vừa fix). CD ~15-17 phút/vòng — sweep-first giảm từ N vòng case-by-case xuống 1-2 vòng.
 5. E2E specs (Playwright) chạy SAU khi sweep sạch (0 FAIL) — spec là verify cuối, không phải công cụ dò bug đầu tiên.
+6. **Sweep bắt bug mà unit test miss vì thiếu DATA thật** (lesson ATRS Wave 2, 2026-11-16): `GET /devices` 500 `ArgumentNullException` chỉ lộ khi DB có credential "orphan" (DeviceRecordId=null) — test InMemory luôn seed data "đẹp". Khi sweep phát hiện crash dạng này → check cả WRITE path đã từng tạo data đó chưa (xem mục "Dead write path" dưới).
+
+### Dead Write Path — "list trả [] thành công" ≠ feature hoạt động (lesson 2026-11-16)
+
+Endpoint list returning `[]`/200 KHÔNG chứng minh feature hoạt động — có thể write path chưa từng chạy (dead code). Ví dụ ATRS: `EnsureDeviceAsync` tồn tại + tests pass nhưng **không controller nào gọi** → device registry vĩnh viễn rỗng, mọi passkey đều orphan. Trong sweep: với mỗi entity/registry, verify có ≥1 row được TẠO qua API thật (không phải seed SQL), và entity con tham chiếu đúng parent (FK/recordId non-null).
 
 ### Layer 1: API-Level Checks (curl/Invoke-WebRequest — 10 seconds)
 Fastest verification. No browser needed. Check before anything else.
@@ -167,6 +172,7 @@ Final check by user in real browser. Only if Layers 1-4 pass.
 | Leaflet "Map container is already initialized" → circuit chết (JSException trong OnAfterRenderAsync) | `initMap` gọi mỗi render trên cùng element — Leaflet giữ `_leaflet_id`, `innerHTML=''` không xóa được | `map.remove()` trước khi tạo lại + guard coords thay đổi (`_lastMapLat/Lng`) — governance Pattern #35 (`b6775af6`) |
 | SPA nav cùng route chỉ khác query: URL đổi nhưng page KHÔNG re-render (wizard không mở) | Blazor .NET 8 không gọi OnParametersSet khi RouteData không đổi (query không thuộc route) | `NavigationManager.LocationChanged` thay OnParametersSet cho query parsing — governance Pattern #36 (`3f1d3a07`) |
 | No-auth check trả 200 thay vì 401 (tưởng endpoint public) | `fetch()` follow redirect mặc định — auth challenge 302 → login page 200 | `redirect: 'manual'` — chấp nhận 302 hoặc 401 — governance Pattern #38 |
+| `GET /<list>` 500 `ArgumentNullException: Value cannot be null. (Parameter 'key')` | `GroupBy` + `ToDictionaryAsync` trên cột **nullable** → null key (orphan row: FK null vì write path không gán) | Filter `!= null` trước GroupBy + test case "orphan row" trong service tests + kiểm tra write path có tạo orphan không (ATRS `/devices`, 2026-11-16) |
 
 ## RV SCRIPT TEMPLATE
 Save as `rv-<issue>.js` in repo root (gitignore or delete after RV complete):
@@ -233,6 +239,51 @@ wallet when production is Silo), you can still E2E-test the DEPLOYED code safely
 5. **Nếu lỡ bật MFA trên account RV:** tắt qua `/account/mfa` (cần mật khẩu) — owner tự tắt được; hoặc dùng storageState có `va_mfa_trust`.
 6. **W0 OtpService hardening (customer OTP):** API contract KHÔNG đổi (`/api/customer-identity/otp/send|verify` — cùng request/response). Nhưng >5 lần sai cùng SĐT/purpose → lock 5' (config `Otp:MaxAttempts`/`Otp:LockoutMinutes`). RV sweep KHÔNG spam sai OTP >5 lần cho cùng 1 SĐT.
 7. **DevLoginController** chỉ tồn tại ở DEBUG build (compile-out Release) — KHÔNG dùng được trên production; không phụ thuộc vào nó.
+
+## PASSKEY / WEBAUTHN RV — CDP VIRTUAL AUTHENTICATOR (lesson 2026-11-16, ATRS Wave 2)
+
+Verify full WebAuthn ceremony trên prod **không cần device thật** — Playwright CDP
+virtual authenticator chạy `navigator.credentials.create/get` thật end-to-end
+(server challenge → attestation/assertion → credential lưu DB → step-up token).
+
+```javascript
+const cdp = await context.newCDPSession(page);
+await cdp.send('WebAuthn.enable');
+await cdp.send('WebAuthn.addVirtualAuthenticator', {
+  options: {
+    protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal',
+    hasResidentKey: true, hasUserVerification: true, isUserVerified: true,
+    automaticPresenceSimulation: true,
+  },
+});
+```
+
+- Click nút "Tạo passkey" trên UI → ceremony chạy → verify credential xuất hiện
+  qua API (`/webauthn/credentials`) — KHÔNG tin UI text alone.
+- Sensitive action (generate codes/revoke) trigger assert → `signCount` tăng +
+  `lastUsedAt` cập nhật trong DB = step-up thật đã xảy ra.
+- **Vẫn cần L5 manual** cho platform thật (Chrome/Android, Safari/iOS —
+  virtual authenticator không mô phỏng iCloud Keychain/Google Password Manager).
+- Precedent script: `6_Testing/rv-scripts/atrs-security-probe.mjs`.
+
+## CUSTOMER TOKEN RV MINT — DataProtection, KHÔNG CẦN OTP (lesson 2026-11-16)
+
+Customer token (KhachLink) = `IDataProtector.Protect("{customerId}:{expiry:O}")`,
+purpose `CustomerToken.v1`, app name `VanAnShopERP`, key ring `/app/keys` trong
+ShopERP container. `DevToken__Secret` unset → KHÔNG dùng dev-token endpoint.
+
+Cách mint an toàn (không lộ secret, không cần OTP/SĐT thật):
+
+1. Build self-contained dotnet tool local (`Microsoft.NET.Sdk.Web`,
+   `DataProtectionProvider.Create(keyDir, o => o.SetApplicationName("VanAnShopERP"))`
+   → `CreateProtector("CustomerToken.v1")` → `Protect(payload)`),
+   `dotnet publish -r linux-x64 --self-contained -p:PublishSingleFile=true`.
+2. `gcloud compute scp` binary → VPS → `docker cp` vào ShopERP container →
+   `docker exec <ctr> /tmp/mint /app/keys "<customerId>:<expiry:O>"`.
+3. Verify token: `curl -H "X-Customer-Token: <t>" https://api2.khachvip.online/api/customer-identity/me` → 200.
+4. **Xóa binary + file tạm trên VPS sau khi mint** (key material không rời VPS).
+
+Expiry format `:O` (round-trip ISO-8601, chứa `:` — parser phải join parts).
 
 ## CREDENTIALS (PRODUCTION VPS)
 - **ShopERP Login:** `baove@vanan.vn` (Guard) / `admin@vanan.vn` (Owner) / password: `2026@vanan`
