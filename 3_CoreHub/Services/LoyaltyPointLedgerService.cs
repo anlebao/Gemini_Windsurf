@@ -416,6 +416,97 @@ public class LoyaltyPointLedgerService(
         return await GetSiloBalanceAsync(customerId, new TenantId(tenantId), cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<LoyaltyLedgerEntry>> GetEntriesAsync(
+        Guid customerId, Guid tenantId,
+        DateTime? fromUtc = null, DateTime? toUtc = null, int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+        var tenant = new TenantId(tenantId);
+        var entries = new List<LoyaltyLedgerEntry>();
+
+        // 1) Silo issuance records (order awards) — PG source of truth for EARN.
+        var issuanceQuery = _dbContext.LoyaltyIssuanceRecords
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => r.CustomerId == customerId && r.TenantId == tenant);
+        if (fromUtc.HasValue) issuanceQuery = issuanceQuery.Where(r => r.IssuedAt >= fromUtc.Value);
+        if (toUtc.HasValue) issuanceQuery = issuanceQuery.Where(r => r.IssuedAt <= toUtc.Value);
+
+        var issuance = await issuanceQuery
+            .OrderByDescending(r => r.IssuedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+        entries.AddRange(issuance.Select(r => new LoyaltyLedgerEntry(
+            r.Id, r.IsReversed ? "REVERSAL" : "EARN", r.PointsIssued, null,
+            $"Order #{r.OrderId}", r.OrderId.ToString(), r.IssuedAt, tenantId,
+            "SILO_ISSUANCE", r.IsReversed)));
+
+        // 2) Alliance wallet transactions at this tenant (EARN/REDEEM/ADJUST).
+        if (_allianceWalletService is not null)
+        {
+            try
+            {
+                Customer? customer = await GetCustomerCrossTenantAsync(customerId, cancellationToken);
+                Guid deviceGuid = customer?.DeviceId ?? customerId;
+                AllianceWallet? wallet = await _allianceWalletService.GetWalletByDeviceIdAsync(deviceGuid);
+                if (wallet is not null)
+                {
+                    var txs = await _allianceWalletService.GetTransactionsByTenantAsync(wallet.Id, tenantId, limit);
+                    entries.AddRange(txs
+                        .Where(t => (!fromUtc.HasValue || t.TransactionAt >= fromUtc.Value)
+                                 && (!toUtc.HasValue || t.TransactionAt <= toUtc.Value))
+                        .Select(t => new LoyaltyLedgerEntry(
+                            t.Id, t.Type.ToString(), t.Points, t.BalanceAfter,
+                            t.Reason, t.SourceOrderId?.ToString() ?? t.VoucherCode,
+                            t.TransactionAt, t.TransactionTenantId, "ALLIANCE", false)));
+                }
+            }
+            catch (Exception ex)
+            {
+                // Read path: degraded alliance data must not break the whole history.
+                _logger.LogWarning(ex, "Ledger: alliance entries query failed for customer {CustomerId} tenant {TenantId}", customerId, tenantId);
+            }
+        }
+
+        // 3) Silo history SPEND entries (redemptions/refunds live in LoyaltyRewards.History JSON —
+        //    EARN is skipped here to avoid duplicating the issuance records above).
+        LoyaltyRewards? row = await _dbContext.LoyaltyRewards
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.CustomerId == customerId && r.TenantId == tenant, cancellationToken);
+        if (row is not null && !string.IsNullOrEmpty(row.History))
+        {
+            try
+            {
+                var history = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(row.History, HistoryJsonOptions);
+                if (history is not null)
+                {
+                    entries.AddRange(history
+                        .Where(h => !string.Equals(h.Type, "EARN", StringComparison.OrdinalIgnoreCase)
+                                 && (!fromUtc.HasValue || h.Timestamp >= fromUtc.Value)
+                                 && (!toUtc.HasValue || h.Timestamp <= toUtc.Value))
+                        .Take(limit)
+                        .Select((h, i) => new LoyaltyLedgerEntry(
+                            // Silo history has no row id — deterministic surrogate from content hash.
+                            SiloHistoryEntryId(tenantId, customerId, h, i),
+                            h.Type, h.Points, null, h.Reason, null, h.Timestamp, tenantId,
+                            "SILO_HISTORY", false)));
+                }
+            }
+            catch (JsonException)
+            {
+                // Corrupt history — skip, other sources still return.
+            }
+        }
+
+        return entries
+            .OrderByDescending(e => e.OccurredAt)
+            .Take(limit)
+            .ToList();
+    }
+
     // ──────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────
@@ -493,6 +584,14 @@ public class LoyaltyPointLedgerService(
             .Where(r => r.CustomerId == customerId && r.TenantId == tenantId)
             .Select(r => (int?)r.PointBalance)
             .FirstOrDefaultAsync(cancellationToken) ?? 0;
+    }
+
+    /// <summary>Deterministic surrogate id for a Silo history JSON entry (no DB row id exists).</summary>
+    private static Guid SiloHistoryEntryId(Guid tenantId, Guid customerId, LoyaltyHistoryEntry h, int index)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"silo-history:{tenantId:N}:{customerId:N}:{h.Timestamp:O}:{h.Type}:{h.Points}:{h.Reason}:{index}"));
+        return new Guid(bytes.AsSpan(0, 16));
     }
 
     private async Task<bool> HasSiloEarnForOrderAsync(Guid customerId, TenantId tenantId, Guid orderId, CancellationToken cancellationToken)

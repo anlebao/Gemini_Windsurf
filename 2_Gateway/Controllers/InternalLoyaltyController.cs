@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Filters;
 using VanAn.Shared.Domain;
@@ -24,11 +26,13 @@ public class InternalLoyaltyController(
     ILoyaltyModeResolver modeResolver,
     IAllianceWalletService walletService,
     ILoyaltyPointLedgerService ledgerService,
+    IVanAnDbContext db,
     ILogger<InternalLoyaltyController> logger) : ControllerBase
 {
     private readonly ILoyaltyModeResolver _modeResolver = modeResolver;
     private readonly IAllianceWalletService _walletService = walletService;
     private readonly ILoyaltyPointLedgerService _ledgerService = ledgerService;
+    private readonly IVanAnDbContext _db = db;
     private readonly ILogger<InternalLoyaltyController> _logger = logger;
 
     /// <summary>
@@ -271,6 +275,71 @@ public class InternalLoyaltyController(
         int? awarded = await _ledgerService.GetAwardedPointsAsync(orderId, tenantId, ct);
         return Ok(new { orderId, tenantId, awardedPoints = awarded });
     }
+
+    // ══════════════════════════════════════════════════════════
+    // ATRS-9 (Wave 3): dispute vertical — read-only history +
+    // customer-keyed adjustment (maker-checker executed by ATRS).
+    // ══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// GET /api/internal/loyalty/entries?customerId=&amp;tenantId=&amp;from=&amp;to=&amp;limit=
+    /// Read-only unified ledger history (PG sources only — never SQLite mirrors).
+    /// Used by ATRS dispute investigation + customer transaction selector.
+    /// </summary>
+    [HttpGet("entries")]
+    public async Task<IActionResult> GetEntries(
+        [FromQuery] Guid customerId, [FromQuery] Guid tenantId,
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int limit = 100,
+        CancellationToken ct = default)
+    {
+        if (customerId == Guid.Empty || tenantId == Guid.Empty)
+            return BadRequest(new { error = "customerId/tenantId không hợp lệ." });
+
+        var entries = await _ledgerService.GetEntriesAsync(customerId, tenantId, from, to, limit, ct);
+        return Ok(entries);
+    }
+
+    /// <summary>
+    /// POST /api/internal/loyalty/points/adjust-customer — ATRS dispute adjustment.
+    /// Resolves wallet key (customer.DeviceId ?? customerId — same rule as the ledger),
+    /// delegates to IAllianceWalletService.AdjustPointsAsync (ADJUST ledger row, idempotent),
+    /// then returns the authoritative AllianceTransaction id as resolution reference.
+    /// </summary>
+    [HttpPost("points/adjust-customer")]
+    public async Task<IActionResult> AdjustCustomerPoints([FromBody] AdjustCustomerPointsRequest req, CancellationToken ct)
+    {
+        if (req is null || req.CustomerId == Guid.Empty || req.TenantId == Guid.Empty
+            || req.Points == 0 || string.IsNullOrWhiteSpace(req.Reason))
+            return BadRequest(new { success = false, error = "Invalid request: customerId/tenantId required, points non-zero, reason required (audit)." });
+
+        // Wallet key resolution — mirrors LoyaltyPointLedgerService (customer.DeviceId ?? customerId).
+        Customer? customer = await _db.Customers
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == req.CustomerId && !c.IsDeleted, ct);
+        Guid deviceId = customer?.DeviceId ?? req.CustomerId;
+
+        var (success, balance, error) = await _walletService.AdjustPointsAsync(
+            deviceId, req.TenantId, req.Points, req.Reason, req.IdempotencyKey, req.CustomerId);
+
+        if (!success)
+            return BadRequest(new { success = false, error });
+
+        // Authoritative ledger reference: the AllianceTransaction written for this idempotency key.
+        Guid? transactionId = null;
+        if (!string.IsNullOrEmpty(req.IdempotencyKey))
+        {
+            transactionId = await _db.AllianceTransactions
+                .AsNoTracking()
+                .Where(t => t.IdempotencyKey == req.IdempotencyKey)
+                .Select(t => (Guid?)t.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        _logger.LogInformation(
+            "ATRS dispute adjust: customer={CustomerId} tenant={TenantId} points={Points} → tx={TxId} (key={Key})",
+            req.CustomerId, req.TenantId, req.Points, transactionId, req.IdempotencyKey);
+        return Ok(new { success = true, newBalance = balance, transactionId });
+    }
 }
 
 // === Response / Request DTOs ===
@@ -359,4 +428,15 @@ public class RevertOrderRequest
     public Guid OrderId { get; set; }
     public Guid TenantId { get; set; }
     public string? Reason { get; set; }
+}
+
+/// <summary>ATRS-9: customer-keyed adjust request (dispute maker-checker execution).</summary>
+public class AdjustCustomerPointsRequest
+{
+    public Guid CustomerId { get; set; }
+    public Guid TenantId { get; set; }
+    /// <summary>SIGNED — positive credits, negative debits.</summary>
+    public int Points { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string? IdempotencyKey { get; set; }
 }

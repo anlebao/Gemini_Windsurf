@@ -22,6 +22,10 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
     public DbSet<DeviceCredential> DeviceCredentials => Set<DeviceCredential>();
     public DbSet<WebAuthnChallenge> WebAuthnChallenges => Set<WebAuthnChallenge>();
+    public DbSet<DisputeCase> DisputeCases => Set<DisputeCase>();
+    public DbSet<DisputeEvidenceItem> DisputeEvidenceItems => Set<DisputeEvidenceItem>();
+    public DbSet<DisputeDecision> DisputeDecisions => Set<DisputeDecision>();
+    public DbSet<StaffPermissionGrant> StaffPermissionGrants => Set<StaffPermissionGrant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -166,5 +170,62 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         challenge.HasIndex(e => new { e.TrustSubjectId, e.Purpose, e.ConsumedAt })
             .HasDatabaseName("ix_webauthn_challenges_subject_purpose_consumed");
         challenge.HasIndex(e => e.ExpiresAt).HasDatabaseName("ix_webauthn_challenges_expires");
+
+        // ═══ ATRS-9/ATRS-10 (Wave 3) — Dispute vertical + staff RBAC ═══
+
+        var dispute = modelBuilder.Entity<DisputeCase>();
+        dispute.ToTable("dispute_cases");
+        dispute.HasKey(e => e.Id);
+        dispute.Property(e => e.Id).ValueGeneratedNever();
+        dispute.Property(e => e.CaseType).HasConversion<int>();
+        dispute.Property(e => e.Status).HasConversion<int>();
+        dispute.Property(e => e.ClaimedIssue).HasMaxLength(4000).IsRequired();
+        dispute.Property(e => e.RelatedTransactionIdsJson).HasColumnType("TEXT");
+        dispute.Property(e => e.RelatedLedgerReferencesJson).HasColumnType("TEXT");
+        dispute.Property(e => e.IdempotencyKey).HasMaxLength(128);
+        dispute.Property(e => e.UserFacingStatusNote).HasMaxLength(1000);
+        dispute.HasIndex(e => e.IdempotencyKey).HasDatabaseName("ix_dispute_cases_idempotency");
+        dispute.HasIndex(e => new { e.TrustSubjectId, e.Status }).HasDatabaseName("ix_dispute_cases_subject_status");
+        dispute.HasIndex(e => new { e.Status, e.SubmittedAt }).HasDatabaseName("ix_dispute_cases_status_submitted");
+        dispute.HasIndex(e => e.TenantId).HasDatabaseName("ix_dispute_cases_tenant");
+
+        var evidence = modelBuilder.Entity<DisputeEvidenceItem>();
+        evidence.ToTable("dispute_evidence_items");
+        evidence.HasKey(e => e.Id);
+        evidence.Property(e => e.Id).ValueGeneratedNever();
+        evidence.Property(e => e.EvidenceType).HasConversion<int>();
+        evidence.Property(e => e.SourceSystem).HasMaxLength(64).IsRequired();
+        evidence.Property(e => e.SourceReference).HasMaxLength(1024);
+        evidence.Property(e => e.IntegrityHash).HasMaxLength(64);
+        evidence.Property(e => e.SubmittedBy).HasMaxLength(128).IsRequired();
+        evidence.Property(e => e.ReliabilityClass).HasConversion<int>();
+        evidence.Property(e => e.Description).HasMaxLength(2000);
+        evidence.Property(e => e.AccessClassification).HasConversion<int>();
+        evidence.HasIndex(e => e.DisputeCaseId).HasDatabaseName("ix_dispute_evidence_case");
+
+        var decision = modelBuilder.Entity<DisputeDecision>();
+        decision.ToTable("dispute_decisions");
+        decision.HasKey(e => e.Id);
+        decision.Property(e => e.Id).ValueGeneratedNever();
+        decision.Property(e => e.Decision).HasConversion<int>();
+        decision.Property(e => e.Status).HasConversion<int>();
+        decision.Property(e => e.DecisionReason).HasMaxLength(2000).IsRequired();
+        decision.Property(e => e.UserFacingExplanation).HasMaxLength(2000);
+        decision.Property(e => e.InternalRationale).HasMaxLength(4000);
+        decision.Property(e => e.PolicyVersion).HasMaxLength(32).IsRequired();
+        decision.Property(e => e.ProposedAdjustmentReason).HasMaxLength(500);
+        decision.Property(e => e.ResolutionReference).HasMaxLength(256);
+        decision.Property(e => e.IdempotencyKey).HasMaxLength(128);
+        decision.Property(e => e.RejectionReason).HasMaxLength(1000);
+        decision.HasIndex(e => e.DisputeCaseId).HasDatabaseName("ix_dispute_decisions_case");
+        decision.HasIndex(e => e.IdempotencyKey).IsUnique().HasDatabaseName("ux_dispute_decisions_idempotency");
+
+        var grant = modelBuilder.Entity<StaffPermissionGrant>();
+        grant.ToTable("staff_permission_grants");
+        grant.HasKey(e => e.Id);
+        grant.Property(e => e.Id).ValueGeneratedNever();
+        grant.Property(e => e.Permission).HasMaxLength(64).IsRequired();
+        grant.Property(e => e.GrantedBy).HasMaxLength(128).IsRequired();
+        grant.HasIndex(e => new { e.DemoUserId, e.Permission }).HasDatabaseName("ix_staff_permission_grants_user_perm");
     }
 }

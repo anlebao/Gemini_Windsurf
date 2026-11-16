@@ -55,6 +55,16 @@ public interface ILoyaltyPointLedgerService
     /// Effective balance for a customer at a tenant (Silo row at (customer, tenant) / Alliance wallet).
     /// </summary>
     Task<int> GetBalanceAsync(Guid customerId, Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// ATRS-9 (Wave 3): read-only transaction history for dispute investigation — union of
+    /// PG sources (LoyaltyIssuanceRecord EARN + AllianceTransaction + Silo history SPEND).
+    /// NEVER reads ShopERP SQLite mirrors. Newest first, capped at <paramref name="limit"/>.
+    /// </summary>
+    Task<IReadOnlyList<LoyaltyLedgerEntry>> GetEntriesAsync(
+        Guid customerId, Guid tenantId,
+        DateTime? fromUtc = null, DateTime? toUtc = null, int limit = 100,
+        CancellationToken cancellationToken = default);
 }
 
 // === Request / result DTOs ===
@@ -118,3 +128,19 @@ public class RefundRequest
     public string? VoucherCode { get; set; }
     public string? IdempotencyKey { get; set; }
 }
+
+/// <summary>
+/// ATRS-9 (Wave 3): unified read-only ledger entry across PG sources.
+/// Source: SILO_ISSUANCE | ALLIANCE | SILO_HISTORY. Type: EARN | REDEEM | ADJUST | SPEND | REVERSAL.
+/// </summary>
+public sealed record LoyaltyLedgerEntry(
+    Guid Id,
+    string Type,
+    int Points,
+    int? BalanceAfter,
+    string Reason,
+    string? Reference,
+    DateTime OccurredAt,
+    Guid TenantId,
+    string Source,
+    bool IsReversed = false);

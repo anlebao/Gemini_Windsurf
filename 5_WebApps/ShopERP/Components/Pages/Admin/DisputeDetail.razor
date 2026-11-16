@@ -1,0 +1,341 @@
+@page "/admin/disputes/{CaseId:guid}"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+@inject NavigationManager Nav
+
+@* ATRS-9 A18/A19 (Wave 3): investigation detail + maker-checker decision.
+   Investigator propose → approver (khác người) approve → atrs execute ledger adjust.
+   UI chỉ render; enforce RBAC + maker-checker + idempotency ở vanan-atrs. *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="dispute-detail-page">
+    <header class="page-header">
+        <h1><i class="bi bi-shield-exclamation"></i> Chi tiết khiếu nại <code>@CaseId.ToString()[..8]</code></h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="@(() => Nav.NavigateTo("/admin/disputes"))">← Hàng chờ</VanAButton>
+            <VanAButton Variant="secondary" OnClick="LoadAsync">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+    @if (!string.IsNullOrEmpty(_info))
+    {
+        <VanAAlert Type="success" Message="@_info" OnClose="() => _info = null" />
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner-border"></div></div>
+    }
+    else if (_detail is null)
+    {
+        <VanACard Title="Không tìm thấy"><p class="text-muted">Case không tồn tại hoặc bạn không có quyền xem.</p></VanACard>
+    }
+    else
+    {
+        var d = _detail;
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <VanACard Title="Thông tin case">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Loại</dt><dd class="col-sm-8">@d.CaseType</dd>
+                        <dt class="col-sm-4">Trạng thái</dt><dd class="col-sm-8"><span class="badge bg-warning text-dark">@d.Status</span></dd>
+                        <dt class="col-sm-4">Khách hàng</dt><dd class="col-sm-8"><code>@d.TrustSubjectId.ToString()[..8]…</code></dd>
+                        <dt class="col-sm-4">Tenant</dt><dd class="col-sm-8">@(d.TenantId?.ToString() ?? "—")</dd>
+                        <dt class="col-sm-4">Gửi lúc</dt><dd class="col-sm-8">@d.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        <dt class="col-sm-4">Đóng lúc</dt><dd class="col-sm-8">@(d.ClosedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+                        <dt class="col-sm-4">Nội dung khiếu nại</dt><dd class="col-sm-8">@d.ClaimedIssue</dd>
+                        @if (!string.IsNullOrEmpty(d.UserFacingStatusNote))
+                        {
+                            <dt class="col-sm-4">Ghi chú</dt><dd class="col-sm-8">@d.UserFacingStatusNote</dd>
+                        }
+                    </dl>
+                </VanACard>
+
+                <VanACard Title="@($"Bằng chứng ({d.Evidence.Count})")">
+                    @if (d.Evidence.Count == 0)
+                    {
+                        <p class="text-muted">Chưa có bằng chứng.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm">
+                            <thead><tr><th>Loại</th><th>Mô tả</th><th>Nguồn</th><th>Độ tin cậy</th><th>Truy cập</th><th>Ghi lúc</th></tr></thead>
+                            <tbody>
+                                @foreach (var e in d.Evidence)
+                                {
+                                    <tr>
+                                        <td>@e.EvidenceType</td>
+                                        <td class="small">@(e.Description ?? "—")</td>
+                                        <td class="small"><code>@(e.SourceReference ?? "—")</code></td>
+                                        <td>@(e.ReliabilityClass ?? "—")</td>
+                                        <td><span class="badge bg-secondary">@(e.AccessClassification ?? "—")</span></td>
+                                        <td class="small">@e.RecordedAt.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </VanACard>
+
+                <VanACard Title="@($"Giao dịch ledger ({d.Transactions.Count})")">
+                    @if (d.Transactions.Count == 0)
+                    {
+                        <p class="text-muted">Không có giao dịch ledger (PG) cho tenant này.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm">
+                            <thead><tr><th>Thời điểm</th><th>Loại</th><th>Điểm</th><th>Số dư sau</th><th>Lý do</th><th>Nguồn</th></tr></thead>
+                            <tbody>
+                                @foreach (var t in d.Transactions.Take(50))
+                                {
+                                    <tr>
+                                        <td class="small">@t.OccurredAt.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                        <td>@t.Type@(t.IsReversed ? " (reversed)" : "")</td>
+                                        <td class="@(t.Points >= 0 ? "text-success" : "text-danger")">@t.Points.ToString("+#,0;-#,0")</td>
+                                        <td>@(t.BalanceAfter?.ToString("N0") ?? "—")</td>
+                                        <td class="small">@t.Reason</td>
+                                        <td class="small">@t.Source</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </VanACard>
+            </div>
+
+            <div class="col-lg-4">
+                <VanACard Title="Điều phối">
+                    @if (!d.Status.Contains("RESOLVED") && !d.Status.Contains("REJECTED") && d.Status != "CLOSED")
+                    {
+                        <div class="mb-2">
+                            <label class="form-label small">Chuyển trạng thái</label>
+                            <div class="d-flex gap-2">
+                                <select class="form-select form-select-sm" @bind="_transitionTarget">
+                                    <option value="TRIAGE">TRIAGE</option>
+                                    <option value="UNDER_REVIEW">UNDER_REVIEW</option>
+                                    <option value="WAITING_FOR_USER">WAITING_FOR_USER</option>
+                                    <option value="WAITING_FOR_EXTERNAL_EVIDENCE">WAITING_FOR_EXTERNAL_EVIDENCE</option>
+                                    <option value="CLOSED">CLOSED</option>
+                                </select>
+                                <VanAButton Variant="secondary" OnClick="DoTransitionAsync" Disabled="@_busy">Chuyển</VanAButton>
+                            </div>
+                        </div>
+                        <VanAButton Variant="primary" OnClick="AssignToMeAsync" Disabled="@_busy" CssClass="w-100 mb-3">Nhận xử lý (assign cho tôi)</VanAButton>
+                    }
+                </VanACard>
+
+                <VanACard Title="Quyết định (maker-checker)">
+                    @if (d.Decisions.Count == 0)
+                    {
+                        <p class="text-muted small">Chưa có quyết định.</p>
+                    }
+                    else
+                    {
+                        @foreach (var dec in d.Decisions.OrderByDescending(x => x.ProposedAt))
+                        {
+                            <div class="border rounded p-2 mb-2" data-testid="decision-@dec.Id">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@dec.Decision</strong>
+                                    <span class="badge @(dec.Status == "EXECUTED" ? "bg-success" : dec.Status == "PENDING_APPROVAL" ? "bg-warning text-dark" : dec.Status == "FAILED" || dec.Status == "REJECTED" ? "bg-danger" : "bg-secondary")">@dec.Status</span>
+                                </div>
+                                <div class="small text-muted">@dec.DecisionReason</div>
+                                @if (dec.ProposedAdjustmentPoints.HasValue)
+                                {
+                                    <div class="small">Điều chỉnh: <strong>@dec.ProposedAdjustmentPoints.Value.ToString("+#,0;-#,0")</strong> điểm</div>
+                                }
+                                <div class="small text-muted">Đề xuất: @dec.ProposedBy.ToString()[..8]… · @(dec.ProposedAt.ToLocalTime().ToString("dd/MM HH:mm"))</div>
+                                @if (dec.ResolutionReference is not null)
+                                {
+                                    <div class="small">Ref: <code>@dec.ResolutionReference</code></div>
+                                }
+                                @if (dec.RejectionReason is not null)
+                                {
+                                    <div class="small text-danger">Từ chối: @dec.RejectionReason</div>
+                                }
+                                @if (dec.Status == "PENDING_APPROVAL")
+                                {
+                                    <div class="d-flex gap-2 mt-2">
+                                        <VanAButton Variant="primary" OnClick="@(() => ApproveAsync(dec.Id))" Disabled="@_busy">Duyệt</VanAButton>
+                                        <VanAButton Variant="danger" OnClick="@(() => RejectAsync(dec.Id))" Disabled="@_busy">Từ chối</VanAButton>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+
+                    @if (CanPropose(d))
+                    {
+                        <hr />
+                        <h6 class="small">Đề xuất quyết định mới</h6>
+                        <div class="mb-2">
+                            <label class="form-label small">Loại quyết định</label>
+                            <select class="form-select form-select-sm" @bind="_propDecision">
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="PARTIALLY_APPROVED">PARTIALLY_APPROVED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="NO_ACTION">NO_ACTION</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Lý do quyết định (audit)</label>
+                            <input class="form-control form-control-sm" @bind="_propReason" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Giải thích cho khách</label>
+                            <input class="form-control form-control-sm" @bind="_propUserExplanation" />
+                        </div>
+                        @if (_propDecision is "APPROVED" or "PARTIALLY_APPROVED")
+                        {
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Điều chỉnh điểm (+/-)</label>
+                                    <input type="number" class="form-control form-control-sm" @bind="_propPoints" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Tenant ID (trống = case tenant)</label>
+                                    <input class="form-control form-control-sm" @bind="_propTenantId" placeholder="GUID" />
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Lý do điều chỉnh</label>
+                                <input class="form-control form-control-sm" @bind="_propAdjustReason" />
+                            </div>
+                        }
+                        <VanAButton Variant="primary" CssClass="w-100" OnClick="ProposeAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_propReason))">Gửi đề xuất</VanAButton>
+                    }
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid CaseId { get; set; }
+
+    private AtrsAdminApiClient.DisputeStaffDetail? _detail;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _info;
+    private string _transitionTarget = "UNDER_REVIEW";
+
+    // Proposal form
+    private string _propDecision = "PARTIALLY_APPROVED";
+    private string _propReason = "";
+    private string? _propUserExplanation;
+    private int? _propPoints;
+    private string? _propTenantId;
+    private string? _propAdjustReason;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try { _detail = await AtrsApi.GetDetailAsync(CaseId); }
+        catch (Exception ex) { _error = $"Không tải được chi tiết: {ex.Message}"; }
+        finally { _loading = false; }
+    }
+
+    private static bool CanPropose(AtrsAdminApiClient.DisputeStaffDetail d)
+        => d.Status is "TRIAGE" or "UNDER_REVIEW" or "WAITING_FOR_EXTERNAL_EVIDENCE"
+           && !d.Decisions.Any(x => x.Status == "PENDING_APPROVAL");
+
+    private async Task DoTransitionAsync()
+    {
+        _busy = true; _error = null; _info = null;
+        try
+        {
+            var r = await AtrsApi.TransitionAsync(CaseId, _transitionTarget, null);
+            _info = r is null ? "Chuyển trạng thái thất bại." : $"Đã chuyển → {r.Status}.";
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task AssignToMeAsync()
+    {
+        _busy = true; _error = null;
+        try
+        {
+            var me = await AtrsApi.CurrentUserIdAsync();
+            var r = await AtrsApi.AssignAsync(CaseId, me);
+            _info = r is null ? "Assign thất bại (thiếu quyền case.assign?)." : "Đã nhận xử lý.";
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ProposeAsync()
+    {
+        _busy = true; _error = null; _info = null;
+        try
+        {
+            Guid? tenantId = Guid.TryParse(_propTenantId, out var tid) ? tid : null;
+            int? points = _propPoints is > 0 or < 0 ? _propPoints : null;
+            var body = new AtrsAdminApiClient.ProposeDecisionBody(
+                _propDecision, _propReason.Trim(), _propUserExplanation,
+                null, "atrs-dispute-v1",
+                points, points.HasValue ? (tenantId ?? _detail?.TenantId) : null,
+                points.HasValue ? _propAdjustReason : null);
+            var dec = await AtrsApi.ProposeDecisionAsync(CaseId, body);
+            _info = dec is null ? "Đề xuất thất bại." : "Đã gửi đề xuất — chờ approver (khác người) duyệt.";
+            _propReason = ""; _propPoints = null; _propAdjustReason = null;
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ApproveAsync(Guid decisionId)
+    {
+        _busy = true; _error = null; _info = null;
+        try
+        {
+            var dec = await AtrsApi.ApproveDecisionAsync(decisionId);
+            _info = dec?.Status == "EXECUTED"
+                ? $"Đã duyệt + thực thi. Ref: {dec.ResolutionReference}"
+                : $"Đã duyệt (status: {dec?.Status}).";
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task RejectAsync(Guid decisionId)
+    {
+        var reason = await JSPrompt("Lý do từ chối đề xuất (bắt buộc, audit):");
+        if (string.IsNullOrWhiteSpace(reason)) return;
+        _busy = true; _error = null; _info = null;
+        try
+        {
+            var dec = await AtrsApi.RejectDecisionAsync(decisionId, reason.Trim());
+            _info = dec is null ? "Từ chối thất bại." : "Đã từ chối đề xuất — case quay lại UNDER_REVIEW.";
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private async Task<string?> JSPrompt(string message)
+    {
+        try { return await JS.InvokeAsync<string?>("prompt", message); }
+        catch { return null; }
+    }
+}

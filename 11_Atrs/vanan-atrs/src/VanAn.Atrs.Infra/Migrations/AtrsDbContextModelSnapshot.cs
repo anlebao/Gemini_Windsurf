@@ -271,6 +271,259 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("device_credentials", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.DisputeCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AssignedReviewerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_reviewer_id");
+
+                    b.Property<int>("CaseType")
+                        .HasColumnType("integer")
+                        .HasColumnName("case_type");
+
+                    b.Property<string>("ClaimedIssue")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("claimed_issue");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("RelatedLedgerReferencesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("related_ledger_references_json");
+
+                    b.Property<string>("RelatedTransactionIdsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("related_transaction_ids_json");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.Property<string>("UserFacingStatusNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("user_facing_status_note");
+
+                    b.Property<DateTime?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dispute_cases");
+
+                    b.HasIndex("IdempotencyKey")
+                        .HasDatabaseName("ix_dispute_cases_idempotency");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_dispute_cases_tenant");
+
+                    b.HasIndex("Status", "SubmittedAt")
+                        .HasDatabaseName("ix_dispute_cases_status_submitted");
+
+                    b.HasIndex("TrustSubjectId", "Status")
+                        .HasDatabaseName("ix_dispute_cases_subject_status");
+
+                    b.ToTable("dispute_cases", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.DisputeDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("integer")
+                        .HasColumnName("decision");
+
+                    b.Property<string>("DecisionReason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("decision_reason");
+
+                    b.Property<Guid>("DisputeCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispute_case_id");
+
+                    b.Property<DateTime?>("ExecutedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("executed_at");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("InternalRationale")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("internal_rationale");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<int?>("ProposedAdjustmentPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("proposed_adjustment_points");
+
+                    b.Property<string>("ProposedAdjustmentReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("proposed_adjustment_reason");
+
+                    b.Property<Guid?>("ProposedAdjustmentTenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proposed_adjustment_tenant_id");
+
+                    b.Property<DateTime>("ProposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proposed_at");
+
+                    b.Property<Guid>("ProposedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proposed_by");
+
+                    b.Property<Guid?>("RejectedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rejected_by");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<string>("ResolutionReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("resolution_reference");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("UserFacingExplanation")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("user_facing_explanation");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dispute_decisions");
+
+                    b.HasIndex("DisputeCaseId")
+                        .HasDatabaseName("ix_dispute_decisions_case");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_dispute_decisions_idempotency");
+
+                    b.ToTable("dispute_decisions", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.DisputeEvidenceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AccessClassification")
+                        .HasColumnType("integer")
+                        .HasColumnName("access_classification");
+
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("DisputeCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispute_case_id");
+
+                    b.Property<int>("EvidenceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("evidence_type");
+
+                    b.Property<string>("IntegrityHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("integrity_hash");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int>("ReliabilityClass")
+                        .HasColumnType("integer")
+                        .HasColumnName("reliability_class");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("source_reference");
+
+                    b.Property<string>("SourceSystem")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_system");
+
+                    b.Property<string>("SubmittedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("submitted_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dispute_evidence_items");
+
+                    b.HasIndex("DisputeCaseId")
+                        .HasDatabaseName("ix_dispute_evidence_case");
+
+                    b.ToTable("dispute_evidence_items", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -399,6 +652,53 @@ namespace VanAn.Atrs.Infra.Migrations
                         .HasDatabaseName("ix_recovery_requests_subject_status");
 
                     b.ToTable("recovery_requests", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.StaffPermissionGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("DemoUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("demo_user_id");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("granted_at");
+
+                    b.Property<string>("GrantedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("granted_by");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_revoked");
+
+                    b.Property<string>("Permission")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("permission");
+
+                    b.Property<Guid?>("ScopeTenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_staff_permission_grants");
+
+                    b.HasIndex("DemoUserId", "Permission")
+                        .HasDatabaseName("ix_staff_permission_grants_user_perm");
+
+                    b.ToTable("staff_permission_grants", (string)null);
                 });
 
             modelBuilder.Entity("VanAn.Atrs.Domain.TrustSubject", b =>

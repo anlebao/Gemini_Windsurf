@@ -39,6 +39,13 @@ public static class Program
         builder.Services.AddScoped<IDeviceService, DeviceService>();
         builder.Services.AddScoped<ISecurityCenterService, SecurityCenterService>();
         builder.Services.AddSingleton<IStepUpService, StepUpService>();
+        // ATRS-9/ATRS-10 (Wave 3): dispute vertical + staff RBAC + ledger gateway client.
+        builder.Services.AddScoped<IDisputeCaseManager, DisputeCaseManager>();
+        builder.Services.AddScoped<IAtrsAuthorizationService, AtrsAuthorizationService>();
+        if (!string.IsNullOrEmpty(builder.Configuration["Atrs:GatewayBaseUrl"]))
+            builder.Services.AddScoped<ILoyaltyGatewayClient, LoyaltyGatewayClient>();
+        else
+            builder.Services.AddScoped<ILoyaltyGatewayClient, UnconfiguredLoyaltyGatewayClient>();
 
         // Customer token validation → forward ShopERP /api/customer-identity/me (pattern Gateway).
         builder.Services.AddHttpClient("shoperp", client =>

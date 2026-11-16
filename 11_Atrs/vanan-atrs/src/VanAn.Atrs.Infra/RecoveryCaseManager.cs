@@ -25,6 +25,8 @@ public interface IRecoveryCaseManager
 
     Task<RecoveryRequestSummaryDto> ManualApproveAsync(Guid requestId, Guid reviewerId, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> ManualRejectAsync(Guid requestId, Guid reviewerId, string reasonCode, CancellationToken ct = default);
+    Task<RecoveryRequestSummaryDto> RequestMoreInfoAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListQueueAsync(string? status, int skip, int take, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> CompleteAsync(Guid requestId, Guid? newDeviceId = null, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto?> GetAsync(Guid requestId, CancellationToken ct = default);
 }
@@ -131,6 +133,27 @@ public sealed class RecoveryCaseManager(
         request.Reject(reviewerId, reasonCode);
         await db.SaveChangesAsync(ct);
         return ToDto(request);
+    }
+
+    /// <summary>ATRS-10 subset (A15/A16): staff request more info — PENDING_USER_ACTION.</summary>
+    public async Task<RecoveryRequestSummaryDto> RequestMoreInfoAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default)
+    {
+        var request = await LoadAsync(requestId, ct);
+        request.RequestMoreInfo();
+        await db.SaveChangesAsync(ct);
+        return ToDto(request);
+    }
+
+    /// <summary>ATRS-10 subset (A15): recovery queue — server-side filter + paging.</summary>
+    public async Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListQueueAsync(string? status, int skip, int take, CancellationToken ct = default)
+    {
+        var q = db.RecoveryRequests.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<RecoveryRequestStatus>(status, true, out var st))
+            q = q.Where(r => r.Status == st);
+        var items = await q.OrderBy(r => r.CreatedAt)
+            .Skip(Math.Max(0, skip)).Take(Math.Clamp(take, 1, 200))
+            .ToListAsync(ct);
+        return items.Select(ToDto).ToList();
     }
 
     public async Task<RecoveryRequestSummaryDto> CompleteAsync(Guid requestId, Guid? newDeviceId = null, CancellationToken ct = default)

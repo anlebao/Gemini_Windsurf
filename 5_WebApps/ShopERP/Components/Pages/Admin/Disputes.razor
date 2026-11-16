@@ -1,0 +1,131 @@
+@page "/admin/disputes"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+@inject NavigationManager Nav
+
+@* ATRS-9 A17 (Wave 3): dispute queue — server-side filter + paging qua atrs admin API.
+   Masked TrustSubjectId; business logic + RBAC enforce ở vanan-atrs (không phải UI). *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="disputes-page">
+    <header class="page-header">
+        <h1><i class="bi bi-shield-exclamation"></i> Khiếu nại khách hàng (ATRS)</h1>
+        <div class="header-actions">
+            <select class="form-select form-select-sm" style="width:auto" @bind="_statusFilter" @bind:after="LoadAsync" data-testid="dispute-status-filter">
+                <option value="">Tất cả trạng thái</option>
+                <option value="OPEN">OPEN</option>
+                <option value="TRIAGE">TRIAGE</option>
+                <option value="UNDER_REVIEW">UNDER_REVIEW</option>
+                <option value="WAITING_FOR_USER">WAITING_FOR_USER</option>
+                <option value="WAITING_FOR_EXTERNAL_EVIDENCE">WAITING_FOR_EXTERNAL_EVIDENCE</option>
+                <option value="DECIDED">DECIDED</option>
+                <option value="RESOLVED">RESOLVED</option>
+                <option value="REJECTED">REJECTED</option>
+                <option value="CLOSED">CLOSED</option>
+            </select>
+            <VanAButton Variant="secondary" OnClick="LoadAsync">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+
+    <VanACard Title="Hàng chờ khiếu nại">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Không có khiếu nại nào.</p>
+        }
+        else
+        {
+            <table class="table table-hover" data-testid="dispute-queue-table">
+                <thead>
+                    <tr>
+                        <th>Mã case</th>
+                        <th>Loại</th>
+                        <th>Trạng thái</th>
+                        <th>Khách hàng</th>
+                        <th>Tenant</th>
+                        <th>Gửi lúc</th>
+                        <th>Evidence</th>
+                        <th>Chờ duyệt</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _items)
+                    {
+                        <tr data-testid="dispute-row-@c.Id">
+                            <td><code>@c.Id.ToString()[..8]</code></td>
+                            <td>@c.CaseType</td>
+                            <td><span class="badge @StatusBadge(c.Status)">@c.Status</span></td>
+                            <td><code>@Mask(c.TrustSubjectId)</code></td>
+                            <td>@(c.TenantId?.ToString()[..8] ?? "—")</td>
+                            <td>@c.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@c.EvidenceCount</td>
+                            <td>@(c.PendingDecisionCount > 0 ? $"@c.PendingDecisionCount" : "—")</td>
+                            <td><VanAButton Variant="primary" OnClick="@(() => Nav.NavigateTo($"/admin/disputes/{c.Id}"))">Xem</VanAButton></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="d-flex justify-content-between align-items-center">
+                <VanAButton Variant="secondary" Disabled="@(_skip == 0)" OnClick="PrevPage">← Trước</VanAButton>
+                <span class="text-muted small">Bỏ qua @_skip</span>
+                <VanAButton Variant="secondary" Disabled="@(_items.Count < _take)" OnClick="NextPage">Sau →</VanAButton>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private const int _take = 50;
+    private List<AtrsAdminApiClient.DisputeQueueItem> _items = new();
+    private string? _statusFilter;
+    private int _skip;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _items = (await AtrsApi.GetQueueAsync(_statusFilter, _skip, _take)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được hàng chờ: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task PrevPage() { _skip = Math.Max(0, _skip - _take); await LoadAsync(); }
+    private async Task NextPage() { _skip += _take; await LoadAsync(); }
+
+    private static string Mask(Guid id) => $"{id.ToString()[..8]}…";
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "OPEN" or "TRIAGE" => "bg-info text-dark",
+        "UNDER_REVIEW" or "DECIDED" => "bg-warning text-dark",
+        "WAITING_FOR_USER" or "WAITING_FOR_EXTERNAL_EVIDENCE" => "bg-secondary",
+        "RESOLVED" => "bg-success",
+        "REJECTED" or "CLOSED" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+}

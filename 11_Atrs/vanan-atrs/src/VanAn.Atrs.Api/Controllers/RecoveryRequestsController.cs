@@ -84,24 +84,24 @@ public class RecoveryRequestsController(
 }
 
 /// <summary>
-/// Internal staff endpoints (tạm thời — ATRS-10 sẽ thay bằng AtrsPermissions):
-/// approve/reject sau manual review. Auth: staff JWT; role interim = SystemAdmin | Owner.
+/// Internal staff endpoints (legacy — route api/internal không qua YARP):
+/// approve/reject sau manual review. ATRS-10 subset: permission recovery.approve
+/// (SystemAdmin break-glass / grant / Owner legacy map).
 /// </summary>
 [ApiController]
 [Route("api/internal/recovery-requests")]
 [Authorize]
 public class InternalRecoveryController(
     IRecoveryCaseManager recoveryCaseManager,
+    IAtrsAuthorizationService authz,
     ILogger<InternalRecoveryController> logger) : ControllerBase
 {
-    private static readonly string[] AllowedRoles = ["SystemAdmin", "Owner"];
-
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id, CancellationToken ct)
     {
-        var reviewerId = CurrentUserId();
-        if (!HasReviewerRole())
+        if (!await StaffPrincipal.HasPermissionAsync(authz, User, AtrsPermissions.RecoveryApprove, ct: ct))
             return Forbid();
+        var reviewerId = StaffPrincipal.UserId(User);
         var dto = await recoveryCaseManager.ManualApproveAsync(id, reviewerId, ct);
         logger.LogInformation("Recovery {RequestId} approved by reviewer {ReviewerId}", id, reviewerId);
         return Ok(dto);
@@ -110,24 +110,15 @@ public class InternalRecoveryController(
     [HttpPost("{id:guid}/reject")]
     public async Task<IActionResult> Reject(Guid id, [FromBody] RejectRequest request, CancellationToken ct)
     {
-        var reviewerId = CurrentUserId();
-        if (!HasReviewerRole())
+        if (!await StaffPrincipal.HasPermissionAsync(authz, User, AtrsPermissions.RecoveryApprove, ct: ct))
             return Forbid();
+        var reviewerId = StaffPrincipal.UserId(User);
         if (string.IsNullOrWhiteSpace(request.ReasonCode))
             return BadRequest(new { error = "ReasonCode là bắt buộc (audit)." });
         var dto = await recoveryCaseManager.ManualRejectAsync(id, reviewerId, request.ReasonCode, ct);
         logger.LogInformation("Recovery {RequestId} rejected by reviewer {ReviewerId} ({Reason})", id, reviewerId, request.ReasonCode);
         return Ok(dto);
     }
-
-    private Guid CurrentUserId()
-    {
-        var sub = User.FindFirst("sub")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
-    }
-
-    private bool HasReviewerRole()
-        => User.IsInRole("SystemAdmin") || User.IsInRole("Owner");
 
     public sealed record RejectRequest(string ReasonCode);
 }

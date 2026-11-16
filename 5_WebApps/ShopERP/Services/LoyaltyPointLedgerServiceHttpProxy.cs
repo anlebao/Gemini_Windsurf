@@ -151,6 +151,35 @@ public sealed class LoyaltyPointLedgerServiceHttpProxy(
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<LoyaltyLedgerEntry>> GetEntriesAsync(
+        Guid customerId, Guid tenantId,
+        DateTime? fromUtc = null, DateTime? toUtc = null, int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        // ATRS-9 (Wave 3): read-only history via Gateway internal API. Fail-open rỗng —
+        // dispute investigation must not break because the ledger read is unavailable.
+        try
+        {
+            var client = _httpClientFactory.CreateClient("GatewayInternal");
+            var url = $"api/internal/loyalty/entries?customerId={customerId}&tenantId={tenantId}&limit={limit}";
+            if (fromUtc.HasValue) url += $"&from={Uri.EscapeDataString(fromUtc.Value.ToUniversalTime().ToString("o"))}";
+            if (toUtc.HasValue) url += $"&to={Uri.EscapeDataString(toUtc.Value.ToUniversalTime().ToString("o"))}";
+            var resp = await client.GetAsync(url, cancellationToken);
+            if (!resp.IsSuccessStatusCode)
+            {
+                return [];
+            }
+            var entries = await resp.Content.ReadFromJsonAsync<List<LoyaltyLedgerEntry>>(JsonOptions, cancellationToken);
+            return entries ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "LoyaltyPointLedger: entries unreachable for customer {CustomerId} — returning empty", customerId);
+            return [];
+        }
+    }
+
     private async Task<LedgerResult> ParseLedgerResponseAsync(
         HttpResponseMessage resp, string op, Guid customerId, CancellationToken cancellationToken)
     {
