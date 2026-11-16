@@ -185,4 +185,23 @@ public sealed class WebAuthnServiceTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal("InvalidChallenge", result.Reason);
     }
+
+    [Theory]
+    [InlineData("timlathay.com", "https://vanan.timlathay.com", true)]
+    [InlineData("timlathay.com", "https://commienphi.timlathay.com", true)]
+    [InlineData("khachvip.online", "https://diemthuong2.khachvip.online", true)]
+    [InlineData("timlathay.com", "https://evil.example.com", false)]  // không phải subdomain — bị chặn
+    [InlineData("evil.com", "https://vanan.timlathay.com", false)]
+    [InlineData("", "https://vanan.timlathay.com", false)]
+    public void IsRpIdValidForOrigin_SuffixRule(string rpId, string origin, bool expected)
+    {
+        Assert.Equal(expected, WebAuthnService.IsRpIdValidForOrigin(rpId, origin));
+    }
+
+    [Fact]
+    public async Task BeginRegistration_RpIdMismatchOrigin_Throws()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.BeginRegistrationAsync(Subject, null, "https://vanan.timlathay.com", "khachvip.online"));
+    }
 }

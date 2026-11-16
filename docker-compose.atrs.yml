@@ -11,6 +11,12 @@ services:
       Jwt__Secret: ${JWT_SECRET}
       Atrs__ShopErpBaseUrl: ${ATRS_SHOPERP_BASE_URL}
       Atrs__GatewayBaseUrl: ${ATRS_GATEWAY_BASE_URL}
+      # ATRS-5 (Wave 2): WebAuthn RP — multi-subdomain passkey share qua apex RP ID.
+      Atrs__WebAuthn__RpId: ${ATRS_WEBAUTHN_RPID:-timlathay.com}
+      Atrs__WebAuthn__Origins__0: ${ATRS_WEBAUTHN_ORIGIN_0:-https://vanan.timlathay.com}
+      Atrs__WebAuthn__Origins__1: ${ATRS_WEBAUTHN_ORIGIN_1:-https://commienphi.timlathay.com}
+      Atrs__WebAuthn__Origins__2: ${ATRS_WEBAUTHN_ORIGIN_2:-https://diemthuong2.khachvip.online}
+      Atrs__WebAuthn__Origins__3: ${ATRS_WEBAUTHN_ORIGIN_3:-https://hoptacxa.timlathay.com}
       InternalLoyalty__ApiKey: ${INTERNAL_API_KEY}
       ASPNETCORE_URLS: http://+:5080
     ports:

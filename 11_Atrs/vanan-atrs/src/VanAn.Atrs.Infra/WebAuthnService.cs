@@ -268,6 +268,11 @@ public sealed class WebAuthnService(
         if (!origins.Contains(origin))
             throw new InvalidOperationException("Origin không nằm trong allowlist WebAuthn.");
 
+        // RP ID phải là registrable-domain suffix của origin (browser enforce, server phải verify —
+        // chống client claim rpId tùy ý rồi replay credential sang origin khác, FR-004/AC-003).
+        if (!IsRpIdValidForOrigin(rpId, origin))
+            throw new InvalidOperationException("RP ID không khớp với origin.");
+
         return new Fido2(new Fido2Configuration
         {
             RPID = rpId,
@@ -277,6 +282,17 @@ public sealed class WebAuthnService(
             ChallengeSize = 32,
             TimestampDriftTolerance = 300000
         });
+    }
+
+    /// <summary>rpId phải là suffix của host (host == rpId hoặc host.EndsWith("." + rpId)). localhost đặc biệt.</summary>
+    public static bool IsRpIdValidForOrigin(string rpId, string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            return false;
+        var host = uri.Host;
+        if (string.Equals(rpId, host, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return host.EndsWith("." + rpId, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<string> StoreChallengeAsync(
