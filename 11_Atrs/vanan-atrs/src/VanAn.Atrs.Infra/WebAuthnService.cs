@@ -101,6 +101,22 @@ public sealed class WebAuthnService(
             return new FinishRegistrationResultDto(false, "InvalidAttestation", null, null);
         }
 
+        var effectiveDeviceRecordId = deviceRecordId ?? stored.DeviceRecordId;
+        UserDevice? device = null;
+        if (effectiveDeviceRecordId.HasValue)
+        {
+            device = await db.UserDevices.FirstOrDefaultAsync(
+                d => d.Id == effectiveDeviceRecordId.Value && d.TrustSubjectId == trustSubjectId, ct);
+        }
+        else
+        {
+            // Auto-provision (SRS §7.2): passkey registration = device enrollment.
+            // Credential không gắn deviceRecordId vẫn tạo UserDevice riêng — deviceId server-issued.
+            var deviceKey = $"WEBAUTHN-{Base64Url.Encode(result.Id)[..12]}";
+            device = new UserDevice(Guid.NewGuid(), trustSubjectId, deviceKey, RegistrationMethod.WEBAUTHN);
+            db.UserDevices.Add(device);
+        }
+
         var credential = new DeviceCredential(
             id: Guid.NewGuid(),
             trustSubjectId,
@@ -108,22 +124,15 @@ public sealed class WebAuthnService(
             publicKey: Base64Url.Encode(result.PublicKey),
             signCount: result.SignCount,
             rpId: rpId,
-            deviceRecordId: deviceRecordId ?? stored.DeviceRecordId,
+            deviceRecordId: device?.Id ?? effectiveDeviceRecordId,
             aaguid: result.AaGuid,
             transportsJson: SerializeTransports(result.Transports),
             backupEligible: result.IsBackupEligible,
             backupState: result.IsBackedUp);
         db.DeviceCredentials.Add(credential);
 
-        if (deviceRecordId.HasValue)
-        {
-            var device = await db.UserDevices.FirstOrDefaultAsync(d => d.Id == deviceRecordId.Value && d.TrustSubjectId == trustSubjectId, ct);
-            if (device is not null)
-            {
-                device.Activate();
-                device.Touch();
-            }
-        }
+        device?.Activate();
+        device?.Touch();
 
         await ConsumeAsync(stored, ct);
         await db.SaveChangesAsync(ct);

@@ -31,10 +31,11 @@ public sealed class DeviceService(AtrsDbContext db) : IDeviceService
             .ToListAsync(ct);
         var credentialCounts = await db.DeviceCredentials
             .AsNoTracking()
-            .Where(c => c.TrustSubjectId == trustSubjectId && c.Status == CredentialStatus.ACTIVE)
+            .Where(c => c.TrustSubjectId == trustSubjectId && c.Status == CredentialStatus.ACTIVE
+                && c.DeviceRecordId != null)
             .GroupBy(c => c.DeviceRecordId)
             .Select(g => new { DeviceId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.DeviceId, x => x.Count, ct);
+            .ToDictionaryAsync(x => x.DeviceId!.Value, x => x.Count, ct);
         return devices.Select(d => ToSummary(d, credentialCounts.GetValueOrDefault(d.Id))).ToList();
     }
 

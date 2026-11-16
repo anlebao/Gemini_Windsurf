@@ -45,12 +45,12 @@ test.describe('Security center (ATRS-11 subset) @mobile', () => {
       await expect(page.locator('h3', { hasText: 'Bảo mật tài khoản' })).toBeVisible({ timeout: 40000 });
       await expect(page.locator('text=Trạng thái bảo vệ')).toBeVisible({ timeout: 30000 });
 
-      // Passkey section (U03)
-      await expect(page.locator('text=Passkey')).toBeVisible();
+      // Passkey section (U03) — header span exact (stat card cũng chứa chữ "Passkey")
+      await expect(page.locator('span').filter({ hasText: /^Passkey$/ })).toBeVisible();
       // Recovery codes section (U05)
-      await expect(page.locator('text=Mã khôi phục')).toBeVisible();
+      await expect(page.locator('span').filter({ hasText: /^Mã khôi phục$/ })).toBeVisible();
       // Devices section (U07)
-      await expect(page.locator('text=Thiết bị')).toBeVisible();
+      await expect(page.locator('span').filter({ hasText: /^Thiết bị$/ })).toBeVisible();
 
       // Không overflow ngang 375px
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);

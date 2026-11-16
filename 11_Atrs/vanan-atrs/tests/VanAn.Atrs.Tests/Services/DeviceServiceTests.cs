@@ -136,6 +136,24 @@ public sealed class DeviceServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task List_DoesNotThrow_OnOrphanCredentialWithoutDevice()
+    {
+        // RV finding 2026-11-16: credential với DeviceRecordId=null (passkey không gắn
+        // device) làm GroupBy key null → ToDictionaryAsync ArgumentNullException → 500.
+        var subject = Guid.NewGuid();
+        var deviceId = await SeedDeviceAsync(subject);
+        var device = await _db.UserDevices.SingleAsync(d => d.Id == deviceId);
+        device.Activate();
+        _db.DeviceCredentials.Add(new DeviceCredential(
+            Guid.NewGuid(), subject, "cred-orphan", "pubkey-x", 0, "timlathay.com", null, null, null, null, null));
+        await _db.SaveChangesAsync();
+
+        var list = await _service.ListAsync(subject);
+        var dto = Assert.Single(list);
+        Assert.Equal(0, dto.ActiveCredentialCount);
+    }
+
+    [Fact]
     public async Task Get_Detail_ReturnsCredentials()
     {
         var subject = Guid.NewGuid();
