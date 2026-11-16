@@ -160,6 +160,8 @@ services:
       # not resolvable when services are on separate VPSs)
       - ReverseProxy__Clusters__shoperp-cluster__Destinations__destination1__Address=http://${SHOPERP_REMOTE_HOST}:80/
       - ReverseProxy__Clusters__khachlink-cluster__Destinations__destination1__Address=http://${KHACHLINK_REMOTE_HOST}:80/
+      # ATRS-5 (2026-11-16): vanan-atrs cluster — mặc định "atrs" (docker network), override bằng ATRS_REMOTE_HOST (multi-VPS).
+      - ReverseProxy__Clusters__atrs-cluster__Destinations__destination1__Address=http://${ATRS_REMOTE_HOST:-atrs}:5080/
       # Phase 2 Scaling: Redis backplane for SignalR + distributed cache.
       # If REDIS_REMOTE_HOST is set, connect to dedicated Redis VPS; else use local redis service.
       - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}

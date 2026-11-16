@@ -29,11 +29,16 @@ public static class Program
         builder.Services.AddControllers();
         builder.Services.AddMemoryCache();
         builder.Services.Configure<RecoveryCodeOptions>(builder.Configuration.GetSection("Atrs:RecoveryCodes"));
+        builder.Services.Configure<WebAuthnOptions>(builder.Configuration.GetSection("Atrs:WebAuthn"));
         builder.Services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
         builder.Services.AddSingleton<IRiskPolicyEngine, RiskPolicyEngine>();
         builder.Services.AddScoped<IRecoveryCaseManager, RecoveryCaseManager>();
         builder.Services.AddScoped<ITrustProfileService, TrustProfileService>();
         builder.Services.AddScoped<IAtrsCustomerContextService, AtrsCustomerContextService>();
+        builder.Services.AddScoped<IWebAuthnService, WebAuthnService>();
+        builder.Services.AddScoped<IDeviceService, DeviceService>();
+        builder.Services.AddScoped<ISecurityCenterService, SecurityCenterService>();
+        builder.Services.AddSingleton<IStepUpService, StepUpService>();
 
         // Customer token validation → forward ShopERP /api/customer-identity/me (pattern Gateway).
         builder.Services.AddHttpClient("shoperp", client =>

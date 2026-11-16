@@ -186,28 +186,33 @@ Ecosystem — Danh mục tính năng (Use Case View)</h1>
 <p><strong>Mục đích:</strong> bản đồ toàn bộ tính năng hệ thống theo góc
 nhìn <strong>actor → use case</strong> (UML use case view).
 <strong>Nguồn:</strong> <code>ShopErpMenuService.cs</code> (SSOT menu
-theo role) · <code>5_WebApps/KhachLink/Pages/</code> ·
-<code>2_Gateway/Controllers/</code> ·
+theo role) · <code>5_WebApps/KhachLink/Pages/</code> +
+<code>Components/</code> · <code>2_Gateway/Controllers/</code> ·
 <code>5_WebApps/ShopERP/Components/Pages/</code>. <strong>Ngày:</strong>
-2026-10-30 · <code>main</code> @ <code>96fb249c</code> (+ feature Tra
-soát <code>76ac6f3c</code>).</p>
+2026-11-14 · <code>main</code> @ <code>b8df369c</code> (+ Entry-Points
+Retention W1-W3, Tenant AI, voucher framework).</p>
 </blockquote>
 <hr />
 <h2 id="kiến-trúc-kênh-actors">0. Kiến trúc kênh &amp; actors</h2>
-<pre><code>Khách hàng / CTV / Shipper ──► KhachLink PWA (:5002) ──┐
-                                                     │  HTTP + JWT
-Staff / Owner / Kế toán ──► ShopERP Blazor (:5003) ──┤        │
-   + SystemAdmin                                     ▼        ▼
-                              SQLite per-tenant ◄─── Gateway (:5001) ───► PostgreSQL
-                              (mirror orders/          (order creator,
-                               products, POS)           source of truth,
-                                                     JWT, tenant, audit)
-                                                     │
-                                                     ▼ NATS JetStream (:4222)
+<pre><code>Khách hàng / CTV / Shipper / Merchant-mới ──► KhachLink PWA (:5002) ──┐
+   (multi-instance theo domain:                                       │  HTTP + JWT
+    FullCommerce/Directory/Reseller/                                  ▼        │
+    Logistics/JobMarket/Hoptacxa)              SQLite per-tenant ◄─── Gateway (:5001) ───► PostgreSQL
+Staff / Owner / Kế toán / SystemAdmin ──► ShopERP Blazor (:5003) ──┤   (order creator,      (orders,
+   + Masterchef / Guard                                   source of truth,   accounting,
+                                                           JWT, tenant, audit) tenants,
+                                                           │                  ShopInstances,
+                                                           ▼ NATS JetStream (:4222)  KhachLinkInstances)
                                               order.created.{shopInstance}
-                                                     │
-                                              Metering &quot;Phí nền tảng&quot; (wallet/rate-card)</code></pre>
+                                                           │
+                                              Metering &quot;Phí nền tảng&quot; (wallet/rate-card)
+                                              TenantAi (LLM per-tenant) · Voice (WebRTC calls)</code></pre>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr>
 <th>#</th>
@@ -219,51 +224,56 @@ Staff / Owner / Kế toán ──► ShopERP Blazor (:5003) ──┤        │
 <tr>
 <td>A1</td>
 <td><strong>Khách hàng</strong></td>
-<td>KhachLink PWA :5002</td>
+<td>KhachLink PWA :5002 (domain theo instance profile)</td>
 </tr>
 <tr>
 <td>A2</td>
 <td><strong>CTV / Salesman</strong></td>
-<td>KhachLink</td>
+<td>KhachLink (<code>/community/*</code>)</td>
 </tr>
 <tr>
 <td>A3</td>
 <td><strong>Shipper</strong></td>
-<td>KhachLink</td>
+<td>KhachLink (<code>/community/*</code>)</td>
 </tr>
 <tr>
 <td>A4</td>
+<td><strong>Merchant mới</strong></td>
+<td>KhachLink <code>/onboard</code> (self-signup cửa hàng)</td>
+</tr>
+<tr>
+<td>A5</td>
 <td><strong>Staff / StoreKeeper</strong></td>
 <td>ShopERP :5003</td>
 </tr>
 <tr>
-<td>A5</td>
+<td>A6</td>
 <td><strong>Masterchef</strong></td>
 <td>ShopERP <code>/kitchen</code></td>
 </tr>
 <tr>
-<td>A6</td>
+<td>A7</td>
 <td><strong>Guard</strong></td>
 <td>ShopERP <code>/guard/scan</code></td>
 </tr>
 <tr>
-<td>A7</td>
+<td>A8</td>
 <td><strong>Owner</strong> (chủ shop)</td>
 <td>ShopERP</td>
 </tr>
 <tr>
-<td>A8</td>
+<td>A9</td>
 <td><strong>ChiefAccountant / DebtAccountant</strong></td>
 <td>ShopERP</td>
 </tr>
 <tr>
-<td>A9</td>
+<td>A10</td>
 <td><strong>SystemAdmin</strong></td>
 <td>ShopERP <code>/admin/*</code> + Gateway API :5001</td>
 </tr>
 <tr>
-<td>A10</td>
-<td><strong>Hệ thống</strong> (jobs/NATS/sync)</td>
+<td>A11</td>
+<td><strong>Hệ thống</strong> (jobs/NATS/sync/AI/voice)</td>
 <td>nội bộ</td>
 </tr>
 </tbody>
@@ -271,6 +281,12 @@ Staff / Owner / Kế toán ──► ShopERP Blazor (:5003) ──┤        │
 <hr />
 <h2 id="a1-khách-hàng-khachlink-pwa">A1 — Khách hàng (KhachLink
 PWA)</h2>
+<blockquote>
+<p>Nav items hiển thị theo <strong>instance profile + nav flags +
+role</strong> (xem <code>KhachLink_Multi_Profile_Usage_Guide</code>).
+Các route <code>/community/*</code> chỉ render khi
+<code>ShowCommunity=true</code> + role match.</p>
+</blockquote>
 <h3 id="uc-1.1-mua-sắm-đơn-hàng">UC-1.1 Mua sắm &amp; đơn hàng</h3>
 <table>
 <colgroup>
@@ -288,112 +304,59 @@ PWA)</h2>
 <tbody>
 <tr>
 <td>Duyệt catalog</td>
-<td>Trang chủ, sản phẩm nổi bật, cửa hàng</td>
+<td>Trang chủ, sản phẩm nổi bật, cửa hàng, HTX portal (profile
+Hoptacxa)</td>
 <td><code>Home</code>, <code>Store</code>, <code>StoreFinder</code>,
-<code>NearbyProducts</code></td>
+<code>NearbyProducts</code>, <code>HoptacxaPortal</code></td>
 </tr>
 <tr>
 <td>Tìm kiếm</td>
 <td>Search sản phẩm</td>
-<td><code>ProductSearchResults</code></td>
+<td><code>ProductSearchResults</code> (<code>/products</code>)</td>
 </tr>
 <tr>
 <td>Giỏ hàng</td>
 <td>Thêm/sửa/xóa món</td>
-<td><code>Cart</code></td>
+<td><code>Cart</code> (<code>/cart</code>)</td>
 </tr>
 <tr>
 <td>Checkout</td>
 <td>Đặt hàng online — snapshot ProductName+VatRate gửi Gateway tạo
 order</td>
-<td><code>Checkout</code></td>
+<td><code>Checkout</code> (<code>/checkout</code>)</td>
 </tr>
 <tr>
 <td>Theo dõi đơn</td>
-<td>Realtime trạng thái + lịch sử</td>
-<td><code>OrderTracking</code>, <code>OrderHistory</code></td>
+<td>Realtime trạng thái + lịch sử + chat với shop</td>
+<td><code>OrderTracking</code> (<code>/order-tracking/{id}</code>,
+<code>/c/{code}</code>), <code>OrderHistory</code>
+(<code>/my-orders</code>)</td>
 </tr>
 <tr>
 <td>Đặt lịch hẹn</td>
 <td>Chọn dịch vụ → giờ → xác nhận → cọc</td>
-<td><code>BookingOffering/Time/Confirm/Status/Note</code></td>
+<td><code>BookingOffering/Time/Confirm/Status/Note</code>
+(<code>/booking/{QrToken}/*</code>)</td>
 </tr>
 <tr>
 <td>Ghi chú đơn</td>
 <td>STT only (không audio)</td>
-<td><code>VoiceNote</code></td>
+<td><code>VoiceNote</code> (<code>/voice-note</code>)</td>
 </tr>
 <tr>
 <td>Quét QR</td>
-<td>Scan QR shop/CTV</td>
-<td><code>Scan</code></td>
+<td>Scan QR shop/CTV + QR thanh toán</td>
+<td><code>Scan</code> (<code>/scan</code>),
+<code>QrPaymentModal</code></td>
+</tr>
+<tr>
+<td>Chat &amp; gọi thoại</td>
+<td>Chat realtime per-order + voice call (WebRTC) với shop/shipper</td>
+<td><code>ChatPanel</code>, voice hub</td>
 </tr>
 </tbody>
 </table>
 <h3 id="uc-1.2-loyalty-ví">UC-1.2 Loyalty &amp; ví</h3>
-<table>
-<thead>
-<tr>
-<th>Use case</th>
-<th>Trang</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Thẻ thành viên + điểm</td>
-<td><code>LoyaltyCard</code></td>
-</tr>
-<tr>
-<td>Ví cá nhân / ví liên minh</td>
-<td><code>Wallet</code>, <code>AllianceWallet</code></td>
-</tr>
-<tr>
-<td>Đổi quà catalog</td>
-<td><code>RedemptionCatalog</code></td>
-</tr>
-<tr>
-<td>Nhiệm vụ kiếm điểm</td>
-<td><code>Missions</code></td>
-</tr>
-<tr>
-<td>Xem/tham gia campaign</td>
-<td><code>Campaigns</code>, <code>Campaign</code>,
-<code>Claim</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="uc-1.3-tài-khoản-hệ-thống">UC-1.3 Tài khoản &amp; hệ thống</h3>
-<table>
-<thead>
-<tr>
-<th>Use case</th>
-<th>Trang</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Đăng ký / đăng nhập OTP</td>
-<td><code>Register</code>, <code>Login</code></td>
-</tr>
-<tr>
-<td>Hồ sơ multi-profile</td>
-<td><code>Profile</code></td>
-</tr>
-<tr>
-<td>Đăng ký thành viên HTX</td>
-<td><code>MembershipRegister</code></td>
-</tr>
-<tr>
-<td>Thông báo</td>
-<td><code>Notifications</code></td>
-</tr>
-<tr>
-<td>Xác minh SMS</td>
-<td><code>CollaboratorVerification</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="a2-ctv-salesman-khachlink">A2 — CTV / Salesman (KhachLink)</h2>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -407,28 +370,73 @@ order</td>
 </thead>
 <tbody>
 <tr>
-<td>Dashboard doanh số + hoa hồng</td>
-<td><code>SalesDashboard</code></td>
+<td>Thẻ thành viên + điểm</td>
+<td><code>LoyaltyCard</code> (<code>/my-loyalty</code>)</td>
 </tr>
 <tr>
-<td>QR giới thiệu khách</td>
-<td><code>SalesmanQR</code></td>
+<td>Ví cá nhân / ví liên minh</td>
+<td><code>Wallet</code> (<code>/community/wallet</code> flow + wallet
+page), <code>AllianceWallet</code> (<code>/alliance-wallet</code>)</td>
 </tr>
 <tr>
-<td>Cửa hàng được gán</td>
-<td><code>SalesmanStore</code></td>
+<td>Đổi quà catalog</td>
+<td><code>RedemptionCatalog</code> (<code>/rewards</code>)</td>
 </tr>
 <tr>
-<td>Đơn quanh khu vực</td>
-<td><code>NearbyOrders</code></td>
+<td>Nhiệm vụ kiếm điểm</td>
+<td><code>Missions</code> (<code>/missions</code>)</td>
 </tr>
 <tr>
-<td>Yêu cầu rút hoa hồng</td>
-<td>(→ qua SystemAdmin <code>/admin/withdrawals</code> duyệt)</td>
+<td>Xem/tham gia campaign</td>
+<td><code>Campaigns</code>, <code>Campaign</code>, <code>Claim</code>
+(<code>/campaigns</code>, <code>/claim</code>)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="a3-shipper-khachlink">A3 — Shipper (KhachLink)</h2>
+<h3 id="uc-1.3-tài-khoản-hệ-thống">UC-1.3 Tài khoản &amp; hệ thống</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Trang</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Đăng ký / đăng nhập OTP</td>
+<td><code>Register</code>, <code>Login</code></td>
+</tr>
+<tr>
+<td>Hồ sơ multi-profile</td>
+<td><code>Profile</code> (<code>/profile</code>)</td>
+</tr>
+<tr>
+<td>Đăng ký thành viên HTX</td>
+<td><code>MembershipRegister</code>
+(<code>/membership/register/{htxTenantId}</code>)</td>
+</tr>
+<tr>
+<td>Thông báo</td>
+<td><code>Notifications</code> (<code>/notifications</code>)</td>
+</tr>
+<tr>
+<td>Xác minh SMS</td>
+<td><code>CollaboratorVerification</code>
+(<code>/collaborator-verification</code>)</td>
+</tr>
+<tr>
+<td>Dashboard realtime</td>
+<td><code>Dashboard</code> (<code>/dashboard</code> →
+<code>RealTimeDashboard</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a2-merchant-mới-khachlink-self-onboarding">A2 — Merchant mới
+(KhachLink — self onboarding)</h2>
 <table>
 <thead>
 <tr>
@@ -438,18 +446,97 @@ order</td>
 </thead>
 <tbody>
 <tr>
-<td>Chuyến giao đang chạy</td>
-<td><code>ActiveDeliveries</code></td>
+<td>Đăng ký cửa hàng</td>
+<td><code>Onboard</code> (<code>/onboard</code>) — form merchant
+signup</td>
 </tr>
 <tr>
-<td>Theo dõi tuyến giao</td>
-<td><code>DeliveryTracking</code></td>
+<td>Tra trạng thái đăng ký</td>
+<td><code>OnboardStatus</code> (<code>/onboard/status</code>)</td>
+</tr>
+<tr>
+<td>Demo storefront</td>
+<td><code>Demo</code> (<code>/demo</code>) — tạo cửa hàng demo theo
+ngành</td>
 </tr>
 </tbody>
 </table>
-<h2 id="a4-staff-storekeeper-shoperp">A4 — Staff / StoreKeeper
+<h2 id="a3-ctv-salesman-khachlink-community">A3 — CTV / Salesman
+(KhachLink <code>/community/*</code>)</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Route</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard doanh số + hoa hồng</td>
+<td><code>/community/sales-dashboard</code>
+(<code>SalesDashboard</code>)</td>
+</tr>
+<tr>
+<td>QR giới thiệu khách</td>
+<td><code>/community/salesman-qr</code> (<code>SalesmanQR</code>)</td>
+</tr>
+<tr>
+<td>Cửa hàng được gán</td>
+<td><code>/community/salesman-store</code>
+(<code>SalesmanStore</code>)</td>
+</tr>
+<tr>
+<td>Đơn quanh khu vực</td>
+<td><code>/community/nearby-orders</code>
+(<code>NearbyOrders</code>)</td>
+</tr>
+<tr>
+<td>Sản phẩm lân cận</td>
+<td><code>/community/nearby-products</code></td>
+</tr>
+<tr>
+<td>Ví CTV</td>
+<td><code>/community/wallet</code></td>
+</tr>
+<tr>
+<td>Yêu cầu rút hoa hồng</td>
+<td>(→ qua SystemAdmin <code>/admin/withdrawals</code> duyệt)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a4-shipper-khachlink-community">A4 — Shipper (KhachLink
+<code>/community/*</code>)</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Route</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chuyến giao đang chạy</td>
+<td><code>/community/active-deliveries</code>
+(<code>ActiveDeliveries</code>)</td>
+</tr>
+<tr>
+<td>Theo dõi tuyến giao</td>
+<td><code>/community/delivery-tracking/{orderId}</code>
+(<code>DeliveryTracking</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a5-staff-storekeeper-shoperp">A5 — Staff / StoreKeeper
 (ShopERP)</h2>
-<h3 id="uc-4.1-bán-hàng-tại-quầy">UC-4.1 Bán hàng tại quầy</h3>
+<h3 id="uc-5.1-bán-hàng-tại-quầy">UC-5.1 Bán hàng tại quầy</h3>
 <table>
 <thead>
 <tr>
@@ -460,7 +547,7 @@ order</td>
 <tbody>
 <tr>
 <td>POS bán hàng</td>
-<td><code>/pos</code></td>
+<td><code>/pos</code> (+ <code>/pos/payment/{orderId}</code>)</td>
 </tr>
 <tr>
 <td>Danh sách + chi tiết đơn</td>
@@ -468,7 +555,7 @@ order</td>
 </tr>
 <tr>
 <td>In hóa đơn</td>
-<td><code>PrintBill</code></td>
+<td><code>/orders/{id}/print</code> (<code>PrintBill</code>)</td>
 </tr>
 <tr>
 <td>Đặt lịch nhanh</td>
@@ -480,7 +567,7 @@ order</td>
 </tr>
 </tbody>
 </table>
-<h3 id="uc-4.2-kiểm-kê-kho-chiefaccountant-xem">UC-4.2 Kiểm kê kho
+<h3 id="uc-5.2-kiểm-kê-kho-chiefaccountant-xem">UC-5.2 Kiểm kê kho
 <em>(+ChiefAccountant xem)</em></h3>
 <table>
 <thead>
@@ -507,6 +594,10 @@ order</td>
 <td><code>/inventory/dashboard</code></td>
 </tr>
 <tr>
+<td>Báo cáo tồn kho</td>
+<td><code>/inventory/stock-report</code></td>
+</tr>
+<tr>
 <td>Cảnh báo hết hàng</td>
 <td><code>/inventory/alerts</code></td>
 </tr>
@@ -516,7 +607,7 @@ order</td>
 </tr>
 </tbody>
 </table>
-<h3 id="uc-4.3-đặt-lịch-hẹn-ownerstorekeeper">UC-4.3 Đặt lịch hẹn
+<h3 id="uc-5.3-đặt-lịch-hẹn-ownerstorekeeper">UC-5.3 Đặt lịch hẹn
 <em>(Owner+StoreKeeper)</em></h3>
 <p>Hàng đợi <code>/booking/queue</code> · lịch trống
 <code>/booking/availability</code> · calendar
@@ -526,12 +617,14 @@ lịch làm việc <code>/booking/schedules</code> · đặt cọc
 <code>/booking/qr-channels</code> · hoa hồng CTV
 <code>/booking/commission</code> · cấu hình <code>/booking/config</code>
 · dịch vụ <code>/booking/services</code></p>
-<h3 id="uc-4.4-hóa-đơn-điện-tử-systemadmin">UC-4.4 Hóa đơn điện tử
+<h3 id="uc-5.4-hóa-đơn-điện-tử-systemadmin">UC-5.4 Hóa đơn điện tử
 <em>(+SystemAdmin)</em></h3>
 <p>Dashboard <code>/einvoice</code> · quản lý hóa đơn
 <code>/einvoice/invoices</code> · cảnh báo <code>/einvoice/alerts</code>
-· health <code>/einvoice/health</code></p>
-<h2 id="a5-masterchef">A5 — Masterchef</h2>
+· health <code>/einvoice/health</code> · cấu hình
+<code>/einvoice/configuration</code> · nhà cung cấp
+<code>/einvoice/providers</code></p>
+<h2 id="a6-masterchef">A6 — Masterchef</h2>
 <table>
 <thead>
 <tr>
@@ -546,7 +639,7 @@ lịch làm việc <code>/booking/schedules</code> · đặt cọc
 </tr>
 </tbody>
 </table>
-<h2 id="a6-guard">A6 — Guard</h2>
+<h2 id="a7-guard">A7 — Guard</h2>
 <table>
 <thead>
 <tr>
@@ -559,53 +652,56 @@ lịch làm việc <code>/booking/schedules</code> · đặt cọc
 <td>Quét QR ra/vào</td>
 <td><code>/guard/scan</code></td>
 </tr>
+<tr>
+<td>In vé/phiếu</td>
+<td><code>/guard/print/{sessionId}</code></td>
+</tr>
 </tbody>
 </table>
-<h2 id="a7-owner-toàn-quyền-tenant">A7 — Owner (toàn quyền tenant)</h2>
-<h3 id="uc-7.1-bán-hàng-vận-hành">UC-7.1 Bán hàng &amp; vận hành</h3>
-<p>Toàn bộ UC-4.1–4.4 + quản lý sản phẩm <code>/products</code></p>
-<h3 id="uc-7.2-kế-toán-dùng-chung-với-chiefaccountant">UC-7.2 Kế toán
+<h2 id="a8-owner-toàn-quyền-tenant">A8 — Owner (toàn quyền tenant)</h2>
+<h3 id="uc-8.1-bán-hàng-vận-hành">UC-8.1 Bán hàng &amp; vận hành</h3>
+<p>Toàn bộ UC-5.1–5.4 + quản lý sản phẩm <code>/products</code> +
+voucher chung <code>/vouchers/{code}</code></p>
+<h3 id="uc-8.2-kế-toán-dùng-chung-với-chiefaccountant">UC-8.2 Kế toán
 (dùng chung với ChiefAccountant)</h3>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Nhóm</th>
-<th>Use case</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Nhập liệu</td>
-<td>Phiếu thu/chi, lịch sử giao dịch <code>/accounting/history</code>,
-số dư đầu kỳ <code>/accounting/opening-balance</code>, import Excel
-<code>/accounting/import</code></td>
-</tr>
-<tr>
-<td>Kiểm soát</td>
-<td>Rà soát tiền mặt ≥20tr <code>/accounting/cash-payment-review</code>,
-số dư TK <code>/accounting/balance</code>, đóng kỳ
-<code>/accounting/period-closing</code></td>
-</tr>
-<tr>
-<td>Sổ sách</td>
-<td>Nhật ký chung <code>/accounting/journal</code>, sổ cái
-<code>/accounting/ledger</code>, sổ chi tiết
-<code>/accounting/sub-ledger</code>, công nợ
-<code>/accounting/cong-no</code></td>
-</tr>
-<tr>
-<td>Báo cáo</td>
-<td>Báo cáo tài chính <code>/accounting/financial-reports</code>,
-<strong>Sổ HKD TT152</strong> (S1a/S2b/S3a)
-<code>/accounting/hkd-books</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="uc-7.3-crm-loyalty">UC-7.3 CRM &amp; Loyalty</h3>
+<p><strong>Nhập liệu chứng từ</strong> (Voucher Framework — registry +
+strategy): | Use case | Route | |—|—| | Phiếu thu / phiếu chi |
+<code>/accounting/revenue</code>, <code>/accounting/expenses</code> (+
+<code>/accounting/voucher</code> generic entry) | | Chuyển tiền |
+<code>/accounting/transfers</code> | | Phiếu thu/chi kế toán tổng hợp |
+<code>/accounting/journal-voucher</code> | | Nhập mua / phiếu nhập |
+<code>/accounting/purchase-receipts</code> (+ <code>/new</code>,
+<code>/edit/{id}</code>) | | Doanh thu / chi phí nhập tay |
+<code>/accounting/revenue</code>, <code>/accounting/expenses</code> | |
+Import Excel | <code>/accounting/import</code> | | Số dư đầu kỳ |
+<code>/accounting/opening-balance</code> | | Lịch sử giao dịch |
+<code>/accounting/history</code> |</p>
+<p><strong>Kiểm soát:</strong> Rà soát tiền mặt ≥20tr
+<code>/accounting/cash-payment-review</code> · số dư TK
+<code>/accounting/balance</code> · cân đối phát sinh
+<code>/accounting/trial-balance</code> · đóng kỳ
+<code>/accounting/period-closing</code></p>
+<p><strong>Sổ sách:</strong> Nhật ký chung
+<code>/accounting/journal</code> · sổ cái
+<code>/accounting/ledger</code> · sổ chi tiết
+<code>/accounting/sub-ledger</code> · công nợ
+<code>/accounting/cong-no</code> (+
+<code>/cong-no/{loai}/{doiTuong}</code>) · sổ quỹ
+<code>/accounting/cash-book</code> · sổ ngân hàng
+<code>/accounting/bank-book</code> · sổ DNSN
+<code>/accounting/dnsn-books</code></p>
+<p><strong>Báo cáo tài chính:</strong>
+<code>/accounting/financial-reports</code> · bảng cân đối
+<code>/accounting/balance-sheet</code> · kết quả kinh doanh
+<code>/accounting/income-statement</code> · lưu chuyển tiền tệ
+<code>/accounting/cash-flow-statement</code> · thuyết minh
+<code>/accounting/financial-statement-notes</code> · <strong>Sổ HKD
+TT152</strong> (S1a/S2b/S3a) <code>/accounting/hkd-books</code> (+
+<code>/{templateCode}</code>)</p>
+<p><strong>Mapping:</strong> Quy tắc map
+<code>/accounting/mapping-rules</code> · sơ đồ tài khoản
+<code>/accounting/account-map</code></p>
+<h3 id="uc-8.3-crm-loyalty">UC-8.3 CRM &amp; Loyalty</h3>
 <p>Khách hàng <code>/admin/customers</code> · chiến dịch KM
 <code>/admin/promo-campaigns</code> · nhiệm vụ
 <code>/admin/missions</code> · catalog đổi điểm
@@ -615,20 +711,23 @@ số dư TK <code>/accounting/balance</code>, đóng kỳ
 <code>/community/owner-panel</code> · hộp thư
 <code>/community/messages</code> · thống kê
 <code>/loyalty/dashboard</code></p>
-<h3 id="uc-7.4-quản-trị-tài-chính">UC-7.4 Quản trị &amp; tài chính</h3>
+<h3 id="uc-8.4-quản-trị-tài-chính">UC-8.4 Quản trị &amp; tài chính</h3>
 <p>Users <code>/admin/users</code> · nhóm quyền
 <code>/admin/permission-groups</code> · thông báo
 <code>/notifications</code> · tài chính <code>/financial</code> (+
-BreakEven, UnitEconomics) · hồ sơ DN
+<code>/financial/break-even</code>,
+<code>/financial/unit-economics</code>) · hồ sơ DN
 <code>/admin/business-profile</code> · <strong>ví phí nền tảng</strong>
-<code>/wallet/phi-nen-tang</code> (nạp VietQR)</p>
-<h3 id="uc-7.5-htx-chỉ-tenant-htx">UC-7.5 HTX <em>(chỉ tenant
+<code>/wallet/phi-nen-tang</code> (nạp VietQR) · MFA
+<code>/account/mfa</code></p>
+<h3 id="uc-8.5-htx-chỉ-tenant-htx">UC-8.5 HTX <em>(chỉ tenant
 HTX)</em></h3>
 <p>Xét duyệt hồ sơ <code>/admin/membership</code> · điều lệ
-<code>/admin/membership/htx-profile</code></p>
-<h3 id="uc-7.6-cấu-hình">UC-7.6 Cấu hình</h3>
+<code>/admin/membership/htx-profile</code> · member shops
+<code>/admin/membership/members</code></p>
+<h3 id="uc-8.6-cấu-hình">UC-8.6 Cấu hình</h3>
 <p>Tính năng shop <code>/settings/shop-features</code></p>
-<h2 id="a8-chiefaccountant-debtaccountant">A8 — ChiefAccountant /
+<h2 id="a9-chiefaccountant-debtaccountant">A9 — ChiefAccountant /
 DebtAccountant</h2>
 <table>
 <colgroup>
@@ -644,8 +743,8 @@ DebtAccountant</h2>
 <tbody>
 <tr>
 <td><strong>ChiefAccountant</strong></td>
-<td>Toàn bộ UC-7.2 (kế toán) + kiểm kê UC-4.2 + <code>/financial</code>
-+ <code>/notifications</code></td>
+<td>Toàn bộ UC-8.2 (kế toán + chứng từ) + kiểm kê UC-5.2 +
+<code>/financial</code> + <code>/notifications</code></td>
 </tr>
 <tr>
 <td><strong>DebtAccountant</strong></td>
@@ -653,8 +752,8 @@ DebtAccountant</h2>
 </tr>
 </tbody>
 </table>
-<h2 id="a9-systemadmin-platform">A9 — SystemAdmin (platform)</h2>
-<h3 id="uc-9.1-tenant-nghiệp-vụ">UC-9.1 Tenant &amp; nghiệp vụ</h3>
+<h2 id="a10-systemadmin-platform">A10 — SystemAdmin (platform)</h2>
+<h3 id="uc-10.1-tenant-nghiệp-vụ">UC-10.1 Tenant &amp; nghiệp vụ</h3>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -674,11 +773,13 @@ DebtAccountant</h2>
 </tr>
 <tr>
 <td>ShopInstances (multi-VPS)</td>
-<td>(Gateway <code>ShopInstances</code> API)</td>
+<td><code>/admin/shop-instances</code> (+ Gateway
+<code>ShopInstances</code> API)</td>
 </tr>
 <tr>
-<td>KhachLink instances + domain reseller</td>
+<td>KhachLink instances + audit</td>
 <td><code>/admin/khachlink-instances</code>,
+<code>/admin/khachlink-instances/{id}/audit</code>,
 <code>/admin/domains</code></td>
 </tr>
 <tr>
@@ -714,17 +815,26 @@ cross-VPS</td>
 <td>VALCN v2 features</td>
 <td><code>/admin/valcn-features</code></td>
 </tr>
+<tr>
+<td>Feature visibility matrix</td>
+<td><code>/admin/feature-visibility</code></td>
+</tr>
+<tr>
+<td>Voice admin</td>
+<td><code>/admin/voice</code></td>
+</tr>
 </tbody>
 </table>
-<h3 id="uc-9.2-crm-loyalty-platform">UC-9.2 CRM / Loyalty platform</h3>
+<h3 id="uc-10.2-crm-loyalty-platform">UC-10.2 CRM / Loyalty
+platform</h3>
 <p>Catalog global <code>/admin/global-redemption-catalog</code> ·
 alliance config <code>/admin/loyalty-config</code> · push campaigns
 <code>/admin/push-campaigns</code> · social campaigns
 <code>/admin/campaigns</code> · KM <code>/admin/promo-campaigns</code> ·
 missions <code>/admin/missions</code> · redemption catalog/history · CRM
-<code>/admin/customers</code> · loyalty stats
-<code>/loyalty/dashboard</code></p>
-<h3 id="uc-9.3-community-commerce">UC-9.3 Community Commerce</h3>
+<code>/admin/customers</code> + <code>/admin/customers-global</code> ·
+loyalty stats <code>/loyalty/dashboard</code></p>
+<h3 id="uc-10.3-community-commerce">UC-10.3 Community Commerce</h3>
 <p>CTV admin <code>/admin/community/admin-panel</code> · fraud flags
 <code>/admin/community/fraud-flags</code> · fraud stats
 <code>/admin/community/fraud-stats</code> · device regs
@@ -733,25 +843,35 @@ missions <code>/admin/missions</code> · redemption catalog/history · CRM
 <code>/admin/community-fund</code> · settlements
 <code>/admin/settlements</code> · <strong>duyệt rút tiền</strong>
 <code>/admin/withdrawals</code></p>
-<h3 id="uc-9.4-hạ-tầng-vận-hành">UC-9.4 Hạ tầng &amp; vận hành</h3>
+<h3 id="uc-10.4-tenant-ai-llm-per-tenant">UC-10.4 Tenant AI (LLM
+per-tenant)</h3>
+<p>Hub <code>/admin/tenant-ai</code> · conversations
+<code>/admin/tenant-ai/conversations</code> · knowledge
+<code>/admin/tenant-ai/knowledge</code> (drafts từ owner chat) · policy
+<code>/admin/tenant-ai/policy</code> · profile
+<code>/admin/tenant-ai/profile</code> · usage
+<code>/admin/tenant-ai/usage</code></p>
+<h3 id="uc-10.5-hạ-tầng-vận-hành">UC-10.5 Hạ tầng &amp; vận hành</h3>
 <p>Rate cards <code>/admin/metering/rate-cards</code> · top-up
 <code>/admin/metering/topups</code> · network dashboard
 <code>/admin/network-dashboard</code> · R2 storage
 <code>/admin/r2-storage</code> · OCR settings
-<code>/admin/ocr-settings</code> · KhachLink home
-<code>/admin/khachlink-home-settings</code> · background services ·
-audit trail <code>/admin/audit-trail</code> · impersonate tenant ·
-membership <code>/admin/membership</code> · claims queue · crawl trigger
-· metering topups · tenant community · customer global list · booking
-deposits · reseller settlement</p>
-<h3 id="uc-9.5-hướng-dẫn">UC-9.5 Hướng dẫn</h3>
-<p>6 guide HTML (<code>KhachLink Multi-Profile</code>,
-<code>CRM &amp; Loyalty</code>, <code>VALCN v2.0</code>,
-<code>Community Commerce</code>, <code>Accounting</code>,
-<code>Booking</code>) + <code>/sitemap</code> + <strong>Tra soát
-guide</strong>
+<code>/admin/ocr-settings</code> + onboarding wizard
+<code>/admin/onboarding-ocr</code> · KhachLink home
+<code>/admin/khachlink-home-settings</code> · background services
+<code>/admin/background-services</code> · audit trail
+<code>/admin/audit-trail</code> · impersonate tenant · membership
+<code>/admin/membership</code> · claims queue <code>/admin/claims</code>
+· crawl trigger <code>/admin/crawl-trigger</code></p>
+<h3 id="uc-10.6-hướng-dẫn">UC-10.6 Hướng dẫn</h3>
+<p>8 guide HTML trong <code>wwwroot/guides/</code>
+(<code>KhachLink Multi-Profile</code>, <code>CRM &amp; Loyalty</code>,
+<code>VALCN v2.0</code>, <code>Community Commerce</code>,
+<code>Accounting</code>, <code>Booking</code>, <code>Membership</code>,
+<code>Tenant Onboarding</code>, <code>Crawl Onboarding</code>) +
+<code>/sitemap</code> + <strong>Tra soát guide</strong>
 (<code>docs/user-guide/Tra_Soat_So_Lieu_Ke_Toan_Guide.html</code>)</p>
-<h2 id="a10-hệ-thống-tự-động">A10 — Hệ thống tự động</h2>
+<h2 id="a11-hệ-thống-tự-động">A11 — Hệ thống tự động</h2>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -775,13 +895,23 @@ per ShopInstance</td>
 </tr>
 <tr>
 <td>Proxy nội bộ Gateway↔︎ShopERP</td>
-<td><code>X-Internal-Api-Key</code> (loyalty, metering,
-<strong>mirror-orders R11</strong>)</td>
+<td><code>X-Internal-Api-Key</code> (loyalty, metering, mirror-orders
+R11)</td>
+</tr>
+<tr>
+<td>Realtime chat/voice</td>
+<td>SignalR hubs — per-customer shop chat threads, order conversation,
+WebRTC voice calls (auto-reconnect, fullscreen call UI)</td>
+</tr>
+<tr>
+<td>Tenant AI</td>
+<td>LLM service per-tenant — FAQ/policy routing, knowledge drafts từ
+owner chat, contextual “Hỏi AI”/“Gọi” entries (W3)</td>
 </tr>
 <tr>
 <td>Jobs nền</td>
 <td>R2 cleanup 30d, cooling period, held timeout, loyalty budget
-daily/monthly reset</td>
+daily/monthly reset, voucher expiry reminders</td>
 </tr>
 <tr>
 <td>Metering deny-gate</td>
@@ -789,16 +919,33 @@ daily/monthly reset</td>
 </tr>
 <tr>
 <td>Audit trail</td>
-<td>Mọi mutation + admin action ghi log</td>
+<td>Mọi mutation + admin action ghi log (+ per-instance KhachLink
+audit)</td>
 </tr>
 <tr>
 <td>Notification hub</td>
-<td>NATS <code>vanan.cloud.notification.created</code> → Blazor
-bell</td>
+<td>NATS <code>vanan.cloud.notification.created</code> → Blazor bell +
+push (realtime)</td>
 </tr>
 <tr>
 <td>E-invoice sync</td>
 <td>Provider webhook → hóa đơn</td>
+</tr>
+<tr>
+<td>Dynamic CORS</td>
+<td><code>DynamicCorsCacheHostedService</code> 5-min refresh từ
+<code>KhachLinkInstance.CustomDomain</code></td>
+</tr>
+<tr>
+<td>KhachLink instance config</td>
+<td><code>by-domain</code> API → localStorage cache
+<code>khachlink_instance_config_v3</code> (TTL 1 phút)</td>
+</tr>
+<tr>
+<td>Cooperatives public API</td>
+<td><code>GET /api/cooperatives</code> +
+<code>/by-domain/{domain}</code> + <code>/{id}/members</code>
+(AllowAnonymous, 60rpm, nginx cache 5m)</td>
 </tr>
 </tbody>
 </table>
@@ -823,21 +970,23 @@ file</h2>
 </tr>
 <tr>
 <td>Admin pages</td>
-<td><code>5_WebApps/ShopERP/Components/Pages/Admin/</code> (~47
-trang)</td>
+<td><code>5_WebApps/ShopERP/Components/Pages/Admin/</code> (~57 trang,
+gồm <code>TenantAi/</code> 6 trang)</td>
 </tr>
 <tr>
-<td>Khách/CTV/Shipper</td>
-<td><code>5_WebApps/KhachLink/Pages/</code> (~30 trang)</td>
+<td>Khách/CTV/Shipper/Merchant</td>
+<td><code>5_WebApps/KhachLink/Pages/</code> (~40 trang) +
+<code>Components/</code> (HoptacxaPortal, ChatPanel, QrPaymentModal,
+SocialHub, VibeShowcase, RealTimeDashboard…)</td>
 </tr>
 <tr>
 <td>API Gateway</td>
-<td><code>2_Gateway/Controllers/</code> (~90 controllers)</td>
+<td><code>2_Gateway/Controllers/</code> (~86 controllers)</td>
 </tr>
 <tr>
 <td>Kế toán core</td>
 <td><code>3_CoreHub/Services/</code> (Accounting, Journal, Ledger,
-HKDBook, CongNo, <strong>Reconcile</strong>)</td>
+HKDBook, CongNo, Reconcile, Voucher strategies)</td>
 </tr>
 <tr>
 <td>Metering</td>
@@ -845,13 +994,18 @@ HKDBook, CongNo, <strong>Reconcile</strong>)</td>
 <code>docker-compose.metering.yml</code></td>
 </tr>
 <tr>
+<td>Tenant AI</td>
+<td><code>Admin/TenantAi/</code> pages + AI services
+(<code>de327354</code>+ sessions)</td>
+</tr>
+<tr>
 <td>Infra</td>
-<td><code>docker-compose.{gateway,shoperp,khachlink,infra}.yml</code></td>
+<td><code>docker-compose.{gateway,shoperp,khachlink,infra,metering}.yml</code></td>
 </tr>
 </tbody>
 </table>
-<p><strong>Quy mô:</strong> ~47 trang SystemAdmin · ~25 module Owner ·
-~11 trang booking · ~30 trang KhachLink · ~90 API controllers · 13 check
-tra soát R1-R12.</p>
+<p><strong>Quy mô:</strong> ~57 trang SystemAdmin · ~25 module Owner ·
+~11 trang booking · ~40 trang KhachLink · ~86 API controllers · 13 check
+tra soát R1-R12 · 8+ guide HTML.</p>
 </body>
 </html>

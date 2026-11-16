@@ -145,7 +145,7 @@ services:
       # SaaS W1: ValidateProductionConfig sentinel keys — set to non-placeholder values
       - Jwt__Secret=${JWT_SECRET_KEY}
       - DataProtection__KeyDirectory=/app/keys
-      - Brevo__ApiKey=not-configured
+      - Brevo__ApiKey=${BREVO_API_KEY:-not-configured}
       - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
       - Esms__ApiKey=not-configured
       - Esms__SecretKey=not-configured

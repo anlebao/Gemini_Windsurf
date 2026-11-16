@@ -191,6 +191,86 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("consent_records", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.DeviceCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("Aaguid")
+                        .HasColumnType("uuid")
+                        .HasColumnName("aaguid");
+
+                    b.Property<bool?>("BackupEligible")
+                        .HasColumnType("boolean")
+                        .HasColumnName("backup_eligible");
+
+                    b.Property<bool?>("BackupState")
+                        .HasColumnType("boolean")
+                        .HasColumnName("backup_state");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CredentialId")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("credential_id");
+
+                    b.Property<Guid?>("DeviceRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_record_id");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("public_key");
+
+                    b.Property<string>("RpId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("rp_id");
+
+                    b.Property<long>("SignCount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("sign_count");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TransportsJson")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("transports_json");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_device_credentials");
+
+                    b.HasIndex("CredentialId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_device_credentials_credential_id");
+
+                    b.HasIndex("DeviceRecordId")
+                        .HasDatabaseName("ix_device_credentials_device");
+
+                    b.HasIndex("TrustSubjectId", "Status")
+                        .HasDatabaseName("ix_device_credentials_subject_status");
+
+                    b.ToTable("device_credentials", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -383,6 +463,150 @@ namespace VanAn.Atrs.Infra.Migrations
                         .HasDatabaseName("ux_trust_subject_links_subject_identity");
 
                     b.ToTable("trust_subject_links", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.UserDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("device_id");
+
+                    b.Property<int>("DeviceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("device_type");
+
+                    b.Property<DateTime>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<string>("FriendlyName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("friendly_name");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("platform");
+
+                    b.Property<int>("RegistrationMethod")
+                        .HasColumnType("integer")
+                        .HasColumnName("registration_method");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revoked_reason");
+
+                    b.Property<string>("RiskMetadataJson")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("risk_metadata_json");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_devices");
+
+                    b.HasIndex("LastSeenAt")
+                        .HasDatabaseName("ix_user_devices_last_seen");
+
+                    b.HasIndex("TrustSubjectId", "DeviceId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_user_devices_subject_device");
+
+                    b.HasIndex("TrustSubjectId", "Status")
+                        .HasDatabaseName("ix_user_devices_subject_status");
+
+                    b.ToTable("user_devices", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.WebAuthnChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Challenge")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("challenge");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("DeviceRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_record_id");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("OptionsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("options_json");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("origin");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("RpId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("rp_id");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_webauthn_challenges");
+
+                    b.HasIndex("Challenge")
+                        .IsUnique()
+                        .HasDatabaseName("ux_webauthn_challenges_challenge");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_webauthn_challenges_expires");
+
+                    b.HasIndex("TrustSubjectId", "Purpose", "ConsumedAt")
+                        .HasDatabaseName("ix_webauthn_challenges_subject_purpose_consumed");
+
+                    b.ToTable("webauthn_challenges", (string)null);
                 });
 #pragma warning restore 612, 618
         }

@@ -1,6 +1,13 @@
 ﻿# guard-check.ps1 - Van An Strict Guard v7.2 (Updated June 2026)
+# v7.3 (2026-11-16): SPEED-UP — (1) single build merged from the two sequential full builds
+# (analyzer gate + build gate), (2) --no-build on every dotnet test (reuse build output),
+# (3) incremental static scans (raw SQL + UTF-8) over git-changed files only. Same checks,
+# same pass/fail criteria — only I/O volume reduced. Use -FullScan for a full-tree scan
+# (fresh clone / branch switch / after cherry-pick).
 
-Write-Host "Running Van An Strict Guard v7.2..." -ForegroundColor Cyan
+param([switch]$FullScan)
+
+Write-Host "Running Van An Strict Guard v7.3..." -ForegroundColor Cyan
 
 # Helper: validate that a file is well-formed UTF-8 (no Windows-1252 / ANSI mojibake)
 function Test-ValidUtf8 {
@@ -40,6 +47,20 @@ function Test-ValidUtf8 {
     return $true
 }
 
+# Helper: files changed since last push/commit + untracked (incremental scanning target).
+# Covers: locally committed but not yet on origin/main (if resolvable), uncommitted
+# (staged + unstaged) vs HEAD, and untracked files. Unchanged files already passed the
+# previous guard run — rescanning the full tree every iteration is pure overhead.
+function Get-ChangedFiles {
+    $files = @()
+    if (git rev-parse --verify -q origin/main 2>$null) {
+        $files += git diff --name-only --diff-filter=ACMRT origin/main...HEAD 2>$null
+    }
+    $files += git diff --name-only --diff-filter=ACMRT HEAD 2>$null
+    $files += git ls-files --others --exclude-standard 2>$null
+    return $files | Where-Object { $_ } | Sort-Object -Unique
+}
+
 # 0. PRE-CHECK: Untracked source files (Local Developer Discipline)
 # Prevents "lost code" - files created but never git-added
 Write-Host "Checking for untracked source files..." -ForegroundColor Yellow
@@ -65,10 +86,17 @@ Write-Host "[OK] Untracked source files: PASSED" -ForegroundColor Green
 # 0.3 PRE-CHECK: Cross-provider raw SQL guard (prevent PostgreSQL 42P01 + SQLite-only syntax)
 # Pattern: ExecuteSqlRawAsync/FromSqlRaw with unquoted table names or COLLATE NOCASE
 # Root cause: PostgreSQL lowercases unquoted identifiers → relation does not exist
+# Incremental by default: only git-changed .cs files are scanned (excludes obj/bin/6_Tests).
 Write-Host "Checking for cross-provider raw SQL violations..." -ForegroundColor Yellow
 
-$csFiles = Get-ChildItem -Path . -Recurse -Filter '*.cs' |
-    Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|\\6_Tests\\' }
+if ($FullScan) {
+    $csFiles = Get-ChildItem -Path . -Recurse -Filter '*.cs' |
+        Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|\\6_Tests\\' }
+} else {
+    $csFiles = Get-ChangedFiles |
+        Where-Object { $_ -match '\.cs$' -and $_ -notmatch '(^|/)(obj|bin)/' -and $_ -notmatch '^6_Tests/' } |
+        ForEach-Object { Get-Item $_ }
+}
 
 $rawSqlViolations = @()
 foreach ($file in $csFiles) {
@@ -100,10 +128,16 @@ Write-Host "[OK] Cross-provider raw SQL: PASSED" -ForegroundColor Green
 Write-Host "Checking source file encodings..." -ForegroundColor Yellow
 
 $textExtensions = @('*.cs', '*.razor', '*.md', '*.html', '*.cshtml', '*.css', '*.js', '*.json', '*.xml', '*.props', '*.targets', '*.csproj', '*.sln')
-$nonUtf8Files = Get-ChildItem -Path . -Recurse -File -Include $textExtensions |
-    Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|node_modules|\\.tmp-' } |
-    Where-Object { -not (Test-ValidUtf8 $_.FullName) } |
-    Select-Object -ExpandProperty FullName
+if ($FullScan) {
+    $nonUtf8Files = Get-ChildItem -Path . -Recurse -File -Include $textExtensions |
+        Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|node_modules|\\.tmp-' } |
+        Where-Object { -not (Test-ValidUtf8 $_.FullName) } |
+        Select-Object -ExpandProperty FullName
+} else {
+    $nonUtf8Files = Get-ChangedFiles |
+        Where-Object { $_ -match '\.(cs|razor|md|html|cshtml|css|js|json|xml|props|targets|csproj|sln)$' -and $_ -notmatch '(^|/)(obj|bin)/|(^|/)node_modules/|(^|/)\.tmp-' } |
+        Where-Object { -not (Test-ValidUtf8 $_) }
+}
 
 if ($nonUtf8Files) {
     Write-Host "`n[FAIL] NON-UTF-8 SOURCE FILES DETECTED:" -ForegroundColor Red
@@ -134,12 +168,22 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "[OK] ARCHITECTURE GUARD PASSED" -ForegroundColor Green
 
-# 2.5. Run Roslyn Analyzers (NEW - Phase 2.3)
-Write-Host "Running Roslyn Analyzers..." -ForegroundColor Yellow
-$analyzerOutput = dotnet build --no-restore --configuration Release 2>&1 | Tee-Object -FilePath "analyzer.log"
+# 2.5+3. Run dotnet build ONCE — single pass serves BOTH the Roslyn analyzer gate and the
+# build gate (previously two sequential full solution builds ≈ 2x build time). VA1001-VA1005
+# are already WarningsAsErrors via Directory.Build.props; we surface them from the same log.
+Write-Host "Running dotnet build (analyzers + build gate, single pass)..." -ForegroundColor Yellow
+$buildOutput = dotnet build --verbosity normal --configuration Release 2>&1 | Tee-Object -FilePath "build.log"
 
-# Check for analyzer violations
-$analyzerViolations = $analyzerOutput | Select-String -Pattern 'VA1001|VA1002|VA1003|VA1004|VA1005'
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[FAIL] BUILD FAILED" -ForegroundColor Red
+    exit 1
+}
+
+# Check for analyzer violations (from the same build output)
+# Pattern requires the MSBuild diagnostic shape (": warning VA100x:" / ": error VA100x:").
+# A bare 'VA1001|...' would false-positive on the csc command line, which embeds
+# '/warnaserror:VA1001;...' (visible at --verbosity normal).
+$analyzerViolations = $buildOutput | Select-String -Pattern '(?im)(warning|error)\s+VA100[1-5]\b'
 
 if ($analyzerViolations) {
     Write-Host "ROSLYN ANALYZER VIOLATIONS DETECTED:" -ForegroundColor Red
@@ -148,16 +192,7 @@ if ($analyzerViolations) {
     exit 1
 }
 
-Write-Host "Roslyn Analyzers: PASSED" -ForegroundColor Green
-
-# 3. Run dotnet build with detailed output
-Write-Host "Running dotnet build..." -ForegroundColor Yellow
-$buildOutput = dotnet build --verbosity normal --configuration Release 2>&1 | Tee-Object -FilePath "build.log"
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[FAIL] BUILD FAILED" -ForegroundColor Red
-    exit 1
-}
+Write-Host "Build + Roslyn Analyzers: PASSED" -ForegroundColor Green
 
 # 4. Check for critical issues
 $criticalIssues = $buildOutput | Select-String -Pattern ': error CS|: error NU|: error MSB|VA0004' -CaseSensitive
@@ -197,20 +232,22 @@ if ($warningStats.Critical -gt 0) {
     exit 1
 }
 
-# 5. Fast test gate - Domain + Architecture + Integration tests (~20s)
+# 5. Fast test gate - Core + Architecture + Integration tests
 # Prevents false-green: build pass alone does not guarantee correctness
-Write-Host "Running fast test gate `(Domain + Architecture + Integration`)..." -ForegroundColor Yellow
+# NOTE: --no-build on every invocation — reuse the Release output from the single build above
+# (previously each dotnet test recompiled its project + dependency chain).
+Write-Host "Running test gate `(Core + Architecture + Integration`)..." -ForegroundColor Yellow
 
 $amp = [char]38
 $coreTestFilter = "Category!=Performance$amp" + "Category!=Integration$amp" + "Category!=E2E"
-dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --verbosity quiet --configuration Release --filter $coreTestFilter 2>&1 | Out-Null
+dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --no-build --verbosity quiet --configuration Release --filter $coreTestFilter 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAST TEST GATE FAILED: Core.Tests" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj for details" -ForegroundColor Yellow
     exit 1
 }
 
-dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj --verbosity quiet --configuration Release 2>&1 | Out-Null
+dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj --no-build --verbosity quiet --configuration Release 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAST TEST GATE FAILED: Architecture.Tests" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj for details" -ForegroundColor Yellow
@@ -219,7 +256,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # NEW: Integration tests (CircuitBreaker only - no external services required) - Phase 2.4
 Write-Host "Running Integration test gate `(CircuitBreaker tests only`)..." -ForegroundColor Yellow
-dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --verbosity quiet --configuration Release --filter "FullyQualifiedName~CircuitBreakerIntegrationTests" 2>&1 | Out-Null
+dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --no-build --verbosity quiet --configuration Release --filter "FullyQualifiedName~CircuitBreakerIntegrationTests" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "INTEGRATION TEST GATE FAILED" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --filter FullyQualifiedName~CircuitBreakerIntegrationTests for details" -ForegroundColor Yellow

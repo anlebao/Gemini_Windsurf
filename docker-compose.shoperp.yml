@@ -56,7 +56,7 @@ services:
       - Seed__SysAdminPassword=${SHOPERP_SYSADMIN_PASSWORD:-2026@vanan}
       # ValidateProductionConfig sentinel keys
       - DataProtection__KeyDirectory=/app/keys
-      - Brevo__ApiKey=not-configured
+      - Brevo__ApiKey=${BREVO_API_KEY:-not-configured}
       - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
       - Esms__ApiKey=not-configured
       - Esms__SecretKey=not-configured

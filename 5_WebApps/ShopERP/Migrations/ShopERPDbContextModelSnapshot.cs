@@ -936,6 +936,9 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("TokenVersion")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("TrustLevel")
                         .HasColumnType("INTEGER");
 
@@ -1983,6 +1986,9 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("TikTokShareCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TokenVersion")
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("TotalSpent")

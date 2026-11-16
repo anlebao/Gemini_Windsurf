@@ -51,6 +51,9 @@ Customer path gãy ở **2 lớp độc lập** (cả 2 đều phải fix):
 
 **Hệ quả UX phụ:** `VoiceCallPanel.OnInitializedAsync` catch lỗi init → set `_error`, nhưng `_error` sau đó bị `StartCallAsync` ghi đè bằng "Không gọi được: ..." → user không thấy root error ("Unauthorized" / connect fail) mà chỉ thấy lỗi invoke muộn.
 
+### RC-D — String param literal bug (405 negotiate) — ✅ FIXED `133a1c9a`
+Sau deploy S1-S5, buyer thấy "Không khởi tạo được gọi thoại: ... 405 Not Allowed" từ nginx storefront. Root cause: **Razor string-param gotcha** — `RealtimeChatPanel` → `VoiceCallPanel` truyền `SubjectType="SubjectType"`, `Token="(IsStaff ? ...)"`, `VoiceHubUrl="VoiceHubUrl"`, `VoiceServiceUrl="VoiceServiceUrl"` KHÔNG có `@` → Razor gán **literal string** (đúng bug pattern đã ghi chú trong `ChatPanel.razor` — "string params MUST be bound with @"). Hệ quả: `hubUrl="VoiceHubUrl"` → negotiate `POST /VoiceHubUrl/negotiate` same-origin `commienphi.timlathay.com` → nginx Gateway 405 (endpoint thật `voice.khachvip.online` negotiate POST = 200, đã curl verify). Cùng bug ở `ChatPanel.razor` shim (`VoiceServiceUrl`/`VoiceHubUrl`). Bonus latent bugs cùng chỗ: `Token` literal → auth sẽ fail; `SubjectType` literal → context ref `"SubjectType:{guid}"` sai (đáng lẽ `"Shop:{guid}"`). Fix: thêm `@` cho cả 4 param trong RealtimeChatPanel + 2 param trong ChatPanel. Store.razor/ShopInbox vốn đã đúng (`@_voiceHubUrl`).
+
 ### RC-C — Rủi ro còn lại (chưa verify)
 
 - **Guest (chưa login):** `CustomerToken` rỗng → `_canCall=false` → nút disabled (by design hiện tại). Cần quyết định policy: bắt đăng nhập để gọi, hay hỗ trợ guest qua device-id (server chưa có identity channel cho guest).

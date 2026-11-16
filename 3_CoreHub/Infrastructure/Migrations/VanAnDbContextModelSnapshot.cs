@@ -2614,6 +2614,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("TokenVersion")
+                        .HasColumnType("integer");
+
                     b.Property<int>("TrustLevel")
                         .HasColumnType("integer");
 
@@ -4265,6 +4268,9 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("TikTokShareCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TokenVersion")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("TotalSpent")
