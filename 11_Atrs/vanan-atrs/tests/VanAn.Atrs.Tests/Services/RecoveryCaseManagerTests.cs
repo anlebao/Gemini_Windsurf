@@ -20,8 +20,11 @@ public sealed class RecoveryCaseManagerTests : IDisposable
         _manager = new RecoveryCaseManager(
             _db,
             new StubRecoveryCodeService(),
-            new RiskPolicyEngine());
+            new RiskPolicyEngine(),
+            _bumpNotifier);
     }
+
+    private readonly RecordingBumpNotifier _bumpNotifier = new();
 
     public void Dispose()
     {
@@ -125,6 +128,34 @@ public sealed class RecoveryCaseManagerTests : IDisposable
         var rejected = await _manager.ManualRejectAsync(submitted.Request.Id, reviewerId: Guid.NewGuid(), reasonCode: "insufficient-evidence");
         Assert.Equal(RecoveryRequestStatus.REJECTED.ToString(), rejected.Status);
         Assert.Equal("insufficient-evidence", rejected.DecisionReasonCode);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_BumpsTokenVersion_ForLinkedIdentities()
+    {
+        var subjectId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        _db.TrustSubjects.Add(new TrustSubject(subjectId, null));
+        _db.TrustSubjectLinks.Add(new TrustSubjectLink(Guid.NewGuid(), subjectId, TrustIdentityType.Customer, customerId, tenantId: null));
+        await _db.SaveChangesAsync();
+
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-1");
+        await _manager.ManualApproveAsync(submitted.Request.Id, reviewerId: Guid.NewGuid());
+        var completed = await _manager.CompleteAsync(submitted.Request.Id, newDeviceId: Guid.NewGuid());
+
+        Assert.Equal(RecoveryRequestStatus.COMPLETED.ToString(), completed.Status);
+        Assert.Single(_bumpNotifier.Calls);
+        Assert.Equal((customerId, "Customer"), _bumpNotifier.Calls[0]);
+    }
+
+    private sealed class RecordingBumpNotifier : ITokenVersionBumpNotifier
+    {
+        public List<(Guid UserId, string IdentityType)> Calls { get; } = [];
+        public Task BumpAsync(Guid userId, string identityType, CancellationToken ct = default)
+        {
+            Calls.Add((userId, identityType));
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubRecoveryCodeService : IRecoveryCodeService

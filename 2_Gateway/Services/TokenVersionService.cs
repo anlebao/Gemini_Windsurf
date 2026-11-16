@@ -27,15 +27,24 @@ public sealed class TokenVersionService(IMemoryCache cache, IVanAnDbContext db) 
         if (cache.TryGetValue(key, out int cached))
             return cached;
 
-        var version = await db.Users
-            .Where(u => u.Id == userId)
-            .Select(u => (int?)u.TokenVersion)
-            .FirstOrDefaultAsync(ct);
-        if (!version.HasValue)
-            return null; // không phải DemoUser (PlatformUser/system token) — không enforce
+        try
+        {
+            var version = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => (int?)u.TokenVersion)
+                .FirstOrDefaultAsync(ct);
+            if (!version.HasValue)
+                return null; // không phải DemoUser (PlatformUser/system token) — không enforce
 
-        cache.Set(key, version.Value, CacheTtl);
-        return version;
+            cache.Set(key, version.Value, CacheTtl);
+            return version;
+        }
+        catch (Exception)
+        {
+            // Fail-open: lỗi hạ tầng không được làm sập auth (quyết định an toàn: cho qua,
+            // version check chỉ hoạt động khi PG khỏe).
+            return null;
+        }
     }
 
     public Task InvalidateAsync(Guid userId)

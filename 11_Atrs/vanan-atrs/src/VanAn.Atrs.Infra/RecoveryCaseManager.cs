@@ -32,7 +32,8 @@ public interface IRecoveryCaseManager
 public sealed class RecoveryCaseManager(
     AtrsDbContext db,
     IRecoveryCodeService recoveryCodeService,
-    IRiskPolicyEngine riskPolicyEngine) : IRecoveryCaseManager
+    IRiskPolicyEngine riskPolicyEngine,
+    ITokenVersionBumpNotifier tokenVersionBumpNotifier) : IRecoveryCaseManager
 {
     private static readonly RecoveryRequestStatus[] ActiveStatuses =
     [
@@ -137,6 +138,25 @@ public sealed class RecoveryCaseManager(
         var request = await LoadAsync(requestId, ct);
         request.Complete(newDeviceId);
         await db.SaveChangesAsync(ct);
+
+        // ATRS-3 (D3): recovery COMPLETED → bump token version mọi identity của subject
+        // (revoke token cũ). Best-effort: fail không làm hỏng recovery (retry sau).
+        try
+        {
+            var links = await db.TrustSubjectLinks
+                .Where(l => l.TrustSubjectId == request.TrustSubjectId)
+                .ToListAsync(ct);
+            foreach (var link in links)
+            {
+                var identityType = link.IdentityType == TrustIdentityType.Customer ? "Customer" : "DemoUser";
+                await tokenVersionBumpNotifier.BumpAsync(link.IdentityId, identityType, ct);
+            }
+        }
+        catch (Exception)
+        {
+            // best-effort — log bên Api; recovery đã COMPLETED, revoke có thể retry thủ công.
+        }
+
         return ToDto(request);
     }
 

@@ -899,21 +899,31 @@ namespace VanAn.Gateway
                     {
                         OnTokenValidated = async context =>
                         {
-                            var sub = context.Principal?.FindFirst("sub")?.Value;
-                            if (Guid.TryParse(sub, out var userId) && userId != Guid.Empty)
+                            try
                             {
-                                var versionService = context.HttpContext.RequestServices
-                                    .GetRequiredService<VanAn.Gateway.Services.ITokenVersionService>();
-                                var version = await versionService.GetVersionAsync(userId, context.HttpContext.RequestAborted);
-                                if (version.HasValue)
+                                var sub = context.Principal?.FindFirst("sub")?.Value;
+                                if (Guid.TryParse(sub, out var userId) && userId != Guid.Empty)
                                 {
-                                    var tv = int.TryParse(context.Principal?.FindFirst("tv")?.Value, out var v) ? v : 0;
-                                    if (tv != version.Value)
+                                    var versionService = context.HttpContext.RequestServices
+                                        .GetRequiredService<VanAn.Gateway.Services.ITokenVersionService>();
+                                    var version = await versionService.GetVersionAsync(userId, context.HttpContext.RequestAborted);
+                                    if (version.HasValue)
                                     {
-                                        context.Fail("Token version mismatch — token đã bị thu hồi.");
-                                        return;
+                                        var tv = int.TryParse(context.Principal?.FindFirst("tv")?.Value, out var v) ? v : 0;
+                                        if (tv != version.Value)
+                                        {
+                                            context.Fail("Token version mismatch — token đã bị thu hồi.");
+                                            return;
+                                        }
                                     }
                                 }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Fail-open: lỗi version check không được chặn request (auth outage an toàn hơn).
+                                var logger = context.HttpContext.RequestServices
+                                    .GetRequiredService<ILoggerFactory>().CreateLogger("TokenVersionCheck");
+                                logger.LogWarning(ex, "Token version check skipped (fail-open)");
                             }
                         }
                     };
