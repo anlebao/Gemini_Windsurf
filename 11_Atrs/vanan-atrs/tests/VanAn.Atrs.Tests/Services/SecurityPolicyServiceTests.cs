@@ -51,8 +51,9 @@ public sealed class SecurityPolicyServiceTests : IDisposable
     [Fact]
     public async Task Propose_InvalidJson_Rejected()
     {
-        await Assert.ThrowsAnyAsync<System.Text.Json.JsonException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             _service.ProposeAsync("recovery.sla_hours", SecurityPolicyGroups.Sla, "not-json", Guid.NewGuid(), null));
+        Assert.Contains("JSON", ex.Message);
     }
 
     [Fact]
@@ -113,6 +114,16 @@ public sealed class SecurityPolicyServiceTests : IDisposable
         Assert.Equal(999, await _service.GetEffectiveNumberAsync("missing.key", "hours", 999));
         await _service.ProposeAsync("recovery.sla_hours", SecurityPolicyGroups.Sla, "{\"other\":1}", Guid.NewGuid(), "bad field");
         Assert.Equal(999, await _service.GetEffectiveNumberAsync("recovery.sla_hours", "hours", 999));
+    }
+
+    [Fact]
+    public async Task Approve_EffectiveV1_Throws()
+    {
+        // Bootstrap rule: v1 của key mới tự EFFECTIVE — approve trên EFFECTIVE = invalid.
+        var proposer = Guid.NewGuid();
+        var v1 = await _service.ProposeAsync("recovery.sla_hours", SecurityPolicyGroups.Sla, "{\"hours\":24}", proposer, "v1");
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ApproveAsync(v1.Id, Guid.NewGuid()));
+        Assert.Contains("status", ex.Message);
     }
 
     [Fact]

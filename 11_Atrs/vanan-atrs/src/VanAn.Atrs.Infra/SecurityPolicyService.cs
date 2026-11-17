@@ -95,8 +95,15 @@ public sealed class SecurityPolicyService(
     {
         if (string.IsNullOrWhiteSpace(policyKey) || string.IsNullOrWhiteSpace(policyGroup) || string.IsNullOrWhiteSpace(jsonValue))
             throw new ArgumentException("policyKey/policyGroup/jsonValue là bắt buộc.");
-        // Validate JSON trước khi lưu.
-        using (JsonDocument.Parse(jsonValue)) { }
+        // Validate JSON trước khi lưu — JsonException → ArgumentException (controller trả 400, không 500).
+        try
+        {
+            using (JsonDocument.Parse(jsonValue)) { }
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException("JsonValue không phải JSON hợp lệ.", ex);
+        }
 
         // Đã có PROPOSED pending cho cùng key → chặn (một proposal mỗi lần).
         var pending = await db.SecurityPolicies.AnyAsync(
