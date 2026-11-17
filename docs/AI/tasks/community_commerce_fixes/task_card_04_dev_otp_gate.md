@@ -230,3 +230,7 @@ if (_configuration.GetValue<bool>("DevOtp:Enabled", false))
 - Gateway forward: `2_Gateway/Controllers/CustomerIdentityController.cs` (line 42-43 — forward X-Dev-OTP header)
 - RV bypass: `.devin/rv-cc-full-otp.js` (uses X-Dev-OTP for OTP login)
 - Security: bất kỳ ai có internet access có thể bypass SMS auth
+
+## RV Window Log
+
+- **2026-11-17 (ATRS Wave 4 RV):** Dev-token window opened on vanan-shop-a ~04:10 UTC — `DEV_TOKEN_SECRET` appended to `/opt/vanan/.env.shoperp` (sudo, vanan-deploy-owned), `docker compose --env-file .env.shoperp up -d shoperp`, minted 365-day token for customer `43094916` (phone 0900000001, "RV HTX External Buyer") via `POST /api/customer-identity/dev-token`. Used for `atrs-wave4-sweep.mjs` (34/34 PASS) + Playwright `atrs-wave4-security-ui.spec.ts` authenticated tests. **Closed ~04:35 UTC:** secret line removed (`sed -i '/^DEV_TOKEN_SECRET=/d'`), container recreated, verified `DEV_TOKEN_SECRET` count=0 + dev-token endpoint → **404**.
