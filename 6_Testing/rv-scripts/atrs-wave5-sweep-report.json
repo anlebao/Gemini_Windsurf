@@ -1,0 +1,169 @@
+{
+  "results": [
+    {
+      "name": "L1 health direct :5080",
+      "pass": true
+    },
+    {
+      "name": "auth-neg recovery-queue no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg recovery-queue bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg recovery-detail no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg recovery-detail bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg dashboard no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg dashboard bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-list no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-list bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant recovery-queue=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant recovery-detail=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant dashboard=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant assign=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant note=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant approve=403",
+      "pass": true
+    },
+    {
+      "name": "L3 dashboard 200 + 7 widgets numeric",
+      "pass": true
+    },
+    {
+      "name": "L4 queue page shape (items/total/skip/take)",
+      "pass": true
+    },
+    {
+      "name": "L4 queue item SLA fields (ageHours/slaBreached)",
+      "pass": true
+    },
+    {
+      "name": "customer submit recovery → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 staff detail 200 + sections arrays",
+      "pass": true
+    },
+    {
+      "name": "L5 detail KHÔNG leak evidence payload (EvidenceSummaryJson)",
+      "pass": true
+    },
+    {
+      "name": "L5 assign → 200 + assignedReviewerId",
+      "pass": true
+    },
+    {
+      "name": "L5 add note → 200 + noteType",
+      "pass": true
+    },
+    {
+      "name": "L5 recommend approve → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 request-info → 200/409 (state-dependent)",
+      "pass": true
+    },
+    {
+      "name": "L5 escalate → 200/409 (state-dependent)",
+      "pass": true
+    },
+    {
+      "name": "L5 return-to-review → 200/409 (state-dependent)",
+      "pass": true
+    },
+    {
+      "name": "L5 reject → 200 (terminal cleanup)",
+      "pass": true
+    },
+    {
+      "name": "L5 reject thiếu reasonCode → 400",
+      "pass": true
+    },
+    {
+      "name": "grant recovery.view → 200",
+      "pass": true
+    },
+    {
+      "name": "grant recovery.review → 200",
+      "pass": true
+    },
+    {
+      "name": "grant recovery.approve → 200",
+      "pass": true
+    },
+    {
+      "name": "grant dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "grant invalid permission → 400",
+      "pass": true
+    },
+    {
+      "name": "L6 staff-granted queue → 200",
+      "pass": true
+    },
+    {
+      "name": "L6 staff-granted dashboard → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke grant dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke grant recovery.approve → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke grant recovery.review → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke grant recovery.view → 200",
+      "pass": true
+    },
+    {
+      "name": "L6 staff queue sau revoke → 403",
+      "pass": true
+    }
+  ],
+  "generatedAt": "2026-11-17T07:04:42.275Z"
+}

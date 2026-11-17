@@ -69,13 +69,14 @@ Hệ phân quyền staff cho ATRS (8 nhóm quyền UI §4.2) + toàn bộ staff 
 
 **Status: SUBSET CLOSED (deployed + RV verified).** Subset còn lại (A14/A20-A22, MFA step-up, permission groups UI đầy đủ) thuộc wave sau.
 
-Đã làm:
+Đã làm (Wave 3 + Wave 5 W5a):
 - `StaffPermissionGrant` entity + `AtrsPermissions` constants (recovery.view/review/approve, dispute.view/investigate/propose_adjustment/approve_adjustment, case.assign) + migration.
 - `IAtrsAuthorizationService`/`AtrsAuthorizationService`: grant active (chưa revoke/expire) + scope tenant fail-closed + SystemAdmin break-glass + legacy Owner→recovery.* map (transition).
 - Enforcement server-side trên mọi staff endpoint: `AdminDisputesController`, `AdminRecoveryController`, `AdminPermissionsController` (grant/revoke chỉ SystemAdmin), `InternalRecoveryController` (legacy route nâng cấp từ role-check → permission-check).
 - `StaffPrincipal` helper (sub→DemoUserId, roles từ JWT).
-- Audit: mọi staff view/action dispute → `AccountSecurityEvent` ActorType=Staff.
+- Audit: mọi staff view/action dispute + recovery → `AccountSecurityEvent` ActorType=Staff.
 - ShopERP `AtrsAdminApiClient` mint JWT **giữ role thật** (không SystemAdmin hoá) → RBAC atrs enforce đúng; grant được cấp qua `POST /admin/permissions`.
+- **Wave 5 W5a (2026-11-17, commit `5ed78d34`, deployed CD `44034164443`, RV PASS):** A14 ops dashboard (`AdminOpsController` + `/admin/atrs` 7 widgets data thật) · A15 recovery queue full (paged + total + filter status/type/assignee/unassigned + SLA 24h) · A16 recovery review full (`/admin/recovery/{id}`: 9 sections — risk policy version, devices, identity links, sanitized timeline, notes/recommend, actions assign/request-info/escalate/return-to-review/approve/reject; KHÔNG evidence payload) · `RecoveryCaseNote` entity (append-only) · escalate = status `ESCALATED` + `ReturnToReview` · audit staff events mọi action. Sweep 41/41 + probe 10/10 + Playwright 6/6.
 
 Chưa làm:
-- A14 operations dashboard, A20 audit explorer, A21 security policy, A22 roles UI; staff MFA step-up cho tác vụ nhạy cảm; permission groups UI (8 nhóm đầy đủ — Wave 3 chỉ subset cần cho dispute/recovery).
+- A20 audit explorer, A21 security policy, A22 roles UI (Wave 5 W5b/W5c); staff MFA step-up cho tác vụ nhạy cảm; permission groups UI (8 nhóm đầy đủ — Wave 3 chỉ subset cần cho dispute/recovery).
