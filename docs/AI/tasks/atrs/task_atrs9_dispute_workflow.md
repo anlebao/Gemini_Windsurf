@@ -59,9 +59,9 @@ DisputeCase đầy đủ: user khiếu nại điểm/ví/giao dịch → evidenc
 - Cross-tenant dispute (điểm nhiều tenant) — scope theo TrustSubject links; "luật Silo" ảnh hưởng adjustment tenant nào → cần rule rõ trong card khi implement.
 - Maker-checker bypass qua API trực tiếp → enforce ở service layer, không chỉ UI.
 
-## 7. IMPLEMENTATION STATUS (Wave 3 — 2026-11-16)
+## 7. IMPLEMENTATION STATUS (Wave 3 — 2026-11-16/17) — ✅ DEPLOYED + RV PASS
 
-**Status: IMPLEMENTED (backend + staff UI tối thiểu).** Commit `ATRS Wave 3` trên main.
+**Status: CLOSED.** Code `ff6dc99c` + docs `d281e663` → CD `43916878678` SUCCESS (atrs+gateway+shoperp) → **prod RV `atrs-wave3-sweep.mjs` 48/48 PASS** (2026-11-17) + Playwright `atrs-disputes-admin.spec.ts` 5/5 (D6 skip — cần staff login thật) + migration applied prod (4 bảng dispute/staff_permission_grants).
 
 Đã làm:
 - Entities `DisputeCase`/`DisputeEvidenceItem`/`DisputeDecision` + enums + EF config + migration `20261116115723_DisputeCases_StaffGrants` (additive, snake_case).

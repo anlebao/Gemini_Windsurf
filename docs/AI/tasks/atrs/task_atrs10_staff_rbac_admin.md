@@ -65,9 +65,9 @@ Hệ phân quyền staff cho ATRS (8 nhóm quyền UI §4.2) + toàn bộ staff 
 - Permission table mới vs mở rộng UserRole — D5 chốt trong ATRS-1; nếu user chọn extend enum → điều chỉnh card.
 - Queue performance khi case lớn → server-side pagination bắt buộc (UI §A15 rule).
 
-## 7. IMPLEMENTATION STATUS (Wave 3 subset — 2026-11-16)
+## 7. IMPLEMENTATION STATUS (Wave 3 subset — 2026-11-16/17) — ✅ DEPLOYED + RV PASS
 
-**Status: SUBSET IMPLEMENTED** — permission backend + enforcement + grant admin + A17/A18/A19/A15-A16 backend. Phần còn lại (A14 dashboard, A20 audit explorer, A21 policy, A22 roles UI đầy đủ) thuộc wave sau.
+**Status: SUBSET CLOSED (deployed + RV verified).** Subset còn lại (A14/A20-A22, MFA step-up, permission groups UI đầy đủ) thuộc wave sau.
 
 Đã làm:
 - `StaffPermissionGrant` entity + `AtrsPermissions` constants (recovery.view/review/approve, dispute.view/investigate/propose_adjustment/approve_adjustment, case.assign) + migration.

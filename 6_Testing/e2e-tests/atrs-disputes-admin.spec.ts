@@ -6,8 +6,8 @@ import { test, expect } from '@playwright/test';
 // Unauthenticated checks chạy mọi nơi; authenticated checks cần DISPUTE_STAFF_TOKEN
 // (post-deploy RV) — tự skip khi không có token.
 
-const GATEWAY = process.env.GATEWAY_URL || 'https://api.khachvip.online';
-const SHOPERP = process.env.SHOPERP_URL || 'https://erp.khachvip.online';
+const GATEWAY = process.env.GATEWAY_URL || 'https://api2.khachvip.online';
+const SHOPERP = process.env.SHOPERP_URL || 'https://app2.khachvip.online';
 const STAFF_TOKEN = process.env.DISPUTE_STAFF_TOKEN || '';
 
 test.describe('ATRS Dispute Admin (Wave 3)', () => {
@@ -39,7 +39,7 @@ test.describe('ATRS Dispute Admin (Wave 3)', () => {
     await page.goto(`${SHOPERP}/admin/disputes`);
     // Chưa login → redirect login hoặc trang login render; KHÔNG 500.
     await page.waitForLoadState('networkidle');
-    expect(page.url()).toContain('erp.khachvip.online');
+    expect(page.url()).toContain('app2.khachvip.online');
   });
 
   test.describe('authenticated staff', () => {

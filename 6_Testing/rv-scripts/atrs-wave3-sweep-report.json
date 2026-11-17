@@ -1,0 +1,201 @@
+{
+  "ts": "2026-11-17T00:48:06.965Z",
+  "base": "https://api2.khachvip.online/api/v1/account-trust",
+  "total": 48,
+  "pass": 48,
+  "fail": [],
+  "results": [
+    {
+      "name": "L1 health direct :5080",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-list no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-list bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-submit no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg disputes-submit bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg me no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg me bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg transactions no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg transactions bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "GET /me 200",
+      "pass": true
+    },
+    {
+      "name": "submit dispute → 200",
+      "pass": true
+    },
+    {
+      "name": "submit returns case.id",
+      "pass": true
+    },
+    {
+      "name": "idempotent replay → existing/same-id",
+      "pass": true
+    },
+    {
+      "name": "GET /disputes 200 array",
+      "pass": true
+    },
+    {
+      "name": "list contains submitted case",
+      "pass": true
+    },
+    {
+      "name": "GET dispute detail 200",
+      "pass": true
+    },
+    {
+      "name": "user detail user-safe (no internalRationale/accessClassification)",
+      "pass": true
+    },
+    {
+      "name": "GET fake dispute → 404 (anti-enum)",
+      "pass": true
+    },
+    {
+      "name": "add evidence → 200",
+      "pass": true
+    },
+    {
+      "name": "evidence bad hash → 400 not 500",
+      "pass": true
+    },
+    {
+      "name": "GET /transactions 200 array (fail-open rỗng OK)",
+      "pass": true
+    },
+    {
+      "name": "GET /transactions missing tenantId → 400",
+      "pass": true
+    },
+    {
+      "name": "withdraw own case → 200",
+      "pass": true
+    },
+    {
+      "name": "withdraw replay → 404/200 (idempotent-ish)",
+      "pass": true
+    },
+    {
+      "name": "staff no-grant queue → 403",
+      "pass": true
+    },
+    {
+      "name": "staff no-grant permissions list → 403",
+      "pass": true
+    },
+    {
+      "name": "staff grant attempt → 403 (SystemAdmin only)",
+      "pass": true
+    },
+    {
+      "name": "staff no-grant propose → 403",
+      "pass": true
+    },
+    {
+      "name": "admin permissions list → 200",
+      "pass": true
+    },
+    {
+      "name": "grant dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "grant dispute.investigate → 200",
+      "pass": true
+    },
+    {
+      "name": "grant dispute.propose_adjustment → 200",
+      "pass": true
+    },
+    {
+      "name": "grant invalid permission → 400",
+      "pass": true
+    },
+    {
+      "name": "staff granted queue → 200",
+      "pass": true
+    },
+    {
+      "name": "staff detail → 200",
+      "pass": true
+    },
+    {
+      "name": "assign case → 200",
+      "pass": true
+    },
+    {
+      "name": "transition UNDER_REVIEW → 200",
+      "pass": true
+    },
+    {
+      "name": "self-approval (proposer==approver) → 403",
+      "pass": true
+    },
+    {
+      "name": "staff propose adjustment → 200",
+      "pass": true
+    },
+    {
+      "name": "staff no-approve-perm approve → 403",
+      "pass": true
+    },
+    {
+      "name": "admin approve → 200",
+      "pass": true
+    },
+    {
+      "name": "case RESOLVED sau ledger confirm (hoặc FAILED→UNDER_REVIEW documented)",
+      "pass": true
+    },
+    {
+      "name": "adjustment executed có resolutionReference",
+      "pass": true
+    },
+    {
+      "name": "admin recovery queue → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke dispute.investigate → 200",
+      "pass": true
+    },
+    {
+      "name": "revoke dispute.propose_adjustment → 200",
+      "pass": true
+    },
+    {
+      "name": "staff queue sau revoke → 403 lại",
+      "pass": true
+    }
+  ]
+}
