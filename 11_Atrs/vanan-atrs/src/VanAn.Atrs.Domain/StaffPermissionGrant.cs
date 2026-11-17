@@ -21,12 +21,16 @@ public static class AtrsPermissions
     // Case ops
     public const string CaseAssign = "case.assign";
 
-    /// <summary>Toàn bộ permission Wave 3 — dùng cho grant UI / validation.</summary>
+    // Audit (A20 — audit explorer)
+    public const string AuditRead = "audit.read";
+
+    /// <summary>Toàn bộ permission — dùng cho grant UI / validation.</summary>
     public static readonly IReadOnlyList<string> All =
     [
         RecoveryView, RecoveryReview, RecoveryApprove,
         DisputeView, DisputeInvestigate, DisputeProposeAdjustment, DisputeApproveAdjustment,
-        CaseAssign
+        CaseAssign,
+        AuditRead
     ];
 }
 

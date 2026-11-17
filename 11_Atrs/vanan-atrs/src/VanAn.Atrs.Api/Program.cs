@@ -50,6 +50,8 @@ public static class Program
         // Wave 4: ATRS-6 subset (personal evidence + consent) + D9 attachments (R2).
         builder.Services.AddScoped<IPersonalEvidenceService, PersonalEvidenceService>();
         builder.Services.AddScoped<IDisputeAttachmentService, DisputeAttachmentService>();
+        // Wave 5 W5b: A20 audit explorer query service.
+        builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
         var r2Endpoint = builder.Configuration["Atrs:R2:Endpoint"];
         var r2AccessKey = builder.Configuration["Atrs:R2:AccessKey"];
         var r2SecretKey = builder.Configuration["Atrs:R2:SecretKey"];

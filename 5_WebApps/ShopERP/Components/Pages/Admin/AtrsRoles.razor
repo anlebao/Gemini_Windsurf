@@ -1,0 +1,184 @@
+@page "/admin/atrs-roles"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
+@inject AtrsAdminApiClient AtrsApi
+@inject IUserManagementService UserService
+@inject ITenantProvider TenantProvider
+
+@* ATRS-10 A22 (Wave 5 W5b): staff account ↔ grants ↔ scope.
+   Grant/revoke SystemAdmin-only (enforce ở vanan-atrs backend). Log mọi change ở atrs.
+   SystemAdmin break-glass là role-based (JWT) — không thể bị gỡ qua grants. *@
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="atrs-roles-page">
+    <header class="page-header">
+        <h1><i class="bi bi-person-lock"></i> Phân quyền ATRS (Staff ↔ Grants)</h1>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+    @if (!string.IsNullOrEmpty(_info))
+    {
+        <VanAAlert Type="success" Message="@_info" OnClose="() => _info = null" />
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <VanACard Title="Cấp quyền mới">
+                <div class="mb-2">
+                    <label class="form-label small">Staff (DemoUser)</label>
+                    <select class="form-select" @bind="_selectedUserId">
+                        <option value="">— chọn staff —</option>
+                        @foreach (var u in _users)
+                        {
+                            <option value="@u.Id">@u.Email (@u.DisplayName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Permission</label>
+                    <select class="form-select" @bind="_selectedPermission">
+                        @foreach (var p in AtrsAdminApiClient.AllPermissions)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Scope tenant (tuỳ chọn — bỏ trống = mọi tenant)</label>
+                    <input class="form-control" placeholder="Guid tenant…" @bind="_scopeTenant" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Hết hạn (tuỳ chọn)</label>
+                    <input class="form-control" placeholder="yyyy-MM-ddTHH:mm (tuỳ chọn)" @bind="_expiryLocal" />
+                </div>
+                <VanAButton Variant="primary" OnClick="GrantAsync" Disabled="@(!Guid.TryParse(_selectedUserId, out _))">Cấp quyền</VanAButton>
+            </VanACard>
+        </div>
+
+        <div class="col-lg-7">
+            <VanACard Title="Grants hiện có">
+                @if (_loading)
+                {
+                    <div class="text-center py-4"><div class="spinner-border"></div></div>
+                }
+                else if (_grants.Count == 0)
+                {
+                    <p class="text-muted text-center py-4">Chưa có grant nào.</p>
+                }
+                else
+                {
+                    <table class="table table-hover table-sm" data-testid="grants-table">
+                        <thead>
+                            <tr><th>Staff</th><th>Permission</th><th>Scope</th><th>Được cấp bởi</th><th>Hết hạn</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in _grants)
+                            {
+                                var user = _users.FirstOrDefault(u => u.Id == g.DemoUserId);
+                                <tr data-testid="grant-row-@g.Id" class="@(g.IsRevoked ? "table-secondary text-muted" : "")">
+                                    <td>@(user?.Email ?? g.DemoUserId.ToString()[..8])</td>
+                                    <td><code>@g.Permission</code></td>
+                                    <td>@(g.ScopeTenantId?.ToString()[..8] ?? "mọi tenant")</td>
+                                    <td>@g.GrantedBy[..Math.Min(8, g.GrantedBy.Length)]</td>
+                                    <td>@(g.ExpiresAt?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</td>
+                                    <td>
+                                        @if (!g.IsRevoked)
+                                        {
+                                            <VanAButton Variant="danger" Size="small" OnClick="@(() => RevokeAsync(g.Id))">Thu hồi</VanAButton>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">đã thu hồi</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </VanACard>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<UserDto> _users = new();
+    private List<AtrsAdminApiClient.PermissionGrantItem> _grants = new();
+    private string? _selectedUserId;
+    private string _selectedPermission = AtrsAdminApiClient.AllPermissions[0];
+    private string? _scopeTenant;
+    private string? _expiryLocal;
+    private bool _loading = true;
+    private string? _error;
+    private string? _info;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var tenantId = TenantProvider.TenantId == Guid.Empty
+                ? new TenantId(new Guid("00000000-0000-0000-0000-000000000001"))
+                : new TenantId(TenantProvider.TenantId);
+            _users = (await UserService.ListUsersAsync(tenantId)).Select(u => new UserDto(u.Id, u.Email ?? "", u.DisplayName ?? "")).ToList();
+            _grants = (await AtrsApi.ListGrantsAsync())?.ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được dữ liệu: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task GrantAsync()
+    {
+        if (!Guid.TryParse(_selectedUserId, out var userId))
+        {
+            _error = "Chọn staff trước.";
+            return;
+        }
+        Guid? scope = Guid.TryParse(_scopeTenant, out var s) ? s : null;
+        DateTime? expires = DateTime.TryParse(_expiryLocal, out var exp) ? exp.ToUniversalTime() : null;
+        try
+        {
+            await AtrsApi.GrantPermissionAsync(userId, _selectedPermission, scope, expires);
+            _info = $"Đã cấp {_selectedPermission}.";
+            _scopeTenant = null;
+            _expiryLocal = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Cấp quyền thất bại: {ex.Message}";
+        }
+    }
+
+    private async Task RevokeAsync(Guid grantId)
+    {
+        try
+        {
+            await AtrsApi.RevokeGrantAsync(grantId);
+            _info = "Đã thu hồi quyền.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Thu hồi thất bại: {ex.Message}";
+        }
+    }
+
+    private sealed record UserDto(Guid Id, string Email, string DisplayName);
+}

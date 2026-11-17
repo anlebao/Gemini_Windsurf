@@ -333,6 +333,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     // ATRS-10 (Wave 5): recovery ops + dashboard — RBAC enforce ở vanan-atrs
                     new() { Title = "Bảng điều hành ATRS", Icon = "speedometer2", Url = "/admin/atrs" },
                     new() { Title = "Yêu cầu khôi phục", Icon = "arrow-counterclockwise", Url = "/admin/recovery" },
+                    new() { Title = "Nhật ký bảo mật", Icon = "journal-check", Url = "/admin/atrs-audit" },
+                    new() { Title = "Phân quyền ATRS", Icon = "person-lock", Url = "/admin/atrs-roles" },
                     new() { Title = "Quản lý cộng tác viên", Icon = "people-fill", Url = "/community/owner-panel" },
                     // Realtime Platform P5 (2026-09-18): hộp thư tin nhắn chủ shop (Shop chat)
                     new() { Title = "Hộp thư tin nhắn", Icon = "chat-dots-fill", Url = "/community/messages" },
@@ -487,6 +489,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                     // ATRS-10 (Wave 5): recovery ops + dashboard — RBAC enforce ở vanan-atrs
                     new() { Title = "Bảng điều hành ATRS", Icon = "speedometer2", Url = "/admin/atrs" },
                     new() { Title = "Yêu cầu khôi phục", Icon = "arrow-counterclockwise", Url = "/admin/recovery" },
+                    new() { Title = "Nhật ký bảo mật", Icon = "journal-check", Url = "/admin/atrs-audit" },
+                    new() { Title = "Phân quyền ATRS", Icon = "person-lock", Url = "/admin/atrs-roles" },
                     new() { Title = "Thống kê điểm thưởng", Icon = "bar-chart-fill", Url = "/loyalty/dashboard" },
                 }
             });

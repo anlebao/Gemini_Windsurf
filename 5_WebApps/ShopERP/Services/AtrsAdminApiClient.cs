@@ -191,6 +191,57 @@ public sealed class AtrsAdminApiClient(
     public Task<AtrsDashboard?> GetDashboardAsync(CancellationToken ct = default)
         => SendAsync<AtrsDashboard>(HttpMethod.Get, "api/v1/account-trust/admin/dashboard", null, ct);
 
+    // ── Wave 5 W5b (A20/A22): audit explorer + permission grants ──
+
+    public sealed record SecurityEventItem(
+        Guid Id, string EventType, DateTime OccurredAt, string ActorType, string? ActorId,
+        string? SourceApplication, Guid? DeviceId, string? SessionCorrelationId,
+        string Outcome, string? ReasonCode, Guid TrustSubjectId);
+
+    public sealed record SecurityEventPage(
+        IReadOnlyList<SecurityEventItem> Items, int Total, int Skip, int Take);
+
+    public sealed record PermissionGrantItem(
+        Guid Id, Guid DemoUserId, string Permission, Guid? ScopeTenantId,
+        string GrantedBy, DateTime GrantedAt, DateTime? ExpiresAt, bool IsRevoked);
+
+    /// <summary>Mirror AtrsPermissions.All (vanan-atrs) — cho grant UI.</summary>
+    public static readonly string[] AllPermissions =
+    [
+        "recovery.view", "recovery.review", "recovery.approve",
+        "dispute.view", "dispute.investigate", "dispute.propose_adjustment", "dispute.approve_adjustment",
+        "case.assign", "audit.read"
+    ];
+
+    public Task<SecurityEventPage?> GetSecurityEventsAsync(
+        string? eventType, string? outcome, string? actorType, string? sourceApplication,
+        Guid? subjectId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct = default)
+    {
+        var url = $"api/v1/account-trust/admin/security-events?skip={skip}&take={take}";
+        if (!string.IsNullOrWhiteSpace(eventType)) url += $"&eventType={Uri.EscapeDataString(eventType)}";
+        if (!string.IsNullOrWhiteSpace(outcome)) url += $"&outcome={Uri.EscapeDataString(outcome)}";
+        if (!string.IsNullOrWhiteSpace(actorType)) url += $"&actorType={Uri.EscapeDataString(actorType)}";
+        if (!string.IsNullOrWhiteSpace(sourceApplication)) url += $"&sourceApplication={Uri.EscapeDataString(sourceApplication)}";
+        if (subjectId.HasValue) url += $"&subjectId={subjectId}";
+        if (from.HasValue) url += $"&from={Uri.EscapeDataString(from.Value.ToString("O"))}";
+        if (to.HasValue) url += $"&to={Uri.EscapeDataString(to.Value.ToString("O"))}";
+        return SendAsync<SecurityEventPage>(HttpMethod.Get, url, null, ct);
+    }
+
+    public Task<IReadOnlyList<PermissionGrantItem>?> ListGrantsAsync(Guid? demoUserId = null, CancellationToken ct = default)
+    {
+        var url = "api/v1/account-trust/admin/permissions";
+        if (demoUserId.HasValue) url += $"?demoUserId={demoUserId}";
+        return SendAsync<IReadOnlyList<PermissionGrantItem>>(HttpMethod.Get, url, null, ct);
+    }
+
+    public Task<object?> GrantPermissionAsync(Guid demoUserId, string permission, Guid? scopeTenantId = null, DateTime? expiresAt = null, CancellationToken ct = default)
+        => SendAsync<object>(HttpMethod.Post, "api/v1/account-trust/admin/permissions",
+            new { demoUserId, permission, scopeTenantId, expiresAt }, ct);
+
+    public Task<object?> RevokeGrantAsync(Guid grantId, CancellationToken ct = default)
+        => SendAsync<object>(HttpMethod.Post, $"api/v1/account-trust/admin/permissions/{grantId}/revoke", null, ct);
+
     // ── Internals ──
 
     private async Task<T?> SendAsync<T>(HttpMethod method, string url, object? body, CancellationToken ct)

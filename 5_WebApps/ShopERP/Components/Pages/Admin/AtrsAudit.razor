@@ -1,0 +1,146 @@
+@page "/admin/atrs-audit"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+
+@* ATRS-10 A20 (Wave 5 W5b): audit explorer — READ-ONLY (backend không có update/delete).
+   Response sanitized: KHÔNG payload JSON. Permission audit.read enforce ở vanan-atrs. *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="atrs-audit-page">
+    <header class="page-header">
+        <h1><i class="bi bi-journal-check"></i> Nhật ký bảo mật tài khoản (ATRS)</h1>
+        <div class="header-actions d-flex gap-2 flex-wrap">
+            <input class="form-control form-control-sm" style="width:180px" placeholder="Event type…" @bind="_eventType" />
+            <select class="form-select form-select-sm" style="width:auto" @bind="_outcome">
+                <option value="">Mọi kết quả</option>
+                <option value="Success">Success</option>
+                <option value="Failure">Failure</option>
+                <option value="Blocked">Blocked</option>
+                <option value="Pending">Pending</option>
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" @bind="_actorType">
+                <option value="">Mọi tác nhân</option>
+                <option value="User">User</option>
+                <option value="Staff">Staff</option>
+                <option value="System">System</option>
+                <option value="Service">Service</option>
+            </select>
+            <input class="form-control form-control-sm" style="width:150px" placeholder="Từ yyyy-MM-dd" @bind="_fromDate" />
+            <input class="form-control form-control-sm" style="width:150px" placeholder="Đến yyyy-MM-dd" @bind="_toDate" />
+            <VanAButton Variant="secondary" OnClick="LoadAsync">Lọc</VanAButton>
+            <VanAButton Variant="secondary" OnClick="ResetAsync">Xoá bộ lọc</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+
+    <VanACard Title="Sự kiện bảo mật (append-only, read-only)">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Không có sự kiện phù hợp.</p>
+        }
+        else
+        {
+            <table class="table table-hover table-sm" data-testid="audit-events-table">
+                <thead>
+                    <tr>
+                        <th>Thời điểm</th>
+                        <th>Sự kiện</th>
+                        <th>Kết quả</th>
+                        <th>Tác nhân</th>
+                        <th>Actor</th>
+                        <th>Nguồn</th>
+                        <th>Subject</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in _items)
+                    {
+                        <tr data-testid="audit-row-@e.Id">
+                            <td>@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td><code>@e.EventType</code></td>
+                            <td><span class="badge @OutcomeBadge(e.Outcome)">@e.Outcome</span></td>
+                            <td>@e.ActorType</td>
+                            <td><code>@(e.ActorId?.Length > 8 ? e.ActorId[..8] : e.ActorId ?? "—")</code></td>
+                            <td>@(e.SourceApplication ?? "—")</td>
+                            <td><code>@Mask(e.TrustSubjectId)</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="d-flex justify-content-between align-items-center">
+                <VanAButton Variant="secondary" Disabled="@(_skip == 0)" OnClick="PrevPage">← Trước</VanAButton>
+                <span class="text-muted small">@(_skip + 1)–@(_skip + _items.Count) / @_total</span>
+                <VanAButton Variant="secondary" Disabled="@(_skip + _items.Count >= _total)" OnClick="NextPage">Sau →</VanAButton>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private const int _take = 50;
+    private List<AtrsAdminApiClient.SecurityEventItem> _items = new();
+    private string? _eventType;
+    private string? _outcome;
+    private string? _actorType;
+    private string? _fromDate;
+    private string? _toDate;
+    private int _skip;
+    private int _total;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            DateTime? from = DateOnly.TryParse(_fromDate, out var fd) ? fd.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) : null;
+            DateTime? to = DateOnly.TryParse(_toDate, out var td) ? td.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc) : null;
+            var page = await AtrsApi.GetSecurityEventsAsync(_eventType, _outcome, _actorType, null, null, from, to, _skip, _take);
+            if (page is null) { _items = new(); _total = 0; }
+            else { _items = page.Items.ToList(); _total = page.Total; }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được nhật ký: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task ResetAsync()
+    {
+        _eventType = _outcome = _actorType = _fromDate = _toDate = null;
+        _skip = 0;
+        await LoadAsync();
+    }
+
+    private async Task PrevPage() { _skip = Math.Max(0, _skip - _take); await LoadAsync(); }
+    private async Task NextPage() { _skip += _take; await LoadAsync(); }
+
+    private static string Mask(Guid id) => $"{id.ToString()[..8]}…";
+
+    private static string OutcomeBadge(string outcome) => outcome switch
+    {
+        "Success" => "bg-success",
+        "Failure" or "Blocked" => "bg-danger",
+        "Pending" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

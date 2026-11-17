@@ -55,6 +55,8 @@ public class AdminPermissionsController(
         if (!StaffPrincipal.IsSystemAdmin(User))
             return Forbid();
         var ok = await authz.RevokeAsync(id, ct);
+        if (ok)
+            logger.LogInformation("ATRS permission grant {GrantId} revoked by {By}", id, StaffPrincipal.UserId(User));
         return ok ? Ok(new { success = true }) : NotFound();
     }
 
