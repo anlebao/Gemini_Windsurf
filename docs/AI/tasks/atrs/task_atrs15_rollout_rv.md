@@ -62,3 +62,15 @@ Rollout an toàn theo feature flag + hoàn tất deliverables + RV 5-layer + DoD
 
 - Rollout customer-facing recovery = high blast radius → flag + pilot bắt buộc, không big-bang.
 - Runbook phải cover: mất hết credential manual review, dispute adjust fail, ATRS DB restore.
+
+## 5. IMPLEMENTATION STATUS (Wave 6 — 2026-11-17) — ✅ ROLLOUT DOCS + DoD REVIEW DONE (PO sign-off pending)
+
+**Status: deliverables §17.4 gần đủ; DoD review xong; PO chấp thuận open decisions còn lại = residual.**
+
+Đã làm:
+- Deliverables: `atrs-adr-001-deployment-and-identity.md` (ATRS-1) ✅ · `docs/design/atrs-data-model.md` (ERD/data model) ✅ · `docs/ops/atrs-runbook.md` (deploy/rollback/recovery/dispute/DB restore/troubleshoot) ✅ · `docs/security/atrs-security-test-report.md` (security report + known limitations/residual risks) ✅ · migrations + rollback notes ✅ · backend + frontend + tests ✅ (W1–W5).
+- DoD checklist §19 review: 11/11 — 9 ✅, 2 ⚠️ (WebAuthn L5 manual device thật chờ user; legal review chờ PO).
+- Rollout flag: ATRS đã live cho RV test tenants (W1–W5); formal per-profile gating (KhachLinkProfile) = residual nếu rollout rộng.
+- RV 5-layer: đã chạy từng wave (sweep + Playwright + manual ops).
+
+**PO cần sign-off:** retention §18 Q7 · legal checklist · open decisions (email P4, Zalo slot) · WebAuthn L5 manual.

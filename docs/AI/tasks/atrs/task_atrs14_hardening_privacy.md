@@ -66,3 +66,17 @@ Mapping → Playwright specs (local + prod RV):
 
 - Playwright governance: chỉ chạy khi build pass + implementation complete; max scope theo rules.
 - Một số security tests cần staging env (attacker scenarios) — dùng test tenant riêng, cleanup sau.
+
+## 7. IMPLEMENTATION STATUS (Wave 6 — 2026-11-17) — ✅ PHẦN LỚN CLOSED
+
+**Status: security suite + privacy/resilience artifacts DONE; retention chờ PO (§18 Q7).**
+
+Đã làm:
+- Security test checklist §15.3 → traceability report `docs/security/atrs-security-test-report.md` (12/12 items có test/sweep evidence).
+- E2E §15.4 12 scenarios mapping → specs/sweeps hiện có (đối chiếu report §2).
+- +1 test hardening: `MakerChecker_DisabledByPolicy_AllowsSelfApproval` (A21 wire, policy override có chủ đích) — tests 156/156.
+- Backup/restore VERIFIED prod: pg_dump → restore scratch → 21/21 tables + row counts khớp → cleanup.
+- Migration rollback notes: additive, Down() sẵn (data-model doc).
+- Data inventory/retention: đề xuất (recovery/dispute 5 năm, security events 2 năm) — **chờ PO chốt §18 Q7** (residual).
+- DPIA note + legal review checklist: **chờ PO** (residual).
+- Load test p95: **chưa chạy** (residual — take limits + indexes hiện hữu).

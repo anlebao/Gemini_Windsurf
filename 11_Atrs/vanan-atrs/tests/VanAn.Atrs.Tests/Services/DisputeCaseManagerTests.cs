@@ -197,6 +197,27 @@ public sealed class DisputeCaseManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task MakerChecker_DisabledByPolicy_AllowsSelfApproval()
+    {
+        // A21: policy dispute.maker_checker_required=false → self-approve được phép (wired qua DisputeCaseManager).
+        var policyService = new SecurityPolicyService(
+            _db,
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            TimeProvider.System);
+        await policyService.ProposeAsync(SecurityPolicyKeys.DisputeMakerCheckerRequired,
+            SecurityPolicyGroups.MakerChecker, "{\"required\":false}", Guid.NewGuid(), "tắt maker-checker (test)");
+
+        var (caseId, _, _) = await CaseReadyForReviewAsync();
+        var proposer = Guid.NewGuid();
+        var decision = await _manager.ProposeDecisionAsync(caseId, proposer, ProposeAdjust(50));
+        var approved = await _manager.ApproveDecisionAsync(decision.Id, proposer); // cùng người — KHÔNG throw
+
+        Assert.Equal("EXECUTED", approved.Status);
+        Assert.Single(_gateway.AdjustCalls);
+        Assert.Equal(50, _gateway.AdjustCalls[0].Points);
+    }
+
+    [Fact]
     public async Task Approve_WithAdjustment_ExecutesOnce_ResolvesCase()
     {
         var (caseId, _, tenantId) = await CaseReadyForReviewAsync();
