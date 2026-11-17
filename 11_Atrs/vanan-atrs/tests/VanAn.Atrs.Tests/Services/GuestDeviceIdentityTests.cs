@@ -106,8 +106,27 @@ public sealed class GuestDeviceIdentityTests : IDisposable
             => Task.FromResult(new RecoveryCodesStatusDto(true, 1, DateTime.UtcNow, null));
     }
 
+
     private sealed class NoopBumpNotifier : ITokenVersionBumpNotifier
     {
         public Task BumpAsync(Guid userId, string identityType, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task SetStatus_ResolvesSubject_UpdatesProfile_AndAudits()
+    {
+        var subject = await _service.GetOrCreateForDeviceAsync("device-status-1");
+        var ok = await _service.SetStatusAsync(TrustIdentityType.DeviceCluster, TrustProfileService.StableGuidFrom("device-status-1"), TrustProfileStatus.RESTRICTED);
+        Assert.True(ok);
+        var profile = await _db.AccountTrustProfiles.SingleAsync(p => p.TrustSubjectId == subject);
+        Assert.Equal(TrustProfileStatus.RESTRICTED, profile.Status);
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e => e.EventType == "account.status_synced"));
+    }
+
+    [Fact]
+    public async Task SetStatus_NoSubject_ReturnsFalse()
+    {
+        var ok = await _service.SetStatusAsync(TrustIdentityType.DemoUser, Guid.NewGuid(), TrustProfileStatus.CLOSED);
+        Assert.False(ok);
     }
 }

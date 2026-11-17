@@ -146,6 +146,7 @@ namespace VanAn.CoreHub.Services
             user.Deactivate();
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("User deactivated: {UserId}", userId);
+            await PublishStatusChangeAsync(userId, tenantId, "Restricted", ct);
         }
 
         public async Task ReactivateUserAsync(Guid userId, TenantId tenantId, CancellationToken ct = default)
@@ -156,6 +157,29 @@ namespace VanAn.CoreHub.Services
             user.Reactivate();
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("User reactivated: {UserId}", userId);
+            await PublishStatusChangeAsync(userId, tenantId, "Active", ct);
+        }
+
+        /// <summary>ATRS-17 (FR-001): publish user.status.changed qua outbox → NATS → Gateway → atrs (best-effort).</summary>
+        private async Task PublishStatusChangeAsync(Guid userId, TenantId tenantId, string status, CancellationToken ct)
+        {
+            try
+            {
+                dbContext.OutboxMessages.Add(VanAn.CoreHub.Infrastructure.OutboxMessage.Create(
+                    "user.status.changed",
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        identityType = "DemoUser",
+                        userId,
+                        status
+                    }),
+                    tenantId));
+                await dbContext.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "ATRS-17: publish user.status.changed fail (best-effort) — user {UserId}", userId);
+            }
         }
 
         // ── Private event handlers ─────────────────────────────────────────────

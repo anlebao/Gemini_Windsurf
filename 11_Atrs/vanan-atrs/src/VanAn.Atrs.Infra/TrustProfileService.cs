@@ -17,6 +17,8 @@ public interface ITrustProfileService
     /// <summary>Resolve TrustSubjectId của guest device (DeviceCluster); chưa có → lazy-create.</summary>
     Task<Guid> GetOrCreateForDeviceAsync(string deviceId, Guid? tenantId = null, CancellationToken ct = default);
     Task<Guid?> TryResolveByLinkAsync(TrustIdentityType identityType, Guid identityId, CancellationToken ct = default);
+    /// <summary>ATRS-17 (FR-001): account lock/delete → cập nhật profile status + audit. False nếu chưa có subject.</summary>
+    Task<bool> SetStatusAsync(TrustIdentityType identityType, Guid identityId, TrustProfileStatus status, CancellationToken ct = default);
 }
 
 public sealed class TrustProfileService(AtrsDbContext db) : ITrustProfileService
@@ -92,5 +94,24 @@ public sealed class TrustProfileService(AtrsDbContext db) : ITrustProfileService
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
         return new Guid(hash.AsSpan(0, 16));
+    }
+
+    /// <summary>ATRS-17 (FR-001): lock/delete account → TrustProfile status (RESTRICTED/CLOSED) + audit.</summary>
+    public async Task<bool> SetStatusAsync(TrustIdentityType identityType, Guid identityId, TrustProfileStatus status, CancellationToken ct = default)
+    {
+        var subjectId = await TryResolveByLinkAsync(identityType, identityId, ct);
+        if (!subjectId.HasValue)
+            return false; // chưa có profile ATRS — không cần sync
+        var profile = await db.AccountTrustProfiles.FirstOrDefaultAsync(p => p.TrustSubjectId == subjectId.Value, ct);
+        if (profile is null)
+            return false;
+        profile.SetStatus(status);
+        db.AccountSecurityEvents.Add(AccountSecurityEvent.Create(
+            Guid.NewGuid(), subjectId.Value, "account.status_synced", SecurityEventActorType.System, null,
+            sourceApplication: "gateway", deviceId: null, sessionCorrelationId: null,
+            SecurityEventOutcome.Success, null,
+            minimalMetadataJson: $"{{\"identityType\":\"{identityType}\",\"status\":\"{status}\"}}"));
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 }

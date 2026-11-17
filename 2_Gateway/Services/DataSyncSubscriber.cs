@@ -144,6 +144,10 @@ namespace VanAn.Gateway.Services
                     case "shopfeaturesettingschanged":
                         await SyncShopFeatureSettingsAsync(doc.RootElement, scopeSp, cancellationToken);
                         break;
+                    case "user.status.changed":
+                    case "userstatuschanged":
+                        await SyncUserStatusToAtrsAsync(doc.RootElement, cancellationToken);
+                        break;
                     default:
                         _logger.LogDebug("DataSyncSubscriber: unhandled event type {EventType} (subject={Subject})",
                             eventType, subject);
@@ -791,5 +795,46 @@ namespace VanAn.Gateway.Services
             _subscriptionConnection?.Dispose();
             GC.SuppressFinalize(this);
         }
+        /// <summary>ATRS-17 (FR-001): ShopERP lock/delete user → atrs internal account-status sync (best-effort).</summary>
+        private async Task SyncUserStatusToAtrsAsync(JsonElement payload, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var identityType = payload.TryGetProperty("identityType", out var it) ? it.GetString() : null;
+                var userId = payload.TryGetProperty("userId", out var u) && u.TryGetGuid(out var uid) ? (Guid?)uid : null;
+                var status = payload.TryGetProperty("status", out var st) ? st.GetString() : null;
+                if (string.IsNullOrWhiteSpace(identityType) || !userId.HasValue || string.IsNullOrWhiteSpace(status))
+                {
+                    _logger.LogWarning("DataSyncSubscriber: user.status.changed thiếu field — ignore");
+                    return;
+                }
+
+                var baseUrl = _configuration["Atrs:BaseUrl"] ?? "http://atrs:5080";
+                var apiKey = _configuration["Atrs:InternalApiKey"];
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    _logger.LogWarning("DataSyncSubscriber: Atrs:InternalApiKey chưa cấu hình — bỏ qua sync atrs");
+                    return;
+                }
+
+                using var http = new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromSeconds(8) };
+                http.DefaultRequestHeaders.Add("X-Internal-Api-Key", apiKey);
+                var body = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    identityType,
+                    identityId = userId.Value,
+                    status
+                });
+                var resp = await http.PostAsync("/api/v1/internal/account-status",
+                    new StringContent(body, Encoding.UTF8, "application/json"), cancellationToken);
+                _logger.LogInformation("DataSyncSubscriber: atrs account-status sync {Type}/{Id} → {Status}: {Code}",
+                    identityType, userId, status, (int)resp.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "DataSyncSubscriber: atrs account-status sync fail (best-effort)");
+            }
+        }
+
     }
 }
