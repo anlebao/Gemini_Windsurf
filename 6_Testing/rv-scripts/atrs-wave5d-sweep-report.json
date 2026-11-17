@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "name": "L1 health :5080",
+      "pass": true
+    },
+    {
+      "name": "L1 /metrics Prometheus format (counters + gauges)",
+      "pass": true
+    },
+    {
+      "name": "auth-neg notifications no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg notifications bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg notifications/read no-token=401",
+      "pass": true
+    },
+    {
+      "name": "customer submit recovery → 200",
+      "pass": true
+    },
+    {
+      "name": "L3 notification recovery.initiated xuất hiện",
+      "pass": true
+    },
+    {
+      "name": "L3 notification KHÔNG chứa secret/code",
+      "pass": true
+    },
+    {
+      "name": "L4 admin approve recovery → 200",
+      "pass": true
+    },
+    {
+      "name": "L4 notification recovery.approved xuất hiện (acceptance: notify khi recovery đổi trạng thái)",
+      "pass": true
+    },
+    {
+      "name": "L5 mark-read → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 sau read → isRead=true + unread giảm",
+      "pass": true
+    },
+    {
+      "name": "L5 mark-read id không tồn tại → 404 (anti-enum)",
+      "pass": true
+    },
+    {
+      "name": "L6 counter recovery.created ≥1",
+      "pass": true
+    },
+    {
+      "name": "L6 counter recovery.approved ≥1",
+      "pass": true
+    },
+    {
+      "name": "cleanup reject → REJECTED",
+      "pass": true
+    },
+    {
+      "name": "reject request APPROVED → 409 (guard, không 500)",
+      "pass": true
+    }
+  ],
+  "generatedAt": "2026-11-17T10:14:32.779Z"
+}
