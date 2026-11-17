@@ -210,7 +210,7 @@ public sealed class AtrsAdminApiClient(
     [
         "recovery.view", "recovery.review", "recovery.approve",
         "dispute.view", "dispute.investigate", "dispute.propose_adjustment", "dispute.approve_adjustment",
-        "case.assign", "audit.read"
+        "case.assign", "audit.read", "policy.manage", "policy.approve"
     ];
 
     public Task<SecurityEventPage?> GetSecurityEventsAsync(
@@ -241,6 +241,25 @@ public sealed class AtrsAdminApiClient(
 
     public Task<object?> RevokeGrantAsync(Guid grantId, CancellationToken ct = default)
         => SendAsync<object>(HttpMethod.Post, $"api/v1/account-trust/admin/permissions/{grantId}/revoke", null, ct);
+
+    // ── Wave 5 W5c (A21): security policy ──
+
+    public sealed record SecurityPolicyItem(
+        Guid Id, string PolicyKey, string PolicyGroup, string JsonValue, int Version, string Status,
+        Guid ProposedBy, Guid? ApprovedBy, DateTime ProposedAt, DateTime? EffectiveAt, DateTime? RejectedAt, string? ChangeNote);
+
+    public Task<IReadOnlyList<SecurityPolicyItem>?> GetSecurityPoliciesAsync(CancellationToken ct = default)
+        => SendAsync<IReadOnlyList<SecurityPolicyItem>>(HttpMethod.Get, "api/v1/account-trust/admin/security-policies", null, ct);
+
+    public Task<SecurityPolicyItem?> ProposePolicyAsync(string policyKey, string policyGroup, string jsonValue, string? changeNote, CancellationToken ct = default)
+        => SendAsync<SecurityPolicyItem>(HttpMethod.Post, "api/v1/account-trust/admin/security-policies",
+            new { policyKey, policyGroup, jsonValue, changeNote }, ct);
+
+    public Task<SecurityPolicyItem?> ApprovePolicyAsync(Guid policyId, CancellationToken ct = default)
+        => SendAsync<SecurityPolicyItem>(HttpMethod.Post, $"api/v1/account-trust/admin/security-policies/{policyId}/approve", null, ct);
+
+    public Task<SecurityPolicyItem?> RejectPolicyAsync(Guid policyId, CancellationToken ct = default)
+        => SendAsync<SecurityPolicyItem>(HttpMethod.Post, $"api/v1/account-trust/admin/security-policies/{policyId}/reject", null, ct);
 
     // ── Internals ──
 

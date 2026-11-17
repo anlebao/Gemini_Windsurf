@@ -41,6 +41,7 @@ public interface IDisputeCaseManager
 public sealed class DisputeCaseManager(
     AtrsDbContext db,
     ILoyaltyGatewayClient loyaltyGateway,
+    ISecurityPolicyService policyService,
     ILogger<DisputeCaseManager> logger) : IDisputeCaseManager
 {
     private const string PolicyVersion = "atrs-dispute-v1";
@@ -347,7 +348,9 @@ public sealed class DisputeCaseManager(
         var entity = await db.DisputeCases.FirstOrDefaultAsync(c => c.Id == decision.DisputeCaseId, ct)
             ?? throw new InvalidOperationException($"DisputeCase {decision.DisputeCaseId} not found.");
 
-        bool needsAdjustment = decision.Approve(approverId); // maker-checker enforce ở đây
+        bool makerCheckerRequired = await policyService.GetEffectiveBoolAsync(
+            SecurityPolicyKeys.DisputeMakerCheckerRequired, "required", fallback: true, ct);
+        bool needsAdjustment = decision.Approve(approverId, makerCheckerRequired); // maker-checker enforce ở đây (A21 policy)
 
         if (!needsAdjustment)
         {

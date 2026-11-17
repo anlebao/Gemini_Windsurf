@@ -1,0 +1,186 @@
+@page "/admin/atrs-policy"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+
+@* ATRS-10 A21 (Wave 5 W5c): security policy — versioned, propose → approve (maker-checker).
+   Read/propose = policy.manage, approve/reject = policy.approve (enforce ở vanan-atrs).
+   Bảng policy tự là audit trail (proposer/approver/timestamps). *@
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="atrs-policy-page">
+    <header class="page-header">
+        <h1><i class="bi bi-shield-lock"></i> Chính sách bảo mật (ATRS)</h1>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+    @if (!string.IsNullOrEmpty(_info))
+    {
+        <VanAAlert Type="success" Message="@_info" OnClose="() => _info = null" />
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <VanACard Title="Đề xuất thay đổi policy">
+                <div class="mb-2">
+                    <label class="form-label small">Policy (key + group)</label>
+                    <select class="form-select" @bind="_selectedKey">
+                        @foreach (var (key, group) in Presets)
+                        {
+                            <option value="@key">@key (@group)</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Giá trị JSON</label>
+                    <input class="form-control" @bind="_jsonValue" placeholder='{"hours": 24}' />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Ghi chú thay đổi (audit)</label>
+                    <input class="form-control" @bind="_changeNote" placeholder="Tăng SLA lên 48h…" />
+                </div>
+                <VanAButton Variant="primary" OnClick="ProposeAsync" Disabled="string.IsNullOrWhiteSpace(_jsonValue)">Đề xuất (chờ duyệt)</VanAButton>
+            </VanACard>
+        </div>
+
+        <div class="col-lg-8">
+            <VanACard Title="Các version policy (effective / proposed / history)">
+                @if (_loading)
+                {
+                    <div class="text-center py-4"><div class="spinner-border"></div></div>
+                }
+                else if (_policies.Count == 0)
+                {
+                    <p class="text-muted text-center py-4">Chưa có policy nào. Đề xuất policy đầu tiên (v1 tự EFFECTIVE).</p>
+                }
+                else
+                {
+                    <table class="table table-hover table-sm" data-testid="policy-table">
+                        <thead>
+                            <tr><th>Policy</th><th>v</th><th>Trạng thái</th><th>Giá trị</th><th>Người đề xuất</th><th>Duyệt bởi</th><th>Ghi chú</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in _policies)
+                            {
+                                <tr data-testid="policy-row-@p.Id" class="@(p.Status == "SUPERSEDED" || p.Status == "REJECTED" ? "table-secondary text-muted" : "")">
+                                    <td><code>@p.PolicyKey</code></td>
+                                    <td>@p.Version</td>
+                                    <td><span class="badge @StatusBadge(p.Status)">@p.Status</span></td>
+                                    <td><code>@p.JsonValue</code></td>
+                                    <td><code>@p.ProposedBy.ToString()[..8]</code></td>
+                                    <td>@(p.ApprovedBy?.ToString()[..8] ?? "—")</td>
+                                    <td class="small">@(p.ChangeNote ?? "—")</td>
+                                    <td>
+                                        @if (p.Status == "PROPOSED")
+                                        {
+                                            <div class="d-flex gap-1">
+                                                <VanAButton Variant="success" Size="small" OnClick="@(() => ApproveAsync(p.Id))">Duyệt</VanAButton>
+                                                <VanAButton Variant="dark" Size="small" OnClick="@(() => RejectAsync(p.Id))">Từ chối</VanAButton>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </VanACard>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly (string Key, string Group)[] Presets =
+    [
+        ("recovery.sla_hours", "sla"),
+        ("dispute.maker_checker_required", "maker_checker")
+    ];
+
+    private List<AtrsAdminApiClient.SecurityPolicyItem> _policies = new();
+    private string _selectedKey = Presets[0].Key;
+    private string? _jsonValue;
+    private string? _changeNote;
+    private bool _loading = true;
+    private string? _error;
+    private string? _info;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _policies = (await AtrsApi.GetSecurityPoliciesAsync())?.ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được policy: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task ProposeAsync()
+    {
+        var json = _jsonValue?.Trim();
+        if (string.IsNullOrWhiteSpace(json)) return;
+        var (key, group) = Presets.First(p => p.Key == _selectedKey);
+        try
+        {
+            var dto = await AtrsApi.ProposePolicyAsync(key, group, json, _changeNote?.Trim());
+            _info = dto is null ? "Đã đề xuất." : $"Đã đề xuất v{dto.Version} ({dto.Status}) — chờ duyệt bởi người khác.";
+            _jsonValue = null;
+            _changeNote = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Đề xuất thất bại: {ex.Message}";
+        }
+    }
+
+    private async Task ApproveAsync(Guid policyId)
+    {
+        try
+        {
+            await AtrsApi.ApprovePolicyAsync(policyId);
+            _info = "Đã duyệt — policy có hiệu lực.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Duyệt thất bại: {ex.Message}";
+        }
+    }
+
+    private async Task RejectAsync(Guid policyId)
+    {
+        try
+        {
+            await AtrsApi.RejectPolicyAsync(policyId);
+            _info = "Đã từ chối proposal.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Từ chối thất bại: {ex.Message}";
+        }
+    }
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "EFFECTIVE" => "bg-success",
+        "PROPOSED" => "bg-warning text-dark",
+        "REJECTED" => "bg-dark",
+        _ => "bg-secondary"
+    };
+}

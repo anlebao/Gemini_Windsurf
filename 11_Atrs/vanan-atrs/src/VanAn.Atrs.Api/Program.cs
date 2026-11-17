@@ -28,6 +28,7 @@ public static class Program
 
         builder.Services.AddControllers();
         builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.Configure<RecoveryCodeOptions>(builder.Configuration.GetSection("Atrs:RecoveryCodes"));
         builder.Services.Configure<WebAuthnOptions>(builder.Configuration.GetSection("Atrs:WebAuthn"));
         builder.Services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
@@ -52,6 +53,8 @@ public static class Program
         builder.Services.AddScoped<IDisputeAttachmentService, DisputeAttachmentService>();
         // Wave 5 W5b: A20 audit explorer query service.
         builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
+        // Wave 5 W5c: A21 security policy (versioned + approval).
+        builder.Services.AddScoped<ISecurityPolicyService, SecurityPolicyService>();
         var r2Endpoint = builder.Configuration["Atrs:R2:Endpoint"];
         var r2AccessKey = builder.Configuration["Atrs:R2:AccessKey"];
         var r2SecretKey = builder.Configuration["Atrs:R2:SecretKey"];

@@ -29,6 +29,7 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<StaffPermissionGrant> StaffPermissionGrants => Set<StaffPermissionGrant>();
     public DbSet<PersonalEvidenceItem> PersonalEvidenceItems => Set<PersonalEvidenceItem>();
     public DbSet<EvidenceAttachment> EvidenceAttachments => Set<EvidenceAttachment>();
+    public DbSet<SecurityPolicy> SecurityPolicies => Set<SecurityPolicy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -263,5 +264,19 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         attachment.Property(e => e.ContentType).HasMaxLength(64).IsRequired();
         attachment.HasIndex(e => e.DisputeCaseId).HasDatabaseName("ix_evidence_attachments_case");
         attachment.HasIndex(e => e.TrustSubjectId).HasDatabaseName("ix_evidence_attachments_subject");
+
+        // ═══ ATRS-10 A21 (Wave 5 W5c) — security policy versioned ═══
+
+        var policy = modelBuilder.Entity<SecurityPolicy>();
+        policy.ToTable("security_policies");
+        policy.HasKey(e => e.Id);
+        policy.Property(e => e.Id).ValueGeneratedNever();
+        policy.Property(e => e.PolicyKey).HasMaxLength(64).IsRequired();
+        policy.Property(e => e.PolicyGroup).HasMaxLength(32).IsRequired();
+        policy.Property(e => e.JsonValue).HasColumnType("TEXT").IsRequired();
+        policy.Property(e => e.Status).HasConversion<int>();
+        policy.Property(e => e.ChangeNote).HasMaxLength(1000);
+        policy.HasIndex(e => new { e.PolicyKey, e.Version }).IsUnique().HasDatabaseName("ux_security_policies_key_version");
+        policy.HasIndex(e => new { e.PolicyKey, e.Status }).HasDatabaseName("ix_security_policies_key_status");
     }
 }

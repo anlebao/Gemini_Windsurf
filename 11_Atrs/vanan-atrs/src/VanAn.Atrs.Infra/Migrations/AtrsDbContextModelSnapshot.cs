@@ -808,6 +808,76 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("recovery_requests", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.SecurityPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<string>("ChangeNote")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("change_note");
+
+                    b.Property<DateTime?>("EffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at");
+
+                    b.Property<string>("JsonValue")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("json_value");
+
+                    b.Property<string>("PolicyGroup")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_group");
+
+                    b.Property<string>("PolicyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_key");
+
+                    b.Property<DateTime>("ProposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proposed_at");
+
+                    b.Property<Guid>("ProposedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("proposed_by");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_security_policies");
+
+                    b.HasIndex("PolicyKey", "Status")
+                        .HasDatabaseName("ix_security_policies_key_status");
+
+                    b.HasIndex("PolicyKey", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ux_security_policies_key_version");
+
+                    b.ToTable("security_policies", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.StaffPermissionGrant", b =>
                 {
                     b.Property<Guid>("Id")

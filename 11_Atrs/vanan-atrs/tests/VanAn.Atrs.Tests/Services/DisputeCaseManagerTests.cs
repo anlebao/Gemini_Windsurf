@@ -24,7 +24,9 @@ public sealed class DisputeCaseManagerTests : IDisposable
             .UseInMemoryDatabase($"dispute-{Guid.NewGuid()}")
             .Options;
         _db = new AtrsDbContext(options);
-        _manager = new DisputeCaseManager(_db, _gateway, NullLogger<DisputeCaseManager>.Instance);
+        _manager = new DisputeCaseManager(_db, _gateway,
+            new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System),
+            NullLogger<DisputeCaseManager>.Instance);
     }
 
     public void Dispose()

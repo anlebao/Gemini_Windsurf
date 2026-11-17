@@ -52,7 +52,8 @@ public sealed class RecoveryCaseManager(
     AtrsDbContext db,
     IRecoveryCodeService recoveryCodeService,
     IRiskPolicyEngine riskPolicyEngine,
-    ITokenVersionBumpNotifier tokenVersionBumpNotifier) : IRecoveryCaseManager
+    ITokenVersionBumpNotifier tokenVersionBumpNotifier,
+    ISecurityPolicyService policyService) : IRecoveryCaseManager
 {
     private static readonly RecoveryRequestStatus[] ActiveStatuses =
     [
@@ -63,8 +64,8 @@ public sealed class RecoveryCaseManager(
         RecoveryRequestStatus.ESCALATED
     ];
 
-    /// <summary>SLA (A15/A14): pending > 24h = breached (không hardcode ở UI — backend tính).</summary>
-    public const double SlaThresholdHours = 24;
+    /// <summary>SLA (A15/A14): pending > N giờ = breached — mặc định 24h, override qua policy `recovery.sla_hours` (A21).</summary>
+    public const double DefaultSlaThresholdHours = 24;
 
     private static readonly DisputeCaseStatus[] TerminalDisputeStatuses =
     [
@@ -191,6 +192,7 @@ public sealed class RecoveryCaseManager(
     public async Task<RecoveryQueuePageDto> ListQueuePageAsync(RecoveryQueueQuery query, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
+        var slaHours = await GetSlaHoursAsync(ct);
         var q = db.RecoveryRequests.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(query.Status) && Enum.TryParse<RecoveryRequestStatus>(query.Status, true, out var st))
             q = q.Where(r => r.Status == st);
@@ -208,7 +210,7 @@ public sealed class RecoveryCaseManager(
             .Skip(Math.Max(0, query.Skip)).Take(Math.Clamp(query.Take, 1, 200))
             .ToListAsync(ct);
         return new RecoveryQueuePageDto(
-            items.Select(r => ToQueueItem(r, now)).ToList(),
+            items.Select(r => ToQueueItem(r, now, slaHours)).ToList(),
             total, Math.Max(0, query.Skip), Math.Clamp(query.Take, 1, 200));
     }
 
@@ -276,7 +278,7 @@ public sealed class RecoveryCaseManager(
         await RecordStaffEventAsync(request.TrustSubjectId, "recovery.assigned", staffUserId,
             $"{{\"requestId\":\"{requestId:N}\"}}", ct);
         await db.SaveChangesAsync(ct);
-        return ToQueueItem(request, DateTime.UtcNow);
+        return ToQueueItem(request, DateTime.UtcNow, await GetSlaHoursAsync(ct));
     }
 
     /// <summary>A16 — add internal note / recommendation (recommend KHÔNG phải quyết định cuối).</summary>
@@ -318,7 +320,8 @@ public sealed class RecoveryCaseManager(
     {
         var now = DateTime.UtcNow;
         var since24h = now.AddHours(-24);
-        var slaCutoff = now.AddHours(-SlaThresholdHours);
+        var slaHours = await GetSlaHoursAsync(ct);
+        var slaCutoff = now.AddHours(-slaHours);
 
         var newRecovery24h = await db.RecoveryRequests.CountAsync(r => r.CreatedAt >= since24h, ct);
         var awaitingReview = await db.RecoveryRequests.CountAsync(r => r.Status == RecoveryRequestStatus.PENDING_REVIEW, ct);
@@ -412,15 +415,18 @@ public sealed class RecoveryCaseManager(
             r.NewDeviceId, r.RiskDecisionJson,
             r.ReviewerId?.ToString(), r.DecisionReasonCode, r.CreatedAt, r.CompletedAt);
 
-    private static RecoveryQueueItemDto ToQueueItem(RecoveryRequest r, DateTime now)
+    private static RecoveryQueueItemDto ToQueueItem(RecoveryRequest r, DateTime now, double slaHours)
     {
         var ageHours = (now - r.CreatedAt).TotalHours;
         return new RecoveryQueueItemDto(
             r.Id, r.RequestType.ToString(), r.Status.ToString(), r.TrustSubjectId,
             r.NewDeviceId, r.ReviewerId, r.AssignedReviewerId, r.AssignedAt,
             r.DecisionReasonCode, r.CreatedAt, r.CompletedAt,
-            Math.Round(ageHours, 1), !r.IsTerminal && ageHours > SlaThresholdHours);
+            Math.Round(ageHours, 1), !r.IsTerminal && ageHours > slaHours);
     }
+
+    private async Task<double> GetSlaHoursAsync(CancellationToken ct)
+        => await policyService.GetEffectiveNumberAsync(SecurityPolicyKeys.RecoverySlaHours, "hours", DefaultSlaThresholdHours, ct);
 
     private static RecoveryRiskSummaryDto? ParseRisk(string? riskDecisionJson)
     {

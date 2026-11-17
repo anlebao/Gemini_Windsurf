@@ -72,10 +72,18 @@ public sealed class DisputeDecision
     /// Trả về true nếu decision cần ledger execution (có adjustment ≠ 0).
     /// </summary>
     public bool Approve(Guid approverId)
+        => Approve(approverId, enforceMakerChecker: true);
+
+    /// <summary>
+    /// Approver duyệt proposal. Maker-checker mặc định enforce (approver ≠ proposer);
+    /// có thể tắt qua policy `dispute.maker_checker_required` (A21 — security policy).
+    /// Trả về true nếu decision cần ledger execution (có adjustment ≠ 0).
+    /// </summary>
+    public bool Approve(Guid approverId, bool enforceMakerChecker)
     {
         EnsurePending();
         if (approverId == Guid.Empty) throw new ArgumentException("approverId cannot be empty.", nameof(approverId));
-        if (approverId == ProposedBy)
+        if (enforceMakerChecker && approverId == ProposedBy)
             throw new InvalidOperationException("Maker-checker: approver cannot be the proposer.");
 
         ApprovedBy = approverId;

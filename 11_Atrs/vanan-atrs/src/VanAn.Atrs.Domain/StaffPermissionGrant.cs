@@ -24,13 +24,18 @@ public static class AtrsPermissions
     // Audit (A20 — audit explorer)
     public const string AuditRead = "audit.read";
 
+    // Policy (A21 — security policy)
+    public const string PolicyManage = "policy.manage";
+    public const string PolicyApprove = "policy.approve";
+
     /// <summary>Toàn bộ permission — dùng cho grant UI / validation.</summary>
     public static readonly IReadOnlyList<string> All =
     [
         RecoveryView, RecoveryReview, RecoveryApprove,
         DisputeView, DisputeInvestigate, DisputeProposeAdjustment, DisputeApproveAdjustment,
         CaseAssign,
-        AuditRead
+        AuditRead,
+        PolicyManage, PolicyApprove
     ];
 }
 
