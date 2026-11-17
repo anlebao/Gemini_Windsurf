@@ -1,0 +1,172 @@
+@page "/admin/recovery"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+@inject NavigationManager Nav
+
+@* ATRS-10 A15 (Wave 5): recovery queue — server-side filter + paging + SLA qua atrs admin API.
+   Masked TrustSubjectId; RBAC + business logic enforce ở vanan-atrs (không phải UI). *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="recovery-page">
+    <header class="page-header">
+        <h1><i class="bi bi-arrow-counterclockwise"></i> Yêu cầu khôi phục tài khoản (ATRS)</h1>
+        <div class="header-actions d-flex gap-2 flex-wrap">
+            <select class="form-select form-select-sm" style="width:auto" @bind="_statusFilter" @bind:after="LoadAsync" data-testid="recovery-status-filter">
+                <option value="">Tất cả trạng thái</option>
+                <option value="SUBMITTED">SUBMITTED</option>
+                <option value="AUTOMATED_CHECK">AUTOMATED_CHECK</option>
+                <option value="PENDING_USER_ACTION">PENDING_USER_ACTION</option>
+                <option value="PENDING_REVIEW">PENDING_REVIEW</option>
+                <option value="ESCALATED">ESCALATED</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+                <option value="CANCELLED">CANCELLED</option>
+                <option value="COMPLETED">COMPLETED</option>
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" @bind="_typeFilter" @bind:after="LoadAsync" data-testid="recovery-type-filter">
+                <option value="">Mọi loại</option>
+                <option value="LOST_DEVICE">LOST_DEVICE</option>
+                <option value="NO_CREDENTIAL">NO_CREDENTIAL</option>
+                <option value="COMPROMISED">COMPROMISED</option>
+                <option value="OTHER">OTHER</option>
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" @bind="_assigneeFilter" @bind:after="LoadAsync" data-testid="recovery-assignee-filter">
+                <option value="">Mọi người phụ trách</option>
+                <option value="me">Gán cho tôi</option>
+                <option value="none">Chưa gán</option>
+            </select>
+            <VanAButton Variant="secondary" OnClick="LoadAsync">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+
+    <VanACard Title="Hàng chờ khôi phục">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Không có yêu cầu khôi phục nào.</p>
+        }
+        else
+        {
+            <table class="table table-hover" data-testid="recovery-queue-table">
+                <thead>
+                    <tr>
+                        <th>Mã</th>
+                        <th>Loại</th>
+                        <th>Trạng thái</th>
+                        <th>Khách hàng</th>
+                        <th>Phụ trách</th>
+                        <th>Gửi lúc</th>
+                        <th>Tuổi (giờ)</th>
+                        <th>SLA</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _items)
+                    {
+                        <tr data-testid="recovery-row-@r.Id" class="@(r.SlaBreached ? "table-danger" : "")">
+                            <td><code>@r.Id.ToString()[..8]</code></td>
+                            <td>@r.RequestType</td>
+                            <td><span class="badge @StatusBadge(r.Status)">@r.Status</span></td>
+                            <td><code>@Mask(r.TrustSubjectId)</code></td>
+                            <td>@(r.AssignedReviewerId?.ToString()[..8] ?? "—")</td>
+                            <td>@r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@r.AgeHours.ToString("0.0")</td>
+                            <td>
+                                @if (r.SlaBreached)
+                                {
+                                    <span class="badge bg-danger" data-testid="sla-breach">> 24h</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">OK</span>
+                                }
+                            </td>
+                            <td><VanAButton Variant="primary" OnClick="@(() => Nav.NavigateTo($"/admin/recovery/{r.Id}"))">Xem</VanAButton></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="d-flex justify-content-between align-items-center">
+                <VanAButton Variant="secondary" Disabled="@(_skip == 0)" OnClick="PrevPage">← Trước</VanAButton>
+                <span class="text-muted small">@(_skip + 1)–@(_skip + _items.Count) / @_total</span>
+                <VanAButton Variant="secondary" Disabled="@(_skip + _items.Count >= _total)" OnClick="NextPage">Sau →</VanAButton>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private const int _take = 50;
+    private List<AtrsAdminApiClient.RecoveryQueueItem> _items = new();
+    private string? _statusFilter;
+    private string? _typeFilter;
+    private string? _assigneeFilter;
+    private int _skip;
+    private int _total;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            Guid? assignedTo = _assigneeFilter switch
+            {
+                "me" => await AtrsApi.CurrentUserIdAsync(),
+                _ => null
+            };
+            bool unassigned = _assigneeFilter == "none";
+            Guid? subjectId = null;
+            var page = await AtrsApi.GetRecoveryQueueAsync(_statusFilter, _typeFilter, assignedTo, unassigned, subjectId, _skip, _take);
+            if (page is null)
+            {
+                _items = new();
+                _total = 0;
+            }
+            else
+            {
+                _items = page.Items.ToList();
+                _total = page.Total;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được hàng chờ: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task PrevPage() { _skip = Math.Max(0, _skip - _take); await LoadAsync(); }
+    private async Task NextPage() { _skip += _take; await LoadAsync(); }
+
+    private static string Mask(Guid id) => $"{id.ToString()[..8]}…";
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "SUBMITTED" or "AUTOMATED_CHECK" => "bg-info text-dark",
+        "PENDING_REVIEW" or "PENDING_USER_ACTION" => "bg-warning text-dark",
+        "ESCALATED" => "bg-danger",
+        "APPROVED" or "COMPLETED" => "bg-success",
+        "REJECTED" or "CANCELLED" or "EXPIRED" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+}

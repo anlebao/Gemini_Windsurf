@@ -1,0 +1,93 @@
+@page "/admin/atrs"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+@inject NavigationManager Nav
+
+@* ATRS-10 A14 (Wave 5): operations dashboard — widgets từ data thật (backend aggregate),
+   không hardcode. RBAC enforce ở vanan-atrs (recovery.view HOẶC dispute.view). *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="atrs-dashboard-page">
+    <header class="page-header d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-speedometer2"></i> Bảng điều hành ATRS</h1>
+        <VanAButton Variant="secondary" OnClick="LoadAsync">Làm mới</VanAButton>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner-border"></div></div>
+    }
+    else if (_dash is null)
+    {
+        <VanAAlert Type="warning" Message="Không tải được dữ liệu bảng điều hành (kiểm tra quyền staff ATRS)." />
+    }
+    else
+    {
+        <div class="row g-3">
+            @Widget("Mới trong 24h", _dash.NewRecovery24h, "bi-plus-circle", "bg-primary", "/admin/recovery?status=SUBMITTED", "recovery-new-24h")
+            @Widget("Chờ duyệt", _dash.AwaitingReview, "bi-hourglass-split", "bg-warning text-dark", "/admin/recovery?status=PENDING_REVIEW", "recovery-awaiting")
+            @Widget("Đã chuyển cấp", _dash.Escalated, "bi-arrow-up-circle", "bg-danger", "/admin/recovery?status=ESCALATED", "recovery-escalated")
+            @Widget("Chờ khách hàng", _dash.NeedsInfo, "bi-chat-left-dots", "bg-secondary", "/admin/recovery?status=PENDING_USER_ACTION", "recovery-needs-info")
+            @Widget("Khiếu nại mở", _dash.OpenDisputes, "bi-shield-exclamation", "bg-info text-dark", "/admin/disputes", "disputes-open")
+            @Widget("Quá hạn SLA", _dash.SlaOverdue, "bi-alarm", "bg-dark", "/admin/recovery", "sla-overdue")
+            @Widget("Sự cố bảo mật 24h", _dash.RecentSecurityIncidents24h, "bi-shield-x", "bg-danger", null, "incidents-24h")
+        </div>
+        <p class="text-muted small mt-3">Cập nhật lúc @_dash.GeneratedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</p>
+    }
+</div>
+
+@code {
+    private AtrsAdminApiClient.AtrsDashboard? _dash;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _dash = await AtrsApi.GetDashboardAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được bảng điều hành: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private RenderFragment Widget(string title, int value, string icon, string badgeClass, string? link, string testId)
+        => @<div class="col-6 col-md-4 col-lg-3">
+            <VanACard>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge @badgeClass rounded-circle p-3"><i class="bi @icon"></i></span>
+                    <div>
+                        <div class="fs-3 fw-bold" data-testid="@testId">@value</div>
+                        <div class="text-muted small">
+                            @if (!string.IsNullOrEmpty(link))
+                            {
+                                <a href="@link">@title</a>
+                            }
+                            else
+                            {
+                                @title
+                            }
+                        </div>
+                    </div>
+                </div>
+            </VanACard>
+        </div>;
+}

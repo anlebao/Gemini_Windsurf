@@ -20,7 +20,9 @@ public enum RecoveryRequestStatus
     REJECTED = 5,
     CANCELLED = 6,
     EXPIRED = 7,
-    COMPLETED = 8
+    COMPLETED = 8,
+    /// <summary>Wave 5 (A16): staff escalate — chuyển cấp xử lý (senior review).</summary>
+    ESCALATED = 9
 }
 
 /// <summary>
@@ -43,10 +45,20 @@ public sealed class RecoveryRequest
     public string? EvidenceSummaryJson { get; private set; }
     public string? RiskDecisionJson { get; private set; }
     public Guid? ReviewerId { get; private set; }
+    /// <summary>Wave 5 (A15/A16): staff đang phụ trách case (assign).</summary>
+    public Guid? AssignedReviewerId { get; private set; }
+    public DateTime? AssignedAt { get; private set; }
     public string? DecisionReasonCode { get; private set; }
     public string IdempotencyKey { get; private set; } = string.Empty;
     public DateTime CreatedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
+
+    /// <summary>Trạng thái kết thúc — không còn transition (queue filter/SLA).</summary>
+    public bool IsTerminal => Status is RecoveryRequestStatus.APPROVED
+        or RecoveryRequestStatus.REJECTED
+        or RecoveryRequestStatus.CANCELLED
+        or RecoveryRequestStatus.EXPIRED
+        or RecoveryRequestStatus.COMPLETED;
 
     private RecoveryRequest() { }
 
@@ -85,9 +97,34 @@ public sealed class RecoveryRequest
             CompletedAt = DateTime.UtcNow;
     }
 
+    /// <summary>Wave 5 (A15): assign case cho staff — mọi trạng thái chưa terminal.</summary>
+    public void Assign(Guid staffUserId)
+    {
+        if (IsTerminal)
+            throw new InvalidOperationException($"Cannot assign a terminal request ({Status}).");
+        if (staffUserId == Guid.Empty)
+            throw new ArgumentException("staffUserId cannot be empty.", nameof(staffUserId));
+        AssignedReviewerId = staffUserId;
+        AssignedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Wave 5 (A16): escalate — chuyển cấp xử lý (senior review).</summary>
+    public void Escalate()
+    {
+        EnsureState(RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.PENDING_USER_ACTION);
+        Status = RecoveryRequestStatus.ESCALATED;
+    }
+
+    /// <summary>Wave 5 (A16): de-escalate — trả case về hàng chờ review thường.</summary>
+    public void ReturnToReview()
+    {
+        EnsureState(RecoveryRequestStatus.ESCALATED);
+        Status = RecoveryRequestStatus.PENDING_REVIEW;
+    }
+
     public void Approve(Guid reviewerId)
     {
-        EnsureState(RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.AUTOMATED_CHECK);
+        EnsureState(RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.AUTOMATED_CHECK, RecoveryRequestStatus.ESCALATED);
         ReviewerId = reviewerId;
         Status = RecoveryRequestStatus.APPROVED;
         CompletedAt = DateTime.UtcNow;
@@ -95,7 +132,7 @@ public sealed class RecoveryRequest
 
     public void Reject(Guid reviewerId, string reasonCode)
     {
-        EnsureState(RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.AUTOMATED_CHECK, RecoveryRequestStatus.PENDING_USER_ACTION);
+        EnsureState(RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.AUTOMATED_CHECK, RecoveryRequestStatus.PENDING_USER_ACTION, RecoveryRequestStatus.ESCALATED);
         ReviewerId = reviewerId;
         DecisionReasonCode = reasonCode;
         Status = RecoveryRequestStatus.REJECTED;
@@ -104,7 +141,7 @@ public sealed class RecoveryRequest
 
     public void RequestMoreInfo()
     {
-        EnsureState(RecoveryRequestStatus.AUTOMATED_CHECK, RecoveryRequestStatus.PENDING_REVIEW);
+        EnsureState(RecoveryRequestStatus.AUTOMATED_CHECK, RecoveryRequestStatus.PENDING_REVIEW, RecoveryRequestStatus.ESCALATED);
         Status = RecoveryRequestStatus.PENDING_USER_ACTION;
     }
 

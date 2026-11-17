@@ -106,6 +106,91 @@ public sealed class AtrsAdminApiClient(
         return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
     }
 
+    // ── Wave 5 (A14/A15/A16): recovery staff ops + dashboard ──
+
+    public sealed record RecoveryQueueItem(
+        Guid Id, string RequestType, string Status, Guid TrustSubjectId,
+        Guid? NewDeviceId, Guid? ReviewerId, Guid? AssignedReviewerId, DateTime? AssignedAt,
+        string? DecisionReasonCode, DateTime CreatedAt, DateTime? CompletedAt,
+        double AgeHours, bool SlaBreached);
+
+    public sealed record RecoveryQueuePage(
+        IReadOnlyList<RecoveryQueueItem> Items, int Total, int Skip, int Take);
+
+    public sealed record RecoveryNote(
+        Guid Id, Guid AuthorId, string NoteType, string Body, DateTime CreatedAt);
+
+    public sealed record RecoveryStaffDevice(
+        Guid Id, string DeviceId, string? FriendlyName, string? Platform,
+        string DeviceType, string Status, DateTime FirstSeenAt, DateTime LastSeenAt);
+
+    public sealed record RecoverySubjectLink(string IdentityType, Guid IdentityId, Guid? TenantId);
+
+    public sealed record RecoverySecurityEvent(string EventType, DateTime OccurredAt, string Outcome, string ActorType);
+
+    public sealed record RecoveryRiskSummary(string? Kind, string? PolicyVersion, IReadOnlyList<string> ReasonCodes);
+
+    public sealed record RecoveryStaffDetail(
+        Guid Id, string RequestType, string Status, Guid TrustSubjectId, Guid? NewDeviceId,
+        string? ReviewerId, Guid? AssignedReviewerId, DateTime? AssignedAt,
+        string? DecisionReasonCode, DateTime CreatedAt, DateTime? CompletedAt,
+        RecoveryRiskSummary? Risk,
+        IReadOnlyList<RecoveryNote> Notes,
+        IReadOnlyList<RecoveryStaffDevice> Devices,
+        IReadOnlyList<RecoverySubjectLink> SubjectLinks,
+        IReadOnlyList<RecoverySecurityEvent> RecentEvents);
+
+    public sealed record AtrsDashboard(
+        int NewRecovery24h, int AwaitingReview, int Escalated, int NeedsInfo,
+        int OpenDisputes, int SlaOverdue, int RecentSecurityIncidents24h, DateTime GeneratedAt);
+
+    /// <summary>Mirror RecoveryRequestSummaryDto — trả về từ approve/reject/request-info/escalate.</summary>
+    public sealed record RecoverySummary(
+        Guid Id, string RequestType, string Status, Guid TrustSubjectId,
+        Guid? NewDeviceId, string? RiskDecisionJson, string? ReviewerId,
+        string? DecisionReasonCode, DateTime CreatedAt, DateTime? CompletedAt);
+
+    public Task<RecoveryQueuePage?> GetRecoveryQueueAsync(string? status, string? requestType, Guid? assignedTo, bool unassigned, Guid? subjectId, int skip, int take, CancellationToken ct = default)
+    {
+        var url = $"api/v1/account-trust/admin/recovery-requests?skip={skip}&take={take}";
+        if (!string.IsNullOrWhiteSpace(status)) url += $"&status={Uri.EscapeDataString(status)}";
+        if (!string.IsNullOrWhiteSpace(requestType)) url += $"&requestType={Uri.EscapeDataString(requestType)}";
+        if (assignedTo.HasValue) url += $"&assignedTo={assignedTo}";
+        if (unassigned) url += "&unassigned=true";
+        if (subjectId.HasValue) url += $"&subjectId={subjectId}";
+        return SendAsync<RecoveryQueuePage>(HttpMethod.Get, url, null, ct);
+    }
+
+    public Task<RecoveryStaffDetail?> GetRecoveryDetailAsync(Guid requestId, CancellationToken ct = default)
+        => SendAsync<RecoveryStaffDetail>(HttpMethod.Get, $"api/v1/account-trust/admin/recovery-requests/{requestId}", null, ct);
+
+    public Task<RecoveryQueueItem?> AssignRecoveryAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default)
+        => SendAsync<RecoveryQueueItem>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/assign",
+            new { staffUserId }, ct);
+
+    public Task<RecoveryNote?> AddRecoveryNoteAsync(Guid requestId, string body, string noteType, CancellationToken ct = default)
+        => SendAsync<RecoveryNote>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/notes",
+            new { body, noteType }, ct);
+
+    public Task<RecoverySummary?> RequestRecoveryInfoAsync(Guid requestId, CancellationToken ct = default)
+        => SendAsync<RecoverySummary>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/request-info", null, ct);
+
+    public Task<RecoverySummary?> EscalateRecoveryAsync(Guid requestId, CancellationToken ct = default)
+        => SendAsync<RecoverySummary>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/escalate", null, ct);
+
+    public Task<RecoverySummary?> ReturnRecoveryToReviewAsync(Guid requestId, CancellationToken ct = default)
+        => SendAsync<RecoverySummary>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/return-to-review", null, ct);
+
+    public Task<RecoverySummary?> ApproveRecoveryAsync(Guid requestId, CancellationToken ct = default)
+        => SendAsync<RecoverySummary>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/approve", null, ct);
+
+    public Task<RecoverySummary?> RejectRecoveryAsync(Guid requestId, string reasonCode, CancellationToken ct = default)
+        => SendAsync<RecoverySummary>(HttpMethod.Post, $"api/v1/account-trust/admin/recovery-requests/{requestId}/reject",
+            new { reasonCode }, ct);
+
+    public Task<AtrsDashboard?> GetDashboardAsync(CancellationToken ct = default)
+        => SendAsync<AtrsDashboard>(HttpMethod.Get, "api/v1/account-trust/admin/dashboard", null, ct);
+
     // ── Internals ──
 
     private async Task<T?> SendAsync<T>(HttpMethod method, string url, object? body, CancellationToken ct)

@@ -19,6 +19,7 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<RecoveryCodeSet> RecoveryCodeSets => Set<RecoveryCodeSet>();
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
     public DbSet<RecoveryRequest> RecoveryRequests => Set<RecoveryRequest>();
+    public DbSet<RecoveryCaseNote> RecoveryCaseNotes => Set<RecoveryCaseNote>();
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
     public DbSet<DeviceCredential> DeviceCredentials => Set<DeviceCredential>();
     public DbSet<WebAuthnChallenge> WebAuthnChallenges => Set<WebAuthnChallenge>();
@@ -121,6 +122,14 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         req.Property(e => e.DecisionReasonCode).HasMaxLength(64);
         req.HasIndex(e => e.IdempotencyKey).IsUnique().HasDatabaseName("ux_recovery_requests_idempotency");
         req.HasIndex(e => new { e.TrustSubjectId, e.Status }).HasDatabaseName("ix_recovery_requests_subject_status");
+
+        var note = modelBuilder.Entity<RecoveryCaseNote>();
+        note.ToTable("recovery_case_notes");
+        note.HasKey(e => e.Id);
+        note.Property(e => e.Id).ValueGeneratedNever();
+        note.Property(e => e.NoteType).HasConversion<int>();
+        note.Property(e => e.Body).HasMaxLength(2000).IsRequired();
+        note.HasIndex(e => e.RecoveryRequestId).HasDatabaseName("ix_recovery_case_notes_request");
 
         var device = modelBuilder.Entity<UserDevice>();
         device.ToTable("user_devices");

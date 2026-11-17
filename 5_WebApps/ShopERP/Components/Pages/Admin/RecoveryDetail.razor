@@ -1,0 +1,343 @@
+@page "/admin/recovery/{RequestId:guid}"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject AtrsAdminApiClient AtrsApi
+@inject NavigationManager Nav
+
+@* ATRS-10 A16 (Wave 5): recovery review — 9 sections: request info, risk decision (policy version),
+   devices, identity links, security timeline, internal notes (recommend), actions.
+   KHÔNG lộ evidence payload / secret / recovery codes; RBAC enforce ở vanan-atrs. *@
+
+@attribute [Authorize(Policy = "StaffOrAbove")]
+
+<div class="recovery-detail-page">
+    <header class="page-header d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-arrow-counterclockwise"></i> Xét duyệt khôi phục <code>@(RequestId.ToString()[..8])</code></h1>
+        <VanAButton Variant="secondary" OnClick="@(() => Nav.NavigateTo("/admin/recovery"))">← Hàng chờ</VanAButton>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <VanAAlert Type="danger" Message="@_error" OnClose="() => _error = null" />
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner-border"></div></div>
+    }
+    else if (_detail is null)
+    {
+        <VanAAlert Type="warning" Message="Không tìm thấy yêu cầu khôi phục (hoặc bạn không có quyền)." />
+    }
+    else
+    {
+        <div class="row g-3">
+            @* ── Section 1: request info ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Thông tin yêu cầu">
+                    <dl class="row mb-0">
+                        <dt class="col-4">Loại</dt><dd class="col-8">@_detail.RequestType</dd>
+                        <dt class="col-4">Trạng thái</dt><dd class="col-8"><span class="badge @StatusBadge(_detail.Status)">@_detail.Status</span></dd>
+                        <dt class="col-4">Khách hàng</dt><dd class="col-8"><code>@Mask(_detail.TrustSubjectId)</code></dd>
+                        <dt class="col-4">Gửi lúc</dt><dd class="col-8">@_detail.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        <dt class="col-4">Phụ trách</dt><dd class="col-8">@(_detail.AssignedReviewerId?.ToString()[..8] ?? "Chưa gán")</dd>
+                        <dt class="col-4">Người duyệt</dt><dd class="col-8">@(_detail.ReviewerId?.ToString()[..8] ?? "—")</dd>
+                        <dt class="col-4">Reason code</dt><dd class="col-8">@(_detail.DecisionReasonCode ?? "—")</dd>
+                        @if (_detail.CompletedAt.HasValue)
+                        {
+                            <dt class="col-4">Hoàn tất</dt><dd class="col-8">@_detail.CompletedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        }
+                    </dl>
+                </VanACard>
+            </div>
+
+            @* ── Section 2: risk decision + policy version ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Quyết định rủi ro (policy engine)">
+                    @if (_detail.Risk is null)
+                    {
+                        <p class="text-muted mb-0">Chưa có đánh giá tự động (chờ verify code).</p>
+                    }
+                    else
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-4">Quyết định</dt><dd class="col-8"><span class="badge bg-secondary">@_detail.Risk.Kind</span></dd>
+                            <dt class="col-4">Policy version</dt><dd class="col-8"><code data-testid="policy-version">@_detail.Risk.PolicyVersion</code></dd>
+                            <dt class="col-4">Reason codes</dt>
+                            <dd class="col-8">
+                                @foreach (var rc in _detail.Risk.ReasonCodes)
+                                {
+                                    <span class="badge bg-light text-dark me-1">@rc</span>
+                                }
+                            </dd>
+                        </dl>
+                    }
+                </VanACard>
+            </div>
+
+            @* ── Section 3: devices ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Thiết bị của khách hàng">
+                    @if (_detail.Devices.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Chưa có thiết bị đăng ký.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Tên</th><th>Nền tảng</th><th>Trạng thái</th><th>Cuối cùng thấy</th></tr></thead>
+                            <tbody>
+                                @foreach (var d in _detail.Devices)
+                                {
+                                    <tr>
+                                        <td>@(d.FriendlyName ?? d.DeviceId[..Math.Min(8, d.DeviceId.Length)])</td>
+                                        <td>@(d.Platform ?? d.DeviceType)</td>
+                                        <td><span class="badge @DeviceBadge(d.Status)">@d.Status</span></td>
+                                        <td>@d.LastSeenAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </VanACard>
+            </div>
+
+            @* ── Section 4: identity links ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Danh tính liên kết">
+                    @if (_detail.SubjectLinks.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Chưa có identity link.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Loại</th><th>Identity</th><th>Tenant</th></tr></thead>
+                            <tbody>
+                                @foreach (var l in _detail.SubjectLinks)
+                                {
+                                    <tr>
+                                        <td>@l.IdentityType</td>
+                                        <td><code>@(l.IdentityId.ToString()[..8])</code></td>
+                                        <td>@(l.TenantId?.ToString()[..8] ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </VanACard>
+            </div>
+
+            @* ── Section 5: security timeline (sanitized) ── *@
+            <div class="col-lg-12">
+                <VanACard Title="Dòng thời gian bảo mật (20 sự kiện gần nhất)">
+                    @if (_detail.RecentEvents.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Không có sự kiện bảo mật.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0" data-testid="recovery-events-table">
+                            <thead><tr><th>Thời điểm</th><th>Sự kiện</th><th>Kết quả</th><th>Tác nhân</th></tr></thead>
+                            <tbody>
+                                @foreach (var e in _detail.RecentEvents)
+                                {
+                                    <tr>
+                                        <td>@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td><code>@e.EventType</code></td>
+                                        <td><span class="badge @OutcomeBadge(e.Outcome)">@e.Outcome</span></td>
+                                        <td>@e.ActorType</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </VanACard>
+            </div>
+
+            @* ── Section 6: internal notes ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Ghi chú nội bộ / khuyến nghị">
+                    @if (_detail.Notes.Count == 0)
+                    {
+                        <p class="text-muted">Chưa có ghi chú.</p>
+                    }
+                    else
+                    {
+                        <div class="mb-3" data-testid="recovery-notes">
+                            @foreach (var n in _detail.Notes)
+                            {
+                                <div class="border rounded p-2 mb-2 bg-light">
+                                    <div class="small text-muted">
+                                        <span class="badge @NoteBadge(n.NoteType)">@n.NoteType</span>
+                                        bởi <code>@(n.AuthorId.ToString()[..8])</code> · @n.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                    </div>
+                                    <div class="mt-1">@n.Body</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div class="d-flex gap-2">
+                        <input class="form-control form-control-sm" placeholder="Ghi chú nội bộ…" @bind="_noteBody" />
+                        <select class="form-select form-select-sm" style="width:auto" @bind="_noteType">
+                            <option value="INTERNAL_NOTE">Ghi chú</option>
+                            <option value="RECOMMEND_APPROVE">Khuyến nghị duyệt</option>
+                            <option value="RECOMMEND_REJECT">Khuyến nghị từ chối</option>
+                        </select>
+                        <VanAButton Variant="secondary" Disabled="string.IsNullOrWhiteSpace(_noteBody)" OnClick="AddNoteAsync">Thêm</VanAButton>
+                    </div>
+                </VanACard>
+            </div>
+
+            @* ── Section 7: actions ── *@
+            <div class="col-lg-6">
+                <VanACard Title="Thao tác">
+                    <div class="d-flex flex-wrap gap-2">
+                        <VanAButton Variant="secondary" OnClick="AssignToMeAsync">Gán cho tôi</VanAButton>
+                        @if (_detail.Status is "PENDING_REVIEW" or "PENDING_USER_ACTION" or "AUTOMATED_CHECK" or "SUBMITTED")
+                        {
+                            <VanAButton Variant="warning" OnClick="RequestInfoAsync">Yêu cầu thêm thông tin</VanAButton>
+                        }
+                        @if (_detail.Status is "PENDING_REVIEW" or "PENDING_USER_ACTION")
+                        {
+                            <VanAButton Variant="danger" OnClick="EscalateAsync">Chuyển cấp (escalate)</VanAButton>
+                        }
+                        @if (_detail.Status == "ESCALATED")
+                        {
+                            <VanAButton Variant="secondary" OnClick="ReturnToReviewAsync">Trả về xem xét</VanAButton>
+                        }
+                        @if (_detail.Status is "PENDING_REVIEW" or "AUTOMATED_CHECK" or "ESCALATED")
+                        {
+                            <VanAButton Variant="success" OnClick="ApproveAsync">Duyệt</VanAButton>
+                        }
+                        @if (_detail.Status is "PENDING_REVIEW" or "PENDING_USER_ACTION" or "AUTOMATED_CHECK" or "ESCALATED")
+                        {
+                            <div class="d-flex gap-2 w-100 mt-2">
+                                <input class="form-control form-control-sm" placeholder="Lý do từ chối (bắt buộc)…" @bind="_rejectReason" />
+                                <VanAButton Variant="dark" Disabled="string.IsNullOrWhiteSpace(_rejectReason)" OnClick="RejectAsync">Từ chối</VanAButton>
+                            </div>
+                        }
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid RequestId { get; set; }
+
+    private AtrsAdminApiClient.RecoveryStaffDetail? _detail;
+    private bool _loading = true;
+    private string? _error;
+    private string? _noteBody;
+    private string _noteType = "INTERNAL_NOTE";
+    private string? _rejectReason;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _detail = await AtrsApi.GetRecoveryDetailAsync(RequestId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Không tải được chi tiết: {ex.Message}";
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task AssignToMeAsync()
+    {
+        var me = await AtrsApi.CurrentUserIdAsync();
+        await RunActionAsync(async () => { await AtrsApi.AssignRecoveryAsync(RequestId, me); });
+    }
+
+    private async Task RequestInfoAsync()
+        => await RunActionAsync(async () => { await AtrsApi.RequestRecoveryInfoAsync(RequestId); });
+
+    private async Task EscalateAsync()
+        => await RunActionAsync(async () => { await AtrsApi.EscalateRecoveryAsync(RequestId); });
+
+    private async Task ReturnToReviewAsync()
+        => await RunActionAsync(async () => { await AtrsApi.ReturnRecoveryToReviewAsync(RequestId); });
+
+    private async Task ApproveAsync()
+        => await RunActionAsync(async () => { await AtrsApi.ApproveRecoveryAsync(RequestId); });
+
+    private async Task RejectAsync()
+    {
+        var reason = _rejectReason?.Trim();
+        if (string.IsNullOrWhiteSpace(reason)) return;
+        await RunActionAsync(async () => { await AtrsApi.RejectRecoveryAsync(RequestId, reason); });
+        _rejectReason = null;
+    }
+
+    private async Task AddNoteAsync()
+    {
+        var body = _noteBody?.Trim();
+        if (string.IsNullOrWhiteSpace(body)) return;
+        await RunActionAsync(async () =>
+        {
+            await AtrsApi.AddRecoveryNoteAsync(RequestId, body, _noteType);
+            _noteBody = null;
+        });
+    }
+
+    private async Task RunActionAsync(Func<Task> action)
+    {
+        _error = null;
+        try
+        {
+            await action();
+            await LoadAsync(); // reload state từ backend (authoritative)
+        }
+        catch (Exception ex)
+        {
+            _error = $"Thao tác thất bại: {ex.Message}";
+        }
+    }
+
+    private static string Mask(Guid id) => $"{id.ToString()[..8]}…";
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "SUBMITTED" or "AUTOMATED_CHECK" => "bg-info text-dark",
+        "PENDING_REVIEW" or "PENDING_USER_ACTION" => "bg-warning text-dark",
+        "ESCALATED" => "bg-danger",
+        "APPROVED" or "COMPLETED" => "bg-success",
+        "REJECTED" or "CANCELLED" or "EXPIRED" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string DeviceBadge(string status) => status switch
+    {
+        "ACTIVE" => "bg-success",
+        "SUSPICIOUS" or "LOST" => "bg-warning text-dark",
+        "REVOKED" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string OutcomeBadge(string outcome) => outcome switch
+    {
+        "Success" => "bg-success",
+        "Failure" or "Blocked" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string NoteBadge(string noteType) => noteType switch
+    {
+        "RECOMMEND_APPROVE" => "bg-success",
+        "RECOMMEND_REJECT" => "bg-danger",
+        "ESCALATION_NOTE" => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

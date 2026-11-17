@@ -191,6 +191,179 @@ public sealed class RecoveryCaseManagerTests : IDisposable
         Assert.Equal(RecoveryRequestStatus.APPROVED.ToString(), cancelled!.Status);
     }
 
+    // ── Wave 5 (A14/A15/A16): staff ops — assign / note / escalate / queue page / detail / dashboard ──
+
+    [Fact]
+    public async Task Assign_SetsAssignedReviewer()
+    {
+        var subjectId = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-a1");
+        var item = await _manager.AssignAsync(submitted.Request.Id, staffId);
+        Assert.NotNull(item);
+        Assert.Equal(staffId, item.AssignedReviewerId);
+        Assert.NotNull(item.AssignedAt);
+    }
+
+    [Fact]
+    public async Task Assign_TerminalRequest_ReturnsNull()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-a2");
+        await _manager.ManualApproveAsync(submitted.Request.Id, reviewerId: Guid.NewGuid());
+        var item = await _manager.AssignAsync(submitted.Request.Id, Guid.NewGuid());
+        Assert.Null(item);
+    }
+
+    [Fact]
+    public async Task AddNote_StoresNoteAndAudits()
+    {
+        var subjectId = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-n1");
+        var note = await _manager.AddNoteAsync(submitted.Request.Id, staffId, "Kiểm tra giấy tờ tuỳ thân", RecoveryNoteType.RECOMMEND_APPROVE);
+
+        Assert.Equal(staffId, note.AuthorId);
+        Assert.Equal(RecoveryNoteType.RECOMMEND_APPROVE.ToString(), note.NoteType);
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e =>
+            e.EventType == "recovery.note_added" && e.ActorId == staffId.ToString() && e.TrustSubjectId == subjectId));
+    }
+
+    [Fact]
+    public async Task Escalate_ThenReturnToReview()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.COMPROMISED, "idem-e1");
+        // Bad code → AUTOMATED_CHECK → request-info → PENDING_USER_ACTION → escalate hợp lệ.
+        await _manager.VerifyCodePathAsync(submitted.Request.Id, "WRONG-CODE", deviceId: null);
+        await _manager.RequestMoreInfoAsync(submitted.Request.Id, Guid.NewGuid());
+
+        var escalated = await _manager.EscalateAsync(submitted.Request.Id, Guid.NewGuid());
+        Assert.Equal(RecoveryRequestStatus.ESCALATED.ToString(), escalated.Status);
+
+        var returned = await _manager.ReturnToReviewAsync(submitted.Request.Id, Guid.NewGuid());
+        Assert.Equal(RecoveryRequestStatus.PENDING_REVIEW.ToString(), returned.Status);
+    }
+
+    [Fact]
+    public async Task Escalate_FromSubmitted_Throws()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-e2");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _manager.EscalateAsync(submitted.Request.Id, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task QueuePage_ReturnsTotalAndSlaFlag()
+    {
+        var subjectId = Guid.NewGuid();
+        await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-q1");
+
+        var page = await _manager.ListQueuePageAsync(new RecoveryQueueQuery(Take: 50));
+        Assert.Single(page.Items);
+        Assert.Equal(1, page.Total);
+        // Request vừa tạo → age < 24h → không SLA breach.
+        Assert.False(page.Items[0].SlaBreached);
+        Assert.True(page.Items[0].AgeHours >= 0);
+    }
+
+    [Fact]
+    public async Task QueuePage_FiltersByStatusAndSubject()
+    {
+        var subjectA = Guid.NewGuid();
+        var subjectB = Guid.NewGuid();
+        await _manager.SubmitAsync(subjectA, RecoveryRequestType.LOST_DEVICE, "idem-q2");
+        await _manager.SubmitAsync(subjectB, RecoveryRequestType.NO_CREDENTIAL, "idem-q3");
+
+        var bySubject = await _manager.ListQueuePageAsync(new RecoveryQueueQuery(SubjectId: subjectA, Take: 50));
+        Assert.Single(bySubject.Items);
+        Assert.Equal(subjectA, bySubject.Items[0].TrustSubjectId);
+
+        var byType = await _manager.ListQueuePageAsync(new RecoveryQueueQuery(RequestType: "NO_CREDENTIAL", Take: 50));
+        Assert.Single(byType.Items);
+        Assert.Equal(subjectB, byType.Items[0].TrustSubjectId);
+    }
+
+    [Fact]
+    public async Task StaffDetail_IncludesNotesDevicesLinksAndAuditsView()
+    {
+        var subjectId = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        _db.TrustSubjects.Add(new TrustSubject(subjectId, null));
+        _db.TrustSubjectLinks.Add(new TrustSubjectLink(Guid.NewGuid(), subjectId, TrustIdentityType.Customer, Guid.NewGuid(), tenantId: Guid.NewGuid()));
+        _db.UserDevices.Add(new UserDevice(Guid.NewGuid(), subjectId, "dev-1", RegistrationMethod.INSTALLATION_ID, friendlyName: "iPhone của khách"));
+        await _db.SaveChangesAsync();
+
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-d1");
+        await _manager.AddNoteAsync(submitted.Request.Id, staffId, "note nội bộ", RecoveryNoteType.INTERNAL_NOTE);
+        await _manager.VerifyCodePathAsync(submitted.Request.Id, StubRecoveryCodeService.GoodCode, deviceId: null);
+
+        var detail = await _manager.GetStaffDetailAsync(submitted.Request.Id, staffId);
+        Assert.NotNull(detail);
+        Assert.Single(detail.Notes);
+        Assert.Single(detail.SubjectLinks);
+        Assert.Single(detail.Devices);
+        Assert.Equal("iPhone của khách", detail.Devices[0].FriendlyName);
+        Assert.NotNull(detail.Risk);
+        Assert.Equal(RiskPolicyEngine.PolicyVersion, detail.Risk.PolicyVersion);
+        Assert.Contains("routine", detail.Risk.ReasonCodes);
+        // Audit staff_view đã ghi.
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e =>
+            e.EventType == "recovery.staff_view" && e.ActorId == staffId.ToString()));
+    }
+
+    [Fact]
+    public async Task StaffDetail_DoesNotExposeSecretsOrEvidencePayloads()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-d2",
+            evidenceSummaryJson: "{\"secretAnswer\":\"hacker-secret\",\"recoveryCode\":\"XXXXX-XXXXX\"}");
+
+        var detail = await _manager.GetStaffDetailAsync(submitted.Request.Id, Guid.NewGuid());
+        Assert.NotNull(detail);
+        // Evidence payload KHÔNG được expose qua staff DTO (compile-time guarantee).
+        Assert.Null(typeof(RecoveryStaffDetailDto).GetProperty("EvidenceSummaryJson"));
+        // RecentEvents sanitized — chỉ field an toàn, không payload JSON.
+        foreach (var evt in detail.RecentEvents)
+        {
+            Assert.NotNull(evt.EventType);
+            Assert.NotNull(evt.Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task StaffActions_WriteAuditEvents()
+    {
+        var subjectId = Guid.NewGuid();
+        var staffId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-aud1");
+        await _manager.ManualApproveAsync(submitted.Request.Id, staffId);
+
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e => e.EventType == "recovery.approved" && e.ActorId == staffId.ToString()));
+
+        var submitted2 = await _manager.SubmitAsync(subjectId, RecoveryRequestType.NO_CREDENTIAL, "idem-aud2");
+        await _manager.ManualRejectAsync(submitted2.Request.Id, staffId, "insufficient-evidence");
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e => e.EventType == "recovery.rejected"));
+
+        var submitted3 = await _manager.SubmitAsync(subjectId, RecoveryRequestType.COMPROMISED, "idem-aud3");
+        await _manager.VerifyCodePathAsync(submitted3.Request.Id, "WRONG-CODE", deviceId: null); // → AUTOMATED_CHECK
+        await _manager.RequestMoreInfoAsync(submitted3.Request.Id, staffId);
+        Assert.True(await _db.AccountSecurityEvents.AnyAsync(e => e.EventType == "recovery.info_requested"));
+    }
+
+    [Fact]
+    public async Task Dashboard_CountsRealData()
+    {
+        var subjectId = Guid.NewGuid();
+        await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-dash1"); // SUBMITTED → new24h + awaiting? (SUBMITTED không tính awaiting)
+
+        var dash = await _manager.GetDashboardAsync();
+        Assert.True(dash.NewRecovery24h >= 1);
+        Assert.Equal(0, dash.AwaitingReview); // chưa có PENDING_REVIEW
+        Assert.True(dash.SlaOverdue == 0);
+        Assert.True(dash.RecentSecurityIncidents24h >= 0);
+    }
+
     private sealed class RecordingBumpNotifier : ITokenVersionBumpNotifier
     {
         public List<(Guid UserId, string IdentityType)> Calls { get; } = [];

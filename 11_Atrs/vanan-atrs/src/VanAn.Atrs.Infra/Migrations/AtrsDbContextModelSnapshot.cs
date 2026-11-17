@@ -633,6 +633,43 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("personal_evidence_items", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCaseNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("NoteType")
+                        .HasColumnType("integer")
+                        .HasColumnName("note_type");
+
+                    b.Property<Guid>("RecoveryRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recovery_request_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recovery_case_notes");
+
+                    b.HasIndex("RecoveryRequestId")
+                        .HasDatabaseName("ix_recovery_case_notes_request");
+
+                    b.ToTable("recovery_case_notes", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -702,6 +739,14 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid?>("AssignedReviewerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_reviewer_id");
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")

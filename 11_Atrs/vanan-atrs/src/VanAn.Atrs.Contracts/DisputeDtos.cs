@@ -146,16 +146,5 @@ public sealed record DisputeQueueQuery(
     int Skip = 0,
     int Take = 50);
 
-/// <summary>Recovery queue item (A15) — masked.</summary>
-public sealed record RecoveryQueueItemDto(
-    Guid Id,
-    string RequestType,
-    string Status,
-    Guid TrustSubjectId,
-    Guid? ReviewerId,
-    string? DecisionReasonCode,
-    DateTime CreatedAt,
-    DateTime? CompletedAt);
-
 /// <summary>Kết quả submit dispute — Existing=true khi anti-duplicate/idempotent hit.</summary>
 public sealed record SubmitDisputeResultDto(DisputeCaseSummaryDto Case, bool Existing);

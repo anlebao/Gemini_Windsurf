@@ -26,7 +26,20 @@ public interface IRecoveryCaseManager
     Task<RecoveryRequestSummaryDto> ManualApproveAsync(Guid requestId, Guid reviewerId, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> ManualRejectAsync(Guid requestId, Guid reviewerId, string reasonCode, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> RequestMoreInfoAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
-    Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListQueueAsync(string? status, int skip, int take, CancellationToken ct = default);
+    /// <summary>A15 — recovery queue: server-side filter + paging + total + SLA.</summary>
+    Task<RecoveryQueuePageDto> ListQueuePageAsync(RecoveryQueueQuery query, CancellationToken ct = default);
+    /// <summary>A18-style — staff detail: request + risk + notes + devices + links + timeline (audit staff_view).</summary>
+    Task<RecoveryStaffDetailDto?> GetStaffDetailAsync(Guid requestId, Guid? staffUserId = null, CancellationToken ct = default);
+    /// <summary>A15/A16 — assign case cho staff (case.assign).</summary>
+    Task<RecoveryQueueItemDto?> AssignAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
+    /// <summary>A16 — add internal note / recommendation (recovery.review).</summary>
+    Task<RecoveryCaseNoteDto> AddNoteAsync(Guid requestId, Guid authorId, string body, RecoveryNoteType noteType, CancellationToken ct = default);
+    /// <summary>A16 — escalate lên cấp xử lý cao hơn (recovery.review).</summary>
+    Task<RecoveryRequestSummaryDto> EscalateAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
+    /// <summary>A16 — de-escalate: trả case về PENDING_REVIEW.</summary>
+    Task<RecoveryRequestSummaryDto> ReturnToReviewAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
+    /// <summary>A14 — operations dashboard aggregate (data thật, không hardcode).</summary>
+    Task<AtrsDashboardDto> GetDashboardAsync(CancellationToken ct = default);
     /// <summary>Wave 4 (U10): recovery requests của chính subject — resume pending.</summary>
     Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListMineAsync(Guid trustSubjectId, CancellationToken ct = default);
     /// <summary>Wave 4 (U10): user tự huỷ request đang mở (SUBMITTED/AUTOMATED_CHECK/PENDING_USER_ACTION).</summary>
@@ -46,7 +59,27 @@ public sealed class RecoveryCaseManager(
         RecoveryRequestStatus.SUBMITTED,
         RecoveryRequestStatus.AUTOMATED_CHECK,
         RecoveryRequestStatus.PENDING_USER_ACTION,
-        RecoveryRequestStatus.PENDING_REVIEW
+        RecoveryRequestStatus.PENDING_REVIEW,
+        RecoveryRequestStatus.ESCALATED
+    ];
+
+    /// <summary>SLA (A15/A14): pending > 24h = breached (không hardcode ở UI — backend tính).</summary>
+    public const double SlaThresholdHours = 24;
+
+    private static readonly DisputeCaseStatus[] TerminalDisputeStatuses =
+    [
+        DisputeCaseStatus.RESOLVED,
+        DisputeCaseStatus.REJECTED,
+        DisputeCaseStatus.CLOSED
+    ];
+
+    private static readonly RecoveryRequestStatus[] TerminalRecoveryStatuses =
+    [
+        RecoveryRequestStatus.APPROVED,
+        RecoveryRequestStatus.REJECTED,
+        RecoveryRequestStatus.CANCELLED,
+        RecoveryRequestStatus.EXPIRED,
+        RecoveryRequestStatus.COMPLETED
     ];
 
     public async Task<SubmitRecoveryResultDto> SubmitAsync(
@@ -125,6 +158,8 @@ public sealed class RecoveryCaseManager(
         if (request.Status == RecoveryRequestStatus.SUBMITTED)
             request.StartAutomatedCheck(); // reviewer xử lý case mới: vào automated check trước
         request.Approve(reviewerId);
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.approved", reviewerId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
         await db.SaveChangesAsync(ct);
         return ToDto(request);
     }
@@ -135,6 +170,8 @@ public sealed class RecoveryCaseManager(
         if (request.Status == RecoveryRequestStatus.SUBMITTED)
             request.StartAutomatedCheck();
         request.Reject(reviewerId, reasonCode);
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.rejected", reviewerId,
+            $"{{\"requestId\":\"{requestId:N}\",\"reasonCode\":\"{reasonCode}\"}}", ct);
         await db.SaveChangesAsync(ct);
         return ToDto(request);
     }
@@ -144,20 +181,157 @@ public sealed class RecoveryCaseManager(
     {
         var request = await LoadAsync(requestId, ct);
         request.RequestMoreInfo();
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.info_requested", staffUserId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
         await db.SaveChangesAsync(ct);
         return ToDto(request);
     }
 
-    /// <summary>ATRS-10 subset (A15): recovery queue — server-side filter + paging.</summary>
-    public async Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListQueueAsync(string? status, int skip, int take, CancellationToken ct = default)
+    /// <summary>A15 — recovery queue: server-side filter + paging + total + SLA indicator.</summary>
+    public async Task<RecoveryQueuePageDto> ListQueuePageAsync(RecoveryQueueQuery query, CancellationToken ct = default)
     {
+        var now = DateTime.UtcNow;
         var q = db.RecoveryRequests.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<RecoveryRequestStatus>(status, true, out var st))
+        if (!string.IsNullOrWhiteSpace(query.Status) && Enum.TryParse<RecoveryRequestStatus>(query.Status, true, out var st))
             q = q.Where(r => r.Status == st);
-        var items = await q.OrderBy(r => r.CreatedAt)
-            .Skip(Math.Max(0, skip)).Take(Math.Clamp(take, 1, 200))
+        if (!string.IsNullOrWhiteSpace(query.RequestType) && Enum.TryParse<RecoveryRequestType>(query.RequestType, true, out var rt))
+            q = q.Where(r => r.RequestType == rt);
+        if (query.AssignedTo.HasValue)
+            q = q.Where(r => r.AssignedReviewerId == query.AssignedTo.Value);
+        if (query.Unassigned)
+            q = q.Where(r => r.AssignedReviewerId == null);
+        if (query.SubjectId.HasValue)
+            q = q.Where(r => r.TrustSubjectId == query.SubjectId.Value);
+
+        var total = await q.CountAsync(ct);
+        var items = await q.OrderByDescending(r => r.CreatedAt)
+            .Skip(Math.Max(0, query.Skip)).Take(Math.Clamp(query.Take, 1, 200))
             .ToListAsync(ct);
-        return items.Select(ToDto).ToList();
+        return new RecoveryQueuePageDto(
+            items.Select(r => ToQueueItem(r, now)).ToList(),
+            total, Math.Max(0, query.Skip), Math.Clamp(query.Take, 1, 200));
+    }
+
+    /// <summary>A16 — staff detail: request + risk + notes + devices + links + timeline (audit staff_view).</summary>
+    public async Task<RecoveryStaffDetailDto?> GetStaffDetailAsync(Guid requestId, Guid? staffUserId = null, CancellationToken ct = default)
+    {
+        var request = await db.RecoveryRequests.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == requestId, ct);
+        if (request is null)
+            return null;
+
+        // FR-014: mọi staff access case → AccountSecurityEvent.
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.staff_view", staffUserId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
+
+        var notes = await db.RecoveryCaseNotes.AsNoTracking()
+            .Where(n => n.RecoveryRequestId == requestId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(100)
+            .ToListAsync(ct);
+        var devices = await db.UserDevices.AsNoTracking()
+            .Where(d => d.TrustSubjectId == request.TrustSubjectId)
+            .OrderByDescending(d => d.LastSeenAt)
+            .Take(50)
+            .ToListAsync(ct);
+        var links = await db.TrustSubjectLinks.AsNoTracking()
+            .Where(l => l.TrustSubjectId == request.TrustSubjectId)
+            .OrderByDescending(l => l.CreatedAt)
+            .Take(20)
+            .ToListAsync(ct);
+        var events = await db.AccountSecurityEvents.AsNoTracking()
+            .Where(e => e.TrustSubjectId == request.TrustSubjectId)
+            .OrderByDescending(e => e.OccurredAt)
+            .Take(20)
+            .ToListAsync(ct);
+
+        return new RecoveryStaffDetailDto(
+            request.Id, request.RequestType.ToString(), request.Status.ToString(), request.TrustSubjectId,
+            request.NewDeviceId,
+            request.ReviewerId?.ToString(), request.AssignedReviewerId, request.AssignedAt,
+            request.DecisionReasonCode, request.CreatedAt, request.CompletedAt,
+            ParseRisk(request.RiskDecisionJson),
+            notes.Select(n => new RecoveryCaseNoteDto(n.Id, n.AuthorId, n.NoteType.ToString(), n.Body, n.CreatedAt)).ToList(),
+            devices.Select(d => new RecoveryStaffDeviceDto(
+                d.Id, d.DeviceId, d.FriendlyName, d.Platform, d.DeviceType.ToString(), d.Status.ToString(),
+                d.FirstSeenAt, d.LastSeenAt)).ToList(),
+            links.Select(l => new RecoverySubjectLinkDto(l.IdentityType.ToString(), l.IdentityId, l.TenantId)).ToList(),
+            events.Select(e => new RecoverySecurityEventDto(e.EventType, e.OccurredAt, e.Outcome.ToString(), e.ActorType.ToString())).ToList());
+    }
+
+    /// <summary>A15/A16 — assign case cho staff.</summary>
+    public async Task<RecoveryQueueItemDto?> AssignAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default)
+    {
+        var request = await db.RecoveryRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct);
+        if (request is null)
+            return null;
+        try
+        {
+            request.Assign(staffUserId);
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // terminal — không assign được
+        }
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.assigned", staffUserId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
+        await db.SaveChangesAsync(ct);
+        return ToQueueItem(request, DateTime.UtcNow);
+    }
+
+    /// <summary>A16 — add internal note / recommendation (recommend KHÔNG phải quyết định cuối).</summary>
+    public async Task<RecoveryCaseNoteDto> AddNoteAsync(Guid requestId, Guid authorId, string body, RecoveryNoteType noteType, CancellationToken ct = default)
+    {
+        var request = await LoadAsync(requestId, ct);
+        var note = new RecoveryCaseNote(Guid.NewGuid(), requestId, authorId, noteType, body);
+        db.RecoveryCaseNotes.Add(note);
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.note_added", authorId,
+            $"{{\"requestId\":\"{requestId:N}\",\"noteType\":\"{noteType}\"}}", ct);
+        await db.SaveChangesAsync(ct);
+        return new RecoveryCaseNoteDto(note.Id, note.AuthorId, note.NoteType.ToString(), note.Body, note.CreatedAt);
+    }
+
+    /// <summary>A16 — escalate lên cấp xử lý cao hơn.</summary>
+    public async Task<RecoveryRequestSummaryDto> EscalateAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default)
+    {
+        var request = await LoadAsync(requestId, ct);
+        request.Escalate();
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.escalated", staffUserId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
+        await db.SaveChangesAsync(ct);
+        return ToDto(request);
+    }
+
+    /// <summary>A16 — de-escalate: trả case về PENDING_REVIEW.</summary>
+    public async Task<RecoveryRequestSummaryDto> ReturnToReviewAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default)
+    {
+        var request = await LoadAsync(requestId, ct);
+        request.ReturnToReview();
+        await RecordStaffEventAsync(request.TrustSubjectId, "recovery.deescalated", staffUserId,
+            $"{{\"requestId\":\"{requestId:N}\"}}", ct);
+        await db.SaveChangesAsync(ct);
+        return ToDto(request);
+    }
+
+    /// <summary>A14 — operations dashboard aggregate (data thật, không hardcode).</summary>
+    public async Task<AtrsDashboardDto> GetDashboardAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var since24h = now.AddHours(-24);
+        var slaCutoff = now.AddHours(-SlaThresholdHours);
+
+        var newRecovery24h = await db.RecoveryRequests.CountAsync(r => r.CreatedAt >= since24h, ct);
+        var awaitingReview = await db.RecoveryRequests.CountAsync(r => r.Status == RecoveryRequestStatus.PENDING_REVIEW, ct);
+        var escalated = await db.RecoveryRequests.CountAsync(r => r.Status == RecoveryRequestStatus.ESCALATED, ct);
+        var needsInfo = await db.RecoveryRequests.CountAsync(r => r.Status == RecoveryRequestStatus.PENDING_USER_ACTION, ct);
+        var openDisputes = await db.DisputeCases.CountAsync(c => !TerminalDisputeStatuses.Contains(c.Status), ct);
+        var slaOverdue = await db.RecoveryRequests.CountAsync(
+            r => !TerminalRecoveryStatuses.Contains(r.Status) && r.CreatedAt < slaCutoff, ct);
+        var incidents24h = await db.AccountSecurityEvents.CountAsync(
+            e => e.OccurredAt >= since24h && (e.Outcome == SecurityEventOutcome.Failure || e.Outcome == SecurityEventOutcome.Blocked), ct);
+
+        return new AtrsDashboardDto(
+            newRecovery24h, awaitingReview, escalated, needsInfo, openDisputes, slaOverdue, incidents24h, now);
     }
 
     /// <summary>U10: list recovery requests của subject (mới nhất trước, tối đa 50).</summary>
@@ -237,4 +411,43 @@ public sealed class RecoveryCaseManager(
             r.Id, r.RequestType.ToString(), r.Status.ToString(), r.TrustSubjectId,
             r.NewDeviceId, r.RiskDecisionJson,
             r.ReviewerId?.ToString(), r.DecisionReasonCode, r.CreatedAt, r.CompletedAt);
+
+    private static RecoveryQueueItemDto ToQueueItem(RecoveryRequest r, DateTime now)
+    {
+        var ageHours = (now - r.CreatedAt).TotalHours;
+        return new RecoveryQueueItemDto(
+            r.Id, r.RequestType.ToString(), r.Status.ToString(), r.TrustSubjectId,
+            r.NewDeviceId, r.ReviewerId, r.AssignedReviewerId, r.AssignedAt,
+            r.DecisionReasonCode, r.CreatedAt, r.CompletedAt,
+            Math.Round(ageHours, 1), !r.IsTerminal && ageHours > SlaThresholdHours);
+    }
+
+    private static RecoveryRiskSummaryDto? ParseRisk(string? riskDecisionJson)
+    {
+        if (string.IsNullOrWhiteSpace(riskDecisionJson))
+            return null;
+        try
+        {
+            var risk = JsonSerializer.Deserialize<RiskDecision>(riskDecisionJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return risk is null
+                ? null
+                : new RecoveryRiskSummaryDto(risk.Decision.ToString(), risk.PolicyVersion, risk.ReasonCodes.ToList());
+        }
+        catch (JsonException)
+        {
+            return null; // payload cũ/hỏng — không chặn staff review
+        }
+    }
+
+    private async Task RecordStaffEventAsync(
+        Guid trustSubjectId, string eventType, Guid? staffUserId, string? metadataJson, CancellationToken ct)
+    {
+        db.AccountSecurityEvents.Add(AccountSecurityEvent.Create(
+            Guid.NewGuid(), trustSubjectId, eventType, SecurityEventActorType.Staff,
+            staffUserId?.ToString(), sourceApplication: "vanan-atrs", deviceId: null,
+            sessionCorrelationId: null, SecurityEventOutcome.Success, null,
+            minimalMetadataJson: metadataJson));
+        await db.SaveChangesAsync(ct);
+    }
 }
