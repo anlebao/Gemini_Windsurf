@@ -26,6 +26,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<PushSubscription?> GetByIdAsync(Guid id)
         {
             return await _context.PushSubscriptions
+                .IgnoreQueryFilters()
                 .Where(s => s.Id == id && !s.IsDeleted)
                 .FirstOrDefaultAsync();
         }
@@ -33,6 +34,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IReadOnlyList<PushSubscription>> GetByCustomerIdAsync(Guid customerId)
         {
             return await _context.PushSubscriptions
+                .IgnoreQueryFilters()
                 .Where(s => s.CustomerId == customerId && !s.IsDeleted && s.IsActive)
                 .OrderByDescending(s => s.LastUsedAt)
                 .ToListAsync();
@@ -41,6 +43,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IReadOnlyList<PushSubscription>> GetAllActiveAsync()
         {
             return await _context.PushSubscriptions
+                .IgnoreQueryFilters()
                 .Where(s => !s.IsDeleted && s.IsActive)
                 .OrderByDescending(s => s.LastUsedAt)
                 .ToListAsync();
@@ -92,6 +95,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<int> DeleteExpiredAsync()
         {
             var expiredSubscriptions = await _context.PushSubscriptions
+                .IgnoreQueryFilters()
                 .Where(s => !s.IsDeleted && s.ExpiresAt < DateTime.UtcNow)
                 .ToListAsync();
 
@@ -107,6 +111,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             // Try to find existing active subscription
             var existing = await _context.PushSubscriptions
+                .IgnoreQueryFilters()
                 .Where(s => s.CustomerId == customerId && !s.IsDeleted && s.IsActive)
                 .FirstOrDefaultAsync();
 
