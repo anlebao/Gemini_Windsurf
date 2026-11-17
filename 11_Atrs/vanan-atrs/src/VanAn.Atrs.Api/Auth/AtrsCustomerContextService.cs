@@ -32,7 +32,7 @@ public sealed class AtrsCustomerContextService(
             if (status == AtrsCustomerTokenStatus.InvalidToken && IsValidDeviceId(deviceId))
             {
                 var guestSubjectId = await trustProfileService.GetOrCreateForDeviceAsync(deviceId!, ct: ct);
-                return new AtrsCustomerAuthResult(AtrsCustomerTokenStatus.GuestDevice, customerId: null, guestSubjectId, IsGuest: true);
+                return new AtrsCustomerAuthResult(AtrsCustomerTokenStatus.GuestDevice, CustomerId: null, guestSubjectId, IsGuest: true);
             }
             return new AtrsCustomerAuthResult(status, customerId, null);
         }

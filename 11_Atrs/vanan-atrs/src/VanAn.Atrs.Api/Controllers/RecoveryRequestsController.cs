@@ -35,20 +35,23 @@ public class RecoveryRequestsController(
         if (!Enum.TryParse<VanAn.Atrs.Domain.RecoveryRequestType>(request.RequestType, ignoreCase: true, out var requestType))
             return BadRequest(new { error = $"RequestType không hợp lệ: {request.RequestType}" });
 
-        var result = await recoveryCaseManager.SubmitAsync(
-            auth.TrustSubjectId.Value, requestType, request.IdempotencyKey,
-            request.NewDeviceId, request.EvidenceSummaryJson, ct);
-        logger.LogInformation("Recovery request {RequestId} submitted (existing={Existing}, guest={Guest})",
-            result.Request.Id, result.Existing, auth.IsGuest);
-        return Ok(result);
-    }
-    catch (InvalidOperationException ex) when (ex.Message.StartsWith("rate-limited", StringComparison.Ordinal))
-    {
-        return StatusCode(429, new { error = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Conflict(new { error = ex.Message });
+        try
+        {
+            var result = await recoveryCaseManager.SubmitAsync(
+                auth.TrustSubjectId.Value, requestType, request.IdempotencyKey,
+                request.NewDeviceId, request.EvidenceSummaryJson, ct);
+            logger.LogInformation("Recovery request {RequestId} submitted (existing={Existing}, guest={Guest})",
+                result.Request.Id, result.Existing, auth.IsGuest);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("rate-limited", StringComparison.Ordinal))
+        {
+            return StatusCode(429, new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]
