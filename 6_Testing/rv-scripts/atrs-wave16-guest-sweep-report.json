@@ -1,0 +1,58 @@
+{
+  "results": [
+    {
+      "name": "L1 health :5080",
+      "pass": true
+    },
+    {
+      "name": "L2 không token + không device → 401",
+      "pass": true
+    },
+    {
+      "name": "L2 device id format sai → 401",
+      "pass": true
+    },
+    {
+      "name": "L3 guest submit recovery → 200 (không email/SĐT)",
+      "pass": true
+    },
+    {
+      "name": "L3 guest notifications → 200 + recovery.initiated",
+      "pass": true
+    },
+    {
+      "name": "L3 guest recovery mine → 200 + có request",
+      "pass": true
+    },
+    {
+      "name": "L3 guest anti-enum request khác → 404",
+      "pass": true
+    },
+    {
+      "name": "L4 admin approve guest request → 200",
+      "pass": true
+    },
+    {
+      "name": "L4 guest nhận notification recovery.approved",
+      "pass": true
+    },
+    {
+      "name": "L5 cap: submit 2 → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 cap: submit 3 → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 cap: submit 4 → 429 (rate-limited)",
+      "pass": true
+    },
+    {
+      "name": "L6 metrics vẫn hợp lệ sau guest flow",
+      "pass": true
+    }
+  ],
+  "device": "rv-guest-1794922160379-448955",
+  "generatedAt": "2026-11-17T13:29:25.018Z"
+}

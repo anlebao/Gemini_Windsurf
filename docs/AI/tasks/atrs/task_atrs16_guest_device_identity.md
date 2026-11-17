@@ -49,3 +49,9 @@ tần suất recovery/ngày (đóng một phần FR-011 "giới hạn số reque
 ## 6. STATUS
 - **2026-11-17: CODE DONE + DEPLOYED + RV PASS** (chi tiết project_state).
 - **Phase B (residual):** FR-001 account lock/delete → ATRS sync (event bridge).
+## 6. RV RESULT (prod) — 13/13 PASS
+- Guest submit recovery 200 (chỉ X-Customer-Device-Id) + notification in-app + mine + anti-enum 404
+- Admin approve → guest nhận notification approved
+- Cap: submit 2,3 OK → submit 4 = **429** (rate-limited) — đóng FR-011 một phần
+- Regression: không auth → 401 · device format sai → 401 · metrics OK
+- Cleanup: các request test đã reject (REJECTED) — residue test data như các wave trước
