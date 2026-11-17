@@ -49,3 +49,16 @@ Lớp "personal evidence" cho recovery/dispute: user khai báo thông tin hỗ t
 
 - Per-tenant Customer → cùng 1 người nhiều row: evidence "của ai" phải resolve qua TrustSubject links (D1).
 - Legal: DOB/identity docs cần legal review trước collect (§11.15 UI SRS).
+
+## 7. IMPLEMENTATION STATUS (Wave 4 subset — 2026-11-17) — ✅ DEPLOYED + RV PASS
+
+**Status: SUBSET CLOSED** — evidence + consent subset done; **U04 Secret Challenge OMIT vĩnh viễn v1 theo D7** (nếu reopen → card mới).
+
+Đã làm (`f7a07347`):
+- `PersonalEvidenceItem` entity (FieldKey allowlist FULL_NAME/CONTACT_PHONE/RECOVERY_NOTE, Source=USER_DECLARED, VerificationStatus=UNVERIFIED — self-declared không bao giờ VERIFIED) + `EvidenceAttachment` + migration `AddPersonalEvidenceAndAttachments`.
+- `PersonalEvidenceService` + `PersonalEvidenceController`: GET/PUT `/personal-evidence` (masked values — phone `09******67`), GET/POST `/consents` + withdraw (purpose allowlist `evidence_processing`/`security_notifications`/`recovery_support`, idempotent grant).
+- U02 UI `/security/profile` consume contract; provenance + `PrivacyNoticeVersion` per-field.
+- Tests `PersonalEvidenceServiceTests` + `DisputeAttachmentServiceTests`; RV prod: masked + UNVERIFIED + consent lifecycle PASS (`atrs-wave4-sweep.mjs` 34/34).
+
+Chưa làm:
+- U04 secret challenge (D7 omit); field mở rộng DOB/identity docs cần legal review (§11.15) trước collect; `ValueRef` pointer-to-source optimization chưa cần (subset lưu value masked-server-side).

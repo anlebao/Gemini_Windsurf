@@ -53,3 +53,17 @@ Bộ màn hình user-facing nền tảng: giới thiệu bảo mật → hồ s�
 
 - WebAuthn trên iOS Safari/WASM — capability detection phải trung thực; fallback path rõ.
 - Nhiều KhachLink instances/profiles → gating sai = lộ security UI cho browse-only tenant.
+
+## 8. IMPLEMENTATION STATUS (Wave 2 subset + Wave 4 — 2026-11-16/17) — ✅ DEPLOYED + RV PASS
+
+**Status: CLOSED** (U04 Secret Challenge OMIT theo D7 — conditional, không implement v1).
+
+Đã làm:
+- Wave 2 subset (`0e682891` + deploy `e842c447`): `SecurityCenter.razor` /security (U06 status + U03 passkey WebAuthn + U05 recovery codes one-time + U07/U08 devices list/rename/revoke/mark-lost, step-up `X-Step-Up-Token`), `SecurityHttpService` + `webauthn.js`, Profile entry. RV prod sweep 40/40 + passkey ceremony thật (CDP virtual authenticator).
+- Wave 4 (`f7a07347` + fixes `9c9c1678`/`ad5814c8`/`13adb231`, CD ×4 SUCCESS): U01 `SecuritySetup.razor` /security/setup (honest assurance wording, "Để sau" persist `atrs_setup_dismissed` + dismissible prompt trên SecurityCenter khi BASIC) · U02 `SecurityProfile.razor` /security/profile (masked fields, USER_DECLARED/UNVERIFIED badge, consent grant/withdraw `evidence_processing`) · Profile + SecurityCenter entries bổ sung.
+- E2E Gate 4: `atrs-security-center.spec.ts` (Wave 2) + `atrs-wave4-security-ui.spec.ts` — **11/11 PASS prod** (guest 5 routes + authenticated flows + 375px overflow).
+
+Chưa làm / lưu ý wave sau:
+- U04 secret challenge: OMIT v1 (D7) — nếu reopen cần Argon2id + lockout + step-up.
+- Device "current-device marker" chỉ hiện khi reliable; rename/revoke đã có, report-lost qua mark-lost.
+- iOS Safari passkey manual check còn nợ (L5 manual, user).

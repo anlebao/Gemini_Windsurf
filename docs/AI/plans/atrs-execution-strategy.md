@@ -65,9 +65,10 @@ Cards: **ATRS-9 + ATRS-10 subset**
 - ATRS-10 subset: `AtrsPermissions` (2-3 nhóm: recovery reviewer/approver + dispute investigator/approver) + A15/A16/A17/A19 tối thiểu (queue + review + decision) — tái dùng pattern `LoyaltyReconcile.razor`.
 - Ledger read API mới (`GetEntriesAsync`) là thay đổi additive trên service stable → đưa vào đây, test regression loyalty full.
 
-### Wave 4 — UI hoàn thiện user (rail C)
+### Wave 4 — UI hoàn thiện user (rail C) — ✅ CLOSED 2026-11-17
 - **ATRS-11 full** (U01-U03) + **ATRS-12** (U09-U13) — contract từ wave 1-3 đã sẵn.
 - U03 passkey UI ghép wave 2 backend; dispute UI ghép wave 3.
+- **Kết quả:** code `f7a07347` + fixes `9c9c1678`/`ad5814c8`/`13adb231` deployed; scope mở rộng user-approved (ATRS-6 subset + recovery mine/cancel + D9 R2 attachments); RV prod PASS — sweep 34/34 + Playwright 11/11. Chi tiết `project_state.md` + card status sections.
 
 ### Wave 5 — Staff admin full + notifications
 - **ATRS-10 full** (A14 dashboard, A18 investigation, A20 audit explorer, A21 policy, A22 roles) + **ATRS-13** (notification templates + metrics/alerts).
@@ -86,8 +87,8 @@ Wave 1  ─ [Rail A] skeleton recovery (2+3+4+7+8 minimal) ───────
 Wave 2  ─ [Rail A] webauthn 5 ──────────────▶ RV#2
           [Rail C] UI 11-subset (contract wave 1) ─▶ merge cùng RV#2
 Wave 3  ─ [Rail B] dispute 9 + 10-subset ────▶ RV#3
-Wave 4  ─ [Rail C] UI 11-full + 12 ──────────▶ RV#4
-Wave 5  ─ [Rail B] 10-full + 13 ─────────────▶ RV#5
+Wave 4  ─ [Rail C] UI 11-full + 12 ──────────▶ RV#4  ✅ DONE 2026-11-17
+Wave 5  ─ [Rail B] 10-full + 13 ─────────────▶ RV#5  ◀ NEXT (session mới)
 Wave 6  ─ [All] 14 + 15 ─────────────────────▶ RV#6 + DoD
 ```
 - Rail A/B là backend (có thể 2 agent/session khác nhau, **file disjoint** — governance tránh đụng file).

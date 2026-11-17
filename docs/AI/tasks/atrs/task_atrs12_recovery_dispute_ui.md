@@ -60,3 +60,21 @@ Reference/category/transaction ref/dates/status/user-visible timeline/user descr
 - Unauthenticated recovery entry (ATRS-8 D-mở) → UI phải handle "chưa login" state gracefully.
 - Dispute "ví" — nếu user hiểu nhầm metering wallet → copy phải nói rõ điểm/quyền lợi (gap risk #4).
 - Attachments R2 signed URL expiry → UX download lại sau expiry.
+
+## 8. IMPLEMENTATION STATUS (Wave 4 — 2026-11-17) — ✅ DEPLOYED + RV PASS
+
+**Status: CLOSED.**
+
+Đã làm (`f7a07347` + fixes, deployed CD `44011778844`/`44017423897`):
+- U09 `Recovery.razor` /recovery — wizard 4 bước (problem → methods thật từ account → supporting info + privacy ack → review/submit); chỉ hiển thị method account có; `Idempotency-Key` persist sessionStorage; resume request active qua `GET /recovery-requests/mine`; không UI-side outcome prediction; states loading/guest/submitted/error.
+- U10 `RecoveryStatus.razor` /recovery/{id} — reference + backend statuses (SUBMITTED→COMPLETED/CANCELLED...), recovery-code verify path, cancel khi state cho phép, anti-enum 404.
+- U11 `Disputes.razor` /disputes — open vs "Đã kết thúc" sections, status badge map §9.1.
+- U12 `DisputeSubmit.razor` /disputes/new — case-type allowlist backend-controlled, transaction selector read-only từ `GET /transactions` (loyalty ledger — user không retype amount), privacy ack gate, idempotent submit + existing-case warning.
+- U13 `DisputeDetail.razor` /disputes/{id} — user-safe fields only, timeline, evidence add, attachments upload (≤5MB PNG/JPG/WebP/PDF, ≤10/case) + signed download URL.
+- Backend đi kèm (user-approved): recovery `GET mine` + `POST cancel`; D9 R2 attachments (`AtrsObjectStorage`/`R2AtrsObjectStorage`/`DisputeAttachmentService`, presigned PUT/GET 15', owner+case scope).
+- `SecurityHttpService` +12 methods; E2E `atrs-wave4-security-ui.spec.ts` 11/11 prod.
+
+Chưa làm / lưu ý:
+- U13 dedicated E2E (hiện cover gián tiếp); attachments cần R2 env trên VPS (đã wire `deploy-atrs` + `Atrs__R2__*`).
+- Wallet/benefit category chỉ khi authoritative wallet tồn tại — hiện map "Quyền lợi/ví sai" theo loyalty benefit.
+- Recovery unauthenticated all-credential-loss entry: vẫn deferred (ATRS-8 open question — cần wave riêng nếu reopen).

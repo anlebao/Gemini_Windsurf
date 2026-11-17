@@ -1,7 +1,8 @@
 # MASTER PLAN: VẠN AN ACCOUNT TRUST & RECOVERY SERVICE (ATRS) v1.0
 
 > **Created:** 2026-11-15
-> **Status:** ✅ **APPROVED 2026-11-15** — decisions D1-D10 + recovery-entry auth model CHỐT THEO BẢNG (user duyệt; chi tiết `atrs-decision-support.md`) · **Wave 0 docs đang hoàn tất → Wave 1 bắt đầu**
+> **Status:** ✅ **APPROVED 2026-11-15** — decisions D1-D10 + recovery-entry auth model CHỐT THEO BẢNG (user duyệt; chi tiết `atrs-decision-support.md`)
+> **Progress 2026-11-17:** Wave 0-4 **CLOSED + deployed + RV prod PASS** (theo `atrs-execution-strategy.md`): Wave 1 skeleton recovery · Wave 2 WebAuthn + UI subset · Wave 3 dispute + RBAC subset · Wave 4 user UI full (U01-U13, U04 omit D7) + ATRS-6 evidence subset + recovery mine/cancel + D9 R2 attachments. **NEXT: Wave 5** = ATRS-10 full (A14/A18-full/A20-A22) + ATRS-13 notifications/observability → sau đó Wave 6 hardening+rollout (ATRS-14/15). Residuals Wave 3-4: `FlagExternalEvidencePending` job · staff MFA step-up · D6 authenticated Playwright.
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **SRS nguồn:**
 > - `docs/requirements/VAN_AN_Account_Trust_and_Recovery_Service_v1.0.md` (service/backend)
