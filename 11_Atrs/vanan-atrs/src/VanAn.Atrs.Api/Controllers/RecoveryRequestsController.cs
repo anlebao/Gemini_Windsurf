@@ -31,8 +31,12 @@ public class RecoveryRequestsController(
         if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
             return BadRequest(new { error = "IdempotencyKey là bắt buộc (chống gửi trùng)." });
 
+        // Contract nhận string (giống DisputeCaseType) — API không bật JsonStringEnumConverter.
+        if (!Enum.TryParse<VanAn.Atrs.Domain.RecoveryRequestType>(request.RequestType, ignoreCase: true, out var requestType))
+            return BadRequest(new { error = $"RequestType không hợp lệ: {request.RequestType}" });
+
         var result = await recoveryCaseManager.SubmitAsync(
-            auth.TrustSubjectId.Value, request.RequestType, request.IdempotencyKey,
+            auth.TrustSubjectId.Value, requestType, request.IdempotencyKey,
             request.NewDeviceId, request.EvidenceSummaryJson, ct);
         logger.LogInformation("Recovery request {RequestId} submitted (existing={Existing})", result.Request.Id, result.Existing);
         return Ok(result);
@@ -102,7 +106,7 @@ public class RecoveryRequestsController(
     }
 
     public sealed record SubmitRecoveryRequest(
-        RecoveryRequestType RequestType,
+        string RequestType,
         string IdempotencyKey,
         Guid? NewDeviceId,
         string? EvidenceSummaryJson);
