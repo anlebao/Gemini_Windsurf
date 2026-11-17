@@ -53,7 +53,9 @@ public sealed class RecoveryCaseManager(
     IRecoveryCodeService recoveryCodeService,
     IRiskPolicyEngine riskPolicyEngine,
     ITokenVersionBumpNotifier tokenVersionBumpNotifier,
-    ISecurityPolicyService policyService) : IRecoveryCaseManager
+    ISecurityPolicyService policyService,
+    IAtrsNotificationWriter notifications,
+    AtrsMetrics metrics) : IRecoveryCaseManager
 {
     private static readonly RecoveryRequestStatus[] ActiveStatuses =
     [
@@ -104,6 +106,10 @@ public sealed class RecoveryCaseManager(
             Guid.NewGuid(), trustSubjectId, requestType, idempotencyKey, newDeviceId, evidenceSummaryJson);
         db.RecoveryRequests.Add(request);
         await db.SaveChangesAsync(ct);
+        metrics.Record("recovery.created");
+        await notifications.NotifyAsync(trustSubjectId, "recovery.initiated",
+            "Yêu cầu khôi phục đã gửi",
+            $"Yêu cầu khôi phục ({requestType}) đang được xử lý. Theo dõi trạng thái trong Trung tâm bảo mật.", ct: ct);
         return new SubmitRecoveryResultDto(ToDto(request), Existing: false);
     }
 
@@ -162,6 +168,10 @@ public sealed class RecoveryCaseManager(
         await RecordStaffEventAsync(request.TrustSubjectId, "recovery.approved", reviewerId,
             $"{{\"requestId\":\"{requestId:N}\"}}", ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("recovery.approved");
+        await notifications.NotifyAsync(request.TrustSubjectId, "recovery.approved",
+            "Yêu cầu khôi phục được duyệt",
+            "Yêu cầu khôi phục tài khoản của bạn đã được duyệt. Hãy đăng nhập thiết bị mới để hoàn tất.", ct: ct);
         return ToDto(request);
     }
 
@@ -174,6 +184,10 @@ public sealed class RecoveryCaseManager(
         await RecordStaffEventAsync(request.TrustSubjectId, "recovery.rejected", reviewerId,
             $"{{\"requestId\":\"{requestId:N}\",\"reasonCode\":\"{reasonCode}\"}}", ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("recovery.rejected");
+        await notifications.NotifyAsync(request.TrustSubjectId, "recovery.rejected",
+            "Yêu cầu khôi phục bị từ chối",
+            "Yêu cầu khôi phục tài khoản không được duyệt. Liên hệ hỗ trợ nếu bạn cần trợ giúp.", ct: ct);
         return ToDto(request);
     }
 
@@ -377,6 +391,10 @@ public sealed class RecoveryCaseManager(
         var request = await LoadAsync(requestId, ct);
         request.Complete(newDeviceId);
         await db.SaveChangesAsync(ct);
+        metrics.Record("recovery.completed");
+        await notifications.NotifyAsync(request.TrustSubjectId, "recovery.completed",
+            "Khôi phục hoàn tất",
+            "Tài khoản đã được khôi phục và thiết bị mới đã được liên kết.", ct: ct);
 
         // ATRS-3 (D3): recovery COMPLETED → bump token version mọi identity của subject
         // (revoke token cũ). Best-effort: fail không làm hỏng recovery (retry sau).

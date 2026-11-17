@@ -30,6 +30,7 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<PersonalEvidenceItem> PersonalEvidenceItems => Set<PersonalEvidenceItem>();
     public DbSet<EvidenceAttachment> EvidenceAttachments => Set<EvidenceAttachment>();
     public DbSet<SecurityPolicy> SecurityPolicies => Set<SecurityPolicy>();
+    public DbSet<AccountNotification> AccountNotifications => Set<AccountNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -278,5 +279,17 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         policy.Property(e => e.ChangeNote).HasMaxLength(1000);
         policy.HasIndex(e => new { e.PolicyKey, e.Version }).IsUnique().HasDatabaseName("ux_security_policies_key_version");
         policy.HasIndex(e => new { e.PolicyKey, e.Status }).HasDatabaseName("ix_security_policies_key_status");
+
+        // ═══ ATRS-13 (Wave 5 W5d) — in-app notifications ═══
+
+        var notification = modelBuilder.Entity<AccountNotification>();
+        notification.ToTable("account_notifications");
+        notification.HasKey(e => e.Id);
+        notification.Property(e => e.Id).ValueGeneratedNever();
+        notification.Property(e => e.EventType).HasMaxLength(64).IsRequired();
+        notification.Property(e => e.Title).HasMaxLength(200).IsRequired();
+        notification.Property(e => e.Body).HasMaxLength(1000).IsRequired();
+        notification.Property(e => e.Link).HasMaxLength(255);
+        notification.HasIndex(e => new { e.TrustSubjectId, e.CreatedAt }).HasDatabaseName("ix_account_notifications_subject_created");
     }
 }

@@ -22,6 +22,56 @@ namespace VanAn.Atrs.Infra.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.AccountNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("link");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_account_notifications");
+
+                    b.HasIndex("TrustSubjectId", "CreatedAt")
+                        .HasDatabaseName("ix_account_notifications_subject_created");
+
+                    b.ToTable("account_notifications", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.AccountSecurityEvent", b =>
                 {
                     b.Property<Guid>("Id")

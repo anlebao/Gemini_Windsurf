@@ -52,3 +52,23 @@ Thông báo bảo mật đa kênh + metrics/alerting cho ATRS: mọi sự kiện
 
 - SMS/ZNS chưa sẵn sàng → recovery notify cho customer không email chỉ còn in-app (yếu khi mất device) → **cần verify + có thể phụ thuộc P4**.
 - Email Brevo free 300/ngày — volume notification phải ước tính, fallback queue.
+
+## 7. IMPLEMENTATION STATUS (Wave 5 W5d — 2026-11-17) — ✅ CODE DONE + DEPLOYED + RV PASS
+
+**Status: CORE CLOSED.** In-app notifications + metrics shipped. Email channel = GAP (ghi bên dưới).
+
+Đã làm:
+- `AccountNotification` entity (append-only, ReadAt; KHÔNG secret/code/evidence trong body) + migration `AddAccountNotifications` (additive).
+- `AtrsNotificationService` (writer + query: list unread-first paged + mark-read ownership enforce — anti-enumeration 404).
+- Emit wiring: recovery (initiated/approved/rejected/completed) · dispute (submitted/status_changed/decision_approved/decision_rejected) · device (registered/revoked/lost) · recovery codes regenerated (security setting changed).
+- Customer API: `GET /api/v1/account-trust/notifications` + `POST /{id}/read` (X-Customer-Token).
+- `AtrsMetrics` (counters in-memory) + `GET /metrics` (Prometheus text: counters event_type + gauges recovery_pending/dispute_open/sla_overdue live DB) — internal :5080.
+- Tests 155/155 (+6: notification CRUD/ownership/paging/no-secret + emit assertions qua managers).
+
+**GAP ANALYSIS (kênh — chưa đủ):**
+- **Email (Brevo):** atrs chưa có Brevo client; delivery phụ thuộc **P4 email-first** (identity initiative — `IIdentityOtpChannel` + BrevoEmailOtpChannel 0đ). Khi P4 ship → `IAtrsNotificationWriter` mở rộng thêm channel email (template + preference tôn trọng `Customer.Email`). KHÔNG tự triển khai Brevo riêng trong atrs (tránh trùng + quản lý key).
+- **SMS/ZNS:** provider chưa có — recovery notify cho customer không email chỉ còn in-app (yếu khi mất device) — chờ P4 slot ZNS.
+- **KhachLink inbox UI:** API đã sẵn; hiển thị trong SecurityCenter chưa làm (residual — card UI riêng hoặc gộp Wave 6).
+- **Step-up success/fail bất thường:** failure đã có trong AccountSecurityEvents; notify per-failure có nguy cơ spam — defer tới khi có rate-aware (ghi residual).
+
+**RV prod:** sweep `atrs-wave5d-sweep.mjs` 16/16 (auth-neg · customer token list/mark-read/anti-enum · recovery approve → notification xuất hiện · device revoke → notification + metric · /metrics format + counters + gauges) — chi tiết project_state.

@@ -55,6 +55,10 @@ public static class Program
         builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
         // Wave 5 W5c: A21 security policy (versioned + approval).
         builder.Services.AddScoped<ISecurityPolicyService, SecurityPolicyService>();
+        // Wave 5 W5d: ATRS-13 notifications (in-app) + metrics.
+        builder.Services.AddScoped<IAtrsNotificationWriter, AtrsNotificationService>();
+        builder.Services.AddScoped<IAtrsNotificationQueryService, AtrsNotificationService>();
+        builder.Services.AddSingleton<AtrsMetrics>();
         var r2Endpoint = builder.Configuration["Atrs:R2:Endpoint"];
         var r2AccessKey = builder.Configuration["Atrs:R2:AccessKey"];
         var r2SecretKey = builder.Configuration["Atrs:R2:SecretKey"];
@@ -123,6 +127,31 @@ public static class Program
         // Health endpoint — cơ chế probe cho CD/smoke test (pattern metering/voice).
         app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "vanan-atrs" }))
             .AllowAnonymous();
+
+        // ATRS-13 (NFR-006): metrics Prometheus text format — internal-only (:5080).
+        // Counters từ AtrsMetrics; gauges live từ DB (recovery pending / dispute open / SLA overdue).
+        app.MapGet("/metrics", async (AtrsMetrics metrics, IServiceScopeFactory scopeFactory) =>
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var (evt, count) in metrics.Snapshot())
+            {
+                sb.Append("atrs_events_total{event_type=\"").Append(evt).Append("\"} ").Append(count).Append('\n');
+            }
+            using (var scope = scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AtrsDbContext>();
+                var now = DateTime.UtcNow;
+                var terminal = new[] { 4, 5, 6, 7, 8 }; // RecoveryRequestStatus terminal ints
+                var disputeTerminal = new[] { 6, 7, 8 }; // DisputeCaseStatus terminal ints
+                sb.Append("atrs_recovery_pending ").Append(
+                    await db.RecoveryRequests.CountAsync(r => !terminal.Contains((int)r.Status))).Append('\n');
+                sb.Append("atrs_dispute_open ").Append(
+                    await db.DisputeCases.CountAsync(c => !disputeTerminal.Contains((int)c.Status))).Append('\n');
+                sb.Append("atrs_sla_overdue ").Append(
+                    await db.RecoveryRequests.CountAsync(r => !terminal.Contains((int)r.Status) && r.CreatedAt < now.AddHours(-24))).Append('\n');
+            }
+            return Results.Text(sb.ToString(), "text/plain; version=0.0.4; charset=utf-8");
+        }).AllowAnonymous();
 
         if (!string.IsNullOrEmpty(jwtSecret))
         {

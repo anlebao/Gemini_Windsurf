@@ -35,7 +35,9 @@ public sealed class RecoveryCodeOptions
 public sealed class RecoveryCodeService(
     AtrsDbContext db,
     IMemoryCache cache,
-    IOptions<RecoveryCodeOptions> options) : IRecoveryCodeService
+    IOptions<RecoveryCodeOptions> options,
+    IAtrsNotificationWriter notifications,
+    AtrsMetrics metrics) : IRecoveryCodeService
 {
     // Alphabet loại ký tự gây nhầm lẫn: 0/O, 1/I.
     private const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -69,6 +71,11 @@ public sealed class RecoveryCodeService(
 
         await db.SaveChangesAsync(ct);
         ResetAttempts(trustSubjectId);
+        metrics.Record("recovery_codes.regenerated");
+        // KHÔNG chứa mã trong notification (rule ATRS-13).
+        await notifications.NotifyAsync(trustSubjectId, "security.recovery_codes_regenerated",
+            "Mã khôi phục mới đã được tạo",
+            "Bộ mã khôi phục mới đã được tạo — mã cũ không còn hiệu lực. Lưu mã ở nơi an toàn.", ct: ct);
         return new GenerateRecoveryCodesResult(setId, codes, set.GeneratedAt);
     }
 

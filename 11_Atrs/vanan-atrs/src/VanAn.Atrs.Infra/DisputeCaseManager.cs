@@ -42,6 +42,8 @@ public sealed class DisputeCaseManager(
     AtrsDbContext db,
     ILoyaltyGatewayClient loyaltyGateway,
     ISecurityPolicyService policyService,
+    IAtrsNotificationWriter notifications,
+    AtrsMetrics metrics,
     ILogger<DisputeCaseManager> logger) : IDisputeCaseManager
 {
     private const string PolicyVersion = "atrs-dispute-v1";
@@ -91,6 +93,10 @@ public sealed class DisputeCaseManager(
         await RecordEventAsync(trustSubjectId, "dispute.submitted", SecurityEventActorType.User, null,
             SecurityEventOutcome.Success, null, minimalMetadataJson: $"{{\"caseType\":\"{caseType}\"}}", ct: ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("dispute.created");
+        await notifications.NotifyAsync(trustSubjectId, "dispute.submitted",
+            "Khiếu nại đã gửi",
+            $"Khiếu nại ({caseType}) đã được tiếp nhận. Bạn sẽ nhận thông báo khi có cập nhật.", ct: ct);
         return new SubmitDisputeResultDto(ToUserSummary(entity), Existing: false);
     }
 
@@ -284,6 +290,10 @@ public sealed class DisputeCaseManager(
             SecurityEventOutcome.Success, null,
             minimalMetadataJson: $"{{\"caseId\":\"{caseId:N}\",\"to\":\"{target}\"}}", ct: ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("dispute.status_changed");
+        await notifications.NotifyAsync(entity.TrustSubjectId, "dispute.status_changed",
+            "Cập nhật khiếu nại",
+            $"Khiếu nại của bạn chuyển sang trạng thái {target}.", ct: ct);
         return ToUserSummary(entity);
     }
 
@@ -362,6 +372,10 @@ public sealed class DisputeCaseManager(
                 SecurityEventOutcome.Success, null,
                 minimalMetadataJson: $"{{\"caseId\":\"{entity.Id:N}\",\"decisionId\":\"{decision.Id:N}\"}}", ct: ct);
             await db.SaveChangesAsync(ct);
+            metrics.Record("dispute.decision_approved");
+            await notifications.NotifyAsync(entity.TrustSubjectId, "dispute.decision_approved",
+                "Khiếu nại đã được giải quyết",
+                "Quyết định cho khiếu nại của bạn đã được phê duyệt.", ct: ct);
             return ToDecisionDto(decision);
         }
 
@@ -400,6 +414,10 @@ public sealed class DisputeCaseManager(
             SecurityEventOutcome.Success, null,
             minimalMetadataJson: $"{{\"caseId\":\"{entity.Id:N}\",\"decisionId\":\"{decision.Id:N}\",\"ref\":\"{decision.ResolutionReference}\"}}", ct: ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("dispute.decision_approved");
+        await notifications.NotifyAsync(entity.TrustSubjectId, "dispute.decision_approved",
+            "Khiếu nại đã được giải quyết",
+            "Khiếu nại của bạn đã được xử lý và điều chỉnh điểm đã được thực hiện.", ct: ct);
         return ToDecisionDto(decision);
     }
 
@@ -419,6 +437,10 @@ public sealed class DisputeCaseManager(
             SecurityEventOutcome.Success, null,
             minimalMetadataJson: $"{{\"caseId\":\"{entity.Id:N}\",\"decisionId\":\"{decision.Id:N}\"}}", ct: ct);
         await db.SaveChangesAsync(ct);
+        metrics.Record("dispute.decision_rejected");
+        await notifications.NotifyAsync(entity.TrustSubjectId, "dispute.decision_rejected",
+            "Khiếu nại đang được xem xét lại",
+            "Một đề xuất giải quyết chưa được phê duyệt — khiếu nại của bạn đang được xem xét lại.", ct: ct);
         return ToDecisionDto(decision);
     }
 

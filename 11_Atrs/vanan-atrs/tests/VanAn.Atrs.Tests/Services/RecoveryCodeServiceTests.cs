@@ -24,7 +24,9 @@ public sealed class RecoveryCodeServiceTests : IDisposable
         _service = new RecoveryCodeService(
             _db,
             _cache,
-            Options.Create(new RecoveryCodeOptions { AttemptLimit = 3, LockoutMinutes = 5 }));
+            Options.Create(new RecoveryCodeOptions { AttemptLimit = 3, LockoutMinutes = 5 }),
+            new StubNotificationWriter(),
+            new AtrsMetrics());
     }
 
     public void Dispose()

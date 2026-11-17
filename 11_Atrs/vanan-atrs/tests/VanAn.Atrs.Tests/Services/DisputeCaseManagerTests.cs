@@ -26,6 +26,7 @@ public sealed class DisputeCaseManagerTests : IDisposable
         _db = new AtrsDbContext(options);
         _manager = new DisputeCaseManager(_db, _gateway,
             new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System),
+            new StubNotificationWriter(), new AtrsMetrics(),
             NullLogger<DisputeCaseManager>.Instance);
     }
 

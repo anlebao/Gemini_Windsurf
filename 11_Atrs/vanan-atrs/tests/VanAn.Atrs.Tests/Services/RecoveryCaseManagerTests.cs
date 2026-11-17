@@ -22,7 +22,9 @@ public sealed class RecoveryCaseManagerTests : IDisposable
             new StubRecoveryCodeService(),
             new RiskPolicyEngine(),
             _bumpNotifier,
-            new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System));
+            new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System),
+            new StubNotificationWriter(),
+            new AtrsMetrics());
     }
 
     private readonly RecordingBumpNotifier _bumpNotifier = new();

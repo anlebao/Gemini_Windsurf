@@ -20,7 +20,7 @@ public sealed class DeviceServiceTests : IDisposable
             .UseInMemoryDatabase($"devices-{Guid.NewGuid()}")
             .Options;
         _db = new AtrsDbContext(options);
-        _service = new DeviceService(_db);
+        _service = new DeviceService(_db, new StubNotificationWriter(), new AtrsMetrics());
     }
 
     public void Dispose()

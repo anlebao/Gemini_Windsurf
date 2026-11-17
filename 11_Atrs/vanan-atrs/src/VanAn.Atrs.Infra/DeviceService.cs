@@ -20,7 +20,7 @@ public interface IDeviceService
         DeviceType deviceType, string? platform = null, string? friendlyName = null, CancellationToken ct = default);
 }
 
-public sealed class DeviceService(AtrsDbContext db) : IDeviceService
+public sealed class DeviceService(AtrsDbContext db, IAtrsNotificationWriter notifications, AtrsMetrics metrics) : IDeviceService
 {
     public async Task<IReadOnlyList<UserDeviceSummaryDto>> ListAsync(Guid trustSubjectId, CancellationToken ct = default)
     {
@@ -84,6 +84,10 @@ public sealed class DeviceService(AtrsDbContext db) : IDeviceService
         foreach (var c in creds)
             c.Revoke();
         await db.SaveChangesAsync(ct);
+        metrics.Record("device.revoked");
+        await notifications.NotifyAsync(trustSubjectId, "device.revoked",
+            "Thiết bị đã bị thu hồi",
+            $"Thiết bị {(string.IsNullOrWhiteSpace(device.FriendlyName) ? device.DeviceId[..Math.Min(8, device.DeviceId.Length)] : device.FriendlyName)} đã bị thu hồi khỏi tài khoản của bạn.", ct: ct);
         return true;
     }
 
@@ -95,6 +99,10 @@ public sealed class DeviceService(AtrsDbContext db) : IDeviceService
             return false;
         device.MarkLost();
         await db.SaveChangesAsync(ct);
+        metrics.Record("device.lost");
+        await notifications.NotifyAsync(trustSubjectId, "device.lost",
+            "Thiết bị bị đánh dấu thất lạc",
+            $"Thiết bị {(string.IsNullOrWhiteSpace(device.FriendlyName) ? device.DeviceId[..Math.Min(8, device.DeviceId.Length)] : device.FriendlyName)} đã được đánh dấu thất lạc.", ct: ct);
         return true;
     }
 
@@ -113,6 +121,10 @@ public sealed class DeviceService(AtrsDbContext db) : IDeviceService
         var device = new UserDevice(Guid.NewGuid(), trustSubjectId, deviceId, method, deviceType, platform, friendlyName);
         db.UserDevices.Add(device);
         await db.SaveChangesAsync(ct);
+        metrics.Record("device.registered");
+        await notifications.NotifyAsync(trustSubjectId, "device.registered",
+            "Thiết bị mới đã đăng ký",
+            "Một thiết bị mới đã được liên kết với tài khoản của bạn.", ct: ct);
         return device.Id;
     }
 
