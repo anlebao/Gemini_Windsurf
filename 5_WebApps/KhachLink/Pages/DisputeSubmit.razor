@@ -89,7 +89,7 @@
                         <label class="form-label fw-semibold">Mô tả vấn đề <span class="text-danger">*</span></label>
                         <textarea class="form-control" rows="5" maxlength="2000"
                                   placeholder="Mô tả rõ vấn đề: bạn kỳ vọng gì, thực tế xảy ra gì..."
-                                  @bind="_claimedIssue"></textarea>
+                                  @bind="_claimedIssue" @bind:event="oninput"></textarea>
                     </div>
 
                     <div class="form-check">

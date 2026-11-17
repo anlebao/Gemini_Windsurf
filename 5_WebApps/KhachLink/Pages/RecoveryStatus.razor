@@ -70,7 +70,7 @@
                             Mỗi mã chỉ dùng được một lần.
                         </p>
                         <div class="input-group">
-                            <input class="form-control" placeholder="XXXX-XXXX-XXXX" @bind="_codeInput" maxlength="20" />
+                            <input class="form-control" placeholder="XXXX-XXXX-XXXX" @bind="_codeInput" @bind:event="oninput" maxlength="20" />
                             <VanAnButton Variant="ButtonVariant.Primary" OnClick="VerifyCodeAsync" Disabled="_verifying || string.IsNullOrWhiteSpace(_codeInput)">
                                 @(_verifying ? "Đang kiểm tra..." : "Xác minh")
                             </VanAnButton>

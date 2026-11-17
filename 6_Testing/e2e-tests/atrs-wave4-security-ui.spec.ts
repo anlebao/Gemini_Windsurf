@@ -93,7 +93,7 @@ test.describe('ATRS Wave 4 security surfaces @mobile', () => {
 
       await expect(page.locator('h3', { hasText: 'Thông tin cá nhân hỗ trợ' })).toBeVisible({ timeout: 40000 });
       await expect(page.locator('text=khai báo của bạn')).toBeVisible({ timeout: 30000 });
-      await expect(page.locator('text=chưa xác minh')).toBeVisible();
+      await expect(page.locator('text=chưa xác minh').first()).toBeVisible();
     });
 
     test('U09 recovery wizard step 1 → step 2 navigation', async ({ page }) => {
@@ -115,10 +115,11 @@ test.describe('ATRS Wave 4 security surfaces @mobile', () => {
       await page.goto('/disputes', { waitUntil: 'networkidle' });
 
       await expect(page.locator('h3', { hasText: 'Khiếu nại' })).toBeVisible({ timeout: 40000 });
-      // Một trong hai: empty state hoặc ít nhất 1 case card
+      // Một trong các trạng thái hợp lệ: empty / đang xử lý / đã kết thúc (case cũ)
       const empty = page.locator('text=Chưa có khiếu nại nào');
       const anyCase = page.locator('text=Đang xử lý');
-      await expect(empty.or(anyCase)).toBeVisible({ timeout: 30000 });
+      const closed = page.locator('text=Đã kết thúc');
+      await expect(empty.or(anyCase).or(closed)).toBeVisible({ timeout: 30000 });
     });
 
     test('U12 dispute form renders case types + privacy ack gates submit', async ({ page }) => {
