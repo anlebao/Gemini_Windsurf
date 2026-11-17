@@ -50,7 +50,10 @@ public static class Program
         // Wave 4: ATRS-6 subset (personal evidence + consent) + D9 attachments (R2).
         builder.Services.AddScoped<IPersonalEvidenceService, PersonalEvidenceService>();
         builder.Services.AddScoped<IDisputeAttachmentService, DisputeAttachmentService>();
-        if (!string.IsNullOrEmpty(builder.Configuration["Atrs:R2:Endpoint"]))
+        var r2Endpoint = builder.Configuration["Atrs:R2:Endpoint"];
+        var r2AccessKey = builder.Configuration["Atrs:R2:AccessKey"];
+        var r2SecretKey = builder.Configuration["Atrs:R2:SecretKey"];
+        if (!string.IsNullOrEmpty(r2Endpoint) && !string.IsNullOrEmpty(r2AccessKey) && !string.IsNullOrEmpty(r2SecretKey))
             builder.Services.AddSingleton<IAtrsObjectStorage, R2AtrsObjectStorage>();
         else
             builder.Services.AddSingleton<IAtrsObjectStorage, UnconfiguredAtrsObjectStorage>();

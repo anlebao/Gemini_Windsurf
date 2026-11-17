@@ -1467,6 +1467,13 @@ jobs:
             cat > /opt/vanan-atrs/.env <<'ENVEOF'
             ${{ secrets.ATRS_ENV }}
             ENVEOF
+            # Wave 4 (D9): R2 evidence attachments — repo-level secrets, append if absent.
+            grep -q '^R2_ACCESS_KEY=' /opt/vanan-atrs/.env || cat >> /opt/vanan-atrs/.env <<'ENVEOF2'
+            R2_ENDPOINT=https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com
+            R2_ACCESS_KEY=${{ secrets.R2_ACCESS_KEY }}
+            R2_SECRET_KEY=${{ secrets.R2_SECRET_KEY }}
+            R2_BUCKET_NAME=vanan-guard-photos
+            ENVEOF2
             chmod 600 /opt/vanan-atrs/.env
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml pull atrs || true
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml up -d
