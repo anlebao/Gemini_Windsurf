@@ -1,0 +1,133 @@
+{
+  "results": [
+    {
+      "name": "L1 health direct :5080",
+      "pass": true
+    },
+    {
+      "name": "auth-neg audit-list no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg audit-list bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg permissions-list no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg permissions-list bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg grant no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg grant bad-token=401",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant audit=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant permissions=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant grant=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant revoke=403",
+      "pass": true
+    },
+    {
+      "name": "L3 audit page shape (items/total + fields)",
+      "pass": true
+    },
+    {
+      "name": "L3 audit SANITIZED (không payload JSON)",
+      "pass": true
+    },
+    {
+      "name": "L3 filter eventType=recovery → total>0",
+      "pass": true
+    },
+    {
+      "name": "L3 filter eventType all match",
+      "pass": true
+    },
+    {
+      "name": "L3 filter outcome=Failure → 200",
+      "pass": true
+    },
+    {
+      "name": "L3 filter actorType=Staff → total>0",
+      "pass": true
+    },
+    {
+      "name": "L3 filter subjectId (customer RV) → 200",
+      "pass": true
+    },
+    {
+      "name": "L3 filter subjectId all match",
+      "pass": true
+    },
+    {
+      "name": "L3 filter date range 48h → 200 + total>0",
+      "pass": true
+    },
+    {
+      "name": "L3 paging skip/take + total nhất quán",
+      "pass": true
+    },
+    {
+      "name": "L4 audit read-only (PUT 405 / DELETE 404-405)",
+      "pass": true
+    },
+    {
+      "name": "L5 permissions list → 200 array + fields",
+      "pass": true
+    },
+    {
+      "name": "L5 grant invalid permission → 400",
+      "pass": true
+    },
+    {
+      "name": "L5 grant audit.read → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 grant dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 grant duplicate → 200 idempotent (existing)",
+      "pass": true
+    },
+    {
+      "name": "L6 staff-granted audit.read → 200",
+      "pass": true
+    },
+    {
+      "name": "L6 staff permissions list vẫn 403 (grant mgmt SystemAdmin-only)",
+      "pass": true
+    },
+    {
+      "name": "L5 revoke dispute.view → 200",
+      "pass": true
+    },
+    {
+      "name": "L5 revoke audit.read → 200",
+      "pass": true
+    },
+    {
+      "name": "L6 staff audit sau revoke → 403",
+      "pass": true
+    }
+  ],
+  "generatedAt": "2026-11-17T08:42:48.329Z"
+}
