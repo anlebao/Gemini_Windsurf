@@ -133,9 +133,16 @@ public class AdminRecoveryController(
     {
         if (!await StaffPrincipal.HasPermissionAsync(authz, User, AtrsPermissions.RecoveryApprove, ct: ct))
             return Forbid();
-        var dto = await recoveryCaseManager.ManualApproveAsync(id, StaffPrincipal.UserId(User), ct);
-        logger.LogInformation("Recovery {RequestId} approved via admin API", id);
-        return Ok(dto);
+        try
+        {
+            var dto = await recoveryCaseManager.ManualApproveAsync(id, StaffPrincipal.UserId(User), ct);
+            logger.LogInformation("Recovery {RequestId} approved via admin API", id);
+            return Ok(dto);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     /// <summary>A16 — reject (recovery.approve).</summary>
@@ -146,9 +153,16 @@ public class AdminRecoveryController(
             return Forbid();
         if (string.IsNullOrWhiteSpace(request.ReasonCode))
             return BadRequest(new { error = "ReasonCode là bắt buộc (audit)." });
-        var dto = await recoveryCaseManager.ManualRejectAsync(id, StaffPrincipal.UserId(User), request.ReasonCode, ct);
-        logger.LogInformation("Recovery {RequestId} rejected via admin API", id);
-        return Ok(dto);
+        try
+        {
+            var dto = await recoveryCaseManager.ManualRejectAsync(id, StaffPrincipal.UserId(User), request.ReasonCode, ct);
+            logger.LogInformation("Recovery {RequestId} rejected via admin API", id);
+            return Ok(dto);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     public sealed record AssignRecoveryRequest(Guid StaffUserId);
