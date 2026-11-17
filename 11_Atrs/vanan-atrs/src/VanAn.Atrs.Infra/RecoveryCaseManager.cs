@@ -27,6 +27,10 @@ public interface IRecoveryCaseManager
     Task<RecoveryRequestSummaryDto> ManualRejectAsync(Guid requestId, Guid reviewerId, string reasonCode, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> RequestMoreInfoAsync(Guid requestId, Guid staffUserId, CancellationToken ct = default);
     Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListQueueAsync(string? status, int skip, int take, CancellationToken ct = default);
+    /// <summary>Wave 4 (U10): recovery requests của chính subject — resume pending.</summary>
+    Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListMineAsync(Guid trustSubjectId, CancellationToken ct = default);
+    /// <summary>Wave 4 (U10): user tự huỷ request đang mở (SUBMITTED/AUTOMATED_CHECK/PENDING_USER_ACTION).</summary>
+    Task<RecoveryRequestSummaryDto?> CancelAsync(Guid requestId, Guid trustSubjectId, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto> CompleteAsync(Guid requestId, Guid? newDeviceId = null, CancellationToken ct = default);
     Task<RecoveryRequestSummaryDto?> GetAsync(Guid requestId, CancellationToken ct = default);
 }
@@ -154,6 +158,41 @@ public sealed class RecoveryCaseManager(
             .Skip(Math.Max(0, skip)).Take(Math.Clamp(take, 1, 200))
             .ToListAsync(ct);
         return items.Select(ToDto).ToList();
+    }
+
+    /// <summary>U10: list recovery requests của subject (mới nhất trước, tối đa 50).</summary>
+    public async Task<IReadOnlyList<RecoveryRequestSummaryDto>> ListMineAsync(Guid trustSubjectId, CancellationToken ct = default)
+    {
+        var items = await db.RecoveryRequests.AsNoTracking()
+            .Where(r => r.TrustSubjectId == trustSubjectId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(50)
+            .ToListAsync(ct);
+        return items.Select(ToDto).ToList();
+    }
+
+    /// <summary>U10: user cancel — ownership check + state machine (chỉ trạng thái mở).</summary>
+    public async Task<RecoveryRequestSummaryDto?> CancelAsync(Guid requestId, Guid trustSubjectId, CancellationToken ct = default)
+    {
+        var request = await db.RecoveryRequests
+            .FirstOrDefaultAsync(r => r.Id == requestId && r.TrustSubjectId == trustSubjectId, ct);
+        if (request is null)
+            return null;
+        try
+        {
+            request.Cancel();
+        }
+        catch (InvalidOperationException)
+        {
+            return ToDto(request); // đã terminal/không cancel được — trả state hiện tại
+        }
+        db.AccountSecurityEvents.Add(AccountSecurityEvent.Create(
+            Guid.NewGuid(), trustSubjectId, "recovery.cancelled", SecurityEventActorType.User, null,
+            sourceApplication: "vanan-atrs", deviceId: null, sessionCorrelationId: null,
+            SecurityEventOutcome.Success, null,
+            minimalMetadataJson: $"{{\"requestId\":\"{requestId:N}\"}}"));
+        await db.SaveChangesAsync(ct);
+        return ToDto(request);
     }
 
     public async Task<RecoveryRequestSummaryDto> CompleteAsync(Guid requestId, Guid? newDeviceId = null, CancellationToken ct = default)

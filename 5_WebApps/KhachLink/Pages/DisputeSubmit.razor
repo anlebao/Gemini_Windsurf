@@ -1,0 +1,199 @@
+@page "/disputes/new"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+@inject InstanceContextService InstanceContext
+
+<PageTitle>Tạo khiếu nại</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-chat-square-plus text-primary"></i> Tạo khiếu nại</h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để tạo khiếu nại</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_submittedId is not null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đã gửi khiếu nại</h5>
+                <p class="text-muted small">Mã tham chiếu: <code>@_submittedId!.Value.ToString("N")[..8]</code> — bạn có thể theo dõi tại trang chi tiết.</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToDetail">Xem chi tiết</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            @if (_error is not null)
+            {
+                <VanAnAlert Message="@_error" Variant="AlertVariant.Error" CssClass="mb-3" />
+            }
+            @if (_existingCaseId is not null)
+            {
+                <VanAnAlert Variant="AlertVariant.Warning" CssClass="mb-3"
+                    Message="Bạn đã có khiếu nại đang mở cho giao dịch này — hệ thống trả về khiếu nại hiện có, không tạo trùng." />
+            }
+
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="p-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Loại khiếu nại <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="_caseType">
+                            @foreach (var opt in CaseTypeOptions)
+                            {
+                                <option value="@opt.Value">@opt.Label</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (_tenantId.HasValue)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Giao dịch liên quan (không bắt buộc)</label>
+                            @if (_transactions is null)
+                            {
+                                <div class="text-muted small"><span class="spinner-border spinner-border-sm"></span> Đang tải lịch sử điểm...</div>
+                            }
+                            else if (_transactions.Count == 0)
+                            {
+                                <div class="text-muted small">Chưa có giao dịch điểm nào tại cửa hàng này.</div>
+                            }
+                            else
+                            {
+                                <select class="form-select" @bind="_selectedTransactionId">
+                                    <option value="">— Không chọn —</option>
+                                    @foreach (var tx in _transactions.Take(50))
+                                    {
+                                        <option value="@tx.Id">@tx.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy") · @tx.Type · @(tx.Points >= 0 ? "+" : "")@tx.Points điểm · @Truncate(tx.Reason, 40)</option>
+                                    }
+                                </select>
+                                <div class="text-muted small mt-1">Thông tin giao dịch chỉ đọc từ hệ thống — không chỉnh sửa được.</div>
+                            }
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mô tả vấn đề <span class="text-danger">*</span></label>
+                        <textarea class="form-control" rows="5" maxlength="2000"
+                                  placeholder="Mô tả rõ vấn đề: bạn kỳ vọng gì, thực tế xảy ra gì..."
+                                  @bind="_claimedIssue"></textarea>
+                    </div>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="disputePrivacy" @bind="_privacyAck" />
+                        <label class="form-check-label small" for="disputePrivacy">
+                            Tôi xác nhận thông tin cung cấp là đúng và đồng ý hệ thống xử lý để giải quyết khiếu nại.
+                        </label>
+                    </div>
+                </div>
+            </VanAnCard>
+
+            <div class="d-flex gap-2">
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack" Disabled="_submitting">Quay lại</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Primary" CssClass="flex-grow-1" OnClick="SubmitAsync"
+                             Disabled="_submitting || string.IsNullOrWhiteSpace(_claimedIssue) || !_privacyAck">
+                    @(_submitting ? "Đang gửi..." : "Gửi khiếu nại")
+                </VanAnButton>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private sealed record CaseTypeOption(string Value, string Label);
+
+    private static readonly CaseTypeOption[] CaseTypeOptions =
+    [
+        new("POINTS_MISSING", "Thiếu điểm thưởng"),
+        new("POINTS_WRONG", "Điểm thưởng sai"),
+        new("POINTS_EXCESS", "Điểm thưởng bất thường (cộng dư)"),
+        new("TRANSACTION_DENIED", "Giao dịch bị từ chối"),
+        new("WALLET_BENEFIT_WRONG", "Quyền lợi/ví sai"),
+        new("POINTS_ADJUST_REFUND", "Điều chỉnh/hoàn điểm"),
+        new("OWNERSHIP_DISPUTE", "Tranh chấp quyền sở hữu"),
+        new("SYSTEM_DISCREPANCY", "Sai lệch hệ thống")
+    ];
+
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _submitting;
+    private bool _privacyAck;
+    private string _caseType = "POINTS_MISSING";
+    private string? _claimedIssue;
+    private string? _selectedTransactionId;
+    private string? _error;
+    private Guid? _submittedId;
+    private Guid? _existingCaseId;
+    private string? _customerToken;
+    private Guid? _tenantId;
+    private string? _idempotencyKey;
+    private List<SecurityHttpService.LoyaltyLedgerEntryDto>? _transactions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+        {
+            var config = await InstanceContext.GetConfigAsync();
+            _tenantId = config?.OwnerTenantId;
+            _idempotencyKey = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "atrs_dispute_idem")
+                ?? Guid.NewGuid().ToString("N");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "atrs_dispute_idem", _idempotencyKey);
+
+            if (_tenantId.HasValue)
+            {
+                _transactions = (await SecurityHttp.GetTransactionsAsync(_customerToken!, _tenantId.Value))?.ToList();
+            }
+        }
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _error = null;
+        _existingCaseId = null;
+        try
+        {
+            var txIds = !string.IsNullOrEmpty(_selectedTransactionId)
+                ? new List<string> { _selectedTransactionId! }
+                : null;
+
+            var result = await SecurityHttp.SubmitDisputeAsync(
+                _customerToken!, _caseType, _claimedIssue!.Trim(), _tenantId, txIds, _idempotencyKey!);
+
+            if (result is null)
+            {
+                _error = "Không thể gửi khiếu nại. Vui lòng thử lại.";
+                return;
+            }
+            if (result.Existing)
+                _existingCaseId = result.Case.Id;
+            _submittedId = result.Case.Id;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void GoToDetail() => Navigation.NavigateTo($"/disputes/{_submittedId}");
+    private void GoBack() => Navigation.NavigateTo("/disputes");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string Truncate(string? s, int max) => string.IsNullOrEmpty(s) ? "" : s.Length <= max ? s : s[..max] + "…";
+}

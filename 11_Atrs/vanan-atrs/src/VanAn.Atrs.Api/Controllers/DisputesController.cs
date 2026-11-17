@@ -15,6 +15,7 @@ namespace VanAn.Atrs.Api.Controllers;
 public class DisputesController(
     IAtrsCustomerContextService customerContext,
     IDisputeCaseManager disputeManager,
+    IDisputeAttachmentService attachmentService,
     ILogger<DisputesController> logger) : ControllerBase
 {
     [HttpPost]
@@ -66,6 +67,37 @@ public class DisputesController(
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    /// <summary>D9 (Wave 4): upload evidence attachment (base64, ≤5MB, type allowlist) → R2.</summary>
+    [HttpPost("{id:guid}/attachments")]
+    public async Task<IActionResult> UploadAttachment(Guid id, [FromBody] UploadAttachmentRequest request, CancellationToken ct)
+    {
+        var auth = await AuthenticateAsync(ct);
+        if (auth.Error is not null) return auth.Error;
+        try
+        {
+            var result = await attachmentService.UploadAsync(id, auth.TrustSubjectId!.Value, request, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>D9 (Wave 4): list attachments + signed download URLs (TTL 15').</summary>
+    [HttpGet("{id:guid}/attachments")]
+    public async Task<IActionResult> ListAttachments(Guid id, CancellationToken ct)
+    {
+        var auth = await AuthenticateAsync(ct);
+        if (auth.Error is not null) return auth.Error;
+        var items = await attachmentService.ListAsync(id, auth.TrustSubjectId!.Value, ct);
+        return items is null ? NotFound() : Ok(items);
     }
 
     [HttpPost("{id:guid}/withdraw")]

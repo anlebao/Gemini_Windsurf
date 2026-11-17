@@ -1,0 +1,258 @@
+@page "/recovery"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+
+<PageTitle>Khôi phục tài khoản</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-arrow-counterclockwise text-primary"></i> Khôi phục tài khoản</h3>
+        <p class="text-muted small mb-3">Quy trình 4 bước — hệ thống chỉ quyết định dựa trên bằng chứng bạn cung cấp.</p>
+
+        @* Step indicator *@
+        <div class="d-flex gap-2 mb-4">
+            @for (var i = 1; i <= 4; i++)
+            {
+                <div class="flex-fill text-center">
+                    <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center @(_step == i ? "bg-primary text-white" : "bg-light text-muted")" style="width:32px;height:32px;">@i</div>
+                    <div class="text-muted" style="font-size:0.7rem;">@StepLabel(i)</div>
+                </div>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để khôi phục tài khoản</h5>
+                <p class="text-muted small">Nếu bạn đã đăng nhập trên thiết bị khác, hãy dùng tài khoản đó để tiếp tục.</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_submittedRequestId is not null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đã gửi yêu cầu khôi phục</h5>
+                <p class="text-muted small">Mã tham chiếu: <code>@_submittedRequestId!.Value.ToString("N")[..8]</code></p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToStatus">Xem trạng thái</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            @if (_error is not null)
+            {
+                <VanAnAlert Message="@_error" Variant="AlertVariant.Error" CssClass="mb-3" />
+            }
+
+            @* Step 1: Describe problem *@
+            @if (_step == 1)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="p-3">
+                        <div class="fw-semibold mb-3">Bạn gặp vấn đề gì?</div>
+                        @foreach (var opt in ProblemOptions)
+                        {
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="problemType" id="pt-@opt.Value"
+                                       checked="@(_requestType == opt.Value)" @onchange="() => _requestType = opt.Value" />
+                                <label class="form-check-label" for="pt-@opt.Value">@opt.Label</label>
+                            </div>
+                        }
+                    </div>
+                </VanAnCard>
+                <VanAnButton Variant="ButtonVariant.Primary" FullWidth OnClick="() => _step = 2" Disabled="_requestType is null">Tiếp tục</VanAnButton>
+            }
+
+            @* Step 2: Available methods *@
+            @if (_step == 2)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="p-3">
+                        <div class="fw-semibold mb-3">Phương thức bạn còn dùng được?</div>
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-fingerprint me-2"></i>Passkey trên thiết bị khác</span>
+                                <span class="badge @((_me?.ActivePasskeyCount ?? 0) > 0 ? "text-bg-success" : "text-bg-secondary")">@((_me?.ActivePasskeyCount ?? 0) > 0 ? "Có" : "Không")</span>
+                            </div>
+                            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-key me-2"></i>Mã khôi phục chưa dùng</span>
+                                <span class="badge @(_recoveryStatus?.HasActiveSet == true ? "text-bg-success" : "text-bg-secondary")">@(_recoveryStatus?.HasActiveSet == true ? "Có" : "Không")</span>
+                            </div>
+                            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-phone me-2"></i>Thiết bị đã đăng ký khác</span>
+                                <span class="badge text-bg-info">@(_me?.ActiveDeviceCount ?? 0) thiết bị</span>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="noMethod" @bind="_noMethodAvailable" />
+                            <label class="form-check-label" for="noMethod">Tôi không còn dùng được phương thức nào ở trên</label>
+                        </div>
+                        <VanAnAlert Variant="AlertVariant.Info" CssClass="mt-3 small"
+                            Message="Không dùng được phương thức nào không có nghĩa là bị từ chối — yêu cầu sẽ chuyển tới đội ngũ xem xét thủ công." />
+                    </div>
+                </VanAnCard>
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="() => _step = 1">Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" CssClass="flex-grow-1" OnClick="() => _step = 3">Tiếp tục</VanAnButton>
+                </div>
+            }
+
+            @* Step 3: Supporting info *@
+            @if (_step == 3)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="p-3">
+                        <div class="fw-semibold mb-2">Thông tin hỗ trợ (không bắt buộc)</div>
+                        <p class="text-muted small">
+                            Chỉ cung cấp thông tin bạn muốn chia sẻ. Thông tin cá nhân <strong>không đảm bảo</strong>
+                            yêu cầu được duyệt — mọi quyết định do hệ thống và đội ngũ đánh giá.
+                        </p>
+                        <textarea class="form-control" rows="4" maxlength="1000"
+                                  placeholder="Mô tả thêm: bạn đã thử những gì, thiết bị nào còn truy cập được..."
+                                  @bind="_evidenceNote"></textarea>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="privacyAck" @bind="_privacyAck" />
+                            <label class="form-check-label small" for="privacyAck">
+                                Tôi đồng ý cho hệ thống xử lý thông tin này để đánh giá yêu cầu khôi phục.
+                            </label>
+                        </div>
+                    </div>
+                </VanAnCard>
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="() => _step = 2">Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" CssClass="flex-grow-1" OnClick="GoReview" Disabled="!_privacyAck">Xem lại &amp; gửi</VanAnButton>
+                </div>
+            }
+
+            @* Step 4: Review & submit *@
+            @if (_step == 4)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="p-3">
+                        <div class="fw-semibold mb-3">Xác nhận yêu cầu</div>
+                        <dl class="row small mb-0">
+                            <dt class="col-5">Vấn đề</dt>
+                            <dd class="col-7">@ProblemLabel(_requestType)</dd>
+                            <dt class="col-5">Phương thức còn lại</dt>
+                            <dd class="col-7">@(_noMethodAvailable ? "Không còn phương thức nào" : "Có phương thức dự phòng")</dd>
+                            <dt class="col-5">Ghi chú</dt>
+                            <dd class="col-7">@(_evidenceNote is { Length: > 0 } ? _evidenceNote : "—")</dd>
+                        </dl>
+                    </div>
+                </VanAnCard>
+                <div class="d-flex gap-2">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="() => _step = 3" Disabled="_submitting">Quay lại</VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Primary" CssClass="flex-grow-1" OnClick="SubmitAsync" Disabled="_submitting">
+                        @(_submitting ? "Đang gửi..." : "Gửi yêu cầu")
+                    </VanAnButton>
+                </div>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private sealed record ProblemOption(string Value, string Label);
+
+    private static readonly ProblemOption[] ProblemOptions =
+    [
+        new("LOST_DEVICE", "Tôi bị mất điện thoại/thiết bị"),
+        new("NO_CREDENTIAL", "Tôi không còn mật khẩu/passkey/mã khôi phục"),
+        new("COMPROMISED", "Tôi nghi tài khoản bị truy cập trái phép"),
+        new("OTHER", "Lý do khác")
+    ];
+
+    private int _step = 1;
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _noMethodAvailable;
+    private bool _privacyAck;
+    private bool _submitting;
+    private string? _requestType;
+    private string? _evidenceNote;
+    private string? _error;
+    private string? _customerToken;
+    private Guid? _submittedRequestId;
+    private string? _idempotencyKey;
+
+    private SecurityHttpService.TrustProfileSummaryDto? _me;
+    private SecurityHttpService.RecoveryCodesStatusDto? _recoveryStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+        {
+            _me = await SecurityHttp.GetMeAsync(_customerToken!);
+            _recoveryStatus = await SecurityHttp.GetRecoveryCodesStatusAsync(_customerToken!);
+            // Resume: đã có request active → vào thẳng status.
+            var mine = await SecurityHttp.ListMyRecoveryRequestsAsync(_customerToken!);
+            var active = mine?.FirstOrDefault(r => r.Status is "SUBMITTED" or "AUTOMATED_CHECK" or "PENDING_USER_ACTION" or "PENDING_REVIEW");
+            if (active is not null)
+            {
+                Navigation.NavigateTo($"/recovery/{active.Id}");
+                return;
+            }
+            // Idempotency key persist trong session (retry không tạo duplicate).
+            _idempotencyKey = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "atrs_recovery_idem")
+                ?? Guid.NewGuid().ToString("N");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "atrs_recovery_idem", _idempotencyKey);
+        }
+        _loading = false;
+    }
+
+    private void GoReview()
+    {
+        _error = null;
+        _step = 4;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _error = null;
+        try
+        {
+            var evidenceJson = _evidenceNote is { Length: > 0 }
+                ? System.Text.Json.JsonSerializer.Serialize(new { note = _evidenceNote, noMethodAvailable = _noMethodAvailable })
+                : (_noMethodAvailable ? System.Text.Json.JsonSerializer.Serialize(new { noMethodAvailable = true }) : null);
+
+            var result = await SecurityHttp.SubmitRecoveryRequestAsync(
+                _customerToken!, _requestType!, _idempotencyKey!, evidenceJson);
+
+            if (result is null)
+            {
+                _error = "Không thể gửi yêu cầu. Vui lòng thử lại.";
+                return;
+            }
+            _submittedRequestId = result.Request.Id;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void GoToStatus() => Navigation.NavigateTo($"/recovery/{_submittedRequestId}");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string StepLabel(int step) => step switch
+    {
+        1 => "Vấn đề",
+        2 => "Phương thức",
+        3 => "Thông tin",
+        _ => "Gửi"
+    };
+
+    private static string ProblemLabel(string? type) => ProblemOptions.FirstOrDefault(o => o.Value == type)?.Label ?? type ?? "—";
+}

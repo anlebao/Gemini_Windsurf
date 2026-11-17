@@ -18,6 +18,11 @@ services:
       Atrs__WebAuthn__Origins__2: ${ATRS_WEBAUTHN_ORIGIN_2:-https://diemthuong2.khachvip.online}
       Atrs__WebAuthn__Origins__3: ${ATRS_WEBAUTHN_ORIGIN_3:-https://hoptacxa.timlathay.com}
       InternalLoyalty__ApiKey: ${INTERNAL_API_KEY}
+      # Wave 4 (D9): R2 evidence attachments — reuse R2 creds; bucket chung, prefix atrs-evidence/.
+      Atrs__R2__Endpoint: ${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
+      Atrs__R2__AccessKey: ${R2_ACCESS_KEY:-}
+      Atrs__R2__SecretKey: ${R2_SECRET_KEY:-}
+      Atrs__R2__BucketName: ${R2_BUCKET_NAME:-vanan-guard-photos}
       ASPNETCORE_URLS: http://+:5080
     ports:
       - "5080:5080"

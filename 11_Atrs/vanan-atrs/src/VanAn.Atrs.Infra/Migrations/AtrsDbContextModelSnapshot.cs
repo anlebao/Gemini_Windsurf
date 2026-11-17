@@ -524,6 +524,115 @@ namespace VanAn.Atrs.Infra.Migrations
                     b.ToTable("dispute_evidence_items", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.Atrs.Domain.EvidenceAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DisputeCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispute_case_id");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_evidence_attachments");
+
+                    b.HasIndex("DisputeCaseId")
+                        .HasDatabaseName("ix_evidence_attachments_case");
+
+                    b.HasIndex("TrustSubjectId")
+                        .HasDatabaseName("ix_evidence_attachments_subject");
+
+                    b.ToTable("evidence_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Atrs.Domain.PersonalEvidenceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CollectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("collected_at");
+
+                    b.Property<Guid?>("ConsentRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("consent_record_id");
+
+                    b.Property<string>("FieldKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("field_key");
+
+                    b.Property<string>("PrivacyNoticeVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("privacy_notice_version");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer")
+                        .HasColumnName("source");
+
+                    b.Property<Guid>("TrustSubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_subject_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Value")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("value");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("verification_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_personal_evidence_items");
+
+                    b.HasIndex("TrustSubjectId", "FieldKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_personal_evidence_subject_field");
+
+                    b.ToTable("personal_evidence_items", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Atrs.Domain.RecoveryCode", b =>
                 {
                     b.Property<Guid>("Id")

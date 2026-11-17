@@ -35,6 +35,17 @@
         }
         else
         {
+            @* U01 onboarding prompt — chỉ khi BASIC và chưa dismiss *@
+            @if (_showSetupPrompt)
+            {
+                <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Bạn chưa thiết lập biện pháp bảo vệ nào. <a href="/security/setup">Xem hướng dẫn thiết lập</a></span>
+                        <button class="btn btn-sm btn-link" @onclick="DismissSetupPrompt">Ẩn</button>
+                    </div>
+                </VanAnAlert>
+            }
+
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="p-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -196,6 +207,23 @@
                 </div>
             </VanAnCard>
 
+            @* ===== Wave 4 entries (U01/U02/U11) ===== *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="card-body">
+                    <div class="d-flex flex-column gap-2">
+                        <a href="/security/setup" class="text-decoration-none">
+                            <i class="bi bi-rocket-takeoff me-2 text-primary"></i>Hướng dẫn thiết lập bảo mật
+                        </a>
+                        <a href="/security/profile" class="text-decoration-none">
+                            <i class="bi bi-person-vcard me-2 text-primary"></i>Thông tin cá nhân hỗ trợ
+                        </a>
+                        <a href="/disputes" class="text-decoration-none">
+                            <i class="bi bi-chat-square-text me-2 text-primary"></i>Khiếu nại &amp; tranh chấp
+                        </a>
+                    </div>
+                </div>
+            </VanAnCard>
+
             @* ===== Recovery entry (U06) ===== *@
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="card-body d-flex justify-content-between align-items-center">
@@ -237,6 +265,7 @@
     private bool _passkeyBusy;
     private bool _actionBusy;
     private string? _stepUpToken;
+    private bool _showSetupPrompt;
 
     private string _assuranceState => _me?.AssuranceState ?? "BASIC";
     private string _assuranceLabel => _assuranceState switch
@@ -264,7 +293,15 @@
         _webauthnSupported = await JSRuntime.InvokeAsync<bool>("vananWebAuthn.isSupported");
 
         await LoadAllAsync();
+        var dismissed = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "atrs_setup_dismissed");
+        _showSetupPrompt = dismissed is null && _me?.AssuranceState == "BASIC";
         _loading = false;
+    }
+
+    private async Task DismissSetupPrompt()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "atrs_setup_dismissed", "1");
+        _showSetupPrompt = false;
     }
 
     private async Task LoadAllAsync()

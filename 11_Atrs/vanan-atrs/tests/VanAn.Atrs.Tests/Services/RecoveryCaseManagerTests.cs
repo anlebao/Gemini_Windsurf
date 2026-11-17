@@ -148,6 +148,49 @@ public sealed class RecoveryCaseManagerTests : IDisposable
         Assert.Equal((customerId, "Customer"), _bumpNotifier.Calls[0]);
     }
 
+    // ── Wave 4 (U10): ListMine + Cancel ──
+
+    [Fact]
+    public async Task ListMine_ReturnsOnlySubjectRequests_NewestFirst()
+    {
+        var subjectId = Guid.NewGuid();
+        var otherId = Guid.NewGuid();
+        await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-a");
+        await _manager.SubmitAsync(otherId, RecoveryRequestType.NO_CREDENTIAL, "idem-b");
+
+        var mine = await _manager.ListMineAsync(subjectId);
+        Assert.Single(mine);
+        Assert.Equal(subjectId, mine[0].TrustSubjectId);
+    }
+
+    [Fact]
+    public async Task CancelAsync_OpenRequest_SetsCancelled()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-1");
+        var cancelled = await _manager.CancelAsync(submitted.Request.Id, subjectId);
+        Assert.Equal(RecoveryRequestStatus.CANCELLED.ToString(), cancelled!.Status);
+    }
+
+    [Fact]
+    public async Task CancelAsync_WrongSubject_ReturnsNull()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-1");
+        var result = await _manager.CancelAsync(submitted.Request.Id, Guid.NewGuid());
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task CancelAsync_CompletedRequest_ReturnsCurrentState()
+    {
+        var subjectId = Guid.NewGuid();
+        var submitted = await _manager.SubmitAsync(subjectId, RecoveryRequestType.LOST_DEVICE, "idem-1");
+        await _manager.ManualApproveAsync(submitted.Request.Id, reviewerId: Guid.NewGuid());
+        var cancelled = await _manager.CancelAsync(submitted.Request.Id, subjectId);
+        Assert.Equal(RecoveryRequestStatus.APPROVED.ToString(), cancelled!.Status);
+    }
+
     private sealed class RecordingBumpNotifier : ITokenVersionBumpNotifier
     {
         public List<(Guid UserId, string IdentityType)> Calls { get; } = [];

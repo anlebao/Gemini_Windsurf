@@ -1,0 +1,241 @@
+@page "/recovery/{Id:guid}"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+
+<PageTitle>Trạng thái khôi phục</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-arrow-counterclockwise text-primary"></i> Khôi phục tài khoản</h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem trạng thái</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_request is null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-question-circle text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không tìm thấy yêu cầu</h5>
+                <p class="text-muted small">Yêu cầu không tồn tại hoặc không thuộc tài khoản của bạn.</p>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoToRecovery">Tạo yêu cầu mới</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <div class="text-muted small">Mã tham chiếu</div>
+                            <code>@Id.ToString()[..8]</code>
+                        </div>
+                        <span class="badge @StatusBadgeClass(_request.Status) fs-6">@StatusLabel(_request.Status)</span>
+                    </div>
+                    <dl class="row small mb-0">
+                        <dt class="col-5">Loại yêu cầu</dt>
+                        <dd class="col-7">@RequestTypeLabel(_request.RequestType)</dd>
+                        <dt class="col-5">Ngày gửi</dt>
+                        <dd class="col-7">@_request.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        @if (_request.CompletedAt is not null)
+                        {
+                            <dt class="col-5">Cập nhật cuối</dt>
+                            <dd class="col-7">@_request.CompletedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        }
+                    </dl>
+                    <VanAnAlert Variant="AlertVariant.Info" CssClass="mt-3 small" Message="@StatusDescription(_request.Status)" />
+                </div>
+            </VanAnCard>
+
+            @* Verify recovery code — chỉ khi request đang chờ user action *@
+            @if (CanVerifyCode)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="card-header bg-transparent fw-semibold">Xác minh bằng mã khôi phục</div>
+                    <div class="card-body">
+                        <p class="text-muted small">
+                            Nếu bạn còn mã khôi phục chưa dùng, nhập tại đây để hệ thống xác minh nhanh.
+                            Mỗi mã chỉ dùng được một lần.
+                        </p>
+                        <div class="input-group">
+                            <input class="form-control" placeholder="XXXX-XXXX-XXXX" @bind="_codeInput" maxlength="20" />
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="VerifyCodeAsync" Disabled="_verifying || string.IsNullOrWhiteSpace(_codeInput)">
+                                @(_verifying ? "Đang kiểm tra..." : "Xác minh")
+                            </VanAnButton>
+                        </div>
+                        @if (_verifyMessage is not null)
+                        {
+                            <VanAnAlert Message="@_verifyMessage" Variant="@(_verifySuccess ? AlertVariant.Success : AlertVariant.Error)" CssClass="mt-2" />
+                        }
+                    </div>
+                </VanAnCard>
+            }
+
+            @* Actions *@
+            <div class="d-flex gap-2">
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAsync" Disabled="_loading">Làm mới</VanAnButton>
+                @if (CanCancel)
+                {
+                    <VanAnButton Variant="ButtonVariant.Error" OnClick="CancelAsync" Disabled="_cancelling">
+                        @(_cancelling ? "Đang huỷ..." : "Huỷ yêu cầu")
+                    </VanAnButton>
+                }
+            </div>
+
+            @if (_actionError is not null)
+            {
+                <VanAnAlert Message="@_actionError" Variant="AlertVariant.Error" CssClass="mt-3" />
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private string? _customerToken;
+    private SecurityHttpService.RecoveryRequestSummaryDto? _request;
+
+    private string? _codeInput;
+    private string? _verifyMessage;
+    private bool _verifySuccess;
+    private bool _verifying;
+    private bool _cancelling;
+    private string? _actionError;
+
+    private bool CanVerifyCode => _request?.Status is "SUBMITTED" or "AUTOMATED_CHECK" or "PENDING_USER_ACTION";
+    private bool CanCancel => _request?.Status is "SUBMITTED" or "AUTOMATED_CHECK" or "PENDING_USER_ACTION";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+            await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _request = await SecurityHttp.GetRecoveryRequestAsync(_customerToken!, Id);
+        _loading = false;
+    }
+
+    private async Task VerifyCodeAsync()
+    {
+        _verifying = true;
+        _verifyMessage = null;
+        try
+        {
+            var result = await SecurityHttp.VerifyRecoveryCodeAsync(_customerToken!, Id, _codeInput!.Trim());
+            if (result is null)
+            {
+                _verifyMessage = "Không thể xác minh. Vui lòng thử lại.";
+                _verifySuccess = false;
+            }
+            else if (result.Success)
+            {
+                _verifyMessage = "Mã khôi phục hợp lệ — yêu cầu đang được xử lý.";
+                _verifySuccess = true;
+                await LoadAsync();
+            }
+            else
+            {
+                _verifyMessage = result.Reason switch
+                {
+                    "InvalidCode" => "Mã không đúng hoặc đã dùng. Kiểm tra lại hoặc thử mã khác.",
+                    "Locked" => "Quá nhiều lần thử sai. Vui lòng thử lại sau.",
+                    "WrongState" => "Yêu cầu không còn ở trạng thái chấp nhận mã.",
+                    _ => "Xác minh thất bại. Vui lòng thử lại."
+                };
+                _verifySuccess = false;
+            }
+        }
+        finally
+        {
+            _verifying = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        _cancelling = true;
+        _actionError = null;
+        try
+        {
+            var result = await SecurityHttp.CancelRecoveryRequestAsync(_customerToken!, Id);
+            if (result is null)
+                _actionError = "Không thể huỷ yêu cầu.";
+            else
+                _request = result;
+        }
+        finally
+        {
+            _cancelling = false;
+        }
+    }
+
+    private void GoToRecovery() => Navigation.NavigateTo("/recovery");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "SUBMITTED" => "Đã gửi",
+        "AUTOMATED_CHECK" => "Đang kiểm tra tự động",
+        "PENDING_USER_ACTION" => "Chờ bạn xác minh",
+        "PENDING_REVIEW" => "Chờ đội ngũ xem xét",
+        "APPROVED" => "Đã duyệt",
+        "COMPLETED" => "Hoàn tất",
+        "REJECTED" => "Bị từ chối",
+        "CANCELLED" => "Đã huỷ",
+        "EXPIRED" => "Hết hạn",
+        _ => status
+    };
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "APPROVED" or "COMPLETED" => "text-bg-success",
+        "REJECTED" or "EXPIRED" => "text-bg-danger",
+        "CANCELLED" => "text-bg-secondary",
+        "PENDING_REVIEW" or "PENDING_USER_ACTION" => "text-bg-warning",
+        _ => "text-bg-info"
+    };
+
+    private string StatusDescription(string status) => status switch
+    {
+        "SUBMITTED" => "Yêu cầu đã được ghi nhận và đang chờ xử lý tự động.",
+        "AUTOMATED_CHECK" => "Hệ thống đang kiểm tra các bằng chứng bạn cung cấp.",
+        "PENDING_USER_ACTION" => "Cần bạn cung cấp thêm xác minh (ví dụ mã khôi phục) để tiếp tục.",
+        "PENDING_REVIEW" => "Yêu cầu đã chuyển tới đội ngũ hỗ trợ để xem xét thủ công.",
+        "APPROVED" => "Yêu cầu đã được duyệt. Làm theo hướng dẫn để hoàn tất khôi phục.",
+        "COMPLETED" => "Khôi phục hoàn tất. Các phiên đăng nhập cũ đã được thu hồi.",
+        "REJECTED" => "Yêu cầu không được chấp nhận. Nếu bạn cho rằng đây là nhầm lẫn, hãy liên hệ hỗ trợ.",
+        "CANCELLED" => "Yêu cầu đã được huỷ.",
+        "EXPIRED" => "Yêu cầu đã hết hạn. Bạn có thể tạo yêu cầu mới.",
+        _ => ""
+    };
+
+    private static string RequestTypeLabel(string type) => type switch
+    {
+        "LOST_DEVICE" => "Mất thiết bị",
+        "NO_CREDENTIAL" => "Mất thông tin đăng nhập",
+        "COMPROMISED" => "Nghi bị truy cập trái phép",
+        "OTHER" => "Khác",
+        _ => type
+    };
+}

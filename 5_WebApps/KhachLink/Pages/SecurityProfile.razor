@@ -1,0 +1,249 @@
+@page "/security/profile"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+
+<PageTitle>Thông tin cá nhân hỗ trợ</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-person-vcard text-primary"></i> Thông tin cá nhân hỗ trợ</h3>
+        <p class="text-muted small mb-4">
+            Các thông tin bạn khai báo giúp đội ngũ xác minh nhanh hơn khi bạn cần khôi phục tài khoản
+            hoặc khiếu nại. Thông tin <strong>không được dùng để chứng minh danh tính</strong> và bạn
+            có thể rút lại đồng ý bất cứ lúc nào.
+        </p>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để quản lý thông tin</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            @if (_error is not null)
+            {
+                <VanAnAlert Message="@_error" Variant="AlertVariant.Error" CssClass="mb-3" />
+            }
+            @if (_saved is not null)
+            {
+                <VanAnAlert Message="Đã lưu thông tin." Variant="AlertVariant.Success" CssClass="mb-3" />
+            }
+
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="p-3">
+                    <div class="text-muted small mb-3">
+                        Giá trị đang hiển thị đã được che một phần vì lý do bảo mật. Khi sửa, hệ thống
+                        ghi nhận là <strong>khai báo của bạn</strong> (chưa xác minh).
+                    </div>
+
+                    @foreach (var field in _fields)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">@FieldLabel(field.Key)</label>
+                            <div class="input-group">
+                                <input class="form-control" type="text" maxlength="200"
+                                       placeholder="@FieldPlaceholder(field.Key)"
+                                       @bind="field.EditValue" />
+                                <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                                             OnClick="() => SaveField(field)" Disabled="_saving">
+                                    @(_savingField == field.Key ? "Đang lưu..." : "Lưu")
+                                </VanAnButton>
+                            </div>
+                            <div class="text-muted small mt-1">
+                                @if (field.Item is not null)
+                                {
+                                    <span>Đã lưu: <strong>@field.Item.MaskedValue</strong></span>
+                                    <span> · </span>
+                                    <span class="badge @StatusBadge(field.Item.VerificationStatus)">@StatusLabel(field.Item.VerificationStatus)</span>
+                                }
+                                else
+                                {
+                                    <span>Chưa khai báo.</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </VanAnCard>
+
+            @* Consent (SRS §11.2) *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="card-header bg-transparent fw-semibold">Đồng ý xử lý dữ liệu</div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Chúng tôi chỉ xử lý thông tin trên cho mục đích hỗ trợ khôi phục tài khoản và
+                        khiếu nại. Bạn có thể rút lại bất cứ lúc nào — dữ liệu đã xử lý trước đó không bị ảnh hưởng.
+                    </p>
+                    @foreach (var consent in _consents.Where(c => c.WithdrawnAt is null))
+                    {
+                        <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                            <div>
+                                <div class="fw-semibold">@PurposeLabel(consent.Purpose)</div>
+                                <div class="text-muted small">Đồng ý từ @consent.GrantedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                                         OnClick="() => WithdrawConsent(consent.Id)" Disabled="_saving">
+                                Rút lại
+                            </VanAnButton>
+                        </div>
+                    }
+                    @if (!_consents.Any(c => c.Purpose == "evidence_processing" && c.WithdrawnAt is null))
+                    {
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="GrantEvidenceConsent" Disabled="_saving">
+                            Đồng ý xử lý thông tin hỗ trợ
+                        </VanAnButton>
+                    }
+                </div>
+            </VanAnCard>
+
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">Quay lại Bảo mật</VanAnButton>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private const string NoticeVersion = "atrs-privacy-v1";
+
+    private sealed class EvidenceField
+    {
+        public required string Key { get; init; }
+        public SecurityHttpService.PersonalEvidenceItemDto? Item { get; set; }
+        public string? EditValue { get; set; }
+    }
+
+    private readonly List<EvidenceField> _fields =
+    [
+        new() { Key = "FULL_NAME" },
+        new() { Key = "CONTACT_PHONE" },
+        new() { Key = "RECOVERY_NOTE" }
+    ];
+
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _saving;
+    private string? _savingField;
+    private string? _error;
+    private string? _saved;
+    private string? _customerToken;
+    private List<SecurityHttpService.ConsentDto> _consents = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+            await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        var items = await SecurityHttp.GetPersonalEvidenceAsync(_customerToken!);
+        if (items is not null)
+        {
+            foreach (var f in _fields)
+                f.Item = items.FirstOrDefault(i => i.FieldKey == f.Key);
+        }
+        _consents = (await SecurityHttp.GetConsentsAsync(_customerToken!))?.ToList() ?? [];
+    }
+
+    private async Task SaveField(EvidenceField field)
+    {
+        _saving = true;
+        _savingField = field.Key;
+        _error = null;
+        _saved = null;
+        try
+        {
+            var result = await SecurityHttp.UpsertPersonalEvidenceAsync(
+                _customerToken!, field.Key, field.EditValue, NoticeVersion);
+            if (result is null)
+                _error = "Không thể lưu. Vui lòng thử lại.";
+            else
+            {
+                field.Item = result;
+                field.EditValue = null;
+                _saved = "ok";
+            }
+        }
+        finally
+        {
+            _saving = false;
+            _savingField = null;
+        }
+    }
+
+    private async Task GrantEvidenceConsent()
+    {
+        _saving = true;
+        var consent = await SecurityHttp.GrantConsentAsync(_customerToken!, "evidence_processing", NoticeVersion);
+        if (consent is not null)
+            _consents.Add(consent);
+        _saving = false;
+    }
+
+    private async Task WithdrawConsent(Guid consentId)
+    {
+        _saving = true;
+        if (await SecurityHttp.WithdrawConsentAsync(_customerToken!, consentId))
+            _consents = _consents.Select(c => c.Id == consentId ? c with { WithdrawnAt = DateTime.UtcNow } : c).ToList();
+        _saving = false;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/security");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string FieldLabel(string key) => key switch
+    {
+        "FULL_NAME" => "Họ và tên",
+        "CONTACT_PHONE" => "Số điện thoại liên hệ",
+        "RECOVERY_NOTE" => "Ghi chú hỗ trợ khôi phục",
+        _ => key
+    };
+
+    private static string FieldPlaceholder(string key) => key switch
+    {
+        "FULL_NAME" => "Tên đầy đủ trên giấy tờ",
+        "CONTACT_PHONE" => "Số điện thoại bạn dùng để liên hệ",
+        "RECOVERY_NOTE" => "Thông tin giúp chúng tôi nhận diện bạn (không bắt buộc)",
+        _ => ""
+    };
+
+    private static string PurposeLabel(string purpose) => purpose switch
+    {
+        "evidence_processing" => "Xử lý thông tin hỗ trợ khôi phục/khiếu nại",
+        "security_notifications" => "Thông báo bảo mật tài khoản",
+        "recovery_support" => "Hỗ trợ quá trình khôi phục",
+        _ => purpose
+    };
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "VERIFIED" => "Đã xác minh",
+        "UNVERIFIED" => "Chưa xác minh",
+        "REJECTED" => "Bị từ chối",
+        "EXPIRED" => "Hết hạn",
+        _ => status
+    };
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "VERIFIED" => "text-bg-success",
+        "UNVERIFIED" => "text-bg-warning",
+        "REJECTED" => "text-bg-danger",
+        "EXPIRED" => "text-bg-secondary",
+        _ => "text-bg-light"
+    };
+}

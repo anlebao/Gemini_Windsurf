@@ -1,0 +1,137 @@
+@page "/security/setup"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+
+<PageTitle>Thiết lập bảo mật</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-shield-check text-primary"></i> Bảo vệ tài khoản</h3>
+        <p class="text-muted small mb-4">
+            Thiết lập giúp bạn khôi phục tài khoản nhanh hơn khi mất điện thoại hoặc nghi ngờ bị truy cập trái phép.
+            Các bước dưới đây <strong>không bắt buộc</strong> và không ảnh hưởng đến việc mua sắm.
+        </p>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để thiết lập bảo mật</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <div class="fw-semibold">Mức bảo vệ hiện tại</div>
+                            <div class="text-muted small">@_assuranceLabel</div>
+                        </div>
+                        <span class="badge @_assuranceBadgeClass fs-6">@_assuranceState</span>
+                    </div>
+
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <div><i class="bi bi-fingerprint me-2 text-primary"></i>Passkey</div>
+                                <div class="text-muted small">Đăng nhập nhanh, an toàn hơn mật khẩu.</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge @((_me?.ActivePasskeyCount ?? 0) > 0 ? "text-bg-success" : "text-bg-secondary")">
+                                    @((_me?.ActivePasskeyCount ?? 0) > 0 ? "Đã có" : "Chưa có")
+                                </span>
+                                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToSecurity">Cài đặt</VanAnButton>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <div><i class="bi bi-key me-2 text-primary"></i>Mã khôi phục</div>
+                                <div class="text-muted small">Dùng một lần khi mất quyền truy cập.</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge @(_me?.HasRecoveryCodes == true ? "text-bg-success" : "text-bg-secondary")">
+                                    @(_me?.HasRecoveryCodes == true ? "Đã có" : "Chưa có")
+                                </span>
+                                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToSecurity">Cài đặt</VanAnButton>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <div><i class="bi bi-phone me-2 text-primary"></i>Thiết bị đã biết</div>
+                                <div class="text-muted small">Theo dõi và thu hồi thiết bị lạ.</div>
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToSecurity">Xem</VanAnButton>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <div><i class="bi bi-person-vcard me-2 text-primary"></i>Thông tin cá nhân hỗ trợ</div>
+                                <div class="text-muted small">Giúp xác minh nhanh hơn khi cần khôi phục.</div>
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="GoToProfile">Khai báo</VanAnButton>
+                        </div>
+                    </div>
+                </div>
+            </VanAnCard>
+
+            <VanAnAlert Variant="AlertVariant.Info" CssClass="small"
+                Message="Mức bảo vệ chỉ phản ánh các biện pháp bạn đã bật — không phải chứng minh danh tính pháp lý." />
+
+            <div class="d-flex gap-2 mt-3">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToSecurity" CssClass="flex-grow-1">Bắt đầu thiết lập</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="Dismiss">Để sau</VanAnButton>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private const string DismissKey = "atrs_setup_dismissed";
+
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private string? _customerToken;
+    private SecurityHttpService.TrustProfileSummaryDto? _me;
+
+    private string _assuranceState => _me?.AssuranceState ?? "BASIC";
+    private string _assuranceLabel => _assuranceState switch
+    {
+        "RECOVERY_READY" => "Đã tăng cường — tài khoản được bảo vệ tốt",
+        "PROTECTED" => "Cơ bản — nên thêm passkey và mã khôi phục",
+        _ => "Chưa thiết lập — nên bắt đầu với passkey hoặc mã khôi phục"
+    };
+    private string _assuranceBadgeClass => _assuranceState switch
+    {
+        "RECOVERY_READY" => "text-bg-success",
+        "PROTECTED" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+            _me = await SecurityHttp.GetMeAsync(_customerToken!);
+        _loading = false;
+    }
+
+    private void GoToSecurity() => Navigation.NavigateTo("/security");
+    private void GoToProfile() => Navigation.NavigateTo("/security/profile");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private async Task Dismiss()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", DismissKey, "1");
+        Navigation.NavigateTo("/");
+    }
+}

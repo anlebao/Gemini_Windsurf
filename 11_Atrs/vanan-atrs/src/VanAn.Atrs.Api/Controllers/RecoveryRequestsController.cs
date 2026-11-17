@@ -54,6 +54,33 @@ public class RecoveryRequestsController(
         return Ok(dto);
     }
 
+    /// <summary>Wave 4 (U10): recovery requests của chính customer — resume pending.</summary>
+    [HttpGet("mine")]
+    public async Task<IActionResult> Mine(CancellationToken ct)
+    {
+        var auth = await customerContext.AuthenticateAsync(Request, ct);
+        if (auth.Status == AtrsCustomerTokenStatus.DownstreamUnavailable)
+            return StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." });
+        if (auth.TrustSubjectId is null)
+            return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+
+        return Ok(await recoveryCaseManager.ListMineAsync(auth.TrustSubjectId.Value, ct));
+    }
+
+    /// <summary>Wave 4 (U10): user tự huỷ request đang mở.</summary>
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    {
+        var auth = await customerContext.AuthenticateAsync(Request, ct);
+        if (auth.Status == AtrsCustomerTokenStatus.DownstreamUnavailable)
+            return StatusCode(503, new { error = "Dịch vụ đang bảo trì, vui lòng thử lại sau." });
+        if (auth.TrustSubjectId is null)
+            return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+
+        var dto = await recoveryCaseManager.CancelAsync(id, auth.TrustSubjectId.Value, ct);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
     /// <summary>Tiered proof ①: verify recovery code → risk engine → approve/review/reject.</summary>
     [HttpPost("{id:guid}/verify-code")]
     public async Task<IActionResult> VerifyCode(Guid id, [FromBody] VerifyCodeRequest request, CancellationToken ct)

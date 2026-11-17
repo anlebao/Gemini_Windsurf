@@ -1,0 +1,281 @@
+@page "/disputes/{Id:guid}"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
+
+<PageTitle>Chi tiết khiếu nại</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width: 640px;">
+        <h3 class="mb-2"><i class="bi bi-chat-square-text text-primary"></i> Chi tiết khiếu nại</h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem khiếu nại</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_case is null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-question-circle text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không tìm thấy khiếu nại</h5>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">Quay lại</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <div class="text-muted small">Mã tham chiếu</div>
+                            <code>@Id.ToString()[..8]</code>
+                        </div>
+                        <span class="badge @Disputes.StatusBadge(_case.Status) fs-6">@Disputes.StatusLabel(_case.Status)</span>
+                    </div>
+                    <dl class="row small mb-0">
+                        <dt class="col-5">Loại</dt>
+                        <dd class="col-7">@Disputes.CaseTypeLabel(_case.CaseType)</dd>
+                        <dt class="col-5">Ngày gửi</dt>
+                        <dd class="col-7">@_case.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        @if (_case.ClosedAt is not null)
+                        {
+                            <dt class="col-5">Ngày đóng</dt>
+                            <dd class="col-7">@_case.ClosedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                        }
+                    </dl>
+                    @if (_case.UserFacingStatusNote is { Length: > 0 })
+                    {
+                        <VanAnAlert Variant="AlertVariant.Info" CssClass="mt-3 small" Message="@_case.UserFacingStatusNote" />
+                    }
+                </div>
+            </VanAnCard>
+
+            @* Nội dung khiếu nại *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="card-header bg-transparent fw-semibold">Nội dung của bạn</div>
+                <div class="card-body">
+                    <p class="mb-0" style="white-space: pre-wrap;">@_case.ClaimedIssue</p>
+                    @if (_case.RelatedTransactionIds.Count > 0 || _case.RelatedLedgerReferences.Count > 0)
+                    {
+                        <div class="text-muted small mt-2">
+                            Giao dịch liên quan:
+                            @foreach (var r in _case.RelatedTransactionIds.Concat(_case.RelatedLedgerReferences))
+                            {
+                                <code class="me-1">@r</code>
+                            }
+                        </div>
+                    }
+                </div>
+            </VanAnCard>
+
+            @* Timeline user-visible *@
+            @if (_case.UserVisibleTimeline.Count > 0)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="card-header bg-transparent fw-semibold">Diễn biến</div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var t in _case.UserVisibleTimeline)
+                        {
+                            <li class="list-group-item px-3 py-2 small">@t</li>
+                        }
+                    </ul>
+                </VanAnCard>
+            }
+
+            @* Evidence + attachments *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Bằng chứng / đính kèm</span>
+                    @if (CanAddEvidence)
+                    {
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="() => _showAddEvidence = !_showAddEvidence">
+                            Thêm
+                        </VanAnButton>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_showAddEvidence)
+                    {
+                        <div class="border rounded p-2 mb-3">
+                            <InputFile OnChange="OnFileSelected" accept=".png,.jpg,.jpeg,.webp,.pdf" class="form-control form-control-sm mb-2" />
+                            @if (_selectedFile is not null)
+                            {
+                                <div class="small text-muted mb-2">Đã chọn: @_selectedFile.Name (@FormatSize(_selectedFile.Size))</div>
+                            }
+                            <textarea class="form-control form-control-sm mb-2" rows="2" maxlength="500"
+                                      placeholder="Mô tả bằng chứng bổ sung (không bắt buộc)"
+                                      @bind="_evidenceDescription"></textarea>
+                            <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small" OnClick="AddEvidenceAsync" Disabled="_addingEvidence">
+                                @(_addingEvidence ? "Đang thêm..." : "Gửi")
+                            </VanAnButton>
+                            <div class="text-muted small mt-1">Tối đa 5MB — PNG/JPG/WebP/PDF. Tối đa 10 tệp/khiếu nại.</div>
+                        </div>
+                    }
+
+                    @if (_attachments is { Count: > 0 })
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var a in _attachments)
+                            {
+                                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-paperclip me-1"></i>@a.FileName
+                                        <span class="text-muted small">(@FormatSize(a.SizeBytes))</span>
+                                    </div>
+                                    @if (a.DownloadUrl is not null)
+                                    {
+                                        <a href="@a.DownloadUrl" target="_blank" class="btn btn-sm btn-outline-primary">Tải</a>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Chưa có đính kèm.</div>
+                    }
+                    @if (_evidenceError is not null)
+                    {
+                        <VanAnAlert Message="@_evidenceError" Variant="AlertVariant.Error" CssClass="mt-2" />
+                    }
+                </div>
+            </VanAnCard>
+
+            @* Withdraw *@
+            @if (CanWithdraw)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold">Rút khiếu nại</div>
+                            <div class="text-muted small">Chỉ rút được khi chưa có quyết định.</div>
+                        </div>
+                        <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small" OnClick="WithdrawAsync" Disabled="_withdrawing">
+                            @(_withdrawing ? "Đang rút..." : "Rút")
+                        </VanAnButton>
+                    </div>
+                </VanAnCard>
+            }
+
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">Quay lại danh sách</VanAnButton>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private string? _customerToken;
+    private SecurityHttpService.DisputeCaseDetailDto? _case;
+    private List<SecurityHttpService.EvidenceAttachmentDto>? _attachments;
+
+    private bool _showAddEvidence;
+    private string? _evidenceDescription;
+    private bool _addingEvidence;
+    private string? _evidenceError;
+    private bool _withdrawing;
+    private IBrowserFile? _selectedFile;
+
+    private bool CanAddEvidence => _case is not null && !Disputes.IsTerminal(_case.Status);
+    private bool CanWithdraw => _case?.Status is "OPEN" or "TRIAGE" or "WAITING_FOR_USER" or "WAITING_FOR_EXTERNAL_EVIDENCE";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+        if (_isLoggedIn)
+            await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _case = await SecurityHttp.GetDisputeAsync(_customerToken!, Id);
+        _attachments = (await SecurityHttp.ListDisputeAttachmentsAsync(_customerToken!, Id))?.ToList();
+        _loading = false;
+    }
+
+    private async Task AddEvidenceAsync()
+    {
+        _addingEvidence = true;
+        _evidenceError = null;
+        try
+        {
+            // File upload (nếu có) → base64 → R2; text evidence luôn gửi.
+            if (_selectedFile is not null)
+            {
+                const long maxBytes = 5 * 1024 * 1024;
+                if (_selectedFile.Size > maxBytes)
+                {
+                    _evidenceError = "Tệp quá lớn — tối đa 5MB.";
+                    return;
+                }
+                var allowed = new[] { "image/png", "image/jpeg", "image/webp", "application/pdf" };
+                if (!allowed.Contains(_selectedFile.ContentType, StringComparer.OrdinalIgnoreCase))
+                {
+                    _evidenceError = "Định dạng không hỗ trợ — chỉ PNG/JPG/WebP/PDF.";
+                    return;
+                }
+                await using var stream = _selectedFile.OpenReadStream(maxBytes);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                var b64 = Convert.ToBase64String(ms.ToArray());
+                var att = await SecurityHttp.UploadDisputeAttachmentAsync(
+                    _customerToken!, Id, _selectedFile.Name, _selectedFile.ContentType, b64);
+                if (att is null)
+                    _evidenceError = "Không thể tải tệp lên. Vui lòng thử lại.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(_evidenceDescription))
+            {
+                var updated = await SecurityHttp.AddDisputeEvidenceAsync(_customerToken!, Id, "OTHER", _evidenceDescription.Trim());
+                if (updated is not null)
+                    _case = updated;
+            }
+
+            _attachments = (await SecurityHttp.ListDisputeAttachmentsAsync(_customerToken!, Id))?.ToList();
+            _evidenceDescription = null;
+            _selectedFile = null;
+            _showAddEvidence = false;
+        }
+        finally
+        {
+            _addingEvidence = false;
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+        => _selectedFile = e.File;
+
+    private async Task WithdrawAsync()
+    {
+        _withdrawing = true;
+        if (await SecurityHttp.WithdrawDisputeAsync(_customerToken!, Id))
+            await LoadAsync();
+        _withdrawing = false;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/disputes");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / 1024.0 / 1024.0:F1} MB",
+        >= 1024 => $"{bytes / 1024.0:F0} KB",
+        _ => $"{bytes} B"
+    };
+}

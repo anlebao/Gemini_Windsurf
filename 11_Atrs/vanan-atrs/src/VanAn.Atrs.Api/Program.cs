@@ -47,6 +47,14 @@ public static class Program
         else
             builder.Services.AddScoped<ILoyaltyGatewayClient, UnconfiguredLoyaltyGatewayClient>();
 
+        // Wave 4: ATRS-6 subset (personal evidence + consent) + D9 attachments (R2).
+        builder.Services.AddScoped<IPersonalEvidenceService, PersonalEvidenceService>();
+        builder.Services.AddScoped<IDisputeAttachmentService, DisputeAttachmentService>();
+        if (!string.IsNullOrEmpty(builder.Configuration["Atrs:R2:Endpoint"]))
+            builder.Services.AddSingleton<IAtrsObjectStorage, R2AtrsObjectStorage>();
+        else
+            builder.Services.AddSingleton<IAtrsObjectStorage, UnconfiguredAtrsObjectStorage>();
+
         // Customer token validation → forward ShopERP /api/customer-identity/me (pattern Gateway).
         builder.Services.AddHttpClient("shoperp", client =>
         {

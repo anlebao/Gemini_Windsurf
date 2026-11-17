@@ -228,6 +228,307 @@ public class SecurityHttpService(IHttpClientFactory httpClientFactory, ILogger<S
         }
     }
 
+    // ═══ Wave 4 (ATRS-6 subset + U09-U13) ═══
+
+    // ---- Personal evidence + consent (U02) ----
+    public async Task<IReadOnlyList<PersonalEvidenceItemDto>?> GetPersonalEvidenceAsync(string customerToken, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", "personal-evidence", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<PersonalEvidenceItemDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS personal-evidence failed");
+            return null;
+        }
+    }
+
+    public async Task<PersonalEvidenceItemDto?> UpsertPersonalEvidenceAsync(string customerToken, string fieldKey, string? value, string privacyNoticeVersion, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("PUT", "personal-evidence", customerToken);
+            request.Content = JsonContent.Create(new { fieldKey, value, privacyNoticeVersion });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<PersonalEvidenceItemDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS personal-evidence upsert failed");
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<ConsentDto>?> GetConsentsAsync(string customerToken, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", "consents", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<ConsentDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS consents failed");
+            return null;
+        }
+    }
+
+    public async Task<ConsentDto?> GrantConsentAsync(string customerToken, string purpose, string privacyNoticeVersion, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", "consents", customerToken);
+            request.Content = JsonContent.Create(new { purpose, privacyNoticeVersion });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<ConsentDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS consent grant failed");
+            return null;
+        }
+    }
+
+    public async Task<bool> WithdrawConsentAsync(string customerToken, Guid consentId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("POST", $"consents/{consentId}/withdraw", customerToken), ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS consent withdraw failed");
+            return false;
+        }
+    }
+
+    // ---- Recovery requests (U09/U10) ----
+    public async Task<SubmitRecoveryResultDto?> SubmitRecoveryRequestAsync(string customerToken, string requestType, string idempotencyKey, string? evidenceSummaryJson = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", "recovery-requests", customerToken);
+            request.Content = JsonContent.Create(new { requestType, idempotencyKey, newDeviceId = (Guid?)null, evidenceSummaryJson });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<SubmitRecoveryResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS recovery submit failed");
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<RecoveryRequestSummaryDto>?> ListMyRecoveryRequestsAsync(string customerToken, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", "recovery-requests/mine", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<RecoveryRequestSummaryDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS recovery list failed");
+            return null;
+        }
+    }
+
+    public async Task<RecoveryRequestSummaryDto?> GetRecoveryRequestAsync(string customerToken, Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", $"recovery-requests/{id}", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<RecoveryRequestSummaryDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS recovery get failed");
+            return null;
+        }
+    }
+
+    public async Task<RecoveryRequestSummaryDto?> CancelRecoveryRequestAsync(string customerToken, Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("POST", $"recovery-requests/{id}/cancel", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<RecoveryRequestSummaryDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS recovery cancel failed");
+            return null;
+        }
+    }
+
+    /// <summary>Tiered proof ①: verify recovery code trong recovery request.</summary>
+    public async Task<VerifyRecoveryCodeResultDto?> VerifyRecoveryCodeAsync(string customerToken, Guid requestId, string code, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", $"recovery-requests/{requestId}/verify-code", customerToken);
+            request.Content = JsonContent.Create(new { code, deviceId = (Guid?)null, highAccountValue = false });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                // 400 trả { success:false, reason } — parse nhẹ
+                try
+                {
+                    var err = await resp.Content.ReadFromJsonAsync<VerifyRecoveryCodeResultDto>(_json, ct);
+                    return err;
+                }
+                catch { return null; }
+            }
+            return await resp.Content.ReadFromJsonAsync<VerifyRecoveryCodeResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS recovery verify-code failed");
+            return null;
+        }
+    }
+
+    // ---- Disputes (U11-U13) ----
+    public async Task<IReadOnlyList<DisputeCaseSummaryDto>?> ListDisputesAsync(string customerToken, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", "disputes", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<DisputeCaseSummaryDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS disputes list failed");
+            return null;
+        }
+    }
+
+    public async Task<DisputeCaseDetailDto?> GetDisputeAsync(string customerToken, Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", $"disputes/{id}", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<DisputeCaseDetailDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS dispute get failed");
+            return null;
+        }
+    }
+
+    public async Task<SubmitDisputeResultDto?> SubmitDisputeAsync(string customerToken, string caseType, string claimedIssue, Guid? tenantId, IReadOnlyList<string>? transactionIds, string idempotencyKey, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", "disputes", customerToken);
+            request.Content = JsonContent.Create(new { caseType, claimedIssue, tenantId, relatedTransactionIds = transactionIds, relatedLedgerReferences = (IReadOnlyList<string>?)null, idempotencyKey });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<SubmitDisputeResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS dispute submit failed");
+            return null;
+        }
+    }
+
+    public async Task<DisputeCaseDetailDto?> AddDisputeEvidenceAsync(string customerToken, Guid caseId, string evidenceType, string? description, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", $"disputes/{caseId}/evidence", customerToken);
+            request.Content = JsonContent.Create(new { evidenceType, sourceSystem = "khachlink", sourceReference = (string?)null, integrityHash = (string?)null, description, capturedAt = (DateTime?)null, accessClassification = (string?)null });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<DisputeCaseDetailDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS dispute evidence failed");
+            return null;
+        }
+    }
+
+    public async Task<bool> WithdrawDisputeAsync(string customerToken, Guid caseId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("POST", $"disputes/{caseId}/withdraw", customerToken), ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS dispute withdraw failed");
+            return false;
+        }
+    }
+
+    /// <summary>FR-013: transaction history của customer tại 1 tenant (cho dispute selector).</summary>
+    public async Task<IReadOnlyList<LoyaltyLedgerEntryDto>?> GetTransactionsAsync(string customerToken, Guid tenantId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", $"transactions?tenantId={tenantId}", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<LoyaltyLedgerEntryDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS transactions failed");
+            return null;
+        }
+    }
+
+    // ---- Attachments (D9) ----
+    /// <summary>Upload file base64 → R2. Trả attachment DTO (có signed URL) hoặc null.</summary>
+    public async Task<EvidenceAttachmentDto?> UploadDisputeAttachmentAsync(string customerToken, Guid caseId, string fileName, string contentType, string dataBase64, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = Create("POST", $"disputes/{caseId}/attachments", customerToken);
+            request.Content = JsonContent.Create(new { fileName, contentType, dataBase64 });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            var result = await resp.Content.ReadFromJsonAsync<UploadAttachmentResultDto>(_json, ct);
+            return result?.Attachment;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS attachment upload failed");
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<EvidenceAttachmentDto>?> ListDisputeAttachmentsAsync(string customerToken, Guid caseId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Create("GET", $"disputes/{caseId}/attachments", customerToken), ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<IReadOnlyList<EvidenceAttachmentDto>>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS attachments list failed");
+            return null;
+        }
+    }
+
     // ---- DTOs (mirror VanAn.Atrs.Contracts) ----
     public sealed record TrustProfileSummaryDto(
         Guid TrustSubjectId, string Status, string AssuranceState,
@@ -252,6 +553,47 @@ public class SecurityHttpService(IHttpClientFactory httpClientFactory, ILogger<S
     public sealed record BeginAuthenticationResultDto(string Challenge, JsonElement Options, DateTime ExpiresAt);
     public sealed record FinishRegistrationResultDto(bool Success, string Reason, DeviceCredentialSummaryDto? Credential, Guid? DeviceRecordId);
     public sealed record FinishAuthenticationResultDto(bool Success, string Reason, Guid? CredentialId, string? StepUpToken);
+
+    // Wave 4 DTOs
+    public sealed record PersonalEvidenceItemDto(
+        string FieldKey, bool HasValue, string? MaskedValue, string Source,
+        string VerificationStatus, string PrivacyNoticeVersion, DateTime? UpdatedAt);
+
+    public sealed record ConsentDto(Guid Id, string Purpose, string PrivacyNoticeVersion, DateTime GrantedAt, DateTime? WithdrawnAt);
+
+    public sealed record RecoveryRequestSummaryDto(
+        Guid Id, string RequestType, string Status, Guid TrustSubjectId, Guid? NewDeviceId,
+        string? RiskDecisionJson, string? ReviewerId, string? DecisionReasonCode,
+        DateTime CreatedAt, DateTime? CompletedAt);
+
+    public sealed record SubmitRecoveryResultDto(RecoveryRequestSummaryDto Request, bool Existing);
+    public sealed record VerifyRecoveryCodeResultDto(bool Success, string Reason, RecoveryRequestSummaryDto? Request, string? RiskDecisionKind);
+
+    public sealed record DisputeCaseSummaryDto(
+        Guid Id, string CaseType, string Status, Guid? TenantId, string ClaimedIssue,
+        DateTime SubmittedAt, DateTime? ClosedAt, string? UserFacingStatusNote);
+
+    public sealed record DisputeEvidenceItemDto(
+        Guid Id, string EvidenceType, string? SourceReference, string? Description,
+        DateTime RecordedAt, string? AccessClassification = null,
+        string? ReliabilityClass = null, string? SubmittedBy = null);
+
+    public sealed record DisputeCaseDetailDto(
+        Guid Id, string CaseType, string Status, Guid? TenantId, string ClaimedIssue,
+        IReadOnlyList<string> RelatedTransactionIds, IReadOnlyList<string> RelatedLedgerReferences,
+        DateTime SubmittedAt, DateTime? ClosedAt, string? UserFacingStatusNote,
+        IReadOnlyList<DisputeEvidenceItemDto> Evidence, IReadOnlyList<string> UserVisibleTimeline);
+
+    public sealed record SubmitDisputeResultDto(DisputeCaseSummaryDto Case, bool Existing);
+
+    public sealed record LoyaltyLedgerEntryDto(
+        string Id, string Type, int Points, int? BalanceAfter, string Reason,
+        string? Reference, DateTime OccurredAt, Guid TenantId, string Source, bool IsReversed = false);
+
+    public sealed record EvidenceAttachmentDto(
+        Guid Id, string FileName, string ContentType, long SizeBytes, DateTime CreatedAt, string? DownloadUrl);
+
+    public sealed record UploadAttachmentResultDto(EvidenceAttachmentDto Attachment);
 }
 
 internal static class HttpRequestExtensions

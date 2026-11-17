@@ -26,6 +26,8 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
     public DbSet<DisputeEvidenceItem> DisputeEvidenceItems => Set<DisputeEvidenceItem>();
     public DbSet<DisputeDecision> DisputeDecisions => Set<DisputeDecision>();
     public DbSet<StaffPermissionGrant> StaffPermissionGrants => Set<StaffPermissionGrant>();
+    public DbSet<PersonalEvidenceItem> PersonalEvidenceItems => Set<PersonalEvidenceItem>();
+    public DbSet<EvidenceAttachment> EvidenceAttachments => Set<EvidenceAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -227,5 +229,30 @@ public sealed class AtrsDbContext(DbContextOptions<AtrsDbContext> options) : DbC
         grant.Property(e => e.Permission).HasMaxLength(64).IsRequired();
         grant.Property(e => e.GrantedBy).HasMaxLength(128).IsRequired();
         grant.HasIndex(e => new { e.DemoUserId, e.Permission }).HasDatabaseName("ix_staff_permission_grants_user_perm");
+
+        // ═══ ATRS-6 subset + D9 (Wave 4) — personal evidence + attachments ═══
+
+        var evidenceItem = modelBuilder.Entity<PersonalEvidenceItem>();
+        evidenceItem.ToTable("personal_evidence_items");
+        evidenceItem.HasKey(e => e.Id);
+        evidenceItem.Property(e => e.Id).ValueGeneratedNever();
+        evidenceItem.Property(e => e.FieldKey).HasMaxLength(32).IsRequired();
+        evidenceItem.Property(e => e.Value).HasMaxLength(500);
+        evidenceItem.Property(e => e.Source).HasConversion<int>();
+        evidenceItem.Property(e => e.VerificationStatus).HasConversion<int>();
+        evidenceItem.Property(e => e.PrivacyNoticeVersion).HasMaxLength(32).IsRequired();
+        evidenceItem.HasIndex(e => new { e.TrustSubjectId, e.FieldKey })
+            .IsUnique()
+            .HasDatabaseName("ux_personal_evidence_subject_field");
+
+        var attachment = modelBuilder.Entity<EvidenceAttachment>();
+        attachment.ToTable("evidence_attachments");
+        attachment.HasKey(e => e.Id);
+        attachment.Property(e => e.Id).ValueGeneratedNever();
+        attachment.Property(e => e.StorageKey).HasMaxLength(512).IsRequired();
+        attachment.Property(e => e.FileName).HasMaxLength(255).IsRequired();
+        attachment.Property(e => e.ContentType).HasMaxLength(64).IsRequired();
+        attachment.HasIndex(e => e.DisputeCaseId).HasDatabaseName("ix_evidence_attachments_case");
+        attachment.HasIndex(e => e.TrustSubjectId).HasDatabaseName("ix_evidence_attachments_subject");
     }
 }
