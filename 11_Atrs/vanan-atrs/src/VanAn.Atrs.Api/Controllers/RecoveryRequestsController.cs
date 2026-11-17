@@ -38,8 +38,17 @@ public class RecoveryRequestsController(
         var result = await recoveryCaseManager.SubmitAsync(
             auth.TrustSubjectId.Value, requestType, request.IdempotencyKey,
             request.NewDeviceId, request.EvidenceSummaryJson, ct);
-        logger.LogInformation("Recovery request {RequestId} submitted (existing={Existing})", result.Request.Id, result.Existing);
+        logger.LogInformation("Recovery request {RequestId} submitted (existing={Existing}, guest={Guest})",
+            result.Request.Id, result.Existing, auth.IsGuest);
         return Ok(result);
+    }
+    catch (InvalidOperationException ex) when (ex.Message.StartsWith("rate-limited", StringComparison.Ordinal))
+    {
+        return StatusCode(429, new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Conflict(new { error = ex.Message });
     }
 
     [HttpGet("{id:guid}")]

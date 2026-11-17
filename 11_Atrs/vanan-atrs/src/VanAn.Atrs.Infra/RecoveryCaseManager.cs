@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using VanAn.Atrs.Contracts;
 using VanAn.Atrs.Domain;
@@ -13,6 +14,13 @@ namespace VanAn.Atrs.Infra;
 /// (TokenVersion bump), revoke credential/device cũ, delay giao dịch nhạy cảm,
 /// notification — sẽ wire khi ATRS-3/13.
 /// </summary>
+/// <summary>Giới hạn tần suất recovery (ATRS-16 / FR-011) — đọc từ config Atrs:Recovery.</summary>
+public sealed class AtrsRecoveryLimits
+{
+    /// <summary>Số recovery request tối đa mỗi subject mỗi ngày (UTC) — chống spam (guest device spoofable).</summary>
+    public int MaxPerDay { get; set; } = 3;
+}
+
 public interface IRecoveryCaseManager
 {
     Task<SubmitRecoveryResultDto> SubmitAsync(
@@ -55,7 +63,8 @@ public sealed class RecoveryCaseManager(
     ITokenVersionBumpNotifier tokenVersionBumpNotifier,
     ISecurityPolicyService policyService,
     IAtrsNotificationWriter notifications,
-    AtrsMetrics metrics) : IRecoveryCaseManager
+    AtrsMetrics metrics,
+    IOptions<AtrsRecoveryLimits> recoveryLimits) : IRecoveryCaseManager
 {
     private static readonly RecoveryRequestStatus[] ActiveStatuses =
     [
@@ -101,6 +110,13 @@ public sealed class RecoveryCaseManager(
             .FirstOrDefaultAsync(ct);
         if (active is not null)
             return new SubmitRecoveryResultDto(ToDto(active), Existing: true);
+
+        // ATRS-16 / FR-011: giới hạn request/ngày (chống spam — guest device spoofable).
+        var dayStart = DateTime.UtcNow.Date;
+        var todayCount = await db.RecoveryRequests.CountAsync(
+            r => r.TrustSubjectId == trustSubjectId && r.CreatedAt >= dayStart, ct);
+        if (todayCount >= Math.Max(1, recoveryLimits.Value.MaxPerDay))
+            throw new InvalidOperationException("rate-limited: đã đạt giới hạn yêu cầu khôi phục hôm nay.");
 
         var request = new RecoveryRequest(
             Guid.NewGuid(), trustSubjectId, requestType, idempotencyKey, newDeviceId, evidenceSummaryJson);

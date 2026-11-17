@@ -88,7 +88,8 @@ public sealed class AtrsNotificationServiceTests : IDisposable
         var manager = new RecoveryCaseManager(_db, new StubRecoveryCodeService(),
             new RiskPolicyEngine(), new NoopBumpNotifier(),
             new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System),
-            writer, metrics);
+            writer, metrics,
+            Microsoft.Extensions.Options.Options.Create(new AtrsRecoveryLimits { MaxPerDay = 10 }));
 
         var submitted = await manager.SubmitAsync(_subject, RecoveryRequestType.LOST_DEVICE, "idem-n1");
         Assert.Contains(writer.Calls, c => c.EventType == "recovery.initiated");

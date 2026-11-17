@@ -24,7 +24,8 @@ public sealed class RecoveryCaseManagerTests : IDisposable
             _bumpNotifier,
             new SecurityPolicyService(_db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()), TimeProvider.System),
             new StubNotificationWriter(),
-            new AtrsMetrics());
+            new AtrsMetrics(),
+            Microsoft.Extensions.Options.Options.Create(new AtrsRecoveryLimits { MaxPerDay = 3 }));
     }
 
     private readonly RecordingBumpNotifier _bumpNotifier = new();

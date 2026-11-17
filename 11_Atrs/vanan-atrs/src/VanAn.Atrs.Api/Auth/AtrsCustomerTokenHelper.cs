@@ -13,10 +13,12 @@ public enum AtrsCustomerTokenStatus
 {
     Valid,
     InvalidToken,
-    DownstreamUnavailable
+    DownstreamUnavailable,
+    /// <summary>ATRS-16: xác thực bằng guest device id (X-Customer-Device-Id) — buyer không email/SĐT (L0/L1).</summary>
+    GuestDevice
 }
 
-public sealed record AtrsCustomerAuthResult(AtrsCustomerTokenStatus Status, Guid? CustomerId, Guid? TrustSubjectId);
+public sealed record AtrsCustomerAuthResult(AtrsCustomerTokenStatus Status, Guid? CustomerId, Guid? TrustSubjectId, bool IsGuest = false);
 
 public static class AtrsCustomerTokenHelper
 {

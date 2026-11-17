@@ -31,6 +31,7 @@ public static class Program
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.Configure<RecoveryCodeOptions>(builder.Configuration.GetSection("Atrs:RecoveryCodes"));
         builder.Services.Configure<WebAuthnOptions>(builder.Configuration.GetSection("Atrs:WebAuthn"));
+        builder.Services.Configure<AtrsRecoveryLimits>(builder.Configuration.GetSection("Atrs:Recovery"));
         builder.Services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
         builder.Services.AddSingleton<IRiskPolicyEngine, RiskPolicyEngine>();
         builder.Services.AddScoped<IRecoveryCaseManager, RecoveryCaseManager>();
