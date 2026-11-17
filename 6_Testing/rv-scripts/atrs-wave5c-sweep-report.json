@@ -1,0 +1,109 @@
+{
+  "results": [
+    {
+      "name": "L1 health :5080",
+      "pass": true
+    },
+    {
+      "name": "auth-neg policy-list no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg policy-propose no-token=401",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant list=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant propose=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant approve=403",
+      "pass": true
+    },
+    {
+      "name": "rbac staff-no-grant reject=403",
+      "pass": true
+    },
+    {
+      "name": "propose v1 → 200 EFFECTIVE",
+      "pass": true
+    },
+    {
+      "name": "propose invalid JSON → 400",
+      "pass": true
+    },
+    {
+      "name": "propose v2 → 200 PROPOSED v2",
+      "pass": true
+    },
+    {
+      "name": "propose khi đang có pending → 409",
+      "pass": true
+    },
+    {
+      "name": "maker-checker self-approve → 403",
+      "pass": true
+    },
+    {
+      "name": "grant policy.manage → 200",
+      "pass": true
+    },
+    {
+      "name": "grant policy.approve → 200",
+      "pass": true
+    },
+    {
+      "name": "staff-granted policy.manage list → 200",
+      "pass": true
+    },
+    {
+      "name": "list chứa proposal đang chờ",
+      "pass": true
+    },
+    {
+      "name": "approve bởi staff khác → 200 EFFECTIVE",
+      "pass": true
+    },
+    {
+      "name": "v1 bị supersede, v2 effective",
+      "pass": true
+    },
+    {
+      "name": "propose recovery.sla_hours thật → 200 (v1 EFFECTIVE | vN PROPOSED)",
+      "pass": true
+    },
+    {
+      "name": "approve recovery.sla_hours (staff khác) → 200",
+      "pass": true
+    },
+    {
+      "name": "queue SLA dùng policy 1000h → không breach (trước đây 1 breach)",
+      "pass": true
+    },
+    {
+      "name": "dashboard slaOverdue=0 khi policy 1000h",
+      "pass": true
+    },
+    {
+      "name": "reject v3 → 200 REJECTED",
+      "pass": true
+    },
+    {
+      "name": "reject lần nữa (đã REJECTED) → 409",
+      "pass": true
+    },
+    {
+      "name": "staff sau revoke → 403",
+      "pass": true
+    },
+    {
+      "name": "SLA reset 24h → breach trở lại (=1 request cũ)",
+      "pass": true
+    }
+  ],
+  "generatedAt": "2026-11-17T09:25:40.589Z"
+}

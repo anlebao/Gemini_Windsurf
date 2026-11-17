@@ -100,9 +100,14 @@ async function main() {
   check('v1 bị supersede, v2 effective', v1row?.status === 'SUPERSEDED' && v2row?.status === 'EFFECTIVE', `v1=${v1row?.status} v2=${v2row?.status}`);
 
   // ── Wire check: recovery.sla_hours thật → queue SLA dùng policy ─────────
-  // Key mới chưa từng tồn tại → v1 tự EFFECTIVE (bootstrap rule, không cần approve).
+  // Key mới chưa từng tồn tại → v1 tự EFFECTIVE (bootstrap); key đã tồn tại → PROPOSED cần approve.
   const sla = await staff('POST', '/admin/security-policies', ADMIN, { policyKey: 'recovery.sla_hours', policyGroup: 'sla', jsonValue: '{"hours":1000}', changeNote: 'RV W5c — tạm nâng SLA' });
-  check('propose recovery.sla_hours thật → 200 v1 EFFECTIVE (bootstrap)', sla.status === 200 && sla.json?.status === 'EFFECTIVE' && sla.json?.version === 1, `got ${sla.status} v${sla.json?.version} ${sla.json?.status}`);
+  const slaOk = sla.status === 200 && (sla.json?.status === 'EFFECTIVE' || sla.json?.status === 'PROPOSED');
+  check('propose recovery.sla_hours thật → 200 (v1 EFFECTIVE | vN PROPOSED)', slaOk, `got ${sla.status} v${sla.json?.version} ${sla.json?.status}`);
+  if (slaOk && sla.json?.status === 'PROPOSED') {
+    const slaApprove = await staff('POST', `/admin/security-policies/${sla.json?.id}/approve`, STAFF);
+    check('approve recovery.sla_hours (staff khác) → 200', slaApprove.status === 200, `got ${slaApprove.status}`);
+  }
   const queueAfter = await staff('GET', '/admin/recovery-requests?skip=0&take=50', ADMIN);
   const anyBreach = (queueAfter.json?.items ?? []).some(i => i.slaBreached);
   check('queue SLA dùng policy 1000h → không breach (trước đây 1 breach)', queueAfter.status === 200 && !anyBreach, `breach=${anyBreach}`);

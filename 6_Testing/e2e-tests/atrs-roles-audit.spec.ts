@@ -49,3 +49,16 @@ test.describe('ATRS Roles + Audit (Wave 5 W5b)', () => {
     });
   });
 });
+test.describe('ATRS Policy Admin (Wave 5 W5c)', () => {
+
+  test('RV-C1: security-policies API → 401 without JWT', async ({ request }) => {
+    const resp = await request.get(`${GATEWAY}/api/v1/account-trust/admin/security-policies`);
+    expect([401, 403]).toContain(resp.status());
+  });
+
+  test('RV-C2: /admin/atrs-policy page loads (redirect khi chưa auth)', async ({ page }) => {
+    await page.goto(`${SHOPERP}/admin/atrs-policy`);
+    await page.waitForLoadState('networkidle');
+    expect(page.url()).toContain('app2.khachvip.online');
+  });
+});
