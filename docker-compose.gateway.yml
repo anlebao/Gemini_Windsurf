@@ -116,6 +116,9 @@ services:
       # Multi-VPS: ShopERP BaseUrl points to REMOTE VPS via VPC internal IP
       - ShopERP__BaseUrl=http://${SHOPERP_REMOTE_HOST}:80/
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # ATRS-17 (FR-001): Gateway → atrs internal account-status sync.
+      - Atrs__BaseUrl=${ATRS_BASE_URL:-http://${ATRS_REMOTE_HOST:-atrs}:5080/}
+      - Atrs__InternalApiKey=${ATRS_INTERNAL_API_KEY:-}
       # 2026-10-01: Business-info lookup proxy (phiếu thu/chi MST lookup) — doanhnghiep.vn key
       # shared with crawler (same DOANHNGHIEP_API_KEY from .env.gateway, preserved by CD).
       - BusinessLookup__ApiKey=${DOANHNGHIEP_API_KEY:-}

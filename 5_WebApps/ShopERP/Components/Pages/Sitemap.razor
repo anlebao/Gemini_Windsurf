@@ -433,6 +433,23 @@
                         </a>
                     </div>
                 </VanACard>
+                @* ATRS-10/17: Account Trust & Recovery — ops links (RBAC enforce ở vanan-atrs) *@
+                <VanACard Header="🛡️ ATRS — Bảo mật tài khoản" Hoverable="true" data-testid="card-atrs-owner">
+                    <div class="sitemap-links">
+                        <a href="/admin/atrs" class="sitemap-link" data-testid="link-atrs-dashboard-owner">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Bảng điều hành ATRS</span>
+                        </a>
+                        <a href="/admin/recovery" class="sitemap-link" data-testid="link-recovery-queue-owner">
+                            <span class="sitemap-link-icon">🔐</span>
+                            <span>Yêu cầu khôi phục</span>
+                        </a>
+                        <a href="/admin/disputes" class="sitemap-link" data-testid="link-disputes-queue-owner">
+                            <span class="sitemap-link-icon">⚖️</span>
+                            <span>Khiếu nại khách hàng</span>
+                        </a>
+                    </div>
+                </VanACard>
             </Authorized>
         </AuthorizeView>
 
@@ -727,6 +744,35 @@
                         <a href="/admin/push-campaigns" class="sitemap-link" data-testid="link-push-campaigns">
                             <span class="sitemap-link-icon">🔔</span>
                             <span>Quản lý Push Campaigns</span>
+                        </a>
+                    </div>
+                </VanACard>
+                @* ATRS-10/17: Account Trust & Recovery — full admin surface (RBAC enforce ở vanan-atrs) *@
+                <VanACard Header="🛡️ ATRS — Account Trust & Recovery" Hoverable="true" data-testid="card-atrs">
+                    <div class="sitemap-links">
+                        <a href="/admin/atrs" class="sitemap-link" data-testid="link-atrs-dashboard">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Bảng điều hành ATRS</span>
+                        </a>
+                        <a href="/admin/recovery" class="sitemap-link" data-testid="link-recovery-queue">
+                            <span class="sitemap-link-icon">🔐</span>
+                            <span>Yêu cầu khôi phục</span>
+                        </a>
+                        <a href="/admin/disputes" class="sitemap-link" data-testid="link-disputes-queue">
+                            <span class="sitemap-link-icon">⚖️</span>
+                            <span>Khiếu nại khách hàng</span>
+                        </a>
+                        <a href="/admin/atrs-audit" class="sitemap-link" data-testid="link-atrs-audit">
+                            <span class="sitemap-link-icon">📜</span>
+                            <span>Nhật ký bảo mật</span>
+                        </a>
+                        <a href="/admin/atrs-policy" class="sitemap-link" data-testid="link-atrs-policy">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Chính sách bảo mật</span>
+                        </a>
+                        <a href="/admin/atrs-roles" class="sitemap-link" data-testid="link-atrs-roles">
+                            <span class="sitemap-link-icon">👤</span>
+                            <span>Phân quyền ATRS</span>
                         </a>
                     </div>
                 </VanACard>
