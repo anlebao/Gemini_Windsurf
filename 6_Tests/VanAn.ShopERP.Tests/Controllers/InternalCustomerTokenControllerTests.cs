@@ -123,7 +123,7 @@ public class InternalCustomerTokenControllerTests
     }
 
     [Fact]
-    public async Task ByDevice_NoCustomer_CreatesStub_DeviceVerified()
+    public async Task ByDevice_NoCustomer_CreatesGuestStub()
     {
         _repo.Setup(r => r.GetRealAccountByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
         _repo.Setup(r => r.GetByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
@@ -137,7 +137,7 @@ public class InternalCustomerTokenControllerTests
         Assert.True(body.Created);
         _repo.Verify(r => r.AddAsync(It.Is<Customer>(c =>
             c.DeviceId == DeviceId
-            && c.IdentityLevel == IdentityLevel.DeviceVerified
+            && c.IdentityLevel == IdentityLevel.Guest // passkey = device possession, không claim verified
             && c.TenantId.Value == TenantId)), Times.Once);
     }
 
@@ -188,5 +188,3 @@ public class InternalCustomerTokenControllerTests
         Assert.IsType<NotFoundResult>(result);
     }
 }
-</content>
-</invoke>\n</invoke>\n</invoke>", "file_path": "C:\\VibeCoding\\Gemini_Windsurf\\6_Tests\\VanAn.ShopERP.Tests\\Controllers\\InternalCustomerTokenControllerTests.cs"}

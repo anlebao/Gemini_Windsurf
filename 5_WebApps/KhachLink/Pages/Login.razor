@@ -1,9 +1,11 @@
 ﻿@page "/login"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject SecurityHttpService SecurityHttp
 @inject ILogger<Login> _logger
 
 <PageTitle>Đăng nhập</PageTitle>
@@ -44,6 +46,26 @@
                     Đăng nhập với Facebook
                 </VanAnButton>
 
+                @* ATRS-21: passkey login — free, không cần Google/Facebook/SMS *@
+                @if (_webauthnSupported)
+                {
+                    <VanAnButton Variant="ButtonVariant.Outline"
+                                 FullWidth="true"
+                                 CssClass="mb-2 d-flex align-items-center justify-content-center gap-2"
+                                 OnClick="LoginWithPasskey"
+                                 TestId="btn-passkey-login">
+                        <i class="bi bi-fingerprint"></i>
+                        @(_passkeyBusy ? "Đang xác thực…" : "Đăng nhập bằng vân tay / khuôn mặt")
+                    </VanAnButton>
+                    <div class="text-center mb-3">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                                @onclick="RegisterGuestPasskey" disabled="@_passkeyBusy"
+                                data-testid="btn-passkey-register">
+                            Chưa có passkey? Tạo trên thiết bị này
+                        </button>
+                    </div>
+                }
+
                 <div class="text-center text-muted my-3" style="font-size:0.85rem;">
                     <span style="background:var(--bs-body-bg); padding:0 8px; position:relative; z-index:1;">hoặc</span>
                     <hr class="mt-n3" />
@@ -78,6 +100,9 @@
     private enum LoginStep { Choice, Success }
     private LoginStep _step = LoginStep.Choice;
     private string? _error;
+    private bool _webauthnSupported;
+    private bool _passkeyBusy;
+    private bool _passkeyJustRegistered;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -128,7 +153,14 @@
             // If already logged in, redirect to profile
             var existingToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             if (!string.IsNullOrEmpty(existingToken))
+            {
                 Navigation.NavigateTo("/profile");
+                return;
+            }
+
+            // ATRS-21: passkey support check (script webauthn.js load global trong index.html)
+            _webauthnSupported = await JSRuntime.InvokeAsync<bool>("vananWebAuthn.isSupported");
+            StateHasChanged();
         }
     }
 
@@ -222,6 +254,133 @@
         {
             // Non-blocking — fingerprint failure should NOT affect login
             _logger?.LogWarning(ex, "Device fingerprint registration error (non-blocking)");
+        }
+    }
+
+    // ===== ATRS-21: passkey login / guest registration =====
+
+    /// <summary>customer_device_id — GUID string trong localStorage; tạo mới nếu chưa có
+    /// (cùng key Checkout.razor dùng cho Order.CustomerDeviceId + Customer.DeviceId stub).</summary>
+    private async Task<string> GetOrCreateDeviceIdAsync()
+    {
+        var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        if (string.IsNullOrEmpty(deviceId))
+        {
+            deviceId = Guid.NewGuid().ToString();
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+        }
+        return deviceId;
+    }
+
+    private static string DeriveRpId(string origin)
+    {
+        if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        {
+            var host = uri.Host;
+            if (host == "localhost" || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+                return "localhost";
+            var parts = host.Split('.');
+            return parts.Length >= 2 ? string.Join('.', parts[^2..]) : host;
+        }
+        return "timlathay.com";
+    }
+
+    /// <summary>Discoverable passkey login → customer_token → /profile (giống OAuth callback).</summary>
+    private async Task LoginWithPasskey()
+    {
+        if (_passkeyBusy) return;
+        _passkeyBusy = true;
+        _error = null;
+        try
+        {
+            var deviceId = await GetOrCreateDeviceIdAsync();
+            var origin = await JSRuntime.InvokeAsync<string>("vananWebAuthn.getOrigin");
+            var rpId = DeriveRpId(origin);
+            await LoginWithPasskeyCoreAsync(deviceId, origin, rpId);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Passkey login error");
+            _error = "Đăng nhập không thành công. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _passkeyBusy = false;
+        }
+    }
+
+    /// <summary>Phần ceremony login dùng chung — begin → getAssertion → finish → lưu token.</summary>
+    private async Task LoginWithPasskeyCoreAsync(string deviceId, string origin, string rpId)
+    {
+        var begin = await SecurityHttp.BeginPasskeyLoginAsync(origin, rpId);
+        if (begin is null) { _error = "Không thể bắt đầu đăng nhập. Vui lòng thử lại."; return; }
+        var assertion = await WebAuthnJs.GetAssertionAsync(JSRuntime, begin.Options);
+        if (assertion is null) { _error = "Đăng nhập không thành công. Vui lòng thử lại."; return; }
+        var finish = await SecurityHttp.FinishPasskeyLoginAsync(begin.Challenge, origin, rpId, assertion.Value, deviceId);
+        if (finish?.Success != true || string.IsNullOrEmpty(finish.CustomerToken))
+        {
+            _error = _passkeyJustRegistered
+                ? "Đã tạo passkey nhưng đăng nhập chưa thành công. Vui lòng thử lại."
+                : "Đăng nhập không thành công. Vui lòng thử lại.";
+            return;
+        }
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", finish.CustomerToken);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "login_provider", "passkey");
+        if (finish.CustomerId.HasValue)
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", finish.CustomerId.Value.ToString());
+        _step = LoginStep.Success;
+        StateHasChanged();
+        await Task.Delay(1200);
+        Navigation.NavigateTo("/profile");
+    }
+
+    /// <summary>Guest (chưa login) tạo passkey trên thiết bị này — gắn guest TrustSubject
+    /// qua X-Customer-Device-Id; sau đó dùng nút đăng nhập passkey ở trên.</summary>
+    private async Task RegisterGuestPasskey()
+    {
+        if (_passkeyBusy) return;
+        _passkeyBusy = true;
+        _error = null;
+        try
+        {
+            var deviceId = await GetOrCreateDeviceIdAsync();
+            var origin = await JSRuntime.InvokeAsync<string>("vananWebAuthn.getOrigin");
+            var rpId = DeriveRpId(origin);
+
+            var begin = await SecurityHttp.BeginGuestPasskeyRegistrationAsync(deviceId, origin, rpId);
+            if (begin is null)
+            {
+                _error = "Không thể bắt đầu tạo passkey. Vui lòng thử lại.";
+                return;
+            }
+
+            var attestation = await WebAuthnJs.CreateCredentialAsync(JSRuntime, begin.Options);
+            if (attestation is null)
+            {
+                _error = "Không hoàn tất tạo passkey (hủy bỏ hoặc thiết bị không hỗ trợ).";
+                return;
+            }
+
+            var finish = await SecurityHttp.FinishGuestPasskeyRegistrationAsync(deviceId, begin.Challenge, origin, rpId, attestation.Value);
+            if (finish?.Success != true)
+            {
+                _error = "Không thể lưu passkey. Vui lòng thử lại.";
+                return;
+            }
+
+            _passkeyJustRegistered = true;
+            _error = null;
+            // Đăng nhập luôn bằng passkey vừa tạo.
+            await LoginWithPasskeyCoreAsync(deviceId, origin, rpId);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Guest passkey registration error");
+            _error = "Không thể tạo passkey. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _passkeyBusy = false;
         }
     }
 

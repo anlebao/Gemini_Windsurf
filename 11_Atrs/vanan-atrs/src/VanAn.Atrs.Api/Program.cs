@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using VanAn.Atrs.Api.Auth;
 using VanAn.Atrs.Api.Services;
+using VanAn.Atrs.Contracts;
 using VanAn.Atrs.Domain;
 using VanAn.Atrs.Infra;
 
@@ -48,6 +49,8 @@ public static class Program
             builder.Services.AddScoped<ILoyaltyGatewayClient, LoyaltyGatewayClient>();
         else
             builder.Services.AddScoped<ILoyaltyGatewayClient, UnconfiguredLoyaltyGatewayClient>();
+        // ATRS-21: passkey login → ShopERP mint customer_token (named client "shoperp" + X-Internal-Api-Key).
+        builder.Services.AddScoped<IPasskeyLoginTokenIssuer, ShopErpTokenIssuer>();
 
         // Wave 4: ATRS-6 subset (personal evidence + consent) + D9 attachments (R2).
         builder.Services.AddScoped<IPersonalEvidenceService, PersonalEvidenceService>();

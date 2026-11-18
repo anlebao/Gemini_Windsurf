@@ -20,6 +20,10 @@ services:
       InternalLoyalty__ApiKey: ${INTERNAL_API_KEY}
       # ATRS-17 (FR-001): Gateway→atrs internal account-status sync key.
       Atrs__InternalApiKey: ${ATRS_INTERNAL_API_KEY:-}
+      # ATRS-21: atrs→ShopERP mint customer_token sau passkey login — cùng shared internal key
+      # với InternalLoyalty:ApiKey của ShopERP (1 secret, không tạo mới).
+      Atrs__ShopErpInternalApiKey: ${INTERNAL_LOYALTY_API_KEY:-}
+      Atrs__PasskeyLogin__MaxBeginPerHour: ${ATRS_PASSKEY_LOGIN_MAX_BEGIN_PER_HOUR:-20}
       # Wave 4 (D9): R2 evidence attachments — reuse R2 creds; bucket chung, prefix atrs-evidence/.
       Atrs__R2__Endpoint: ${R2_ENDPOINT:-https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com}
       Atrs__R2__AccessKey: ${R2_ACCESS_KEY:-}

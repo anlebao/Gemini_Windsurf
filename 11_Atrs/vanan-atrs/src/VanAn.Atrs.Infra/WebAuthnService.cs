@@ -15,7 +15,8 @@ namespace VanAn.Atrs.Infra;
 /// </summary>
 public sealed class WebAuthnService(
     AtrsDbContext db,
-    IOptions<WebAuthnOptions> options) : IWebAuthnService
+    IOptions<WebAuthnOptions> options,
+    IPasskeyLoginTokenIssuer? tokenIssuer = null) : IWebAuthnService
 {
     private const int MaxActiveChallengesPerSubject = 5;
     private readonly JsonSerializerOptions _jsonOpts = new(JsonSerializerDefaults.Web);
@@ -233,6 +234,141 @@ public sealed class WebAuthnService(
         }
     }
 
+    // ── ATRS-21: discoverable passkey login (subject-unknown) ────────────────
+
+    public async Task<BeginPasskeyLoginResultDto> BeginPasskeyLoginAsync(
+        string origin, string rpId, CancellationToken ct = default)
+    {
+        var opt = options.Value;
+        var fido2 = CreateFido2(origin, rpId);
+
+        // Discoverable credential: allowCredentials rỗng → browser hiện passkey picker của RP.
+        // UV=Required (login cần chắc chắn là chủ — khác step-up dùng Preferred).
+        var assertOptions = fido2.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = [],
+            UserVerification = UserVerificationRequirement.Required
+        });
+
+        var challenge = await StoreChallengeAsync(
+            Guid.Empty, WebAuthnChallengePurpose.PasskeyLogin, assertOptions.Challenge,
+            origin, rpId, null, assertOptions, ct, skipSubjectRateGuard: true);
+
+        return new BeginPasskeyLoginResultDto(
+            challenge, ToJsonElement(assertOptions), DateTime.UtcNow.AddMinutes(opt.ChallengeTtlMinutes));
+    }
+
+    public async Task<FinishPasskeyLoginResultDto> FinishPasskeyLoginAsync(
+        string challenge, string origin, string rpId, JsonElement assertionResponse,
+        string? deviceId, CancellationToken ct = default)
+    {
+        if (tokenIssuer is null)
+            return new FinishPasskeyLoginResultDto(false, "TokenIssuanceFailed", null, null, false);
+
+        var stored = await LoadLoginChallengeAsync(challenge, origin, rpId, ct);
+        if (stored is null)
+            return new FinishPasskeyLoginResultDto(false, "InvalidChallenge", null, null, false);
+
+        var rawResponse = assertionResponse.Deserialize<AuthenticatorAssertionRawResponse>(_jsonOpts);
+        if (rawResponse is null)
+        {
+            await ConsumeAsync(stored, ct);
+            return new FinishPasskeyLoginResultDto(false, "InvalidAssertion", null, null, false);
+        }
+
+        // CredentialId unique toàn cục → resolve subject mà không cần biết trước.
+        var credentialId = Base64Url.Encode(rawResponse.RawId);
+        var credential = await db.DeviceCredentials
+            .FirstOrDefaultAsync(c => c.CredentialId == credentialId, ct);
+        if (credential is null)
+        {
+            await ConsumeAsync(stored, ct);
+            return new FinishPasskeyLoginResultDto(false, "UnknownCredential", null, null, false);
+        }
+        if (credential.Status != CredentialStatus.ACTIVE)
+        {
+            await AuditLoginFailAsync(credential.TrustSubjectId, "RevokedCredential", ct);
+            await ConsumeAsync(stored, ct);
+            return new FinishPasskeyLoginResultDto(false, "RevokedCredential", null, null, false);
+        }
+
+        var fido2 = CreateFido2(origin, rpId);
+        var originalOptions = DeserializeOptions<AssertionOptions>(stored.OptionsJson);
+        var subjectId = credential.TrustSubjectId;
+        try
+        {
+            var result = await fido2.MakeAssertionAsync(new MakeAssertionParams
+            {
+                AssertionResponse = rawResponse,
+                OriginalOptions = originalOptions,
+                StoredPublicKey = Base64Url.Decode(credential.PublicKey),
+                StoredSignatureCounter = credential.SignCount,
+                IsUserHandleOwnerOfCredentialIdCallback = async (p, _) =>
+                {
+                    // userHandle = subjectId bytes (Fido2User.Id lúc register) — chặn credential
+                    // bị replay dưới subject khác (dù credentialId đã globally unique).
+                    var user = p.UserHandle;
+                    return user is not null
+                        && user.Length == 16
+                        && new Guid(user) == subjectId
+                        && Base64Url.Encode(p.CredentialId) == credentialId;
+                }
+            }, ct);
+
+            credential.MarkUsed(result.SignCount, result.IsBackedUp);
+            await ConsumeAsync(stored, ct);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await AuditLoginFailAsync(subjectId, "InvalidAssertion", ct);
+            await ConsumeAsync(stored, ct);
+            return new FinishPasskeyLoginResultDto(false, "InvalidAssertion", null, null, false);
+        }
+
+        var tokenResult = await new PasskeyLoginTokenResolver(db, tokenIssuer)
+            .ResolveAsync(subjectId, deviceId, ct);
+
+        return new FinishPasskeyLoginResultDto(
+            tokenResult.Success,
+            tokenResult.Success ? "Success" : (tokenResult.ReasonCode ?? "TokenIssuanceFailed"),
+            tokenResult.CustomerToken,
+            tokenResult.CustomerId,
+            tokenResult.CustomerCreated);
+    }
+
+    private async Task AuditLoginFailAsync(Guid subjectId, string reasonCode, CancellationToken ct)
+    {
+        db.AccountSecurityEvents.Add(AccountSecurityEvent.Create(
+            id: Guid.NewGuid(),
+            trustSubjectId: subjectId,
+            eventType: "passkey.login.fail",
+            actorType: SecurityEventActorType.User,
+            actorId: null,
+            sourceApplication: "atrs-passkey-login",
+            deviceId: null,
+            sessionCorrelationId: null,
+            outcome: SecurityEventOutcome.Failure,
+            reasonCode: reasonCode));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Login challenge lookup: theo challenge string + purpose, KHÔNG theo subject (chưa biết).</summary>
+    private async Task<WebAuthnChallenge?> LoadLoginChallengeAsync(
+        string challenge, string origin, string rpId, CancellationToken ct)
+    {
+        var row = await db.WebAuthnChallenges
+            .FirstOrDefaultAsync(c => c.Purpose == WebAuthnChallengePurpose.PasskeyLogin
+                && c.Challenge == challenge
+                && c.ConsumedAt == null, ct);
+        if (row is null || row.IsExpired(DateTime.UtcNow))
+            return null;
+        if (!string.Equals(row.Origin, origin, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(row.RpId, rpId, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return row;
+    }
+
     public async Task<IReadOnlyList<DeviceCredentialSummaryDto>> ListCredentialsAsync(Guid trustSubjectId, CancellationToken ct = default)
     {
         var creds = await db.DeviceCredentials
@@ -306,15 +442,21 @@ public sealed class WebAuthnService(
 
     private async Task<string> StoreChallengeAsync(
         Guid trustSubjectId, WebAuthnChallengePurpose purpose, byte[] challengeBytes,
-        string origin, string rpId, Guid? deviceRecordId, object ceremonyOptions, CancellationToken ct)
+        string origin, string rpId, Guid? deviceRecordId, object ceremonyOptions, CancellationToken ct,
+        bool skipSubjectRateGuard = false)
     {
         var opt = options.Value;
 
         // Rate guard: tối đa N challenge đang active/subject (anti-spam, anti-account-doom, FR-004/NFR).
-        var activeCount = await db.WebAuthnChallenges
-            .CountAsync(c => c.TrustSubjectId == trustSubjectId && c.ConsumedAt == null, ct);
-        if (activeCount >= MaxActiveChallengesPerSubject)
-            throw new InvalidOperationException("Quá nhiều yêu cầu xác thực gần đây. Vui lòng thử lại sau.");
+        // PasskeyLogin (ATRS-21): subject = Guid.Empty sentinel → guard per-subject vô nghĩa
+        // (mọi login challenge chung 1 "subject") — rate limit per-IP/device ở controller.
+        if (!skipSubjectRateGuard)
+        {
+            var activeCount = await db.WebAuthnChallenges
+                .CountAsync(c => c.TrustSubjectId == trustSubjectId && c.ConsumedAt == null, ct);
+            if (activeCount >= MaxActiveChallengesPerSubject)
+                throw new InvalidOperationException("Quá nhiều yêu cầu xác thực gần đây. Vui lòng thử lại sau.");
+        }
 
         var challenge = Base64Url.Encode(challengeBytes);
         db.WebAuthnChallenges.Add(new WebAuthnChallenge(

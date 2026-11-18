@@ -228,6 +228,91 @@ public class SecurityHttpService(IHttpClientFactory httpClientFactory, ILogger<S
         }
     }
 
+    // ═══ ATRS-21: discoverable passkey login (PUBLIC — không cần customer token) ═══
+
+    /// <summary>Begin passkey login — AssertionOptions discoverable (allowCredentials rỗng).</summary>
+    public async Task<BeginPasskeyLoginResultDto?> BeginPasskeyLoginAsync(string origin, string rpId, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/account-trust/passkey/login/begin");
+            request.Content = JsonContent.Create(new { origin, rpId });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<BeginPasskeyLoginResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS passkey login begin failed");
+            return null;
+        }
+    }
+
+    /// <summary>Finish passkey login — assertion → customer_token (hoặc null khi fail).</summary>
+    public async Task<FinishPasskeyLoginResultDto?> FinishPasskeyLoginAsync(
+        string challenge, string origin, string rpId, JsonElement assertionResponse, string? deviceId, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/account-trust/passkey/login/finish");
+            request.Content = JsonContent.Create(new { challenge, origin, rpId, assertionResponse, deviceId });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<FinishPasskeyLoginResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS passkey login finish failed");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// ATRS-21: guest passkey registration — KHÔNG customer token, auth bằng
+    /// X-Customer-Device-Id (atrs guest fallback ATRS-16 → guest TrustSubject).
+    /// </summary>
+    public async Task<BeginRegistrationResultDto?> BeginGuestPasskeyRegistrationAsync(string deviceId, string origin, string rpId, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = GuestRequest("POST", "webauthn/registration/begin", deviceId);
+            request.Content = JsonContent.Create(new { origin, rpId, deviceRecordId = (Guid?)null });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<BeginRegistrationResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS guest passkey begin failed");
+            return null;
+        }
+    }
+
+    public async Task<FinishRegistrationResultDto?> FinishGuestPasskeyRegistrationAsync(
+        string deviceId, string challenge, string origin, string rpId, JsonElement attestationResponse, CancellationToken ct = default)
+    {
+        try
+        {
+            var request = GuestRequest("POST", "webauthn/registration/finish", deviceId);
+            request.Content = JsonContent.Create(new { challenge, origin, rpId, attestationResponse, deviceRecordId = (Guid?)null });
+            var resp = await _http.SendAsync(request, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<FinishRegistrationResultDto>(_json, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "ATRS guest passkey finish failed");
+            return null;
+        }
+    }
+
+    private HttpRequestMessage GuestRequest(string method, string path, string deviceId)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), $"api/v1/account-trust/{path}");
+        request.Headers.Add("X-Customer-Device-Id", deviceId);
+        return request;
+    }
+
     // ═══ Wave 4 (ATRS-6 subset + U09-U13) ═══
 
     // ---- Personal evidence + consent (U02) ----
@@ -553,6 +638,10 @@ public class SecurityHttpService(IHttpClientFactory httpClientFactory, ILogger<S
     public sealed record BeginAuthenticationResultDto(string Challenge, JsonElement Options, DateTime ExpiresAt);
     public sealed record FinishRegistrationResultDto(bool Success, string Reason, DeviceCredentialSummaryDto? Credential, Guid? DeviceRecordId);
     public sealed record FinishAuthenticationResultDto(bool Success, string Reason, Guid? CredentialId, string? StepUpToken);
+
+    // ATRS-21 DTOs
+    public sealed record BeginPasskeyLoginResultDto(string Challenge, JsonElement Options, DateTime ExpiresAt);
+    public sealed record FinishPasskeyLoginResultDto(bool Success, string? CustomerToken, Guid? CustomerId, bool CustomerCreated);
 
     // Wave 4 DTOs
     public sealed record PersonalEvidenceItemDto(

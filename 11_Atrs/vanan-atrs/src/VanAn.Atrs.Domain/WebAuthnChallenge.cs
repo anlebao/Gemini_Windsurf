@@ -35,7 +35,10 @@ public sealed class WebAuthnChallenge
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Id cannot be empty.", nameof(id));
-        if (trustSubjectId == Guid.Empty)
+        // ATRS-21: PasskeyLogin challenge là subject-unknown ceremony — TrustSubjectId = Guid.Empty
+        // sentinel (subject resolve sau khi verify assertion qua credentialId). Các purpose khác
+        // vẫn bắt buộc subject thật.
+        if (trustSubjectId == Guid.Empty && purpose != WebAuthnChallengePurpose.PasskeyLogin)
             throw new ArgumentException("TrustSubjectId cannot be empty.", nameof(trustSubjectId));
         if (string.IsNullOrWhiteSpace(challenge))
             throw new ArgumentException("Challenge cannot be empty.", nameof(challenge));
@@ -71,5 +74,7 @@ public sealed class WebAuthnChallenge
 public enum WebAuthnChallengePurpose
 {
     Registration = 1,
-    Authentication = 2
+    Authentication = 2,
+    /// <summary>ATRS-21: discoverable passkey login — subject unknown lúc begin (Guid.Empty sentinel).</summary>
+    PasskeyLogin = 3
 }

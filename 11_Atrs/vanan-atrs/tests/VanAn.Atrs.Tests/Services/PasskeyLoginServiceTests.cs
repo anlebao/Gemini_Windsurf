@@ -1,13 +1,39 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Moq;
 using VanAn.Atrs.Contracts;
 using VanAn.Atrs.Domain;
 using VanAn.Atrs.Infra;
 using Xunit;
 
 namespace VanAn.Atrs.Tests.Services;
+
+/// <summary>Fake IPasskeyLoginTokenIssuer — ghi lại calls + trả kết quả cấu hình được.</summary>
+internal sealed class FakeTokenIssuer : IPasskeyLoginTokenIssuer
+{
+    public PasskeyTokenResult ByIdResult = new(true, null, "tok-byid", Guid.Empty, false);
+    public PasskeyTokenResult ByDeviceResult = new(true, null, "tok-bydevice", Guid.NewGuid(), true);
+    public int ByIdCalls;
+    public int ByDeviceCalls;
+    public Guid? LastByIdCustomerId;
+    public string? LastByDeviceId;
+    public Guid? LastByDeviceTenantId;
+
+    public Task<PasskeyTokenResult> IssueByCustomerIdAsync(Guid customerId, CancellationToken ct = default)
+    {
+        ByIdCalls++;
+        LastByIdCustomerId = customerId;
+        return Task.FromResult(ByIdResult with { CustomerId = customerId });
+    }
+
+    public Task<PasskeyTokenResult> IssueByDeviceAsync(string deviceId, Guid? tenantId, CancellationToken ct = default)
+    {
+        ByDeviceCalls++;
+        LastByDeviceId = deviceId;
+        LastByDeviceTenantId = tenantId;
+        return Task.FromResult(ByDeviceResult);
+    }
+}
 
 /// <summary>
 /// ATRS-21 — discoverable passkey login (subject-unknown ceremony).
@@ -20,7 +46,7 @@ public sealed class PasskeyLoginServiceTests : IDisposable
 {
     private readonly AtrsDbContext _db;
     private readonly WebAuthnService _service;
-    private readonly Mock<IPasskeyLoginTokenIssuer> _issuer = new();
+    private readonly FakeTokenIssuer _issuer = new();
 
     private const string Origin = "https://vanan.timlathay.com";
     private const string RpId = "timlathay.com";
@@ -40,7 +66,7 @@ public sealed class PasskeyLoginServiceTests : IDisposable
                 ChallengeTtlMinutes = 5,
                 ResidentKey = "Required"
             }),
-            _issuer.Object);
+            _issuer);
     }
 
     public void Dispose()
@@ -199,7 +225,7 @@ public sealed class PasskeyLoginServiceTests : IDisposable
         });
 
     private static string Base64UrlEncode(byte[] bytes)
-        => Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(bytes);
+        => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 
 /// <summary>
@@ -210,7 +236,7 @@ public sealed class PasskeyLoginServiceTests : IDisposable
 public sealed class PasskeyLoginTokenResolverTests : IDisposable
 {
     private readonly AtrsDbContext _db;
-    private readonly Mock<IPasskeyLoginTokenIssuer> _issuer = new();
+    private readonly FakeTokenIssuer _issuer = new();
     private readonly PasskeyLoginTokenResolver _resolver;
 
     private static readonly Guid CustomerId = Guid.NewGuid();
@@ -222,7 +248,7 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
             .UseInMemoryDatabase($"passkey-resolver-{Guid.NewGuid()}")
             .Options;
         _db = new AtrsDbContext(options);
-        _resolver = new PasskeyLoginTokenResolver(_db, _issuer.Object);
+        _resolver = new PasskeyLoginTokenResolver(_db, _issuer);
     }
 
     public void Dispose()
@@ -245,16 +271,15 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
     public async Task Resolve_CustomerLink_CallsById_ReturnsToken()
     {
         var subjectId = await SeedSubjectWithLink(TrustIdentityType.Customer, CustomerId);
-
-        _issuer.Setup(i => i.IssueByCustomerIdAsync(CustomerId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PasskeyTokenResult(true, null, "tok-123", CustomerId, false));
+        _issuer.ByIdResult = new PasskeyTokenResult(true, null, "tok-123", CustomerId, false);
 
         var result = await _resolver.ResolveAsync(subjectId, DeviceId, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal("tok-123", result.CustomerToken);
-        _issuer.Verify(i => i.IssueByCustomerIdAsync(CustomerId, It.IsAny<CancellationToken>()), Times.Once);
-        _issuer.Verify(i => i.IssueByDeviceAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Equal(1, _issuer.ByIdCalls);
+        Assert.Equal(0, _issuer.ByDeviceCalls);
+        Assert.Equal(CustomerId, _issuer.LastByIdCustomerId);
     }
 
     // T9: chỉ DeviceCluster link + deviceId → by-device
@@ -263,14 +288,13 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
     {
         var subjectId = await SeedSubjectWithLink(TrustIdentityType.DeviceCluster, Guid.NewGuid());
 
-        _issuer.Setup(i => i.IssueByDeviceAsync(DeviceId, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PasskeyTokenResult(true, null, "tok-dev", Guid.NewGuid(), true));
-
         var result = await _resolver.ResolveAsync(subjectId, DeviceId, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.True(result.CustomerCreated);
-        _issuer.Verify(i => i.IssueByDeviceAsync(DeviceId, null, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(1, _issuer.ByDeviceCalls);
+        Assert.Equal(DeviceId, _issuer.LastByDeviceId);
+        Assert.Equal(0, _issuer.ByIdCalls);
     }
 
     // T10: không link customer + không deviceId → fail graceful
@@ -283,7 +307,8 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
 
         Assert.False(result.Success);
         Assert.Equal("NoCustomerIdentity", result.ReasonCode);
-        _issuer.VerifyNoOtherCalls();
+        Assert.Equal(0, _issuer.ByIdCalls);
+        Assert.Equal(0, _issuer.ByDeviceCalls);
     }
 
     // T11: ShopERP fail → passthrough failure + audit fail event
@@ -291,9 +316,7 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
     public async Task Resolve_IssuerFails_ReturnsFailure_AndAudits()
     {
         var subjectId = await SeedSubjectWithLink(TrustIdentityType.Customer, CustomerId);
-
-        _issuer.Setup(i => i.IssueByCustomerIdAsync(CustomerId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PasskeyTokenResult(false, "TokenIssuanceFailed", null, null, false));
+        _issuer.ByIdResult = new PasskeyTokenResult(false, "TokenIssuanceFailed", null, null, false);
 
         var result = await _resolver.ResolveAsync(subjectId, DeviceId, CancellationToken.None);
 
@@ -311,9 +334,6 @@ public sealed class PasskeyLoginTokenResolverTests : IDisposable
     public async Task Resolve_Success_AuditsLoginSuccess()
     {
         var subjectId = await SeedSubjectWithLink(TrustIdentityType.Customer, CustomerId);
-
-        _issuer.Setup(i => i.IssueByCustomerIdAsync(CustomerId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PasskeyTokenResult(true, null, "tok", CustomerId, false));
 
         await _resolver.ResolveAsync(subjectId, DeviceId, CancellationToken.None);
 

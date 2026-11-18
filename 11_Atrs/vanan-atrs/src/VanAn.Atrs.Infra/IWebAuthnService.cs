@@ -36,6 +36,21 @@ public interface IWebAuthnService
 
     /// <summary>Thu hồi toàn bộ credential của 1 device (U08 revoke device / report lost).</summary>
     Task<int> RevokeAllForDeviceAsync(Guid trustSubjectId, Guid deviceRecordId, CancellationToken ct = default);
+
+    /// <summary>
+    /// ATRS-21: begin DISCOVERABLE passkey login — subject unknown, challenge lưu
+    /// TrustSubjectId = Guid.Empty sentinel + Purpose = PasskeyLogin, allowCredentials rỗng.
+    /// </summary>
+    Task<BeginPasskeyLoginResultDto> BeginPasskeyLoginAsync(string origin, string rpId, CancellationToken ct = default);
+
+    /// <summary>
+    /// ATRS-21: finish passkey login — resolve credentialId → TrustSubject (global unique),
+    /// verify assertion, rồi resolve customerId → ShopERP mint customer_token.
+    /// Cần IPasskeyLoginTokenIssuer; trả generic ReasonCode (anti-enumeration).
+    /// </summary>
+    Task<FinishPasskeyLoginResultDto> FinishPasskeyLoginAsync(
+        string challenge, string origin, string rpId, JsonElement assertionResponse,
+        string? deviceId, CancellationToken ct = default);
 }
 
 /// <summary>WebAuthn RP config (RP ID + origin allowlist).</summary>
@@ -49,6 +64,6 @@ public sealed class WebAuthnOptions
     public int ChallengeTtlMinutes { get; set; } = 5;
     public uint TimeoutMs { get; set; } = 300000;
     public string UserVerification { get; set; } = "Preferred";
-    public string ResidentKey { get; set; } = "Preferred";
+    public string ResidentKey { get; set; } = "Required"; // ATRS-21: resident key bắt buộc để passkey sync cross-device (login discoverable)
     public string AttestationConveyance { get; set; } = "None";
 }
