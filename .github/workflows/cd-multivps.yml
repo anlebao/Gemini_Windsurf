@@ -1487,6 +1487,11 @@ jobs:
             grep -q '^ATRS_INTERNAL_API_KEY=' /opt/vanan-atrs/.env || cat >> /opt/vanan-atrs/.env <<'ENVEOF3'
             ATRS_INTERNAL_API_KEY=${{ secrets.ATRS_INTERNAL_API_KEY }}
             ENVEOF3
+            # ATRS-21: atrs→ShopERP mint customer_token sau passkey login — cùng shared internal key
+            # với InternalLoyalty:ApiKey ShopERP (compose map Atrs__ShopErpInternalApiKey).
+            grep -q '^INTERNAL_LOYALTY_API_KEY=' /opt/vanan-atrs/.env || cat >> /opt/vanan-atrs/.env <<'ENVEOF4'
+            INTERNAL_LOYALTY_API_KEY=${{ secrets.INTERNAL_LOYALTY_API_KEY }}
+            ENVEOF4
             chmod 600 /opt/vanan-atrs/.env
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml pull atrs || true
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml up -d
