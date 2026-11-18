@@ -88,6 +88,9 @@ services:
       - ShopERP__BaseUrl=http://shoperp:80/
       # Loyalty Consistency Fix Phase 0: Internal API key for service-to-service auth (ShopERP → Gateway)
       - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-prod-2026}
+      # ATRS-17 (FR-001): Gateway → atrs internal account-status sync.
+      - Atrs__BaseUrl=${ATRS_BASE_URL:-http://atrs:5080/}
+      - Atrs__InternalApiKey=${ATRS_INTERNAL_API_KEY:-}
       # #130: Guard QR Verify feature flag + photo compression config
       - Guard__QrVerifyEnabled=${GUARD_QR_VERIFY_ENABLED:-true}
       - Guard__PhotoMaxDimension=${GUARD_PHOTO_MAX_DIMENSION:-1024}
