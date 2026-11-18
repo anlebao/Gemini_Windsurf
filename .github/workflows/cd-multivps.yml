@@ -457,7 +457,7 @@ jobs:
           username: ${{ secrets.VPS_GATEWAY_USER }}
           key: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
           command_timeout: 60m
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_METERING_REMOTE_HOST,DEPLOY_METERING_CALLERS,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GEMINI_API_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST,DEPLOY_TENANTAI_REMOTE_HOST,DEPLOY_TENANTAI_CTX_SIGNING_SECRET,DEPLOY_TENANTAI_BOOTSTRAP_CALLER,DEPLOY_ATRS_REMOTE_HOST
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_SEQ_PASSWORD,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_SHOPERP_REMOTE_HOST,DEPLOY_KHACHLINK_REMOTE_HOST,DEPLOY_METERING_REMOTE_HOST,DEPLOY_METERING_CALLERS,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY,DEPLOY_INTERNAL_LOYALTY_API_KEY,DEPLOY_SHOP_INSTANCE_ID,DEPLOY_R2_ACCESS_KEY,DEPLOY_R2_SECRET_KEY,DEPLOY_GEMINI_API_KEY,DEPLOY_GODADDY_API_KEY,DEPLOY_VPS_GATEWAY_HOST,DEPLOY_TENANTAI_REMOTE_HOST,DEPLOY_TENANTAI_CTX_SIGNING_SECRET,DEPLOY_TENANTAI_BOOTSTRAP_CALLER,DEPLOY_ATRS_REMOTE_HOST,DEPLOY_BREVO_API_KEY,DEPLOY_ATRS_INTERNAL_API_KEY
           script: |
             set -e
 
@@ -495,6 +495,9 @@ jobs:
             # Domain Reseller R1: Preserve existing GoDaddy API key if GitHub secret is empty
             EXISTING_GODADDY_KEY=$(grep -E '^GODADDY_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GODADDY_KEY="${DEPLOY_GODADDY_API_KEY:-$EXISTING_GODADDY_KEY}"
+            # P4/ID-P3 + MFA-1: Brevo transactional email — preserved if GitHub secret empty.
+            EXISTING_BREVO_KEY=$(grep -E '^BREVO_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_BREVO_KEY="${DEPLOY_BREVO_API_KEY:-$EXISTING_BREVO_KEY}"
             # P5: Preserve metering VPS internal IP if GitHub secret is empty
             EXISTING_METERING_HOST=$(grep -E '^METERING_REMOTE_HOST=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_METERING_HOST="${DEPLOY_METERING_REMOTE_HOST:-$EXISTING_METERING_HOST}"
@@ -525,6 +528,9 @@ jobs:
             # ATRS (Wave 2): vanan-atrs lives on its own VPS — preserve manual value if secret empty.
             EXISTING_ATRS_HOST=$(grep -E '^ATRS_REMOTE_HOST=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_ATRS_HOST="${DEPLOY_ATRS_REMOTE_HOST:-$EXISTING_ATRS_HOST}"
+            # ATRS-17: shared internal key — GH secret, fallback preserve manual value.
+            EXISTING_ATRS_INT_KEY=$(grep -E '^ATRS_INTERNAL_API_KEY=' .env.gateway 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_ATRS_INT_KEY="${DEPLOY_ATRS_INTERNAL_API_KEY:-$EXISTING_ATRS_INT_KEY}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -564,6 +570,7 @@ jobs:
               "TENANTAI_CALLER_ID=${FINAL_TAI_ID}" \
               "TENANTAI_CALLER_KEY=${FINAL_TAI_KEY}" \
               "TENANTAI_CTX_SIGNING_SECRET=${FINAL_TAI_SIGN}" \
+              "ATRS_INTERNAL_API_KEY=${FINAL_ATRS_INT_KEY}" \
               > .env.gateway
 
             # Login to GHCR
@@ -633,6 +640,8 @@ jobs:
           DEPLOY_TENANTAI_BOOTSTRAP_CALLER: ${{ secrets.TENANTAI_BOOTSTRAP_CALLER }}
           # ATRS (Wave 2): external IP of vanan-atrs VPS for YARP atrs-cluster destination
           DEPLOY_ATRS_REMOTE_HOST: ${{ secrets.ATRS_REMOTE_HOST }}
+          # ATRS-17 (FR-001): shared internal key Gateway → atrs account-status sync
+          DEPLOY_ATRS_INTERNAL_API_KEY: ${{ secrets.ATRS_INTERNAL_API_KEY }}
 
       # Conditional nginx recreate — ONLY when root ./nginx/** changed (impact analysis).
       # Bind-mount changes are NOT detected by `docker compose up -d`; the entrypoint
@@ -1474,6 +1483,10 @@ jobs:
             R2_SECRET_KEY=${{ secrets.R2_SECRET_KEY }}
             R2_BUCKET_NAME=vanan-guard-photos
             ENVEOF2
+            # ATRS-17 (FR-001): internal account-status sync key — append if absent (ATRS_ENV secret không chứa biến này).
+            grep -q '^ATRS_INTERNAL_API_KEY=' /opt/vanan-atrs/.env || cat >> /opt/vanan-atrs/.env <<'ENVEOF3'
+            ATRS_INTERNAL_API_KEY=${{ secrets.ATRS_INTERNAL_API_KEY }}
+            ENVEOF3
             chmod 600 /opt/vanan-atrs/.env
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml pull atrs || true
             sudo docker compose -f /opt/vanan-atrs/docker-compose.atrs.yml up -d
