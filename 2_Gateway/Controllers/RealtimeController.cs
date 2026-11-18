@@ -282,11 +282,16 @@ public class RealtimeController(
         var names = new Dictionary<Guid, string>();
         if (customerIds.Count > 0)
         {
+            // Scalar projection only — materializing the full Customer decrypts PII
+            // (EncryptedStringConverter on PhoneNumber/Email) and throws
+            // CryptographicException for rows written with a legacy key ring,
+            // which would 500 /api/realtime/shop/conversations (inbox).
             names = await _dbContext.Customers
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(c => customerIds.Contains(c.Id))
-                .ToDictionaryAsync(c => c.Id, c => c.FullName, ct);
+                .Select(c => new { c.Id, c.FullName })
+                .ToDictionaryAsync(x => x.Id, x => x.FullName, ct);
         }
 
         var items = new List<ShopConversationItem>();
