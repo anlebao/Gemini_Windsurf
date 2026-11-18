@@ -198,7 +198,7 @@ dotnet test 6_Tests/VanAn.Core.Tests
 | Security | §3.4 rate limit/anti-enum/audit/UV-required |
 | Governance | entity change → Gate 5 note §8.1; UI Platform: Login.razor dùng VanAnButton sẵn có; secrets qua GH secret + preserve-pattern |
 
-**Status:** IMPLEMENTED (local) — commit `9794d5f8`. Chờ deploy + RV production.
+**Status:** DONE — deployed + RV production PASS. Commits: `9794d5f8` (impl), `e21b493e`/`4753728c` (tests+notes), `bb75c3fb` (CD env wire), `8e8d6687` (cross-tenant device lookup fix), `4b2f0dc0` (RV script fix).
 
 **Implementation notes (deviations đã chốt trong code):**
 - `WebAuthnChallenge.TrustSubjectId` = `Guid.Empty` sentinel cho `Purpose=PasskeyLogin` (ctor guard relax chỉ cho purpose này) — đúng §8.1 đã duyệt. Không cần migration (cột Guid đã có).
@@ -211,7 +211,14 @@ dotnet test 6_Tests/VanAn.Core.Tests
 - Audit: `passkey.login.success/fail` ghi trong `PasskeyLoginTokenResolver` (issuance outcome) + `WebAuthnService` (RevokedCredential/InvalidAssertion khi subject đã biết). UnknownCredential/InvalidChallenge không audit được (chưa resolve subject).
 
 **Test evidence (local):** atrs 179/179 PASS (15 mới) · ShopERP InternalCustomerToken 10/10 PASS · KhachLink build 0 errors · atrs API build 0 errors · guard-check PASS.
-**Còn lại:** deploy images (atrs + ShopERP + KhachLink) → wire `INTERNAL_LOYALTY_API_KEY` vào atrs env (đã có trong compose) → RV §7 (virtual authenticator CDP, `PASSKEY_LOGIN_RV=1` e2e spec).
+**RV production evidence (2026-11-19, `6_Testing/rv-scripts/atrs-passkey-login-rv.mjs` → 13/13 PASS):**
+- Guest register passkey (virtual authenticator CDP) → auto-login `/profile`, `customer_token` stored, `login_provider=passkey`, `customer_id` stored.
+- `/api/customer-identity/me` 200 với customer payload hợp lệ (token round-trip OK → voice-eligible).
+- Discoverable re-login (logout → login lại, cùng deviceId) → cùng `customer_id` — không duplicate stub.
+- Negative: finish với challenge rác → HTTP 400 generic "Đăng nhập không thành công" (anti-enumeration).
+- Zero console errors + zero pageerrors.
+
+**Fix phát sinh trong RV:** `GetByDeviceIdAsync` (tenant-filtered) không thấy Guest stub trong internal call (không ambient tenant) → mỗi login mint stub mới. Thêm `ICustomerRepository.GetAnyCustomerByDeviceIdAsync` (IgnoreQueryFilters, mọi IdentityLevel, real-account-first) — commit `8e8d6687`. Lưu ý: RV ban đầu cũng wipe `customer_device_id` qua `localStorage.clear()` mỗi navigation → deviceId mới → stub mới là hành vi ĐÚNG; script đã sửa để restore deviceId (logout thật không xóa device identity).
 **Naming:** ATRS-21 (sau ATRS-20 staff MFA card — độc lập, có thể song song).
 **Ước lượng:** vừa — atrs service methods là phần lớn nhất (discoverable flow mới); ShopERP endpoint nhỏ; UI nhỏ. Rủi ro chính: challenge schema cho subject-unknown + discoverable credential edge cases trên browser thật (RV bắt được).
 **Liên quan:** sau card này, gap "customer không OAuth" đóng → voice call coverage ~100% smartphone; phone-OTP SMS vẫn là alternative nếu sau này cần (card riêng, tốn phí).
