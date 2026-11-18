@@ -198,7 +198,20 @@ dotnet test 6_Tests/VanAn.Core.Tests
 | Security | §3.4 rate limit/anti-enum/audit/UV-required |
 | Governance | entity change → Gate 5 note §8.1; UI Platform: Login.razor dùng VanAnButton sẵn có; secrets qua GH secret + preserve-pattern |
 
-**Status:** REVIEW_ONLY — chờ user duyệt + confirm §8.1/§8.2.
+**Status:** IMPLEMENTED (local) — commit `9794d5f8`. Chờ deploy + RV production.
+
+**Implementation notes (deviations đã chốt trong code):**
+- `WebAuthnChallenge.TrustSubjectId` = `Guid.Empty` sentinel cho `Purpose=PasskeyLogin` (ctor guard relax chỉ cho purpose này) — đúng §8.1 đã duyệt. Không cần migration (cột Guid đã có).
+- `ResidentKey` default `Required` trong `WebAuthnOptions` + `appsettings.json` — đúng §8.2 đã duyệt.
+- ShopERP stub dùng `MarkAsGuestStub()` → `IdentityLevel.Guest` (KHÔNG DeviceVerified): `UpgradeIdentityLevel(DeviceVerified)` là no-op vì rank(DeviceVerified)=rank(Social)=1; Guest là semantic đúng (device-possession, không claim verified) + mergeable về account thật qua `CustomerMergeService`. §3.2 "DeviceVerified" điều chỉnh thành Guest.
+- Thêm guest passkey **registration** trên Login.razor (`X-Customer-Device-Id` → atrs-16 guest fallback → guest TrustSubject) — cần thiết vì guest chưa có customer_token để vào SecurityCenter.
+- Rate limit begin: per-IP `IMemoryCache` trong `PasskeyLoginController` (`Atrs:PasskeyLogin:MaxBeginPerHour`, default 20); per-subject challenge guard skip cho login (subject sentinel vô nghĩa).
+- `IPasskeyLoginTokenIssuer`/`ShopErpTokenIssuer` dùng named HttpClient `"shoperp"` có sẵn + config `Atrs:ShopErpInternalApiKey` (= `INTERNAL_LOYALTY_API_KEY`, compose `docker-compose.atrs.yml`).
+- Finish DTO dùng `ReasonCode` (không `Reason` như flow cũ) — self-consistent trong ATRS-21.
+- Audit: `passkey.login.success/fail` ghi trong `PasskeyLoginTokenResolver` (issuance outcome) + `WebAuthnService` (RevokedCredential/InvalidAssertion khi subject đã biết). UnknownCredential/InvalidChallenge không audit được (chưa resolve subject).
+
+**Test evidence (local):** atrs 179/179 PASS (15 mới) · ShopERP InternalCustomerToken 10/10 PASS · KhachLink build 0 errors · atrs API build 0 errors · guard-check PASS.
+**Còn lại:** deploy images (atrs + ShopERP + KhachLink) → wire `INTERNAL_LOYALTY_API_KEY` vào atrs env (đã có trong compose) → RV §7 (virtual authenticator CDP, `PASSKEY_LOGIN_RV=1` e2e spec).
 **Naming:** ATRS-21 (sau ATRS-20 staff MFA card — độc lập, có thể song song).
 **Ước lượng:** vừa — atrs service methods là phần lớn nhất (discoverable flow mới); ShopERP endpoint nhỏ; UI nhỏ. Rủi ro chính: challenge schema cho subject-unknown + discoverable credential edge cases trên browser thật (RV bắt được).
 **Liên quan:** sau card này, gap "customer không OAuth" đóng → voice call coverage ~100% smartphone; phone-OTP SMS vẫn là alternative nếu sau này cần (card riêng, tốn phí).
