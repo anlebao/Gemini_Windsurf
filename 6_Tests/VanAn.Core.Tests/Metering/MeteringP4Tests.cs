@@ -16,6 +16,7 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using Xunit;
 using ShopMeteringClient = VanAn.ShopERP.Services.MeteringApiClient;
+using GatewayMeteringClient = VanAn.Gateway.Services.MeteringApiClient;
 
 namespace VanAn.Core.Tests.Metering;
 
@@ -377,9 +378,91 @@ public class MeteringP4Tests
         (await client.CheckBalanceAsync(Guid.NewGuid(), "chat.message")).Should().BeNull();
     }
 
+    // ── T10: Gateway client CheckBalanceAsync — deny passthrough + 30s cache ──
+
+    [Fact]
+    public async Task T10_GatewayClient_Check_DenyTrue_Passthrough_AndCaches()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"balance":0,"required":1,"deny":true,"alertLevel":"depleted"}""",
+                System.Text.Encoding.UTF8, "application/json")
+        }));
+        var http = new HttpClient(handler) { BaseAddress = new Uri("http://metering/") };
+        var client = new GatewayMeteringClient(http, Config(), NullLogger<GatewayMeteringClient>.Instance);
+        var tenant = Guid.NewGuid();
+
+        var first = await client.CheckBalanceAsync(tenant, "store.visit");
+        first.Should().NotBeNull();
+        first!.Deny.Should().BeTrue();
+        first.Balance.Should().Be(0);
+
+        var second = await client.CheckBalanceAsync(tenant, "store.visit");
+        second!.Deny.Should().BeTrue();
+        handler.Requests.Should().Be(1, "check results are cached 30s per (tenant, code)");
+    }
+
+    [Fact]
+    public async Task T11_GatewayClient_Check_HttpError_ReturnsNull_FailOpen()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(
+            new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError)));
+        var http = new HttpClient(handler) { BaseAddress = new Uri("http://metering/") };
+        var client = new GatewayMeteringClient(http, Config(), NullLogger<GatewayMeteringClient>.Instance);
+
+        (await client.CheckBalanceAsync(Guid.NewGuid(), "store.visit")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task T12_GatewayClient_Check_MissingConfig_NoRequest()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)));
+        var http = new HttpClient(handler) { BaseAddress = new Uri("http://metering/") };
+        var client = new GatewayMeteringClient(http, Config(withKeys: false), NullLogger<GatewayMeteringClient>.Instance);
+
+        (await client.CheckBalanceAsync(Guid.NewGuid(), "store.visit")).Should().BeNull();
+        handler.Requests.Should().Be(0, "disabled client must never hit the network");
+    }
+
+    // ── T13/T14: public check endpoint — deny → allowed:false, else fail-open allow ──
+
+    [Fact]
+    public async Task T13_PublicMetering_Check_Deny_ReturnsAllowedFalse()
+    {
+        var metering = new StubDenyMeteringClient(new MeteringBalanceCheck(0, 1, true, "depleted"));
+        var ctrl = NewController(metering, userAgent: "Mozilla/5.0");
+
+        var result = await ctrl.Check(Guid.NewGuid().ToString(), "store.visit", CancellationToken.None);
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new { allowed = false });
+    }
+
+    [Fact]
+    public async Task T14_PublicMetering_Check_NullCheck_FailOpen_Allowed()
+    {
+        var metering = new StubDenyMeteringClient(null);
+        var ctrl = NewController(metering, userAgent: "Mozilla/5.0");
+
+        var result = await ctrl.Check(Guid.NewGuid().ToString(), "store.visit", CancellationToken.None);
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new { allowed = true });
+    }
+
+    [Fact]
+    public async Task T15_PublicMetering_Check_InvalidInput_BadRequest()
+    {
+        var metering = new StubDenyMeteringClient(null);
+        var ctrl = NewController(metering, userAgent: "Mozilla/5.0");
+
+        (await ctrl.Check("not-a-guid", "store.visit", CancellationToken.None))
+            .Should().BeOfType<BadRequestObjectResult>();
+        (await ctrl.Check(Guid.NewGuid().ToString(), "feature.booking", CancellationToken.None))
+            .Should().BeOfType<BadRequestObjectResult>();
+    }
+
     // ── Support ──────────────────────────────────────────────────────────
 
-    private static PublicMeteringController NewController(CapturingMeteringClient metering, string userAgent)
+    private static PublicMeteringController NewController(IMeteringClient metering, string userAgent)
     {
         var ctx = new DefaultHttpContext();
         ctx.Request.Headers.UserAgent = userAgent;

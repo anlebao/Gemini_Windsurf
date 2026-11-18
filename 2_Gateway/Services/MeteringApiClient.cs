@@ -25,6 +25,10 @@ public sealed class MeteringApiClient : IMeteringClient
     private readonly ILogger<MeteringApiClient> _logger;
     private readonly bool _enabled;
 
+    // P7 — wallet-check cache (30s per card G20) so deny checks stay cheap.
+    private static readonly TimeSpan CheckCacheTtl = TimeSpan.FromSeconds(30);
+    private readonly Dictionary<(Guid Tenant, string Code), (MeteringBalanceCheck? Value, DateTime ExpiresAtUtc)> _checkCache = new();
+
     private int _consecutiveFailures;
     private DateTime _circuitOpenUntilUtc = DateTime.MinValue;
 
@@ -91,9 +95,39 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
-    /// <summary>P7 stub — wallet check endpoint does not exist in GĐ-1.</summary>
-    public Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
-        => Task.FromResult<MeteringBalanceCheck?>(null);
+    /// <summary>
+    /// P7 D3 — GET /v1/wallets/{t}/check. Cached 30s per (tenant, code) per card G20.
+    /// Fail-open: null on transport error — business code treats null as "allow".
+    /// </summary>
+    public async Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default)
+    {
+        if (!Enabled()) return null;
+        var key = (tenantId, serviceCode);
+        lock (_checkCache)
+        {
+            if (_checkCache.TryGetValue(key, out var hit) && hit.ExpiresAtUtc > DateTime.UtcNow)
+                return hit.Value;
+        }
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get,
+                $"v1/wallets/{tenantId}/check?serviceCode={Uri.EscapeDataString(serviceCode)}");
+            AddTenantAttributes(req, attributes);
+            using var resp = await _http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", $"check:{serviceCode}"); return null; }
+            var dto = await resp.Content.ReadFromJsonAsync<WalletCheckWire>(Json, ct);
+            _consecutiveFailures = 0;
+            var result = dto == null ? null : new MeteringBalanceCheck(
+                dto.Balance, dto.Required, dto.Deny, dto.AlertLevel);
+            lock (_checkCache) _checkCache[key] = (result, DateTime.UtcNow + CheckCacheTtl);
+            return result;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, $"check:{serviceCode}");
+            return null;
+        }
+    }
 
     private bool Enabled()
     {
@@ -122,6 +156,15 @@ public sealed class MeteringApiClient : IMeteringClient
             req.Headers.TryAddWithoutValidation("X-Tenant-Type", attributes.TenantType);
         if (!string.IsNullOrWhiteSpace(attributes.TenantStatus))
             req.Headers.TryAddWithoutValidation("X-Tenant-Status", attributes.TenantStatus);
+    }
+
+    /// <summary>Wire shape of GET /v1/wallets/{t}/check.</summary>
+    private sealed class WalletCheckWire
+    {
+        public decimal Balance { get; set; }
+        public decimal Required { get; set; }
+        public bool Deny { get; set; }
+        public string? AlertLevel { get; set; }
     }
 
     private static object ToBody(MeteringUsageEvent e) => new

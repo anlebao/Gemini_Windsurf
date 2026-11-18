@@ -65,4 +65,24 @@ public sealed class PublicMeteringController(IMeteringClient metering, ILogger<P
 
         return Ok(new { accepted = true });
     }
+
+    /// <summary>
+    /// Storefront deny gate (2026-11-18): anonymous balance check so KhachLink Store.razor can
+    /// render "tạm ngưng phục vụ" when the tenant wallet is empty and the rate card is Deny.
+    /// Same whitelist + rate limit as the ingest endpoint. Response is intentionally minimal
+    /// ({ allowed }) — wallet balance/required must NOT leak to anonymous callers.
+    /// Fail-open (G9): metering null/error → allowed=true.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("check")]
+    public async Task<IActionResult> Check([FromQuery] string? tenantId, [FromQuery] string? serviceCode, CancellationToken ct)
+    {
+        if (!Guid.TryParse(tenantId, out var tid) || tid == Guid.Empty)
+            return BadRequest(new { error = "invalid_tenantId" });
+        if (string.IsNullOrWhiteSpace(serviceCode) || !AllowedServiceCodes.Contains(serviceCode))
+            return BadRequest(new { error = "invalid_serviceCode" });
+
+        var check = await metering.CheckBalanceAsync(tid, serviceCode, null, ct);
+        return Ok(new { allowed = check?.Deny != true });
+    }
 }

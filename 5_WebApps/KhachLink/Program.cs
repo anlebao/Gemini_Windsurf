@@ -93,6 +93,9 @@ namespace VanAn.KhachLink
             // KhachLink Full Flow W0: Shop feature toggle settings
             _ = builder.Services.AddScoped<Services.Http.ShopFeatureSettingsHttpService>();
 
+            // Storefront deny gate: anonymous metering balance check before Store render
+            _ = builder.Services.AddScoped<Services.Http.MeteringCheckHttpService>();
+
             // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped)
             _ = builder.Services.AddScoped<Services.Http.KhachLinkHomeSettingsHttpService>();
 

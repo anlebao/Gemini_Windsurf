@@ -24,6 +24,7 @@
 @inject IRealtimeChatClient RealtimeChat
 @inject IConfiguration Config
 @inject VanAn.KhachLink.Services.FeatureContextService FeatureContext
+@inject MeteringCheckHttpService MeteringCheck
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
@@ -36,6 +37,19 @@
             <span class="visually-hidden">Đang tải...</span>
         </div>
         <p class="mt-3">Đang tải thông tin cửa hàng...</p>
+    </div>
+}
+else if (_suspended)
+{
+    <div class="store-not-found">
+        <div class="not-found-card">
+            <i class="bi bi-pause-circle"></i>
+            <h2>Trang web này tạm ngưng phục vụ</h2>
+            <p>Cửa hàng đang tạm ngừng hoạt động. Vui lòng quay lại sau.</p>
+            <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
+                <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
+            </button>
+        </div>
     </div>
 }
 else if (_store is null)
@@ -816,6 +830,7 @@ else
     public string? ChatAsk { get; set; }
 
     private bool _loading = true;
+    private bool _suspended;
     private ShopDto? _store;
     private ShopConfig? _shopConfig;
     private TenantFeatureSettingsDto _features = new();
@@ -1001,6 +1016,14 @@ else
             if (_store is null)
             {
                 _loading = false;
+                return;
+            }
+
+            // Phí nền tảng — storefront deny gate: ví tenant cạn + rate card store.visit=Deny
+            // → hiện "tạm ngưng phục vụ" thay vì render. Fail-open (G9): metering lỗi → vẫn mở.
+            if (!await MeteringCheck.IsStorefrontAllowedAsync(_store.Id))
+            {
+                _suspended = true;
                 return;
             }
 
