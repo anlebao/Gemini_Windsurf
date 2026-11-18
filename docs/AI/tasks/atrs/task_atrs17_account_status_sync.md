@@ -32,4 +32,4 @@ ShopERP (lock/delete user) ──publish NATS `vanan.shoperp.user.status.{id}`�
 - [ ] Lock 1 user test → atrs profile RESTRICTED (psql verify) + recovery request của user đó → manual review
 
 ## 6. STATUS
-- 2026-11-17: card tạo (chưa implement — xếp sau FIX-07).
+- 2026-11-17: card tạo (chưa implement — xếp sau FIX-07).- 2026-11-18: **DONE + deployed + endpoint RV prod PASS.** Code `c183f770` (atrs internal endpoint + TrustProfileService.SetStatusAsync + audit `account.status_synced`; ShopERP outbox `user.status.changed`; Gateway DataSyncSubscriber → atrs). Secret wiring: GH secret `ATRS_INTERNAL_API_KEY` + `26a3a7e2` (gateway .env.gateway + atrs .env append-if-absent — fix bug compose file sai: gateway deploy dùng `docker-compose.gateway.yml` không phải `prod.yml`, `51df1493`). RV prod: no-key 401, bad-key 401, valid-key 200 `applied:true`, DB status 0→2(RESTRICTED)→1(ACTIVE) restore, audit `account.status_synced` ×2. Gateway DataSyncSubscriber connected NATS `vanan.shoperp.>`. Residual: e2e deactivate-user→NATS→ATRS chưa chạy (cần user test thật); atrs container healthcheck báo unhealthy do thiếu `curl` trong image (app health 200 — cosmetic).

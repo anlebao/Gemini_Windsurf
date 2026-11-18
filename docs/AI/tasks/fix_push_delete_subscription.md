@@ -23,4 +23,4 @@ Hypothesis (chưa confirm):
 - [ ] RV prod: POST → status 1 → DELETE → removedCount ≥1 → status 0
 
 ## 5. STATUS
-- 2026-11-17: card tạo (chờ verify root cause qua prod DB).
+- 2026-11-17: card tạo (chờ verify root cause qua prod DB).- 2026-11-18: **DONE + deployed + RV prod PASS.** Root cause verify qua prod SQLite: row PushSubscriptions tenant `000...000/001` ≠ customer tenant `A5B6C7D8-...` → global tenant filter ẩn row → DELETE removedCount:0. Fix `0cfb87f7`: `IgnoreQueryFilters()` trên mọi query PushSubscriptions (precedent ResolveCustomerTenant). CD deploy shoperp; RV subscribe→status→delete→status PASS (removedCount>0, enabled:false).
