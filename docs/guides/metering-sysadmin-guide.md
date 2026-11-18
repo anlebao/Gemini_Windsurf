@@ -103,7 +103,7 @@ Dùng API (admin): `POST /v1/wallets/{tenantId}/grants` `{credits, reason}` — 
 | `feature.loyalty` | Thống kê điểm thưởng | UI |
 | `feature.voice-note` | Ghi chú giọng nói | server guard |
 | `chat.message` / `chat.bytes` | Chat | (server-side — KhachLink chưa có UI deny GĐ-2) |
-| `store.visit` | Lượt truy cập storefront | **không gate** (anonymous — đúng design) |
+| `store.visit` | Lượt truy cập storefront | **có gate** (2026-11-18): `store.visit` Deny + ví cạn → storefront hiện "tạm ngưng phục vụ"; search/directory vẫn hiện store |
 | `feature.ocr` | OCR onboarding | **chỉ ghi usage** (tenant mới chưa có ví → đặt MeterOnly) |
 
 ---
