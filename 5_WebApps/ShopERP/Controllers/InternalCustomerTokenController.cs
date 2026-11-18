@@ -40,7 +40,9 @@ public class InternalCustomerTokenController(
 
         if (customer is null)
         {
-            customer = await customerRepository.GetByDeviceIdAsync(request.DeviceId);
+            // Cross-tenant any-level lookup — ambient tenant không tồn tại trong internal call;
+            // GetByDeviceIdAsync (tenant-filtered) sẽ miss Guest stub → duplicate customer mỗi login.
+            customer = await customerRepository.GetAnyCustomerByDeviceIdAsync(request.DeviceId);
         }
 
         if (customer is null)

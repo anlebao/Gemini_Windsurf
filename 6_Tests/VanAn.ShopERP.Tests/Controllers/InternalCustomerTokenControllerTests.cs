@@ -111,7 +111,7 @@ public class InternalCustomerTokenControllerTests
         var stub = new Customer(new TenantId(TenantId), "Khách hàng", string.Empty);
         stub.UpdateCustomerDetails("Khách hàng", string.Empty, null, "Bronze", DeviceId, true);
         _repo.Setup(r => r.GetRealAccountByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
-        _repo.Setup(r => r.GetByDeviceIdAsync(DeviceId)).ReturnsAsync(stub);
+        _repo.Setup(r => r.GetAnyCustomerByDeviceIdAsync(DeviceId)).ReturnsAsync(stub);
 
         var result = await CreateController().ByDevice(new InternalCustomerTokenController.ByDeviceRequest(DeviceId, null), CancellationToken.None);
 
@@ -126,7 +126,7 @@ public class InternalCustomerTokenControllerTests
     public async Task ByDevice_NoCustomer_CreatesGuestStub()
     {
         _repo.Setup(r => r.GetRealAccountByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
-        _repo.Setup(r => r.GetByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
+        _repo.Setup(r => r.GetAnyCustomerByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
         _repo.Setup(r => r.AddAsync(It.IsAny<Customer>()))
             .ReturnsAsync((Customer c) => c);
 
@@ -145,7 +145,7 @@ public class InternalCustomerTokenControllerTests
     public async Task ByDevice_NoTenantId_UsesSeedDefault()
     {
         _repo.Setup(r => r.GetRealAccountByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
-        _repo.Setup(r => r.GetByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
+        _repo.Setup(r => r.GetAnyCustomerByDeviceIdAsync(DeviceId)).ReturnsAsync((Customer?)null);
         _repo.Setup(r => r.AddAsync(It.IsAny<Customer>())).ReturnsAsync((Customer c) => c);
 
         var result = await CreateController().ByDevice(new InternalCustomerTokenController.ByDeviceRequest(DeviceId, null), CancellationToken.None);

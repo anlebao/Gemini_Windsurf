@@ -32,6 +32,14 @@ namespace VanAn.CoreHub.Domain.Repositories
         Task<Customer?> GetRealAccountByDeviceIdAsync(Guid deviceId);
 
         /// <summary>
+        /// ATRS-21: cross-tenant device lookup INCLUDING guest stubs — cho internal
+        /// customer-token endpoint (atrs passkey login) nơi ambient tenant context
+        /// không tồn tại. Ordering: highest IdentityLevel, then newest (real account
+        /// thắng guest stub; nhiều stub → newest). Internal service use only.
+        /// </summary>
+        Task<Customer?> GetAnyCustomerByDeviceIdAsync(Guid deviceId);
+
+        /// <summary>
         /// Get all active customers (non-deleted, same tenant)
         /// </summary>
         Task<IReadOnlyList<Customer>> GetAllActiveAsync();

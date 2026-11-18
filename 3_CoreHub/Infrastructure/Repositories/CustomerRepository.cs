@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
 
@@ -43,6 +43,18 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             return await _context.Customers
                 .IgnoreQueryFilters()
                 .Where(c => c.DeviceId == deviceId && !c.IsDeleted && c.IdentityLevel != IdentityLevel.Guest)
+                .OrderByDescending(c => c.IdentityLevel)
+                .ThenByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<Customer?> GetAnyCustomerByDeviceIdAsync(Guid deviceId)
+        {
+            // ATRS-21: cross-tenant lookup including Guest stubs — internal token endpoint
+            // (passkey login) has no ambient tenant; without this each login minted a new stub.
+            return await _context.Customers
+                .IgnoreQueryFilters()
+                .Where(c => c.DeviceId == deviceId && !c.IsDeleted)
                 .OrderByDescending(c => c.IdentityLevel)
                 .ThenByDescending(c => c.CreatedAt)
                 .FirstOrDefaultAsync();
