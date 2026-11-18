@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ATRS — khach-hang</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="C:/Program Files/Git/admin/guides/atrs/atrs-guide.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ATRS — khach-hang</h1>
+</header>
+<h1 id="hướng-dẫn-khách-hàng-bảo-mật-tài-khoản-khôi-phục-atrs">Hướng dẫn
+khách hàng — Bảo mật tài khoản &amp; Khôi phục (ATRS)</h1>
+<p>Tài liệu này hướng dẫn người mua sử dụng các tính năng bảo mật tài
+khoản trên KhachLink: passkey, mã khôi phục, thiết bị, khôi phục tài
+khoản và khiếu nại điểm thưởng.</p>
+<blockquote>
+<p><strong>Lưu ý quan trọng:</strong> Mức bảo vệ tài khoản <strong>không
+phải là chứng minh danh tính pháp lý</strong>. Passkey và mã khôi phục
+giúp bạn chứng minh quyền sở hữu tài khoản trong hệ thống, nhưng không
+thay thế giấy tờ tùy thân khi cần xác minh pháp lý.</p>
+</blockquote>
+<hr />
+<h2 id="trung-tâm-bảo-mật-security">1. Trung tâm bảo mật
+(<code>/security</code>)</h2>
+<p>Vào <strong>Trang cá nhân → Bảo mật tài khoản</strong> (hoặc đường
+dẫn <code>/security</code>). Trung tâm bảo mật gồm 3 phần:</p>
+<h3 id="passkey-khóa-truy-cập-sinh-trắc-học">1.1. Passkey (khóa truy cập
+sinh trắc học)</h3>
+<ul>
+<li>Nhấn <strong>“Tạo passkey”</strong> → trình duyệt/thiết bị sẽ yêu
+cầu vân tay, Face ID hoặc PIN màn hình để đăng ký.</li>
+<li>Passkey gắn với tài khoản của bạn, không lưu trên server dưới dạng
+mật khẩu — an toàn hơn mật khẩu thường.</li>
+<li>Bạn có thể tạo nhiều passkey (ví dụ: một trên điện thoại, một trên
+máy tính).</li>
+<li><strong>Thu hồi passkey:</strong> vào danh sách passkey → chọn
+passkey cần thu hồi. Một số thao tác nhạy cảm yêu cầu <strong>xác thực
+lại (step-up)</strong> bằng passkey trước khi thực hiện.</li>
+</ul>
+<h3 id="thiết-bị-đã-đăng-nhập">1.2. Thiết bị đã đăng nhập</h3>
+<ul>
+<li>Danh sách thiết bị từng dùng passkey/đăng nhập, kèm loại thiết bị,
+nền tảng và thời điểm hoạt động gần nhất.</li>
+<li><strong>Thu hồi thiết bị:</strong> chọn thiết bị → “Thu hồi”. Sau
+khi thu hồi, thiết bị đó không còn dùng được passkey của bạn (cần
+step-up để xác nhận).</li>
+<li>Nếu mất điện thoại: vào trung tâm bảo mật <strong>từ một thiết bị
+khác còn truy cập được</strong> → thu hồi thiết bị đã mất.</li>
+</ul>
+<h3 id="mã-khôi-phục-recovery-codes">1.3. Mã khôi phục (Recovery
+codes)</h3>
+<ul>
+<li>Hệ thống cấp <strong>10 mã khôi phục</strong> dạng
+<code>XXXXX-XXXXX</code> khi bạn tạo bộ mã đầu tiên.</li>
+<li><strong>Mã chỉ hiển thị MỘT LẦN</strong> — hãy chụp màn hình hoặc
+ghi lại và cất ở nơi an toàn (không lưu trên cùng thiết bị).</li>
+<li>Mỗi mã <strong>chỉ dùng được một lần</strong>. Khi hết mã, bạn có
+thể tạo bộ mới (sẽ thu hồi toàn bộ mã cũ).</li>
+<li>Tạo lại bộ mã là thao tác nhạy cảm → hệ thống yêu cầu step-up bằng
+passkey.</li>
+<li><strong>Tuyệt đối không</strong> gửi mã khôi phục cho bất kỳ ai, kể
+cả nhân viên hỗ trợ.</li>
+</ul>
+<h3 id="hồ-sơ-bằng-chứng-securityprofile">1.4. Hồ sơ &amp; bằng chứng
+(<code>/security/profile</code>)</h3>
+<ul>
+<li>Cập nhật thông tin dùng làm bằng chứng khi khôi phục (tên, thông tin
+liên hệ đã xác minh… tùy cấu hình).</li>
+<li>Thiết lập tùy chọn thông báo bảo mật.</li>
+</ul>
+<hr />
+<h2 id="hướng-dẫn-thiết-lập-securitysetup">2. Hướng dẫn thiết lập
+(<code>/security/setup</code>)</h2>
+<p>Trang này hiển thị checklist thiết lập bảo mật:</p>
+<ol type="1">
+<li>Tạo passkey (khuyến nghị — nhanh và an toàn nhất).</li>
+<li>Tạo bộ mã khôi phục và lưu lại offline.</li>
+<li>Kiểm tra danh sách thiết bị, thu hồi thiết bị lạ.</li>
+</ol>
+<p>Bạn <strong>không bắt buộc</strong> hoàn thành tất cả — nhưng tài
+khoản chỉ có passkey sẽ an toàn hơn; tài khoản chỉ có mã khôi phục vẫn
+dùng được nhưng cần giữ mã thật kỹ.</p>
+<hr />
+<h2 id="khôi-phục-tài-khoản-recovery">3. Khôi phục tài khoản
+(<code>/recovery</code>)</h2>
+<p>Dùng khi bạn <strong>mất thiết bị</strong>, <strong>mất hết
+passkey/mật khẩu/mã khôi phục</strong>, <strong>nghi bị truy cập trái
+phép</strong>, hoặc lý do khác.</p>
+<h3 id="điều-kiện">Điều kiện</h3>
+<ul>
+<li>Bạn phải <strong>đăng nhập được</strong> vào KhachLink trên thiết bị
+hiện tại (phiên đăng nhập còn hiệu lực). Nếu đã mất toàn bộ phiên đăng
+nhập, liên hệ cửa hàng/nhân viên hỗ trợ để được hướng dẫn thủ tục thủ
+công.</li>
+<li>Mỗi tài khoản giới hạn <strong>tối đa 3 yêu cầu khôi phục mỗi
+ngày</strong> (yêu cầu thứ 4 sẽ bị từ chối — chống lạm dụng).</li>
+</ul>
+<h3 id="quy-trình-4-bước">Quy trình 4 bước</h3>
+<ol type="1">
+<li><strong>Chọn vấn đề:</strong> mất thiết bị / không còn thông tin
+đăng nhập / nghi bị truy cập trái phép / khác.</li>
+<li><strong>Cung cấp bằng chứng:</strong> tùy loại yêu cầu, hệ thống có
+thể yêu cầu mã khôi phục, thông tin đơn hàng gần nhất, hoặc thông tin
+liên hệ đã xác minh.</li>
+<li><strong>Gửi yêu cầu:</strong> hệ thống tạo mã tham chiếu — lưu lại
+mã này để tra cứu.</li>
+<li><strong>Theo dõi &amp; xác minh:</strong> vào
+<code>/recovery/{mã}</code> để xem trạng thái; khi yêu cầu ở trạng thái
+chờ, bạn nhập <strong>mã khôi phục</strong> để xác minh danh tính.</li>
+</ol>
+<h3 id="kết-quả-có-thể-xảy-ra">Kết quả có thể xảy ra</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Kết quả</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>APPROVED</strong></td>
+<td>Yêu cầu được duyệt — làm theo hướng dẫn trên màn hình (đổi thông
+tin, thu hồi phiên cũ…).</td>
+</tr>
+<tr>
+<td><strong>PENDING_REVIEW</strong></td>
+<td>Chuyển nhân viên rà soát thủ công — thời gian xử lý tùy mức độ phức
+tạp.</td>
+</tr>
+<tr>
+<td><strong>NEEDS_INFO</strong></td>
+<td>Cần bổ sung thông tin — kiểm tra thông báo và phản hồi.</td>
+</tr>
+<tr>
+<td><strong>REJECTED</strong></td>
+<td>Bằng chứng không đủ — có thể gửi yêu cầu mới với bằng chứng
+khác.</td>
+</tr>
+<tr>
+<td><strong>ESCALATED</strong></td>
+<td>Chuyển cấp quản lý cao hơn.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> Mọi hành động khôi phục đều được ghi nhật ký
+bảo mật (ai làm, khi nào, kết quả) — minh bạch và chống gian lận.</p>
+</blockquote>
+<hr />
+<h2 id="khiếu-nại-điểm-thưởng-giao-dịch-disputes">4. Khiếu nại điểm
+thưởng / giao dịch (<code>/disputes</code>)</h2>
+<p>Dùng khi bạn phát hiện <strong>sai lệch điểm thưởng, ví, hoặc giao
+dịch</strong>.</p>
+<h3 id="danh-sách-khiếu-nại-disputes">4.1. Danh sách khiếu nại
+(<code>/disputes</code>)</h3>
+<ul>
+<li>Xem tất cả khiếu nại đã gửi, trạng thái và tiến trình xử lý.</li>
+</ul>
+<h3 id="tạo-khiếu-nại-disputesnew">4.2. Tạo khiếu nại
+(<code>/disputes/new</code>)</h3>
+<ol type="1">
+<li>Chọn <strong>giao dịch/giao dịch điểm</strong> liên quan (hệ thống
+liệt kê lịch sử giao dịch của bạn tại cửa hàng).</li>
+<li>Mô tả vấn đề, chọn loại khiếu nại.</li>
+<li>Đính kèm <strong>bằng chứng</strong> (ảnh chụp, file) nếu có — hệ
+thống lưu dấu vân tay (hash) file để chống sửa đổi.</li>
+<li>Xác nhận chính sách bảo mật → gửi.</li>
+</ol>
+<blockquote>
+<p>Khiếu nại gửi thành công sẽ <strong>không thể sửa nội dung</strong> —
+hãy kiểm tra kỹ trước khi gửi.</p>
+</blockquote>
+<h3 id="chi-tiết-khiếu-nại-disputesid">4.3. Chi tiết khiếu nại
+(<code>/disputes/{id}</code>)</h3>
+<ul>
+<li>Xem timeline xử lý, trạng thái, quyết định của nhân viên.</li>
+<li>Có thể <strong>rút khiếu nại</strong> khi còn ở trạng thái cho
+phép.</li>
+<li>Nếu khiếu nại được chấp nhận điều chỉnh điểm, hệ thống thực hiện qua
+sổ cái điểm chính thức — <strong>không sửa số dư trực tiếp</strong>, đảm
+bảo minh bạch.</li>
+</ul>
+<hr />
+<h2 id="thông-báo">5. Thông báo</h2>
+<ul>
+<li>Thông báo liên quan bảo mật (khôi phục, khiếu nại, thay đổi thiết
+bị) hiển thị <strong>trong ứng dụng</strong> tại mục Thông báo.</li>
+<li>Hiện tại hệ thống <strong>chưa gửi email/SMS</strong> cho các sự
+kiện này — hãy kiểm tra thông báo trong ứng dụng định kỳ.</li>
+</ul>
+<hr />
+<h2 id="câu-hỏi-thường-gặp">6. Câu hỏi thường gặp</h2>
+<p><strong>Q: Tôi mất điện thoại, làm sao thu hồi thiết bị?</strong> A:
+Đăng nhập KhachLink trên thiết bị khác → <code>/security</code> → danh
+sách thiết bị → thu hồi thiết bị đã mất. Sau đó tạo passkey mới trên
+thiết bị hiện tại.</p>
+<p><strong>Q: Tôi mất cả mã khôi phục lẫn passkey?</strong> A: Vào
+<code>/recovery</code> → chọn “Tôi không còn mật khẩu/passkey/mã khôi
+phục” → làm theo hướng dẫn cung cấp bằng chứng → hệ thống chuyển nhân
+viên rà soát thủ công.</p>
+<p><strong>Q: Nhân viên có xem được mã khôi phục/passkey của tôi
+không?</strong> A: <strong>Không.</strong> Mã khôi phục lưu dạng hash
+một chiều; passkey là khóa mật mã — nhân viên không bao giờ thấy
+được.</p>
+<p><strong>Q: Tôi mua hàng không cần tài khoản (khách vãng lai) thì
+sao?</strong> A: Tính năng bảo mật nâng cao (passkey, khôi phục, khiếu
+nại) hiện yêu cầu đăng nhập tài khoản. Khách vãng lai liên hệ cửa hàng
+trực tiếp khi cần hỗ trợ.</p>
+<p><strong>Q: Tài khoản của tôi bị khóa thì sao?</strong> A: Khi cửa
+hàng khóa/vô hiệu hóa tài khoản, hệ thống bảo mật tự động đồng bộ trạng
+thái — các yêu cầu khôi phục sẽ bị hạn chế và phải qua rà soát chặt
+hơn.</p>
+<p><strong>Q: Tôi nghi tài khoản bị hack?</strong> A: Vào
+<code>/recovery</code> → chọn “Tôi nghi tài khoản bị truy cập trái phép”
+→ cung cấp bằng chứng → sau khi được duyệt, hệ thống sẽ thu hồi
+phiên/thiết bị đáng ngờ.</p>
+</body>
+</html>

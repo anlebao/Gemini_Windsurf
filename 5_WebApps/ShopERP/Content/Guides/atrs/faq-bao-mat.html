@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ATRS — faq-bao-mat</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="C:/Program Files/Git/admin/guides/atrs/atrs-guide.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ATRS — faq-bao-mat</h1>
+</header>
+<h1 id="faq-xử-lý-sự-cố-account-trust-recovery-atrs">FAQ &amp; Xử lý sự
+cố — Account Trust &amp; Recovery (ATRS)</h1>
+<p>Tài liệu tham khảo nhanh cho cả khách hàng và nhân viên. Cập nhật:
+2026-11-18.</p>
+<hr />
+<h2 id="a.-dành-cho-khách-hàng">A. Dành cho khách hàng</h2>
+<h3
+id="a1.-tôi-quên-mật-khẩu-dùng-quên-mật-khẩu-hay-khôi-phục-tài-khoản">A1.
+Tôi quên mật khẩu — dùng “Quên mật khẩu” hay “Khôi phục tài khoản”?</h3>
+<ul>
+<li><strong>Quên mật khẩu đăng nhập</strong> (tài khoản cửa
+hàng/ShopERP): dùng chức năng đặt lại mật khẩu của hệ thống đăng
+nhập.</li>
+<li><strong>Mất passkey / mã khôi phục / thiết bị</strong>: dùng
+<code>/recovery</code> — quy trình xác minh bằng bằng chứng.</li>
+</ul>
+<h3 id="a2.-tôi-có-thể-có-bao-nhiêu-passkey">A2. Tôi có thể có bao nhiêu
+passkey?</h3>
+<p>Không giới hạn cứng, nhưng nên giữ 2 thiết bị tin cậy (điện thoại +
+máy tính). Mỗi passkey gắn với một thiết bị.</p>
+<h3 id="a3.-mã-khôi-phục-có-hết-hạn-không">A3. Mã khôi phục có hết hạn
+không?</h3>
+<p>Không hết hạn, nhưng <strong>mỗi mã chỉ dùng 1 lần</strong>. Khi dùng
+hết, tạo bộ mới — bộ cũ bị thu hồi toàn bộ. Hãy tạo bộ mới ngay khi còn
+ít mã.</p>
+<h3 id="a4.-tôi-thấy-thiết-bị-lạ-trong-danh-sách-phải-làm-gì">A4. Tôi
+thấy thiết bị lạ trong danh sách — phải làm gì?</h3>
+<p>Vào <code>/security</code> → thu hồi thiết bị đó ngay (cần step-up
+bằng passkey). Sau đó vào <code>/recovery</code> chọn “nghi bị truy cập
+trái phép” nếu nghi có người đã đăng nhập.</p>
+<h3 id="a5.-tại-sao-tôi-không-tạo-được-mã-khôi-phục-passkey">A5. Tại sao
+tôi không tạo được mã khôi phục / passkey?</h3>
+<ul>
+<li>Tạo mã khôi phục yêu cầu <strong>step-up</strong> — hãy tạo passkey
+trước.</li>
+<li>Trình duyệt/thiết bị phải hỗ trợ WebAuthn (hầu hết thiết bị hiện đại
+đều hỗ trợ; trình duyệt cũ hoặc chế độ ẩn danh có thể không).</li>
+</ul>
+<h3 id="a6.-yêu-cầu-khôi-phục-của-tôi-bị-từ-chối-tôi-có-thể-thử-lại">A6.
+Yêu cầu khôi phục của tôi bị từ chối — tôi có thể thử lại?</h3>
+<p>Có. Đảm bảo cung cấp <strong>bằng chứng khác/đầy đủ hơn</strong> (đơn
+hàng gần nhất, thiết bị cũ, mốc thời gian). Mỗi ngày tối đa 3 yêu cầu —
+hãy chuẩn bị kỹ trước khi gửi.</p>
+<h3
+id="a7.-khiếu-nại-điểm-của-tôi-được-duyệt-thì-bao-lâu-thấy-điểm-về">A7.
+Khiếu nại điểm của tôi được duyệt thì bao lâu thấy điểm về?</h3>
+<p>Sau khi nhân viên phê duyệt, hệ thống ghi điều chỉnh vào sổ cái điểm
+ngay lập tức — số dư cập nhật trong vòng vài phút. Nếu chưa thấy, kiểm
+tra lại trang khiếu nại hoặc liên hệ cửa hàng.</p>
+<h3
+id="a8.-tôi-là-khách-vãng-lai-không-tài-khoản-có-dùng-được-không">A8.
+Tôi là khách vãng lai (không tài khoản) — có dùng được không?</h3>
+<p><strong>Chưa.</strong> Passkey, mã khôi phục, khôi phục và khiếu nại
+trực tuyến hiện yêu cầu đăng nhập tài khoản. Khách vãng lai liên hệ cửa
+hàng trực tiếp.</p>
+<h3 id="a9.-tài-khoản-tôi-bị-khóa-tôi-có-tự-mở-lại-được-không">A9. Tài
+khoản tôi bị khóa — tôi có tự mở lại được không?</h3>
+<p><strong>Không.</strong> Khi cửa hàng khóa tài khoản, hệ thống bảo mật
+đồng bộ trạng thái RESTRICTED/CLOSED — mọi yêu cầu khôi phục sẽ bị hạn
+chế và phải qua rà soát chặt. Liên hệ cửa hàng để được xem xét.</p>
+<h3 id="a10.-thông-báo-của-tôi-ở-đâu">A10. Thông báo của tôi ở đâu?</h3>
+<p>Trong KhachLink, mục <strong>Thông báo</strong>
+(<code>/notifications</code>). Hiện chưa có email/SMS cho sự kiện bảo
+mật — kiểm tra trong ứng dụng định kỳ.</p>
+<hr />
+<h2 id="b.-dành-cho-nhân-viên">B. Dành cho nhân viên</h2>
+<h3 id="b1.-menu-atrs-không-hiện-tại-sao">B1. Menu ATRS không hiện — tại
+sao?</h3>
+<ul>
+<li>Role phải là <strong>Owner</strong> hoặc
+<strong>SystemAdmin</strong> (menu CRM &amp; Loyalty).</li>
+<li>Quyền chi tiết (view/review/approve…) được cấp riêng trong
+<code>/admin/atrs-roles</code> — SystemAdmin có sẵn tất cả.</li>
+</ul>
+<h3 id="b2.-khách-nói-không-nhận-được-thông-báo-khôi-phục.">B2. Khách
+nói không nhận được thông báo khôi phục.</h3>
+<p>Kiểm tra <code>/admin/atrs-audit</code> xem sự kiện
+<code>recovery.*</code> đã phát chưa. Lưu ý: chỉ có <strong>thông báo
+trong ứng dụng</strong> — chưa email/SMS (tính năng đang chờ tích
+hợp).</p>
+<h3 id="b3.-tôi-không-thấy-quyền-duyệt-trên-yêu-cầu-khôi-phục.">B3. Tôi
+không thấy quyền “Duyệt” trên yêu cầu khôi phục.</h3>
+<p>Có thể bạn chỉ có <code>recovery.review</code> mà chưa có
+<code>recovery.approve</code>. Hoặc yêu cầu đang ở trạng thái không cho
+phép duyệt (vd: chưa qua bước review). Kiểm tra trạng thái trên trang
+chi tiết.</p>
+<h3
+id="b4.-khiếu-nại-tôi-đề-xuất-điều-chỉnh-nhưng-không-ai-duyệt-được.">B4.
+Khiếu nại: tôi đề xuất điều chỉnh nhưng không ai duyệt được.</h3>
+<p>Maker-checker: <strong>approver phải khác proposer</strong>. Nếu bạn
+vừa propose vừa là approver duy nhất, cần người khác có
+<code>dispute.approve_adjustment</code> duyệt — hoặc SystemAdmin.</p>
+<h3 id="b5.-dispute-decision-bị-failed.">B5. Dispute decision bị
+FAILED.</h3>
+<p>Sổ cái điểm (qua Gateway) từ chối — kiểm tra log Gateway, đảm bảo
+customer tồn tại và số điểm hợp lệ. Sau khi sửa nguyên nhân, tạo
+decision mới (không retry decision cũ — idempotency key đã dùng).</p>
+<h3 id="b6.-dashboard-báo-quá-hạn-sla-tăng-đột-biến.">B6. Dashboard báo
+“Quá hạn SLA” tăng đột biến.</h3>
+<p>Kiểm tra <code>/admin/recovery</code> lọc trạng thái — có thể nhiều
+yêu cầu SUBMITTED cũ chưa xử lý. SLA mặc định 24h, có thể điều chỉnh
+trong <code>/admin/atrs-policy</code> (key
+<code>recovery.sla_hours</code>) — thay đổi cần maker-checker.</p>
+<h3 id="b7.-làm-sao-biết-một-yêu-cầu-khôi-phục-là-thật-hay-giả">B7. Làm
+sao biết một yêu cầu khôi phục là thật hay giả?</h3>
+<p>Không có điểm “chắc chắn” — đánh giá qua: risk decision
+(ALLOWED/STEP_UP/REVIEW), bằng chứng khách cung cấp, lịch sử thiết bị,
+tính nhất quán thông tin. Khi nghi ngờ, chọn <strong>escalate</strong>
+thay vì approve/reject vội.</p>
+<h3 id="b8.-thu-hồi-quyền-của-nhân-viên-nghỉ-việc.">B8. Thu hồi quyền
+của nhân viên nghỉ việc.</h3>
+<p><code>/admin/atrs-roles</code> → tìm nhân viên → thu hồi từng grant.
+Nếu nhân viên là SystemAdmin (break-glass), quyền role-based không thu
+hồi qua trang này — cần đổi role ở ShopERP User Management.</p>
+<hr />
+<h2 id="c.-dành-cho-quản-trị-hệ-thống">C. Dành cho quản trị hệ
+thống</h2>
+<h3 id="c1.-atrs-service-down-ảnh-hưởng-gì">C1. ATRS service down — ảnh
+hưởng gì?</h3>
+<ul>
+<li>Khách không khôi phục/khai báo được; nhân viên không xử lý
+được.</li>
+<li>Gateway/ShopERP <strong>không crash</strong> — các tích hợp là
+best-effort.</li>
+<li>Kiểm tra: <code>curl http://&lt;atrs-vps&gt;:5080/health</code> →
+200 là OK.</li>
+</ul>
+<h3 id="c2.-backuprestore-atrs-database.">C2. Backup/restore atrs
+database.</h3>
+<p>Xem <code>docs/ops/atrs-runbook.md</code> mục “Database restore” — đã
+verify pg_dump/restore trên prod.</p>
+<h3 id="c3.-metricsmonitoring.">C3. Metrics/monitoring.</h3>
+<ul>
+<li>Endpoint <code>GET /metrics</code> (Prometheus) trên atrs:5080 —
+counters recovery/dispute/notifications + gauges pending/SLA.</li>
+<li>Log container <code>vanan-atrs-atrs-1</code> — mọi staff action +
+internal sync đều có log.</li>
+</ul>
+<h3 id="c4.-bảo-mật-endpoint-nội-bộ.">C4. Bảo mật endpoint nội bộ.</h3>
+<p><code>POST /api/v1/internal/account-status</code> yêu cầu
+<code>X-Internal-Api-Key</code> (chia sẻ Gateway↔︎ATRS qua GH secret
+<code>ATRS_INTERNAL_API_KEY</code>). Không expose ra ngoài — chỉ Gateway
+gọi.</p>
+<hr />
+<h2 id="d.-giới-hạn-đã-biết-documented">D. Giới hạn đã biết
+(documented)</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Hạng mục</th>
+<th>Trạng thái</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Email/SMS notification</td>
+<td>Chưa — chờ tích hợp Brevo (P4)</td>
+</tr>
+<tr>
+<td>Guest (không tài khoản) security UI</td>
+<td>API sẵn, UI chưa — khách vãng lai dùng kênh trực tiếp</td>
+</tr>
+<tr>
+<td>Staff MFA/step-up</td>
+<td>Chưa — nằm trong lộ trình MFA-1</td>
+</tr>
+<tr>
+<td>Delay giao dịch nhạy cảm sau recovery</td>
+<td>Chưa wire — risk engine + manual review bù một phần</td>
+</tr>
+<tr>
+<td>U04 secret questions</td>
+<td>Cố ý OMIT (D7) — không triển khai</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ATRS — nhan-vien</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="C:/Program Files/Git/admin/guides/atrs/atrs-guide.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ATRS — nhan-vien</h1>
+</header>
+<h1 id="hướng-dẫn-nhân-viên-vận-hành-account-trust-recovery-atrs">Hướng
+dẫn nhân viên — Vận hành Account Trust &amp; Recovery (ATRS)</h1>
+<p>Tài liệu này hướng dẫn nhân viên ShopERP sử dụng các trang quản trị
+ATRS: dashboard, hàng chờ khôi phục, hàng chờ khiếu nại, nhật ký bảo
+mật, phân quyền và chính sách bảo mật.</p>
+<blockquote>
+<p><strong>Nguyên tắc cốt lõi:</strong> Mọi quyết định bảo mật đều
+<strong>do backend (vanan-atrs) thực thi</strong> — giao diện chỉ hiển
+thị và gửi yêu cầu. Nhân viên không thể sửa dữ liệu trực tiếp, mọi hành
+động đều ghi audit log.</p>
+</blockquote>
+<hr />
+<h2 id="bảng-điều-hành-adminatrs">1. Bảng điều hành
+(<code>/admin/atrs</code>)</h2>
+<p>Tổng quan tình hình bảo mật tài khoản, gồm các widget:</p>
+<table>
+<thead>
+<tr>
+<th>Widget</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mới trong 24h</td>
+<td>Yêu cầu khôi phục mới tạo</td>
+</tr>
+<tr>
+<td>Chờ duyệt</td>
+<td>Đang chờ nhân viên xử lý</td>
+</tr>
+<tr>
+<td>Đã chuyển cấp</td>
+<td>Yêu cầu đã escalate</td>
+</tr>
+<tr>
+<td>Chờ khách hàng</td>
+<td>Khách cần bổ sung thông tin</td>
+</tr>
+<tr>
+<td>Khiếu nại mở</td>
+<td>Số khiếu nại đang xử lý</td>
+</tr>
+<tr>
+<td>Quá hạn SLA</td>
+<td>Yêu cầu vượt thời gian cam kết (mặc định 24h)</td>
+</tr>
+</tbody>
+</table>
+<p>Nhấn vào widget để đi tới danh sách tương ứng.</p>
+<hr />
+<h2 id="hàng-chờ-khôi-phục-adminrecovery">2. Hàng chờ khôi phục
+(<code>/admin/recovery</code>)</h2>
+<p>Danh sách yêu cầu khôi phục tài khoản của khách hàng.</p>
+<h3 id="bộ-lọc">Bộ lọc</h3>
+<ul>
+<li><strong>Trạng thái:</strong> SUBMITTED / PENDING_REVIEW /
+PENDING_USER_ACTION / ESCALATED / APPROVED / REJECTED / COMPLETED…</li>
+<li><strong>Loại yêu cầu:</strong> mất thiết bị / mất thông tin / nghi
+truy cập trái phép…</li>
+<li><strong>Người phụ trách:</strong> lọc theo nhân viên được assign
+hoặc chưa assign.</li>
+</ul>
+<h3 id="thao-tác-trên-từng-yêu-cầu-trang-chi-tiết-adminrecoveryid">Thao
+tác trên từng yêu cầu (trang chi tiết
+<code>/admin/recovery/{id}</code>)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Thao tác</th>
+<th>Quyền cần</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gán cho tôi</strong></td>
+<td><code>case.assign</code></td>
+<td>Nhận xử lý yêu cầu</td>
+</tr>
+<tr>
+<td><strong>Thêm ghi chú</strong></td>
+<td><code>recovery.review</code></td>
+<td>Ghi chú nội bộ (khách không thấy)</td>
+</tr>
+<tr>
+<td><strong>Yêu cầu thêm thông tin</strong></td>
+<td><code>recovery.review</code></td>
+<td>Chuyển trạng thái chờ khách bổ sung</td>
+</tr>
+<tr>
+<td><strong>Escalate</strong></td>
+<td><code>recovery.review</code></td>
+<td>Chuyển cấp quản lý cao hơn</td>
+</tr>
+<tr>
+<td><strong>Trả về review</strong></td>
+<td><code>recovery.review</code></td>
+<td>Đưa yêu cầu đã escalate về hàng chờ thường</td>
+</tr>
+<tr>
+<td><strong>Khuyến nghị duyệt/từ chối</strong></td>
+<td><code>recovery.review</code></td>
+<td>Đề xuất quyết định (ghi vào timeline)</td>
+</tr>
+<tr>
+<td><strong>Duyệt</strong></td>
+<td><code>recovery.approve</code></td>
+<td>Phê duyệt yêu cầu</td>
+</tr>
+<tr>
+<td><strong>Từ chối</strong></td>
+<td><code>recovery.approve</code></td>
+<td>Từ chối — <strong>bắt buộc nhập lý do</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="nguyên-tắc-khi-review">Nguyên tắc khi review</h3>
+<ul>
+<li><strong>Không bao giờ</strong> yêu cầu khách gửi mã khôi phục, mật
+khẩu hay thông tin nhạy cảm qua chat.</li>
+<li>Kiểm tra <strong>risk decision + policy version</strong> trên màn
+hình trước khi quyết định.</li>
+<li>Mọi hành động đều ghi audit (ai làm, khi nào, lý do).</li>
+<li>Khi yêu cầu ở trạng thái không hợp lệ, hệ thống trả lỗi — đọc kỹ
+thông báo trước khi thử lại.</li>
+</ul>
+<hr />
+<h2 id="hàng-chờ-khiếu-nại-admindisputes">3. Hàng chờ khiếu nại
+(<code>/admin/disputes</code>)</h2>
+<p>Quy trình xử lý khiếu nại điểm thưởng/giao dịch theo mô hình
+<strong>maker-checker</strong>:</p>
+<ol type="1">
+<li><strong>Điều tra</strong> (<code>dispute.investigate</code>): xem
+bằng chứng khách gửi, lịch sử giao dịch, assign cho nhân viên.</li>
+<li><strong>Đề xuất điều chỉnh</strong>
+(<code>dispute.propose_adjustment</code>): investigator đề xuất số điểm
+điều chỉnh — tạo <code>DisputeDecision</code> ở trạng thái chờ
+duyệt.</li>
+<li><strong>Phê duyệt</strong>
+(<code>dispute.approve_adjustment</code>): approver <strong>phải là
+người khác</strong> với proposer (maker-checker — tự duyệt sẽ bị hệ
+thống từ chối). Sau khi duyệt, hệ thống tự động ghi điều chỉnh vào sổ
+cái điểm qua Gateway — <strong>không sửa số dư trực tiếp</strong>.</li>
+<li>Case chỉ chuyển <strong>RESOLVED</strong> sau khi sổ cái xác nhận.
+Nếu ghi sổ cái lỗi, decision chuyển FAILED và case quay về UNDER_REVIEW
+để đề xuất lại.</li>
+</ol>
+<blockquote>
+<p>Nếu ledger điều chỉnh thất bại liên tục, kiểm tra kết nối
+Gateway/Alliance và tra log — không tự ý sửa database.</p>
+</blockquote>
+<hr />
+<h2 id="nhật-ký-bảo-mật-adminatrs-audit">4. Nhật ký bảo mật
+(<code>/admin/atrs-audit</code>)</h2>
+<p>Tra cứu mọi sự kiện bảo mật (read-only — không sửa/xóa được):</p>
+<ul>
+<li><strong>Bộ lọc:</strong> loại sự kiện, kết quả, loại actor
+(khách/nhân viên/hệ thống), ứng dụng nguồn, đối tượng, khoảng thời
+gian.</li>
+<li>Dữ liệu hiển thị <strong>đã loại bỏ payload nhạy cảm</strong> — bạn
+thấy ai làm gì, khi nào, kết quả ra sao; không thấy nội dung bằng chứng
+hay mã bí mật.</li>
+<li>Phân trang server-side — dùng bộ lọc thay vì cuộn thủ công khi dữ
+liệu lớn.</li>
+</ul>
+<hr />
+<h2 id="phân-quyền-atrs-adminatrs-roles">5. Phân quyền ATRS
+(<code>/admin/atrs-roles</code>)</h2>
+<p><strong>Chỉ SystemAdmin</strong> mới cấp/thu hồi quyền.</p>
+<h3 id="các-nhóm-quyền">Các nhóm quyền</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Quyền</th>
+<th>Tác dụng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>recovery.view</code></td>
+<td>Xem danh sách/yêu cầu khôi phục</td>
+</tr>
+<tr>
+<td><code>recovery.review</code></td>
+<td>Xử lý: assign, ghi chú, yêu cầu info, escalate, khuyến nghị</td>
+</tr>
+<tr>
+<td><code>recovery.approve</code></td>
+<td>Duyệt/từ chối yêu cầu</td>
+</tr>
+<tr>
+<td><code>dispute.view</code></td>
+<td>Xem khiếu nại</td>
+</tr>
+<tr>
+<td><code>dispute.investigate</code></td>
+<td>Điều tra, assign, transition</td>
+</tr>
+<tr>
+<td><code>dispute.propose_adjustment</code></td>
+<td>Đề xuất điều chỉnh điểm</td>
+</tr>
+<tr>
+<td><code>dispute.approve_adjustment</code></td>
+<td>Duyệt điều chỉnh (maker-checker)</td>
+</tr>
+<tr>
+<td><code>case.assign</code></td>
+<td>Gán case cho nhân viên</td>
+</tr>
+<tr>
+<td><code>audit.read</code></td>
+<td>Xem nhật ký bảo mật</td>
+</tr>
+<tr>
+<td><code>policy.manage</code></td>
+<td>Đề xuất/sửa chính sách bảo mật</td>
+</tr>
+<tr>
+<td><code>policy.approve</code></td>
+<td>Duyệt chính sách (maker-checker)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cấp-quyền">Cấp quyền</h3>
+<ol type="1">
+<li>Chọn nhân viên từ danh sách.</li>
+<li>Chọn quyền + phạm vi (tenant) + thời hạn (nếu cần).</li>
+<li>Xác nhận — mọi thay đổi đều được ghi log.</li>
+</ol>
+<blockquote>
+<p><strong>Lưu ý:</strong> Tài khoản <strong>SystemAdmin</strong> có
+toàn quyền (break-glass) và không thể bị thu hồi quyền qua trang này —
+đây là cơ chế khẩn cấp có chủ đích.</p>
+</blockquote>
+<hr />
+<h2 id="chính-sách-bảo-mật-adminatrs-policy">6. Chính sách bảo mật
+(<code>/admin/atrs-policy</code>)</h2>
+<p>Quản lý các tham số bảo mật <strong>có version +
+maker-checker</strong>:</p>
+<ul>
+<li><strong>Đọc:</strong> xem mọi phiên bản policy của từng key
+(recovery SLA hours, dispute maker-checker…).</li>
+<li><strong>Đề xuất</strong> (<code>policy.manage</code>): tạo version
+mới — version đầu tiên của key mới tự có hiệu lực; thay đổi trên key đã
+có sẽ ở trạng thái PROPOSED chờ duyệt.</li>
+<li><strong>Duyệt/Từ chối</strong> (<code>policy.approve</code>):
+approver phải khác proposer — tự duyệt bị từ chối.</li>
+</ul>
+<blockquote>
+<p>Chỉ sửa policy khi hiểu rõ tác động: ví dụ tăng
+<code>recovery.sla_hours</code> sẽ làm giảm số cảnh báo quá hạn SLA trên
+dashboard.</p>
+</blockquote>
+<hr />
+<h2 id="xử-lý-tình-huống-thường-gặp">7. Xử lý tình huống thường gặp</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tình huống</th>
+<th>Cách xử lý</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khách báo không nhận thông báo</td>
+<td>Kiểm tra <code>/admin/atrs-audit</code> xem sự kiện đã phát chưa;
+hiện chỉ có thông báo trong ứng dụng (chưa email/SMS)</td>
+</tr>
+<tr>
+<td>Yêu cầu khôi phục kẹt PENDING_USER_ACTION</td>
+<td>Khách chưa nhập mã — nhắc khách kiểm tra thông báo/trang trạng
+thái</td>
+</tr>
+<tr>
+<td>Dispute decision FAILED</td>
+<td>Kiểm tra log Gateway/ledger; đề xuất decision mới (key idempotency
+mới)</td>
+</tr>
+<tr>
+<td>Không thấy menu ATRS</td>
+<td>Kiểm tra role (Owner/SystemAdmin) + quyền grant trong
+<code>/admin/atrs-roles</code></td>
+</tr>
+<tr>
+<td>Nghi tài khoản bị compromise</td>
+<td>Ưu tiên <code>recovery.review</code> → approve → hệ thống tự thu hồi
+token/thiết bị cũ</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

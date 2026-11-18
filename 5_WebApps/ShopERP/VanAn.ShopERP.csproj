@@ -48,6 +48,8 @@
     <None Update="appsettings.Edge.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- ATRS user guides (sysadmin-only, served via AdminGuidesController — KHÔNG wwwroot) -->
+    <Content Include="Content\Guides\**\*.*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   
