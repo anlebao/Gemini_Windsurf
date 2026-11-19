@@ -73,7 +73,7 @@ static void SeedBootstrapCallerValue(MeteringDbContext db, string pair, bool isA
 
 app.MapGet("/v1/wallets/{tenantId:guid}", async (
     Guid tenantId, WalletService wallet, CancellationToken ct) =>
-    Results.Ok(await wallet.GetWalletAsync(tenantId, ct)));
+    Results.Ok(await wallet.GetWalletAsync(tenantId, ct: ct)));
 
 app.MapGet("/v1/wallets/{tenantId:guid}/check", async (
     Guid tenantId, string serviceCode, decimal? estimate, HttpContext http,
