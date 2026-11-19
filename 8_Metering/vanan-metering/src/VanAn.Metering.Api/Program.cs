@@ -28,6 +28,8 @@ builder.Services.AddHttpClient<TingeePaymentClient>(c =>
     if (!string.IsNullOrWhiteSpace(b)) c.BaseAddress = new Uri(b.TrimEnd('/') + "/");
 });
 builder.Services.AddScoped<TingeeWebhookService>();
+// P12 — VA transaction poller (webhook fallback); interval from TopupConfig.
+builder.Services.AddHostedService<TingeeVaReconciler>();
 
 var app = builder.Build();
 
@@ -367,7 +369,9 @@ static void EnsureP7Schema(MeteringDbContext db)
                     "AccountName" TEXT NOT NULL,
                     "UpdatedBy" TEXT NOT NULL,
                     "UpdatedAtUtc" TEXT NOT NULL,
-                    "VndPerCredit" TEXT NOT NULL DEFAULT '0'
+                    "VndPerCredit" TEXT NOT NULL DEFAULT '0',
+                    "VaPollEnabled" INTEGER NOT NULL DEFAULT 1,
+                    "VaPollIntervalMinutes" INTEGER NOT NULL DEFAULT 2
                 )
                 """);
             Exec("""
@@ -483,6 +487,10 @@ static void EnsureP7Schema(MeteringDbContext db)
             }
             if (!cols.Contains("VndPerCredit"))
                 Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VndPerCredit" TEXT NOT NULL DEFAULT '0'""");
+            if (!cols.Contains("VaPollEnabled"))
+                Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VaPollEnabled" INTEGER NOT NULL DEFAULT 1""");
+            if (!cols.Contains("VaPollIntervalMinutes"))
+                Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VaPollIntervalMinutes" INTEGER NOT NULL DEFAULT 2""");
         }
 
         // P11 (task_p11_package_catalog) — package catalog + PackageCode on topups.

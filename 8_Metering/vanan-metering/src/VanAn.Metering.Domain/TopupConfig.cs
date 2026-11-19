@@ -22,11 +22,17 @@ public sealed class TopupConfig
     /// 0 = auto-confirm OFF (webhook only records paidAmount, admin confirms manually).</summary>
     public decimal VndPerCredit { get; private set; }
 
+    /// <summary>P12 — VA transaction polling fallback (Tingee webhook for VA payments
+    /// is unreliable/missing on portal). Sysadmin toggles + sets interval here.</summary>
+    public bool VaPollEnabled { get; private set; } = true;
+    public int VaPollIntervalMinutes { get; private set; } = 2;
+
     private TopupConfig() { } // EF Core
 
     public static TopupConfig Create(
         string bankCode, string bankName, string accountNumber, string accountName,
-        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0)
+        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0,
+        bool vaPollEnabled = true, int vaPollIntervalMinutes = 2)
         => new()
         {
             Id = SingletonId,
@@ -36,12 +42,15 @@ public sealed class TopupConfig
             AccountName = accountName,
             UpdatedBy = updatedBy,
             UpdatedAtUtc = nowUtc,
-            VndPerCredit = vndPerCredit
+            VndPerCredit = vndPerCredit,
+            VaPollEnabled = vaPollEnabled,
+            VaPollIntervalMinutes = vaPollIntervalMinutes
         };
 
     public void Update(
         string bankCode, string bankName, string accountNumber, string accountName,
-        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0)
+        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0,
+        bool vaPollEnabled = true, int vaPollIntervalMinutes = 2)
     {
         BankCode = bankCode;
         BankName = bankName;
@@ -50,5 +59,7 @@ public sealed class TopupConfig
         UpdatedBy = updatedBy;
         UpdatedAtUtc = nowUtc;
         VndPerCredit = vndPerCredit;
+        VaPollEnabled = vaPollEnabled;
+        VaPollIntervalMinutes = vaPollIntervalMinutes;
     }
 }

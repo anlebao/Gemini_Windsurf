@@ -55,14 +55,18 @@ public sealed record TopupConfigDto(
     string AccountName,
     string UpdatedBy,
     DateTime UpdatedAtUtc,
-    decimal VndPerCredit); // P8 — VND per 1 credit; 0 = auto-confirm OFF
+    decimal VndPerCredit, // P8 — VND per 1 credit; 0 = auto-confirm OFF
+    bool VaPollEnabled = true,       // P12 — VA transaction polling fallback
+    int VaPollIntervalMinutes = 2);  // P12 — poll interval (sysadmin-set)
 
 public sealed record TopupConfigPutRequest(
     string BankCode,
     string BankName,
     string AccountNumber,
     string AccountName,
-    decimal? VndPerCredit = null); // null = keep current value
+    decimal? VndPerCredit = null,   // null = keep current value
+    bool? VaPollEnabled = null,      // P12 — null = keep current value
+    int? VaPollIntervalMinutes = null); // P12 — null = keep current value
 
 // ---- Issue #197: master switch toàn hệ thống ----
 

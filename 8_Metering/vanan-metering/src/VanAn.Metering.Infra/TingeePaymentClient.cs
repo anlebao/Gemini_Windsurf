@@ -174,6 +174,67 @@ public sealed class TingeePaymentClient
         }
     }
 
+
+    /// <summary>
+    /// P12 — POST v1/transaction/get-paging: VA transaction history for polling
+    /// reconciliation (webhook fallback). Filters by vaAccountNumbers, returns
+    /// credit items; caller matches billId → top-up.
+    /// </summary>
+    public async Task<List<TingeeVaTransaction>> GetVaTransactionsAsync(
+        int maxResultCount, CancellationToken ct = default)
+    {
+        var result = new List<TingeeVaTransaction>();
+        if (!IsEnabled || !_opt.IsQrEnabled)
+            return result;
+
+        var payload = new { skipCount = 0, maxResultCount, vaAccountNumbers = new[] { _opt.VaAccountNumber } };
+        var body = JsonSerializer.Serialize(payload, Json);
+        var timestamp = TingeeSignature.TimestampUtc7(DateTime.UtcNow);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/transaction/get-paging")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        req.Headers.TryAddWithoutValidation("x-client-id", _opt.ClientId);
+        req.Headers.TryAddWithoutValidation("x-request-timestamp", timestamp);
+        req.Headers.TryAddWithoutValidation("x-signature",
+            TingeeSignature.SignRequest(timestamp, body, _opt.ClientSecret!));
+
+        try
+        {
+            using var resp = await _http.SendAsync(req, ct);
+            var text = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            var code = root.TryGetProperty("code", out var c) ? c.GetString() : null;
+            if (code != "00")
+            {
+                _logger.LogWarning("Tingee transaction/get-paging rejected: http={Http} code={Code} body={Body}",
+                    (int)resp.StatusCode, code, text);
+                return result;
+            }
+            if (!root.TryGetProperty("data", out var d) || !d.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+                return result;
+            foreach (var it in items.EnumerateArray())
+            {
+                result.Add(new TingeeVaTransaction(
+                    Get(it, "transactionId"), Get(it, "code"),
+                    it.TryGetProperty("amount", out var a) && a.TryGetDecimal(out var dec) ? dec : 0m,
+                    Get(it, "type"), Get(it, "content"),
+                    Get(it, "vaAccountNumber"), Get(it, "transactionDate"), Get(it, "billId")));
+            }
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Tingee transaction/get-paging failed");
+        }
+        return result;
+
+        static string? Get(JsonElement e, string name)
+            => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+    }
+
     private static string? Truncate(string? s, int max)
         => s == null ? null : s.Length <= max ? s : s[..max];
 
@@ -231,3 +292,9 @@ public sealed record TingeeQrResult(string? QrPayload, string? QrAccount, string
     public static TingeeQrResult Fail(string code, string msg)
         => new(null, null, null, code, msg);
 }
+
+/// <summary>P12 — one row of Tingee transaction/get-paging (VA history).</summary>
+public sealed record TingeeVaTransaction(
+    string? TransactionId, string? TransactionCode, decimal Amount,
+    string? Type, string? Content, string? VaAccountNumber,
+    string? TransactionDate, string? BillId);

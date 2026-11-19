@@ -118,6 +118,8 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.AccountName).HasMaxLength(128);
             b.Property(e => e.UpdatedBy).HasMaxLength(64);
             b.Property(e => e.VndPerCredit).HasPrecision(18, 4);
+            b.Property(e => e.VaPollEnabled);
+            b.Property(e => e.VaPollIntervalMinutes);
         });
 
         modelBuilder.Entity<TopupRequest>(b =>

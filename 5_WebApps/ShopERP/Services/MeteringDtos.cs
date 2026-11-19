@@ -82,6 +82,9 @@ public sealed class MeteringTopupConfigDto
     public DateTime UpdatedAtUtc { get; set; }
     /// <summary>P8 — VND per 1 credit for online top-up auto-confirm; 0 = off.</summary>
     public decimal VndPerCredit { get; set; }
+    /// <summary>P12 — VA transaction polling fallback (Tingee webhook unreliable for VA).</summary>
+    public bool VaPollEnabled { get; set; } = true;
+    public int VaPollIntervalMinutes { get; set; } = 2;
 }
 
 /// <summary>P11 — GET /v1/packages — active package catalog.</summary>

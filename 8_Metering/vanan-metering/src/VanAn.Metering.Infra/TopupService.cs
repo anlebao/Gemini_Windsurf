@@ -371,14 +371,18 @@ public sealed class TopupService(
         {
             cfg = TopupConfig.Create(req.BankCode.Trim(), req.BankName.Trim(),
                 req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc,
-                req.VndPerCredit ?? 0);
+                req.VndPerCredit ?? 0,
+                req.VaPollEnabled ?? true,
+                req.VaPollIntervalMinutes is > 0 ? req.VaPollIntervalMinutes.Value : 2);
             db.TopupConfigs.Add(cfg);
         }
         else
         {
             cfg.Update(req.BankCode.Trim(), req.BankName.Trim(),
                 req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc,
-                req.VndPerCredit ?? cfg.VndPerCredit);
+                req.VndPerCredit ?? cfg.VndPerCredit,
+                req.VaPollEnabled ?? cfg.VaPollEnabled,
+                req.VaPollIntervalMinutes is > 0 ? req.VaPollIntervalMinutes.Value : cfg.VaPollIntervalMinutes);
         }
         db.AuditLogs.Add(AuditLog.Create(adminActor, "upsert", nameof(TopupConfig), cfg.Id,
             oldJson: null, newJson: null, atUtc: nowUtc));
@@ -428,5 +432,5 @@ public sealed class TopupService(
 
     private static TopupConfigDto ToDto(TopupConfig c) => new(
         c.BankCode, c.BankName, c.AccountNumber, c.AccountName, c.UpdatedBy, c.UpdatedAtUtc,
-        c.VndPerCredit);
+        c.VndPerCredit, c.VaPollEnabled, c.VaPollIntervalMinutes);
 }

@@ -131,6 +131,14 @@
                             <label>Tỷ giá VND / credit — tự động qua Tingee (0 = tắt tự động)</label>
                             <input class="vanan-input" type="number" min="0" step="1" @bind="_cfgVndPerCredit"
                                    placeholder="VD: 1000" data-testid="cfg-vndpercredit" />
+                            <hr class="my-1" />
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="_cfgVaPollEnabled" id="cfg-vapoll" data-testid="cfg-vapoll-enabled" />
+                                <label class="form-check-label" for="cfg-vapoll"><strong>Đối soát VA tự động</strong> (polling Tingee — dự phòng khi webhook VA không về)</label>
+                            </div>
+                            <label>Chu kỳ đối soát (phút)</label>
+                            <input class="vanan-input" type="number" min="1" max="360" @bind="_cfgVaPollMinutes"
+                                   data-testid="cfg-vapoll-minutes" />
                             @if (_config?.UpdatedBy != null)
                             {
                                 <small class="text-muted">Cập nhật bởi @_config.UpdatedBy — @_config.UpdatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
@@ -163,6 +171,8 @@
     private string _cfgAccountNumber = string.Empty;
     private string _cfgAccountName = string.Empty;
     private decimal _cfgVndPerCredit;
+    private bool _cfgVaPollEnabled = true;
+    private int _cfgVaPollMinutes = 2;
 
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
@@ -218,6 +228,8 @@
                 _cfgAccountNumber = _config.AccountNumber;
                 _cfgAccountName = _config.AccountName;
                 _cfgVndPerCredit = _config.VndPerCredit;
+                _cfgVaPollEnabled = _config.VaPollEnabled;
+                _cfgVaPollMinutes = _config.VaPollIntervalMinutes;
             }
         }
         catch (Exception ex) { Warn(ex.Message); }
@@ -281,7 +293,8 @@
         try
         {
             _config = await MeteringApi.PutTopupConfigAsync(
-                _cfgBankCode, _cfgBankName, _cfgAccountNumber, _cfgAccountName, _cfgVndPerCredit);
+                _cfgBankCode, _cfgBankName, _cfgAccountNumber, _cfgAccountName, _cfgVndPerCredit,
+                _cfgVaPollEnabled, _cfgVaPollMinutes);
             Info("Đã lưu cấu hình VietQR.");
         }
         catch (Exception ex) { Warn(ex.Message); }
