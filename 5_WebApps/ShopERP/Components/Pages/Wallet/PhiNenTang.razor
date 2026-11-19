@@ -105,6 +105,15 @@
                                             Loading="@_payBusy" data-testid="btn-pay-online" class="mt-2">
                                     <i class="bi bi-credit-card"></i> Thanh toán online ngay
                                 </VanAButton>
+                                @if (!string.IsNullOrEmpty(_checkoutUrl))
+                                {
+                                    <p class="mt-2 mb-0">
+                                        <a class="btn btn-primary btn-sm" href="@_checkoutUrl" target="_blank" rel="noopener"
+                                           data-testid="link-tingee-checkout">
+                                            <i class="bi bi-box-arrow-up-right"></i> Mở trang thanh toán Tingee
+                                        </a>
+                                    </p>
+                                }
                                 <p class="text-muted mt-1 mb-0" style="font-size:.85em;">hoặc chuyển khoản VietQR theo mã bên dưới.</p>
                             }
                         </div>
@@ -158,6 +167,7 @@
     private bool _isLoading = true;
     private bool _topupBusy;
     private bool _payBusy;
+    private string? _checkoutUrl;
     private int _page = 1;
     private decimal? _topupAmount;
     private string _alertMessage = string.Empty;
@@ -206,21 +216,26 @@
         finally { _topupBusy = false; }
     }
 
-    /// <summary>P8 — mint a fresh Tingee checkout link and open it in a new tab.</summary>
+    /// <summary>P8 — mint a fresh Tingee checkout link, then show it as a real
+    /// anchor (window.open after await is popup-blocked — link click is a true
+    /// user gesture so it always works).</summary>
     private async Task PayOnlineAsync()
     {
         if (_activeTopup == null) return;
         _payBusy = true;
+        _checkoutUrl = null;
         try
         {
-            var pay = await Metering.CreateTopupPayLinkAsync(_activeTopup.Id);
+            var (pay, err) = await Metering.CreateTopupPayLinkAsync(_activeTopup.Id);
             if (pay?.CheckoutUrl == null)
             {
                 _alertType = "danger";
-                _alertMessage = "Không tạo được link thanh toán online — vui lòng dùng QR VietQR hoặc thử lại sau.";
+                _alertMessage = $"Không tạo được link thanh toán online{(err != null ? $" ({err})" : "")} — vui lòng dùng QR VietQR hoặc thử lại sau.";
                 return;
             }
-            await JS.InvokeVoidAsync("open", pay.CheckoutUrl, "_blank");
+            _checkoutUrl = pay.CheckoutUrl;
+            _alertType = "info";
+            _alertMessage = $"Đã tạo link thanh toán Tingee (hết hạn sau {pay.ExpiresInMinute} phút) — bấm nút bên dưới để thanh toán.";
         }
         finally { _payBusy = false; }
     }

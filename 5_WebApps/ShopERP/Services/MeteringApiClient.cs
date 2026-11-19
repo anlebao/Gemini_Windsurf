@@ -189,22 +189,51 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
-    /// <summary>P8 — POST /v1/topups/{id}/pay → fresh Tingee checkout URL. Null = unavailable/error.</summary>
-    public async Task<MeteringTopupPayDto?> CreateTopupPayLinkAsync(Guid topupId, CancellationToken ct = default)
+    /// <summary>P8 — POST /v1/topups/{id}/pay → fresh Tingee checkout URL.
+    /// Returns (dto, error) — error carries the metering API's message for UI display.</summary>
+    public async Task<(MeteringTopupPayDto? Dto, string? Error)> CreateTopupPayLinkAsync(
+        Guid topupId, CancellationToken ct = default)
     {
-        if (!Enabled()) return null;
+        if (!Enabled()) return (null, "metering_unavailable");
         try
         {
             using var resp = await _http.PostAsync($"v1/topups/{topupId}/pay", null, ct);
-            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "topup-pay"); return null; }
-            _consecutiveFailures = 0;
-            return await resp.Content.ReadFromJsonAsync<MeteringTopupPayDto>(Json, ct);
+            if (resp.IsSuccessStatusCode)
+            {
+                _consecutiveFailures = 0;
+                return (await resp.Content.ReadFromJsonAsync<MeteringTopupPayDto>(Json, ct), null);
+            }
+            var err = await ReadErrorAsync(resp, ct);
+            Fail($"HTTP {(int)resp.StatusCode}", "topup-pay");
+            return (null, err ?? $"HTTP {(int)resp.StatusCode}");
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             Fail(ex.Message, "topup-pay");
-            return null;
+            return (null, ex.Message);
         }
+    }
+
+    /// <summary>Extract a human-readable message from metering error payloads
+    /// ({error:{code,message}} or {error,message}).</summary>
+    private static async Task<string?> ReadErrorAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        try
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String)
+                return m.GetString();
+            if (root.TryGetProperty("error", out var e))
+            {
+                if (e.ValueKind == JsonValueKind.String) return e.GetString();
+                if (e.TryGetProperty("message", out var em) && em.ValueKind == JsonValueKind.String)
+                    return em.GetString();
+            }
+            return body.Length > 200 ? body[..200] : body;
+        }
+        catch { return null; }
     }
 
     /// <summary>P7 — tenant's own top-up requests (list page / status refresh).</summary>
