@@ -232,6 +232,10 @@ public sealed class TingeeTests
         var ts = handler.LastRequest.Headers.GetValues("x-request-timestamp").Single();
         TingeeSignature.VerifySignature(ts, handler.LastBody!, sig, Secret).Should().BeTrue();
         handler.LastBody.Should().Contain(t.ReferenceCode); // orderId = ReferenceCode
+        // Regression: Tingee verifies signature over decoded JSON — body must keep
+        // UTF-8 literal, never \uXXXX escapes (code 97 Invalid signature, prod 2026-11-19).
+        handler.LastBody.Should().Contain("Nạp phí nền tảng");
+        handler.LastBody.Should().NotContain("\\u");
     }
 
     [Fact]

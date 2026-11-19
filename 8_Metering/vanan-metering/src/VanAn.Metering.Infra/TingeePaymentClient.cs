@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +17,13 @@ namespace VanAn.Metering.Infra;
 /// </summary>
 public sealed class TingeePaymentClient
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // UnsafeRelaxedJsonEscaping: Tingee verifies signature over the DECODED JSON
+    // (unicode literal), not raw escaped bytes — default encoder's \uXXXX escaping
+    // breaks it (code 97 Invalid signature, verified against prod 2026-11-19).
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     private readonly HttpClient _http;
     private readonly TingeeOptions _opt;
