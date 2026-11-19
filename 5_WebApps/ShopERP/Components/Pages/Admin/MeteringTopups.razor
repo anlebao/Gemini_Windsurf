@@ -128,6 +128,9 @@
                             <input class="vanan-input" @bind="_cfgAccountNumber" placeholder="0123456789" data-testid="cfg-account" />
                             <label>Tên tài khoản</label>
                             <input class="vanan-input" @bind="_cfgAccountName" placeholder="CONG TY VAN AN" />
+                            <label>Tỷ giá VND / credit — tự động qua Tingee (0 = tắt tự động)</label>
+                            <input class="vanan-input" type="number" min="0" step="1" @bind="_cfgVndPerCredit"
+                                   placeholder="VD: 1000" data-testid="cfg-vndpercredit" />
                             @if (_config?.UpdatedBy != null)
                             {
                                 <small class="text-muted">Cập nhật bởi @_config.UpdatedBy — @_config.UpdatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
@@ -159,6 +162,7 @@
     private string _cfgBankName = string.Empty;
     private string _cfgAccountNumber = string.Empty;
     private string _cfgAccountName = string.Empty;
+    private decimal _cfgVndPerCredit;
 
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
@@ -213,6 +217,7 @@
                 _cfgBankName = _config.BankName;
                 _cfgAccountNumber = _config.AccountNumber;
                 _cfgAccountName = _config.AccountName;
+                _cfgVndPerCredit = _config.VndPerCredit;
             }
         }
         catch (Exception ex) { Warn(ex.Message); }
@@ -276,7 +281,7 @@
         try
         {
             _config = await MeteringApi.PutTopupConfigAsync(
-                _cfgBankCode, _cfgBankName, _cfgAccountNumber, _cfgAccountName);
+                _cfgBankCode, _cfgBankName, _cfgAccountNumber, _cfgAccountName, _cfgVndPerCredit);
             Info("Đã lưu cấu hình VietQR.");
         }
         catch (Exception ex) { Warn(ex.Message); }

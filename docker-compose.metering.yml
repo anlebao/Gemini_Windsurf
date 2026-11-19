@@ -13,6 +13,12 @@ services:
       - Metering__BootstrapCaller=${METERING_CALLER}
       - Metering__BootstrapAdmin=${METERING_ADMIN}
       - Metering__BootstrapCallers=${METERING_CALLERS}
+      # P8 — Tingee Payment Gateway (optional: empty → feature self-disables)
+      - Tingee__ClientId=${TINGEE_CLIENT_ID}
+      - Tingee__ClientSecret=${TINGEE_CLIENT_SECRET}
+      - Tingee__BaseUrl=${TINGEE_BASE_URL:-https://uat-open-api.tingee.vn}
+      - Tingee__WebhookSecret=${TINGEE_WEBHOOK_SECRET}
+      - Tingee__ReturnUrl=${TINGEE_RETURN_URL}
       - ASPNETCORE_URLS=http://+:5050
     volumes:
       - metering-data:/app/data

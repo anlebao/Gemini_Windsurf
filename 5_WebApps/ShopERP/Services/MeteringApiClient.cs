@@ -189,6 +189,24 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
+    /// <summary>P8 — POST /v1/topups/{id}/pay → fresh Tingee checkout URL. Null = unavailable/error.</summary>
+    public async Task<MeteringTopupPayDto?> CreateTopupPayLinkAsync(Guid topupId, CancellationToken ct = default)
+    {
+        if (!Enabled()) return null;
+        try
+        {
+            using var resp = await _http.PostAsync($"v1/topups/{topupId}/pay", null, ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "topup-pay"); return null; }
+            _consecutiveFailures = 0;
+            return await resp.Content.ReadFromJsonAsync<MeteringTopupPayDto>(Json, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "topup-pay");
+            return null;
+        }
+    }
+
     /// <summary>P7 — tenant's own top-up requests (list page / status refresh).</summary>
     public async Task<List<MeteringTopupDto>> GetTopupsAsync(Guid tenantId, CancellationToken ct = default)
     {

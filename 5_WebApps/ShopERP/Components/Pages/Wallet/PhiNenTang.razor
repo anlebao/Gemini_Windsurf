@@ -97,8 +97,16 @@
                                     <i class="bi bi-clipboard"></i> Copy
                                 </VanAButton>
                             </div>
-                            <p class="text-muted mt-2 mb-1">Trạng thái: <strong>@_activeTopup.Status</strong> — hệ thống xác nhận thủ công sau khi nhận tiền.</p>
+                            <p class="text-muted mt-2 mb-1">Trạng thái: <strong>@_activeTopup.Status</strong> — tự động cộng credit khi hệ thống nhận được tiền (chuyển khoản hoặc thanh toán online).</p>
                             <p class="text-muted mb-0">Hết hạn: @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                            @if (_activeTopup.Status == "pending")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="PayOnlineAsync"
+                                            Loading="@_payBusy" data-testid="btn-pay-online" class="mt-2">
+                                    <i class="bi bi-credit-card"></i> Thanh toán online ngay
+                                </VanAButton>
+                                <p class="text-muted mt-1 mb-0" style="font-size:.85em;">hoặc chuyển khoản VietQR theo mã bên dưới.</p>
+                            }
                         </div>
                     </div>
                 </ChildContent>
@@ -149,6 +157,7 @@
     private MeteringTopupDto? _activeTopup;
     private bool _isLoading = true;
     private bool _topupBusy;
+    private bool _payBusy;
     private int _page = 1;
     private decimal? _topupAmount;
     private string _alertMessage = string.Empty;
@@ -195,6 +204,25 @@
             _alertMessage = $"Đã tạo yêu cầu nạp {dto.ReferenceCode} — quét QR và chuyển khoản đúng nội dung.";
         }
         finally { _topupBusy = false; }
+    }
+
+    /// <summary>P8 — mint a fresh Tingee checkout link and open it in a new tab.</summary>
+    private async Task PayOnlineAsync()
+    {
+        if (_activeTopup == null) return;
+        _payBusy = true;
+        try
+        {
+            var pay = await Metering.CreateTopupPayLinkAsync(_activeTopup.Id);
+            if (pay?.CheckoutUrl == null)
+            {
+                _alertType = "danger";
+                _alertMessage = "Không tạo được link thanh toán online — vui lòng dùng QR VietQR hoặc thử lại sau.";
+                return;
+            }
+            await JS.InvokeVoidAsync("open", pay.CheckoutUrl, "_blank");
+        }
+        finally { _payBusy = false; }
     }
 
     private async Task CopyReferenceAsync()

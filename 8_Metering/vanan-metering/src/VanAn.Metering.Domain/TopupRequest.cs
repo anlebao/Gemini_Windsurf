@@ -22,6 +22,11 @@ public sealed class TopupRequest
     /// <summary>Credits granted by admin at confirm (null until then).</summary>
     public decimal? CreditsGranted { get; private set; }
 
+    /// <summary>P8 — amount actually received via payment provider (null until webhook).</summary>
+    public decimal? PaidAmountVnd { get; private set; }
+    public string? PaymentProvider { get; private set; }       // "tingee"
+    public string? ProviderTransactionId { get; private set; } // providerTransactionCode / billId
+
     public TopupStatus Status { get; private set; }
     public string? ConfirmedBy { get; private set; }
     public DateTime? ConfirmedAtUtc { get; private set; }
@@ -72,6 +77,15 @@ public sealed class TopupRequest
         ConfirmedAtUtc = nowUtc;
         Note = reason;
         return true;
+    }
+
+    /// <summary>P8 — attach provider payment facts (webhook). Safe to call repeatedly
+    /// with the same values; does NOT change status — Confirm/Reject still govern that.</summary>
+    public void AttachProviderPayment(string provider, string? transactionId, decimal paidAmountVnd)
+    {
+        PaymentProvider = provider;
+        ProviderTransactionId = transactionId;
+        PaidAmountVnd = paidAmountVnd;
     }
 
     /// <summary>D9 — lazy expiry: mark expired when read past TTL.</summary>

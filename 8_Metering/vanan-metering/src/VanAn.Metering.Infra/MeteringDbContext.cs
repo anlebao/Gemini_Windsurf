@@ -115,6 +115,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.AccountNumber).HasMaxLength(64);
             b.Property(e => e.AccountName).HasMaxLength(128);
             b.Property(e => e.UpdatedBy).HasMaxLength(64);
+            b.Property(e => e.VndPerCredit).HasPrecision(18, 4);
         });
 
         modelBuilder.Entity<TopupRequest>(b =>
@@ -126,6 +127,9 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.ReferenceCode).HasMaxLength(32);
             b.Property(e => e.AmountVnd).HasPrecision(18, 4);
             b.Property(e => e.CreditsGranted).HasPrecision(18, 4);
+            b.Property(e => e.PaidAmountVnd).HasPrecision(18, 4);
+            b.Property(e => e.PaymentProvider).HasMaxLength(32);
+            b.Property(e => e.ProviderTransactionId).HasMaxLength(128);
             b.Property(e => e.ConfirmedBy).HasMaxLength(64);
             b.Property(e => e.Note).HasMaxLength(256);
             b.Property(e => e.CallerId).HasMaxLength(64);

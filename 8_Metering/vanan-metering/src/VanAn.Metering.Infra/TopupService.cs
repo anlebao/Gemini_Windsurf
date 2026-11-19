@@ -11,18 +11,30 @@ public sealed record TopupOpResult(TopupRequest? Request, string? ErrorCode, str
     public static TopupOpResult Fail(string code, string message) => new(null, code, message);
 }
 
+/// <summary>P8 — result of minting a Tingee checkout link for a pending top-up.</summary>
+public sealed record TopupPayLinkResult(
+    string? CheckoutUrl, string? OrderId, decimal? AmountVnd, int ExpiresInMinute,
+    string? ErrorCode = null, string? ErrorMessage = null)
+{
+    public static TopupPayLinkResult Fail(string code, string msg)
+        => new(null, null, null, 0, code, msg);
+}
+
 /// <summary>
 /// P7 D6–D9 — manual VietQR top-ups: create (idempotent per caller key) → user
 /// transfers with ReferenceCode in the note → admin confirms → wallet Grant.
 /// Lazy expiry (D9): Pending rows past TTL are marked Expired on read — no job.
 /// </summary>
-public sealed class TopupService(MeteringDbContext db, WalletService wallet, TimeSpan? topupTtl = null)
+public sealed class TopupService(
+    MeteringDbContext db, WalletService wallet, TimeSpan? topupTtl = null,
+    TingeePaymentClient? tingee = null)
 {
     // Unambiguous alphabet — no 0/O, 1/I/L — safe to retype into a bank note.
     private const string RefAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private const int RefLength = 8;
 
     private TimeSpan Ttl => topupTtl ?? TimeSpan.FromHours(72);
+    private readonly TingeePaymentClient? _tingee = tingee;
 
     /// <summary>D6 — POST /v1/topups. Dedupe (CallerId, Idempotency-Key) → replay same request.</summary>
     public async Task<TopupOpResult> CreateAsync(
@@ -96,13 +108,20 @@ public sealed class TopupService(MeteringDbContext db, WalletService wallet, Tim
             return TopupOpResult.Ok(request); // replay — no double-grant (card §5-b)
         if (request.Status != TopupStatus.Pending)
             return TopupOpResult.Fail("topup_not_pending", $"Cannot confirm a {StatusName(request.Status)} topup request.");
+        return await ConfirmCoreAsync(request, req.Credits, adminActor, req.Note, nowUtc, ct);
+    }
 
+    /// <summary>Shared confirm core — flips status + Grant + single SaveChanges commit.</summary>
+    private async Task<TopupOpResult> ConfirmCoreAsync(
+        TopupRequest request, decimal credits, string actor, string? note,
+        DateTime nowUtc, CancellationToken ct)
+    {
         // Same context save: status flip + ledger Grant + wallet update = 1 commit.
-        request.Confirm(req.Credits, adminActor, req.Note, nowUtc);
+        request.Confirm(credits, actor, note, nowUtc);
         try
         {
-            await wallet.GrantAsync(request.TenantId, req.Credits,
-                $"topup:{request.ReferenceCode}", adminActor, nowUtc, topupRequestId: request.Id, ct);
+            await wallet.GrantAsync(request.TenantId, credits,
+                $"topup:{request.ReferenceCode}", actor, nowUtc, topupRequestId: request.Id, ct);
             await db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException)
@@ -110,7 +129,7 @@ public sealed class TopupService(MeteringDbContext db, WalletService wallet, Tim
             // T25 — concurrent confirm lost the race on the ledger's unique
             // TopupRequestId index: reload and return the winner (no double-grant).
             db.Entry(request).State = EntityState.Detached;
-            var winner = await db.TopupRequests.FindAsync([id], ct);
+            var winner = await db.TopupRequests.FindAsync([request.Id], ct);
             if (winner?.Status == TopupStatus.Confirmed) return TopupOpResult.Ok(winner);
             return TopupOpResult.Fail("confirm_conflict", "Concurrent confirm failed — retry.");
         }
@@ -133,6 +152,87 @@ public sealed class TopupService(MeteringDbContext db, WalletService wallet, Tim
         return TopupOpResult.Ok(request);
     }
 
+    // ---- P8: Tingee online payment ----
+
+    /// <summary>
+    /// POST /v1/topups/{id}/pay — mint a FRESH Tingee checkout link for a Pending
+    /// top-up. Links expire ≤30 min while TopupRequest lives 72h, so links are
+    /// never persisted — every call mints a new one (orderId = ReferenceCode).
+    /// </summary>
+    public async Task<TopupPayLinkResult> CreatePayLinkAsync(
+        Guid id, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var request = await db.TopupRequests.FindAsync([id], ct);
+        if (request == null)
+            return TopupPayLinkResult.Fail("not_found", "Topup request not found.");
+        await LazyExpireAsync([request], nowUtc, ct);
+        if (request.Status != TopupStatus.Pending)
+            return TopupPayLinkResult.Fail("topup_not_pending",
+                $"Cannot pay a {StatusName(request.Status)} topup request.");
+        if (request.AmountVnd is null or <= 0)
+            return TopupPayLinkResult.Fail("amount_required",
+                "Topup request has no amountVnd — cannot create a payment link.");
+        if (_tingee?.IsEnabled != true)
+            return TopupPayLinkResult.Fail("tingee_disabled", "Tingee payment is not configured.");
+
+        var link = await _tingee.CreatePaymentLinkAsync(
+            request.ReferenceCode, request.AmountVnd.Value,
+            $"Nạp phí nền tảng {request.ReferenceCode}", ct);
+        if (link.CheckoutUrl == null)
+            return TopupPayLinkResult.Fail(link.ErrorCode ?? "tingee_error",
+                link.ErrorMessage ?? "Tingee API error");
+        return new TopupPayLinkResult(link.CheckoutUrl, request.ReferenceCode,
+            request.AmountVnd, 30);
+    }
+
+    /// <summary>
+    /// P8 — webhook success path: find by ReferenceCode (= Tingee orderId) → attach
+    /// provider payment facts → auto-confirm credits = paidAmountVnd / VndPerCredit.
+    /// Partial payments confirm the ACTUAL amount received (user decision).
+    /// VndPerCredit = 0 → record payment only, keep Pending for manual admin confirm.
+    /// Idempotent: Confirmed requests return Ok without re-granting.
+    /// </summary>
+    public async Task<TopupOpResult> ConfirmPaidByReferenceAsync(
+        string referenceCode, decimal paidAmountVnd, string? providerTxnId,
+        DateTime nowUtc, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(referenceCode))
+            return TopupOpResult.Fail("not_found", "Topup request not found.");
+
+        var probe = await db.TopupRequests.AsNoTracking()
+            .Where(t => t.ReferenceCode == referenceCode)
+            .Select(t => t.Id).FirstOrDefaultAsync(ct);
+        if (probe == Guid.Empty)
+            return TopupOpResult.Fail("not_found", "Topup request not found.");
+
+        var request = await db.TopupRequests.FindAsync([probe], ct);
+        if (request == null) return TopupOpResult.Fail("not_found", "Topup request not found.");
+        await LazyExpireAsync([request], nowUtc, ct);
+
+        if (request.Status == TopupStatus.Confirmed)
+            return TopupOpResult.Ok(request); // webhook replay — no double-grant
+        if (request.Status != TopupStatus.Pending)
+            return TopupOpResult.Fail("topup_not_pending",
+                $"Cannot confirm a {StatusName(request.Status)} topup request.");
+
+        request.AttachProviderPayment("tingee", providerTxnId, paidAmountVnd);
+
+        var cfg = await db.TopupConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        var vndPerCredit = cfg?.VndPerCredit ?? 0;
+        if (vndPerCredit <= 0)
+        {
+            // Auto-confirm OFF — payment recorded, Pending kept for manual confirm (P8 D7).
+            await db.SaveChangesAsync(ct);
+            return TopupOpResult.Ok(request);
+        }
+
+        var credits = paidAmountVnd / vndPerCredit;
+        if (credits <= 0)
+            return TopupOpResult.Fail("invalid_credits", "Computed credits <= 0.");
+        var note = $"tingee:{providerTxnId ?? referenceCode} paid={paidAmountVnd}";
+        return await ConfirmCoreAsync(request, credits, "tingee:webhook", note, nowUtc, ct);
+    }
+
     // ---- TopupConfig singleton ----
 
     public async Task<TopupConfigDto?> GetConfigAsync(CancellationToken ct = default)
@@ -152,13 +252,15 @@ public sealed class TopupService(MeteringDbContext db, WalletService wallet, Tim
         if (cfg == null)
         {
             cfg = TopupConfig.Create(req.BankCode.Trim(), req.BankName.Trim(),
-                req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc);
+                req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc,
+                req.VndPerCredit ?? 0);
             db.TopupConfigs.Add(cfg);
         }
         else
         {
             cfg.Update(req.BankCode.Trim(), req.BankName.Trim(),
-                req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc);
+                req.AccountNumber.Trim(), req.AccountName.Trim(), adminActor, nowUtc,
+                req.VndPerCredit ?? cfg.VndPerCredit);
         }
         db.AuditLogs.Add(AuditLog.Create(adminActor, "upsert", nameof(TopupConfig), cfg.Id,
             oldJson: null, newJson: null, atUtc: nowUtc));
@@ -206,5 +308,6 @@ public sealed class TopupService(MeteringDbContext db, WalletService wallet, Tim
         t.Note, t.ConfirmedBy, t.ConfirmedAtUtc, t.CreatedAtUtc, t.ExpiresAtUtc);
 
     private static TopupConfigDto ToDto(TopupConfig c) => new(
-        c.BankCode, c.BankName, c.AccountNumber, c.AccountName, c.UpdatedBy, c.UpdatedAtUtc);
+        c.BankCode, c.BankName, c.AccountNumber, c.AccountName, c.UpdatedBy, c.UpdatedAtUtc,
+        c.VndPerCredit);
 }

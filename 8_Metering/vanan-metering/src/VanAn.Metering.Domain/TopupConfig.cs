@@ -18,11 +18,15 @@ public sealed class TopupConfig
     public string UpdatedBy { get; private set; } = string.Empty;
     public DateTime UpdatedAtUtc { get; private set; }
 
+    /// <summary>P8 — VND per 1 credit for auto-confirm of online top-ups (Tingee webhook).
+    /// 0 = auto-confirm OFF (webhook only records paidAmount, admin confirms manually).</summary>
+    public decimal VndPerCredit { get; private set; }
+
     private TopupConfig() { } // EF Core
 
     public static TopupConfig Create(
         string bankCode, string bankName, string accountNumber, string accountName,
-        string updatedBy, DateTime nowUtc)
+        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0)
         => new()
         {
             Id = SingletonId,
@@ -31,12 +35,13 @@ public sealed class TopupConfig
             AccountNumber = accountNumber,
             AccountName = accountName,
             UpdatedBy = updatedBy,
-            UpdatedAtUtc = nowUtc
+            UpdatedAtUtc = nowUtc,
+            VndPerCredit = vndPerCredit
         };
 
     public void Update(
         string bankCode, string bankName, string accountNumber, string accountName,
-        string updatedBy, DateTime nowUtc)
+        string updatedBy, DateTime nowUtc, decimal vndPerCredit = 0)
     {
         BankCode = bankCode;
         BankName = bankName;
@@ -44,5 +49,6 @@ public sealed class TopupConfig
         AccountName = accountName;
         UpdatedBy = updatedBy;
         UpdatedAtUtc = nowUtc;
+        VndPerCredit = vndPerCredit;
     }
 }

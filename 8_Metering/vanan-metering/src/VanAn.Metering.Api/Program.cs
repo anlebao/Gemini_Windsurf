@@ -15,8 +15,17 @@ builder.Services.AddScoped<EnforcementConfigService>();
 builder.Services.AddScoped(s => new TopupService(
     s.GetRequiredService<MeteringDbContext>(),
     s.GetRequiredService<WalletService>(),
-    TimeSpan.FromHours(builder.Configuration.GetValue("Metering:TopupTtlHours", 72))));
+    TimeSpan.FromHours(builder.Configuration.GetValue("Metering:TopupTtlHours", 72)),
+    s.GetService<TingeePaymentClient>()));
 builder.Services.AddScoped<UsageService>();
+
+// P8 — Tingee Payment Gateway (optional: missing Tingee__* config self-disables).
+builder.Services.AddHttpClient<TingeePaymentClient>(c =>
+{
+    var b = builder.Configuration["Tingee:BaseUrl"];
+    if (!string.IsNullOrWhiteSpace(b)) c.BaseAddress = new Uri(b.TrimEnd('/') + "/");
+});
+builder.Services.AddScoped<TingeeWebhookService>();
 
 var app = builder.Build();
 
@@ -170,6 +179,38 @@ app.MapPost("/v1/topups/{id:guid}/reject", async (
         : Results.Conflict(new { error = r.ErrorCode, message = r.ErrorMessage });
 });
 
+// P8 — mint a fresh Tingee checkout link for a Pending top-up (caller-auth like other /v1 routes).
+app.MapPost("/v1/topups/{id:guid}/pay", async (
+    Guid id, TopupService topups, CancellationToken ct) =>
+{
+    var r = await topups.CreatePayLinkAsync(id, DateTime.UtcNow, ct);
+    if (r.CheckoutUrl != null)
+        return Results.Ok(new TopupPayResponse(r.CheckoutUrl, r.OrderId!, r.AmountVnd, r.ExpiresInMinute));
+    return r.ErrorCode switch
+    {
+        "not_found" => Results.NotFound(new { error = r.ErrorCode }),
+        "tingee_disabled" => Results.Json(new { error = r.ErrorCode, message = r.ErrorMessage },
+            statusCode: StatusCodes.Status503ServiceUnavailable),
+        _ => Results.Conflict(new { error = r.ErrorCode, message = r.ErrorMessage })
+    };
+});
+
+// P8 — Tingee IPN webhook: exempt from caller-auth middleware (path starts /v1/webhooks);
+// authenticity is proven by x-signature HMAC-SHA512 inside TingeeWebhookService.
+app.MapPost("/v1/webhooks/tingee", async (
+    HttpContext ctx, TingeeWebhookService wh, CancellationToken ct) =>
+{
+    string rawBody;
+    using (var reader = new StreamReader(ctx.Request.Body))
+        rawBody = await reader.ReadToEndAsync(ct);
+    var (status, body) = await wh.HandleAsync(
+        ctx.Request.Headers["webhook-type"].FirstOrDefault(),
+        rawBody,
+        ctx.Request.Headers["x-request-timestamp"].FirstOrDefault(),
+        ctx.Request.Headers["x-signature"].FirstOrDefault(), ct);
+    return Results.Json(body, statusCode: status);
+});
+
 static string StatusName(TopupStatus s) => s switch
 {
     TopupStatus.Confirmed => "confirmed",
@@ -275,7 +316,8 @@ static void EnsureP7Schema(MeteringDbContext db)
                     "AccountNumber" TEXT NOT NULL,
                     "AccountName" TEXT NOT NULL,
                     "UpdatedBy" TEXT NOT NULL,
-                    "UpdatedAtUtc" TEXT NOT NULL
+                    "UpdatedAtUtc" TEXT NOT NULL,
+                    "VndPerCredit" TEXT NOT NULL DEFAULT '0'
                 )
                 """);
             Exec("""
@@ -285,6 +327,9 @@ static void EnsureP7Schema(MeteringDbContext db)
                     "ReferenceCode" TEXT NOT NULL,
                     "AmountVnd" TEXT NULL,
                     "CreditsGranted" TEXT NULL,
+                    "PaidAmountVnd" TEXT NULL,
+                    "PaymentProvider" TEXT NULL,
+                    "ProviderTransactionId" TEXT NULL,
                     "Status" INTEGER NOT NULL,
                     "ConfirmedBy" TEXT NULL,
                     "ConfirmedAtUtc" TEXT NULL,
@@ -355,6 +400,37 @@ static void EnsureP7Schema(MeteringDbContext db)
                 Exec("""CREATE UNIQUE INDEX "IX_RateCardVersions_ServiceCode_Scope_EffectiveFrom" ON "RateCardVersions" ("ServiceCode", "Scope", "EffectiveFrom")""");
             }
         }
+
+        // P8 (task_p8_tingee_topup) — payment-provider columns on TopupRequests +
+        // VND-per-credit rate on TopupConfigs. Idempotent; default 0 = auto-confirm OFF.
+        if (tables.Contains("TopupRequests"))
+        {
+            var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info('TopupRequests')";
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read()) cols.Add(reader.GetString(1));
+            }
+            if (!cols.Contains("PaidAmountVnd"))
+                Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "PaidAmountVnd" TEXT NULL""");
+            if (!cols.Contains("PaymentProvider"))
+                Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "PaymentProvider" TEXT NULL""");
+            if (!cols.Contains("ProviderTransactionId"))
+                Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "ProviderTransactionId" TEXT NULL""");
+        }
+        if (tables.Contains("TopupConfigs"))
+        {
+            var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info('TopupConfigs')";
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read()) cols.Add(reader.GetString(1));
+            }
+            if (!cols.Contains("VndPerCredit"))
+                Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VndPerCredit" TEXT NOT NULL DEFAULT '0'""");
+        }
     }
     finally
     {
@@ -368,7 +444,8 @@ app.MapGet("/v1/health", () => Results.Ok(new { status = "ok", service = "vanan-
 // Caller auth: X-Caller-Id + X-Metering-Key → SHA-256 match on CallerKeys (SRS [G3]/NFR-8).
 app.Use(async (ctx, next) =>
 {
-    if (!ctx.Request.Path.StartsWithSegments("/v1", StringComparison.Ordinal) || ctx.Request.Path == "/v1/health")
+    if (!ctx.Request.Path.StartsWithSegments("/v1", StringComparison.Ordinal) || ctx.Request.Path == "/v1/health"
+        || ctx.Request.Path.StartsWithSegments("/v1/webhooks", StringComparison.Ordinal))
     {
         await next();
         return;

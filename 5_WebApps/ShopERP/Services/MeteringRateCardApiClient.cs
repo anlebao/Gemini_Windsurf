@@ -124,12 +124,14 @@ public sealed class MeteringRateCardApiClient
         return await ReadAsync<MeteringTopupConfigDto>(resp, ct);
     }
 
-    /// <summary>PUT /v1/topup-config — singleton upsert (audited server-side).</summary>
+    /// <summary>PUT /v1/topup-config — singleton upsert (audited server-side).
+    /// P8: vndPerCredit null → server keeps current value.</summary>
     public async Task<MeteringTopupConfigDto> PutTopupConfigAsync(
-        string bankCode, string bankName, string accountNumber, string accountName, CancellationToken ct = default)
+        string bankCode, string bankName, string accountNumber, string accountName,
+        decimal? vndPerCredit = null, CancellationToken ct = default)
     {
         var resp = await SendAsync(HttpMethod.Put, "v1/topup-config", ct, JsonContent.Create(
-            new { bankCode, bankName, accountNumber, accountName }, options: Json));
+            new { bankCode, bankName, accountNumber, accountName, vndPerCredit }, options: Json));
         return await ReadAsync<MeteringTopupConfigDto>(resp, ct)
             ?? throw new InvalidOperationException("Metering API returned empty response for topup-config");
     }

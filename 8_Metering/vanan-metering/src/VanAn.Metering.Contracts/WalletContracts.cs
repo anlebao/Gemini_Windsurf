@@ -45,13 +45,15 @@ public sealed record TopupConfigDto(
     string AccountNumber,
     string AccountName,
     string UpdatedBy,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    decimal VndPerCredit); // P8 — VND per 1 credit; 0 = auto-confirm OFF
 
 public sealed record TopupConfigPutRequest(
     string BankCode,
     string BankName,
     string AccountNumber,
-    string AccountName);
+    string AccountName,
+    decimal? VndPerCredit = null); // null = keep current value
 
 // ---- Issue #197: master switch toàn hệ thống ----
 
@@ -82,5 +84,12 @@ public sealed record TopupDto(
 public sealed record TopupConfirmRequest(decimal Credits, string? Note = null);
 
 public sealed record TopupRejectRequest(string? Reason = null);
+
+/// <summary>P8 — POST /v1/topups/{id}/pay → Tingee checkout URL (fresh link, expire ≤30 min).</summary>
+public sealed record TopupPayResponse(
+    string CheckoutUrl,
+    string OrderId,
+    decimal? AmountVnd,
+    int ExpiresInMinute);
 
 public sealed record TopupListResponse(IReadOnlyList<TopupDto> Items);

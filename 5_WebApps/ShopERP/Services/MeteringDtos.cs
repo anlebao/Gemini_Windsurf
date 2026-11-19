@@ -53,6 +53,15 @@ public sealed class MeteringTopupList
     public List<MeteringTopupDto> Items { get; set; } = new();
 }
 
+/// <summary>P8 — POST /v1/topups/{id}/pay → Tingee checkout URL (fresh link, ≤30 min).</summary>
+public sealed class MeteringTopupPayDto
+{
+    public string CheckoutUrl { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public decimal? AmountVnd { get; set; }
+    public int ExpiresInMinute { get; set; }
+}
+
 public sealed class MeteringTopupConfigDto
 {
     public string BankCode { get; set; } = string.Empty;
@@ -61,4 +70,6 @@ public sealed class MeteringTopupConfigDto
     public string AccountName { get; set; } = string.Empty;
     public string UpdatedBy { get; set; } = string.Empty;
     public DateTime UpdatedAtUtc { get; set; }
+    /// <summary>P8 — VND per 1 credit for online top-up auto-confirm; 0 = off.</summary>
+    public decimal VndPerCredit { get; set; }
 }
