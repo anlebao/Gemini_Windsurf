@@ -41,6 +41,7 @@ public sealed class MeteringTopupDto
     public decimal? CreditsGranted { get; set; }
     public string Status { get; set; } = string.Empty;    // pending | confirmed | rejected | expired
     public string? QrPayload { get; set; }              // vietqr.io image URL
+    public string? PackageCode { get; set; }            // P11 — set when bought via package
     public string? Note { get; set; }
     public string? ConfirmedBy { get; set; }
     public DateTime? ConfirmedAtUtc { get; set; }
@@ -81,4 +82,15 @@ public sealed class MeteringTopupConfigDto
     public DateTime UpdatedAtUtc { get; set; }
     /// <summary>P8 — VND per 1 credit for online top-up auto-confirm; 0 = off.</summary>
     public decimal VndPerCredit { get; set; }
+}
+
+/// <summary>P11 — GET /v1/packages — active package catalog.</summary>
+public sealed class MeteringPackageDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public decimal PriceVnd { get; set; }
+    public decimal Credits { get; set; }
+    public int ValidityDays { get; set; }
+    public int SortOrder { get; set; }
 }

@@ -67,6 +67,22 @@
             <div class="col-md-4">
                 <VanACard Header="Nạp credit">
                     <ChildContent>
+                        @if (_packages.Count > 0)
+                        {
+                            <div class="mb-3" data-testid="package-list">
+                                <div class="text-muted mb-1" style="font-size:.85em;">Gói cước (credit hết hạn sau số ngày ghi trên gói):</div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    @foreach (var pkg in _packages)
+                                    {
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                                @onclick="() => BuyPackageAsync(pkg.Code)"
+                                                disabled="@_topupBusy" data-testid="@($"pkg-{pkg.Code}")">
+                                            <strong>@pkg.Name</strong> — @pkg.PriceVnd.ToString("N0")đ / @pkg.Credits.ToString("0.##")cr / @pkg.ValidityDays ngày
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
                         <div class="d-flex gap-2 align-items-center">
                             <input class="vanan-input" type="number" min="0" step="10000"
                                    placeholder="Số tiền VND" @bind="_topupAmount" data-testid="topup-amount" />
@@ -186,6 +202,8 @@
     private string? _checkoutUrl;
     private int _page = 1;
     private decimal? _topupAmount;
+    private List<MeteringPackageDto> _packages = new();
+    private string? _selectedPackage;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
 
@@ -201,6 +219,7 @@
             await LoadLedgerAsync(1);
             var topups = await Metering.GetTopupsAsync(TenantProvider.TenantId);
             _activeTopup ??= topups.FirstOrDefault(t => t.Status == "pending");
+            _packages = await Metering.GetPackagesAsync();
         }
         finally { _isLoading = false; }
     }
@@ -212,13 +231,36 @@
         _ledger = await Metering.GetLedgerAsync(TenantProvider.TenantId, _page, 20);
     }
 
+    /// <summary>P11 — buy a package: creates a top-up priced by the catalog;
+    /// credits land in an expiring lot on confirm.</summary>
+    private async Task BuyPackageAsync(string code)
+    {
+        if (!TenantProvider.HasTenant) return;
+        _topupBusy = true;
+        try
+        {
+            var dto = await Metering.CreateTopupAsync(TenantProvider.TenantId, null, code);
+            if (dto == null)
+            {
+                _alertType = "danger";
+                _alertMessage = "Không tạo được yêu cầu nạp gói — kiểm tra kết nối metering.";
+                return;
+            }
+            _activeTopup = dto;
+            _selectedPackage = code;
+            _alertType = "success";
+            _alertMessage = $"Đã tạo yêu cầu nạp gói {code} {dto.ReferenceCode} — quét QR/thanh toán để nhận credit (có hạn dùng).";
+        }
+        finally { _topupBusy = false; }
+    }
+
     private async Task CreateTopupAsync()
     {
         if (!TenantProvider.HasTenant) return;
         _topupBusy = true;
         try
         {
-            var dto = await Metering.CreateTopupAsync(TenantProvider.TenantId, _topupAmount);
+            var dto = await Metering.CreateTopupAsync(TenantProvider.TenantId, _topupAmount, _selectedPackage);
             if (dto == null)
             {
                 _alertType = "danger";

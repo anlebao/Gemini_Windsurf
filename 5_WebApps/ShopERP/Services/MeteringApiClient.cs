@@ -167,7 +167,7 @@ public sealed class MeteringApiClient : IMeteringClient
     }
 
     /// <summary>P7 D6 — create manual top-up request; returns dto with referenceCode + QR payload.</summary>
-    public async Task<MeteringTopupDto?> CreateTopupAsync(Guid tenantId, decimal? amountVnd, CancellationToken ct = default)
+    public async Task<MeteringTopupDto?> CreateTopupAsync(Guid tenantId, decimal? amountVnd, string? packageCode = null, CancellationToken ct = default)
     {
         if (!Enabled()) return null;
         try
@@ -176,7 +176,7 @@ public sealed class MeteringApiClient : IMeteringClient
             // Stable per-minute key — double-click / F5 replays the same request server-side.
             req.Headers.TryAddWithoutValidation("Idempotency-Key",
                 $"topup:{tenantId}:{DateTime.UtcNow:yyyyMMddHHmm}");
-            req.Content = JsonContent.Create(new { tenantId, amountVnd }, options: Json);
+            req.Content = JsonContent.Create(new { tenantId, amountVnd, packageCode }, options: Json);
             using var resp = await _http.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "topup-create"); return null; }
             _consecutiveFailures = 0;
@@ -259,6 +259,24 @@ public sealed class MeteringApiClient : IMeteringClient
             return body.Length > 200 ? body[..200] : body;
         }
         catch { return null; }
+    }
+
+    /// <summary>P11 — active package catalog for the wallet page picker.</summary>
+    public async Task<List<MeteringPackageDto>> GetPackagesAsync(CancellationToken ct = default)
+    {
+        if (!Enabled()) return new List<MeteringPackageDto>();
+        try
+        {
+            using var resp = await _http.GetAsync("v1/packages", ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "packages"); return new List<MeteringPackageDto>(); }
+            _consecutiveFailures = 0;
+            return await resp.Content.ReadFromJsonAsync<List<MeteringPackageDto>>(Json, ct) ?? new List<MeteringPackageDto>();
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "packages");
+            return new List<MeteringPackageDto>();
+        }
     }
 
     /// <summary>P7 — tenant's own top-up requests (list page / status refresh).</summary>

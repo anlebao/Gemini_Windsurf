@@ -46,6 +46,12 @@ else if (_suspended)
             <i class="bi bi-pause-circle"></i>
             <h2>Trang web này tạm ngưng phục vụ</h2>
             <p>Cửa hàng đang tạm ngừng hoạt động. Vui lòng quay lại sau.</p>
+            <p class="text-muted" style="font-size:.9em;">
+                <i class="bi bi-info-circle"></i>
+                <strong>Chủ cửa hàng:</strong> vui lòng đăng nhập ShopERP → mục
+                <em>Ví phí nền tảng</em> để nạp credit (gói ngày/tuần/tháng/năm hoặc số tiền tùy ý)
+                nhằm mở lại trang web.
+            </p>
             <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
             </button>
