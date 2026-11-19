@@ -15,13 +15,11 @@
 @inject IJSRuntime JS
 
 <div class="metering-wallet-page @ThemeProvider.CurrentTheme">
-    <header class="page-header">
-        <h1><i class="bi bi-wallet2"></i> Phí nền tảng — Ví credit</h1>
-        <div class="header-actions">
-            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_isLoading">
-                Làm mới
-            </VanAButton>
-        </div>
+    <header class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0" style="font-size:1.4rem;"><i class="bi bi-wallet2"></i> Ví phí nền tảng</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_isLoading">
+            <i class="bi bi-arrow-clockwise"></i>
+        </VanAButton>
     </header>
 
     @if (!string.IsNullOrEmpty(_alertMessage))
@@ -40,118 +38,122 @@
     }
     else
     {
-        <div class="row g-3 mb-3" data-testid="wallet-summary">
-            <div class="col-md-4">
-                <VanACard Header="Số dư credit">
-                    <ChildContent>
-                        <div class="display-5 fw-bold @(_wallet.AlertLevel == null ? "text-success" : "text-danger")">
+        @* ---- Số dư: 1 banner gọn ---- *@
+        <VanACard class="mb-3" data-testid="wallet-summary">
+            <ChildContent>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="text-muted" style="font-size:.85em;">Số dư credit khả dụng</div>
+                        <div class="display-5 fw-bold mb-0 @(_wallet.AlertLevel == null ? "text-success" : "text-danger")"
+                             data-testid="wallet-balance">
                             @_wallet.Balance.ToString("0.##")
                         </div>
+                    </div>
+                    <div class="text-end">
                         @if (_wallet.AlertLevel != null)
                         {
                             <span class="badge @(_wallet.AlertLevel == "warn50" ? "bg-warning text-dark" : "bg-danger")">
                                 @AlertLabel(_wallet.AlertLevel)
                             </span>
                         }
-                    </ChildContent>
-                </VanACard>
-            </div>
-            <div class="col-md-4">
-                <VanACard Header="Hạn mức đã cấp">
-                    <ChildContent>
-                        <div class="display-5 fw-bold">@_wallet.GrantedTotal.ToString("0.##")</div>
-                        <div class="text-muted">Còn lại @((_wallet.RemainingFraction * 100).ToString("0.#"))%</div>
-                    </ChildContent>
-                </VanACard>
-            </div>
-            <div class="col-md-4">
-                <VanACard Header="Nạp credit">
-                    <ChildContent>
-                        @if (_packages.Count > 0)
-                        {
-                            <div class="mb-3" data-testid="package-list">
-                                <div class="text-muted mb-1" style="font-size:.85em;">Gói cước (credit hết hạn sau số ngày ghi trên gói):</div>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    @foreach (var pkg in _packages)
-                                    {
-                                        <button type="button" class="btn btn-outline-primary btn-sm"
-                                                @onclick="() => BuyPackageAsync(pkg.Code)"
-                                                disabled="@_topupBusy" data-testid="@($"pkg-{pkg.Code}")">
-                                            <strong>@pkg.Name</strong> — @pkg.PriceVnd.ToString("N0")đ / @pkg.Credits.ToString("0.##")cr / @pkg.ValidityDays ngày
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        <div class="d-flex gap-2 align-items-center">
-                            <input class="vanan-input" type="number" min="0" step="10000"
-                                   placeholder="Số tiền VND" @bind="_topupAmount" data-testid="topup-amount" />
-                            <VanAButton Variant="primary" Size="small" OnClick="CreateTopupAsync"
-                                        Loading="@_topupBusy" data-testid="btn-create-topup">
-                                Tạo mã QR
-                            </VanAButton>
+                        <div class="text-muted" style="font-size:.8em;">
+                            Đã dùng @((_wallet.GrantedTotal - _wallet.Balance).ToString("0.##")) / @_wallet.GrantedTotal.ToString("0.##") credit
                         </div>
-                        <div class="text-muted mt-2" style="font-size:.85em;">
-                            <div><i class="bi bi-credit-card"></i> <strong>Thanh toán online (Tingee)</strong> — qua cổng thanh toán ngân hàng, không cần ghi nội dung chuyển khoản; ví <strong>tự động cộng credit</strong> ngay khi thanh toán thành công.</div>
-                            <div class="mt-1"><i class="bi bi-qr-code-scan"></i> <strong>VietQR</strong> — quét mã bằng app ngân hàng; <strong>bắt buộc</strong> ghi đúng nội dung <code>TOPUP-XXX</code>, admin xác nhận thủ công nên có thể chậm hơn.</div>
-                        </div>
-                    </ChildContent>
-                </VanACard>
-            </div>
-        </div>
+                    </div>
+                </div>
+            </ChildContent>
+        </VanACard>
 
+        @* ---- Nạp credit: gói + số tiền tự do ---- *@
+        <VanACard Header="Nạp credit" class="mb-3">
+            <ChildContent>
+                @if (_packages.Count > 0)
+                {
+                    <div class="d-flex gap-2 flex-wrap mb-2" data-testid="package-list">
+                        @foreach (var pkg in _packages)
+                        {
+                            <button type="button" class="btn btn-outline-primary btn-sm"
+                                    @onclick="() => BuyPackageAsync(pkg.Code)"
+                                    disabled="@_topupBusy"
+                                    title="@($"{pkg.Name}: {pkg.Credits:0.##} credit, dùng trong {pkg.ValidityDays} ngày")"
+                                    data-testid="@($"pkg-{pkg.Code}")">
+                                @ShortPkgName(pkg.Name) · @ShortPrice(pkg.PriceVnd)
+                            </button>
+                        }
+                    </div>
+                    <div class="text-muted mb-2" style="font-size:.78em;">Gói có hạn dùng (credit hết hạn sau số ngày của gói); nạp tự do không hết hạn.</div>
+                }
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="input-group" style="max-width:220px;">
+                        <span class="input-group-text">₫</span>
+                        <input class="vanan-input" type="number" min="0" step="10000"
+                               placeholder="Số tiền" @bind="_topupAmount" data-testid="topup-amount" />
+                    </div>
+                    <VanAButton Variant="primary" Size="small" OnClick="CreateTopupAsync"
+                                Loading="@_topupBusy" data-testid="btn-create-topup">
+                        Tạo QR
+                    </VanAButton>
+                </div>
+            </ChildContent>
+        </VanACard>
+
+        @* ---- QR thanh toán ---- *@
         @if (_activeTopup != null)
         {
-            <VanACard Header="Quét mã để chuyển khoản" class="mb-3">
+            <VanACard class="mb-3">
                 <ChildContent>
-                    <div class="d-flex gap-4 align-items-start flex-wrap" data-testid="topup-qr-panel">
+                    <div class="text-center" data-testid="topup-qr-panel">
                         @if (!string.IsNullOrEmpty(_dynamicQrPng))
                         {
-                            <img src="data:image/png;base64,@_dynamicQrPng" alt="VietQR động" style="width:220px;height:auto;border:1px solid #ddd;border-radius:8px;"
+                            <img src="data:image/png;base64,@_dynamicQrPng" alt="VietQR động"
+                                 style="width:min(240px,70vw);height:auto;border:1px solid #ddd;border-radius:8px;"
                                  data-testid="topup-qr-image" />
                         }
                         else if (!string.IsNullOrEmpty(_activeTopup.QrPayload))
                         {
-                            <img src="@_activeTopup.QrPayload" alt="VietQR" style="width:220px;height:auto;border:1px solid #ddd;border-radius:8px;"
+                            <img src="@_activeTopup.QrPayload" alt="VietQR"
+                                 style="width:min(240px,70vw);height:auto;border:1px solid #ddd;border-radius:8px;"
                                  data-testid="topup-qr-image" />
                         }
-                        <div>
+                        <div class="mt-2">
                             @if (!string.IsNullOrEmpty(_dynamicQrPng))
                             {
-                                <p class="mb-1"><i class="bi bi-check-circle text-success"></i> <strong>QR động đã sẵn sàng</strong> — quét bằng app ngân hàng và chuyển khoản, hệ thống tự đối soát &amp; cộng credit, <strong>không cần ghi nội dung</strong>.</p>
+                                <p class="mb-1 text-success fw-semibold"><i class="bi bi-check-circle"></i> Quét bằng app ngân hàng — tự động cộng credit</p>
                             }
                             else
                             {
-                                <p>Nội dung chuyển khoản <strong>bắt buộc</strong> (chỉ khi dùng VietQR tĩnh bên dưới):</p>
+                                <p class="mb-1">Chuyển khoản VietQR — ghi đúng nội dung:</p>
                             }
-                            <div class="d-flex align-items-center gap-2">
-                                <code class="fs-5" data-testid="topup-reference">@_activeTopup.ReferenceCode</code>
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <code data-testid="topup-reference">@_activeTopup.ReferenceCode</code>
                                 <VanAButton Variant="secondary" Size="small" OnClick="CopyReferenceAsync" data-testid="btn-copy-ref">
-                                    <i class="bi bi-clipboard"></i> Copy
+                                    <i class="bi bi-clipboard"></i>
                                 </VanAButton>
                             </div>
-                            <p class="text-muted mt-2 mb-1">Trạng thái: <strong>@_activeTopup.Status</strong> — tự động cộng credit khi hệ thống nhận được tiền (chuyển khoản hoặc thanh toán online).</p>
-                            <p class="text-muted mb-0">Hết hạn: @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                            <div class="text-muted mt-1" style="font-size:.8em;">
+                                @_activeTopup.AmountVnd?.ToString("N0") đ · trạng thái <strong>@_activeTopup.Status</strong> · hết hạn @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("HH:mm dd/MM")
+                            </div>
                             @if (_activeTopup.Status == "pending")
                             {
-                                <VanAButton Variant="secondary" Size="small" OnClick="CreateDynamicQrAsync"
-                                            Loading="@_qrBusy" data-testid="btn-create-qr">
-                                    <i class="bi bi-arrow-clockwise"></i> Tạo lại QR động
-                                </VanAButton>
-                                <VanAButton Variant="secondary" Size="small" OnClick="PayOnlineAsync"
-                                            Loading="@_payBusy" data-testid="btn-pay-online" class="mt-2">
-                                    <i class="bi bi-credit-card"></i> Thanh toán online ngay
-                                </VanAButton>
+                                <div class="d-flex gap-2 justify-content-center flex-wrap mt-2">
+                                    <VanAButton Variant="secondary" Size="small" OnClick="CreateDynamicQrAsync"
+                                                Loading="@_qrBusy" data-testid="btn-create-qr">
+                                        <i class="bi bi-arrow-clockwise"></i> Tạo lại QR
+                                    </VanAButton>
+                                    <VanAButton Variant="secondary" Size="small" OnClick="PayOnlineAsync"
+                                                Loading="@_payBusy" data-testid="btn-pay-online">
+                                        <i class="bi bi-credit-card"></i> Thanh toán online
+                                    </VanAButton>
+                                </div>
                                 @if (!string.IsNullOrEmpty(_checkoutUrl))
                                 {
                                     <p class="mt-2 mb-0">
                                         <a class="btn btn-primary btn-sm" href="@_checkoutUrl" target="_blank" rel="noopener"
                                            data-testid="link-tingee-checkout">
-                                            <i class="bi bi-box-arrow-up-right"></i> Mở trang thanh toán Tingee
+                                            <i class="bi bi-box-arrow-up-right"></i> Mở trang thanh toán
                                         </a>
                                     </p>
                                 }
-                                <p class="text-muted mt-1 mb-0" style="font-size:.85em;">hoặc chuyển khoản VietQR theo mã bên dưới.</p>
                             }
                         </div>
                     </div>
@@ -159,29 +161,31 @@
             </VanACard>
         }
 
-        <VanACard Header="Lịch sử ledger (append-only)">
+        @* ---- Lịch sử ---- *@
+        <VanACard Header="Lịch sử credit">
             <ChildContent>
                 @if (_ledger?.Items.Count > 0)
                 {
-                    <table class="vanan-table" data-testid="ledger-table">
+                    <div style="overflow-x:auto;">
+                    <table class="vanan-table" data-testid="ledger-table" style="font-size:.85em;">
                         <thead><tr>
                             <th>Thời gian</th><th>Loại</th><th class="text-end">Credit</th>
-                            <th class="text-end">Số dư sau</th><th>Lý do</th><th>Bởi</th>
+                            <th class="text-end">Số dư</th><th>Lý do</th>
                         </tr></thead>
                         <tbody>
                             @foreach (var e in _ledger.Items)
                             {
                                 <tr>
-                                    <td>@e.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                    <td class="text-nowrap">@e.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
                                     <td><span class="badge @TypeBadge(e.Type)">@e.Type</span></td>
                                     <td class="text-end @(e.Credits < 0 ? "text-danger" : "text-success")">@e.Credits.ToString("+0.##;-0.##")</td>
                                     <td class="text-end">@e.BalanceAfter.ToString("0.##")</td>
-                                    <td>@e.Reason</td>
-                                    <td class="text-muted">@e.CreatedBy</td>
+                                    <td class="text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@e.Reason</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    </div>
                     <div class="d-flex gap-2">
                         <VanAButton Variant="secondary" Size="small" OnClick="() => LoadLedgerAsync(_page - 1)" Disabled="@(_page <= 1)">‹ Trước</VanAButton>
                         <span class="align-self-center text-muted">Trang @_page</span>
@@ -366,4 +370,10 @@
         "Deduct" => "bg-danger",
         _ => "bg-secondary",
     };
+
+    private static string ShortPkgName(string name)
+        => name.Replace("Goi ", "").Replace("gói ", "").Replace("Gói ", "");
+
+    private static string ShortPrice(decimal vnd)
+        => vnd >= 1000000 ? $"{(vnd / 1000000m):0.#}tr" : $"{vnd / 1000m:0.#}k";
 }

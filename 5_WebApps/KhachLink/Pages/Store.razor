@@ -45,12 +45,21 @@ else if (_suspended)
         <div class="not-found-card">
             <i class="bi bi-pause-circle"></i>
             <h2>Trang web này tạm ngưng phục vụ</h2>
-            <p>Cửa hàng đang tạm ngừng hoạt động. Vui lòng quay lại sau.</p>
-            <p class="text-muted" style="font-size:.9em;">
+            <p>Cửa hàng đang tạm ngừng hoạt động do hết phí nền tảng. Vui lòng quay lại sau.</p>
+            <div class="suspend-topup-box text-start mx-auto" style="max-width:340px;">
+                <p class="mb-2 fw-semibold"><i class="bi bi-wallet2"></i> Chủ cửa hàng — nạp phí để mở lại ngay:</p>
+                <ul class="text-muted mb-2" style="font-size:.88em;">
+                    <li>Gói ngày / tuần / tháng / năm — credit có hạn dùng, giá ưu đãi</li>
+                    <li>Nạp số tiền tùy ý — không hết hạn</li>
+                    <li>Quét VietQR bằng app ngân hàng → ví <strong>tự động cộng credit</strong></li>
+                </ul>
+                <a class="btn-cta d-inline-block text-decoration-none" href="@OwnerPortalWalletUrl" target="_blank" rel="noopener">
+                    <i class="bi bi-plus-circle me-1"></i> Nạp phí nền tảng ngay
+                </a>
+            </div>
+            <p class="text-muted mt-3" style="font-size:.85em;">
                 <i class="bi bi-info-circle"></i>
-                <strong>Chủ cửa hàng:</strong> vui lòng đăng nhập ShopERP → mục
-                <em>Ví phí nền tảng</em> để nạp credit (gói ngày/tuần/tháng/năm hoặc số tiền tùy ý)
-                nhằm mở lại trang web.
+                Đăng nhập ShopERP → mục <em>Ví phí nền tảng</em> để chọn gói và thanh toán.
             </p>
             <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
@@ -861,6 +870,8 @@ else
 
     /// <summary>VOICE SERVICE C2 (2026-11-11): voice service URLs — production defaults, appsettings-overridable.</summary>
     private string _voiceServiceUrl => Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
+    private string OwnerPortalWalletUrl
+        => $"{(Config["Onboarding:OwnerPortalUrl"] ?? "https://app2.khachvip.online").TrimEnd('/')}/wallet/phi-nen-tang";
     private string _voiceHubUrl => Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
 
     /// <summary>VOICE SERVICE P4/C2: voice call button — resolved from _features.Voice_Call_Enabled
