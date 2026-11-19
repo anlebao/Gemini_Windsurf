@@ -121,10 +121,11 @@ public sealed class TingeePaymentClient
             "dynamic-one-time-payment",
             _opt.VaBankBin!,
             amountVnd,
-            // P9 fix: generate-dynamic-qr rejects non-ASCII purpose (code=400 Data input invalid
-            // — verified against prod API). Keep purpose ASCII-only; billId still
-            // carries the real correlation via extraInfo/referenceCode.
-            Truncate($"Nap phi nen tang {referenceCode}", 100),
+            // P9 fix: generate-dynamic-qr validates purpose format — rejects non-ASCII
+            // AND reference-like tokens ("TOPUP-XXX" → code=400, verified on prod).
+            // Purpose is display-only; correlation stays in extraInfo=referenceCode
+            // and billId. Keep a plain ASCII description.
+            "Nap phi nen tang",
             Truncate(referenceCode, 100));
         var body = JsonSerializer.Serialize(payload, Json);
         var timestamp = TingeeSignature.TimestampUtc7(DateTime.UtcNow);
