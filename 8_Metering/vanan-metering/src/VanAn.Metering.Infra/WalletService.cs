@@ -30,14 +30,22 @@ public sealed class WalletService(
         return null;
     }
 
-    /// <summary>GET /v1/wallets/{t} — read-only view; missing wallet reads as zero-balance (D3-b).</summary>
-    public async Task<WalletDto> GetWalletAsync(Guid tenantId, CancellationToken ct = default)
+    /// <summary>GET /v1/wallets/{t} — view + P10 lazy expiry write-off; missing wallet reads as zero-balance (D3-b).</summary>
+    public async Task<WalletDto> GetWalletAsync(Guid tenantId, DateTime? nowUtc = null, CancellationToken ct = default)
     {
+        var now = nowUtc ?? DateTime.UtcNow;
+        if (await ExpireLotsAsync(tenantId, now, ct))
+            await db.SaveChangesAsync(ct);
         var w = await db.CreditWallets.AsNoTracking().FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
+        var lots = await db.CreditLots.AsNoTracking()
+            .Where(l => l.TenantId == tenantId && l.CreditsRemaining > 0)
+            .OrderBy(l => l.ExpiresAtUtc == null).ThenBy(l => l.ExpiresAtUtc).ThenBy(l => l.CreatedAtUtc)
+            .Select(l => new CreditLotDto(l.Id, l.CreditsGranted, l.CreditsRemaining, l.ExpiresAtUtc, l.TopupRequestId))
+            .ToListAsync(ct);
         return w == null
-            ? new WalletDto(tenantId, 0, 0, 0, 0, AlertLevelOf(0, 0), DateTime.UtcNow)
+            ? new WalletDto(tenantId, 0, 0, 0, 0, AlertLevelOf(0, 0), now, lots)
             : new WalletDto(w.TenantId, w.Balance, w.BalancePurchased, w.GrantedTotal,
-                w.RemainingFraction, AlertLevelOf(w.Balance, w.GrantedTotal), w.UpdatedAtUtc);
+                w.RemainingFraction, AlertLevelOf(w.Balance, w.GrantedTotal), w.UpdatedAtUtc, lots);
     }
 
     /// <summary>
@@ -52,6 +60,8 @@ public sealed class WalletService(
         Guid tenantId, string serviceCode, decimal? estimate, DateTime nowUtc,
         string? tenantType = null, string? tenantStatus = null, CancellationToken ct = default)
     {
+        await ExpireLotsAsync(tenantId, nowUtc, ct);
+        await db.SaveChangesAsync(ct);
         var version = await rateCards.ResolveForTenantAsync(serviceCode, tenantId, tenantType, tenantStatus, nowUtc, ct);
         var masterEnabled = enforcement == null || await enforcement.IsEnabledAsync(ct);
         var enforcementStr = version?.Enforcement.ToString();
@@ -71,7 +81,7 @@ public sealed class WalletService(
     /// </summary>
     public async Task<CreditWallet> GrantAsync(
         Guid tenantId, decimal credits, string reason, string actor, DateTime nowUtc,
-        Guid? topupRequestId = null, CancellationToken ct = default)
+        Guid? topupRequestId = null, DateTime? expiresAtUtc = null, CancellationToken ct = default)
     {
         // New cycle identity per grant — alerts may re-fire on the new cycle (D4-b).
         var cycleKey = Guid.NewGuid().ToString("N");
@@ -99,6 +109,7 @@ public sealed class WalletService(
         db.CreditLedgerEntries.Add(CreditLedgerEntry.Create(
             tenantId, LedgerEntryType.Grant, LedgerEntrySource.Purchased, credits,
             balanceAfter, reason, actor, nowUtc, topupRequestId: topupRequestId));
+        db.CreditLots.Add(CreditLot.Create(tenantId, credits, expiresAtUtc, nowUtc, topupRequestId));
         db.AuditLogs.Add(AuditLog.Create(actor, "grant", nameof(CreditWallet),
             topupRequestId ?? tenantId, oldJson: null,
             newJson: $"{{\"tenantId\":\"{tenantId}\",\"credits\":{credits},\"reason\":\"{reason.Replace("\"", "\\\"", StringComparison.Ordinal)}\"}}",
@@ -130,6 +141,9 @@ public sealed class WalletService(
             w.ApplyAdjust(credits, nowUtc);
         }
 
+        if (credits < 0)
+            await ConsumeLotsFefoAsync(tenantId, -credits, nowUtc, ct);
+
         var balanceAfter = await BalanceOfAsync(tenantId, ct);
         db.CreditLedgerEntries.Add(CreditLedgerEntry.Create(
             tenantId, LedgerEntryType.Adjust, LedgerEntrySource.Purchased, credits,
@@ -149,6 +163,8 @@ public sealed class WalletService(
     public async Task<decimal> DeductInTransactionAsync(
         Guid tenantId, Guid usageEventId, decimal credits, string reason, DateTime nowUtc, CancellationToken ct = default)
     {
+        // P10 — expire lots first so stale credits can't fund this deduction.
+        await ExpireLotsAsync(tenantId, nowUtc, ct);
         decimal applied = credits;
         if (db.Database.IsRelational())
         {
@@ -187,12 +203,85 @@ public sealed class WalletService(
 
         if (applied > 0)
         {
+            await ConsumeLotsFefoAsync(tenantId, applied, nowUtc, ct);
             var balanceAfter = await BalanceOfAsync(tenantId, ct);
             db.CreditLedgerEntries.Add(CreditLedgerEntry.Create(
                 tenantId, LedgerEntryType.Deduct, LedgerEntrySource.Purchased, -applied,
                 balanceAfter, reason, "system:ingest", nowUtc, usageEventId: usageEventId));
         }
         return applied;
+    }
+
+    /// <summary>
+    /// P10 — lazy expiry write-off. Lots past ExpiresAtUtc get CreditsRemaining=0,
+    /// ExpiredWrittenOffAtUtc set (idempotency), one Adjust(-) ledger entry per lot,
+    /// and BalancePurchased decremented once by the total forfeited. Stages changes
+    /// only — callers that own a transaction (deduct) save later; read paths save here.
+    /// </summary>
+    private async Task<bool> ExpireLotsAsync(Guid tenantId, DateTime nowUtc, CancellationToken ct)
+    {
+        var expired = await db.CreditLots
+            .Where(l => l.TenantId == tenantId && l.ExpiresAtUtc != null
+                && l.ExpiresAtUtc <= nowUtc && l.ExpiredWrittenOffAtUtc == null)
+            .OrderBy(l => l.ExpiresAtUtc).ThenBy(l => l.CreatedAtUtc)
+            .ToListAsync(ct);
+        if (expired.Count == 0) return false;
+
+        var forfeits = expired
+            .Select(l => (Lot: l, Forfeited: l.ForfeitRemaining()))
+            .Where(x => x.Forfeited > 0 || true) // mark ALL expired lots, even fully consumed
+            .ToList();
+        var forfeitedTotal = forfeits.Sum(x => x.Forfeited);
+        foreach (var (lot, _) in forfeits) lot.MarkWrittenOff(nowUtc);
+
+        if (forfeitedTotal > 0)
+        {
+            if (db.Database.IsRelational())
+            {
+                await EnsureWalletRelationalAsync(tenantId, nowUtc, ct);
+                await db.Database.ExecuteSqlAsync($"""
+                    UPDATE "CreditWallets"
+                    SET "BalancePurchased" = MAX(CAST("BalancePurchased" AS NUMERIC) - CAST({forfeitedTotal} AS NUMERIC), 0),
+                        "UpdatedAtUtc" = {nowUtc}
+                    WHERE "TenantId" = {tenantId}
+                    """, ct);
+            }
+            else
+            {
+                var w = await GetOrCreateWalletAsync(tenantId, nowUtc, ct);
+                w.ApplyAdjust(-forfeitedTotal, nowUtc);
+            }
+        }
+
+        // BalanceAfter running total: start from post-forfeit balance, walk back.
+        var balanceNow = await BalanceOfAsync(tenantId, ct);
+        var running = balanceNow + forfeitedTotal;
+        foreach (var (lot, forfeited) in forfeits.Where(x => x.Forfeited > 0))
+        {
+            running -= forfeited;
+            db.CreditLedgerEntries.Add(CreditLedgerEntry.Create(
+                tenantId, LedgerEntryType.Adjust, LedgerEntrySource.Purchased, -forfeited,
+                running, $"expired:{lot.Id}", "system:expiry", nowUtc));
+        }
+        return true;
+    }
+
+    /// <summary>P10 — consume credits across lots FEFO (earliest expiry first,
+    /// non-expiring last). Only lots still valid at nowUtc participate.</summary>
+    private async Task ConsumeLotsFefoAsync(Guid tenantId, decimal amount, DateTime nowUtc, CancellationToken ct)
+    {
+        if (amount <= 0) return;
+        var lots = await db.CreditLots
+            .Where(l => l.TenantId == tenantId && l.CreditsRemaining > 0
+                && (l.ExpiresAtUtc == null || l.ExpiresAtUtc > nowUtc))
+            .ToListAsync(ct);
+        lots.Sort(CreditLot.FefoOrder);
+        var remaining = amount;
+        foreach (var lot in lots)
+        {
+            if (remaining <= 0) break;
+            remaining -= lot.Consume(remaining);
+        }
     }
 
     /// <summary>

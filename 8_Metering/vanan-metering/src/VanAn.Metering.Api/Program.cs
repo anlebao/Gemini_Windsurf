@@ -450,6 +450,50 @@ static void EnsureP7Schema(MeteringDbContext db)
             if (!cols.Contains("VndPerCredit"))
                 Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VndPerCredit" TEXT NOT NULL DEFAULT '0'""");
         }
+
+        // P10 (task_p10_credit_lots_expiry) — credit lots table + legacy backfill.
+        // Fresh DBs get the table via EnsureCreated; this covers upgraded DBs.
+        if (!tables.Contains("CreditLots"))
+        {
+            Exec("""
+                CREATE TABLE "CreditLots" (
+                    "Id" TEXT NOT NULL CONSTRAINT "PK_CreditLots" PRIMARY KEY,
+                    "TenantId" TEXT NOT NULL,
+                    "TopupRequestId" TEXT NULL,
+                    "CreditsGranted" TEXT NOT NULL,
+                    "CreditsRemaining" TEXT NOT NULL,
+                    "ExpiresAtUtc" TEXT NULL,
+                    "ExpiredWrittenOffAtUtc" TEXT NULL,
+                    "CreatedAtUtc" TEXT NOT NULL
+                )
+                """);
+            Exec("""CREATE INDEX "IX_CreditLots_TenantId_ExpiresAtUtc" ON "CreditLots" ("TenantId", "ExpiresAtUtc")""");
+            Exec("""CREATE INDEX "IX_CreditLots_TenantId_CreatedAtUtc" ON "CreditLots" ("TenantId", "CreatedAtUtc")""");
+            Exec("""CREATE INDEX "IX_CreditLots_TopupRequestId" ON "CreditLots" ("TopupRequestId")""");
+
+            // Backfill: every wallet's current BalancePurchased becomes one
+            // non-expiring "legacy" lot so FEFO math stays consistent (D5).
+            if (tables.Contains("CreditWallets"))
+            {
+                var now = DateTime.UtcNow.ToString("O");
+                Exec($"""
+                    INSERT INTO "CreditLots"
+                        ("Id", "TenantId", "TopupRequestId", "CreditsGranted",
+                         "CreditsRemaining", "ExpiresAtUtc", "ExpiredWrittenOffAtUtc", "CreatedAtUtc")
+                    SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' ||
+                           substr(lower(hex(randomblob(2))),2) || '-' ||
+                           substr('89ab', abs(random()) % 4 + 1, 1) ||
+                           substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))),
+                           "TenantId", NULL,
+                           CAST("BalancePurchased" AS NUMERIC),
+                           CAST("BalancePurchased" AS NUMERIC),
+                           NULL, NULL, {"'" + now + "'"}
+                    FROM "CreditWallets"
+                    WHERE CAST("BalancePurchased" AS NUMERIC) > 0
+                      AND NOT EXISTS (SELECT 1 FROM "CreditLots" l WHERE l."TenantId" = "CreditWallets"."TenantId")
+                    """);
+            }
+        }
     }
     finally
     {

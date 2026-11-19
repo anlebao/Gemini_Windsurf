@@ -130,7 +130,7 @@ public sealed class TopupService(
         try
         {
             await wallet.GrantAsync(request.TenantId, credits,
-                $"topup:{request.ReferenceCode}", actor, nowUtc, topupRequestId: request.Id, ct);
+                $"topup:{request.ReferenceCode}", actor, nowUtc, topupRequestId: request.Id, ct: ct);
             await db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException)

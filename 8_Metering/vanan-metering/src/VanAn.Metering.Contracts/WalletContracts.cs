@@ -1,5 +1,13 @@
 namespace VanAn.Metering.Contracts;
 
+/// <summary>P10 — one credit lot inside WalletDto.Lots.</summary>
+public sealed record CreditLotDto(
+    Guid Id,
+    decimal CreditsGranted,
+    decimal CreditsRemaining,
+    DateTime? ExpiresAtUtc,
+    Guid? TopupRequestId);
+
 /// <summary>P7 — GET /v1/wallets/{tenantId}.</summary>
 public sealed record WalletDto(
     Guid TenantId,
@@ -8,7 +16,8 @@ public sealed record WalletDto(
     decimal GrantedTotal,
     decimal RemainingFraction,
     string? AlertLevel,          // "warn50" | "warn90" | "depleted" | null — % còn lại (D4)
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    IReadOnlyList<CreditLotDto>? Lots = null); // P10 — spendable lots (FEFO view)
 
 /// <summary>P7 — GET /v1/wallets/{tenantId}/check?serviceCode=&estimate= (D3).
 /// deny = Enforcement==Deny && balance < required. Callers cache 30s [G20].</summary>

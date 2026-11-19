@@ -19,6 +19,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
     public DbSet<TopupConfig> TopupConfigs => Set<TopupConfig>();
     public DbSet<TopupRequest> TopupRequests => Set<TopupRequest>();
     public DbSet<EnforcementConfig> EnforcementConfigs => Set<EnforcementConfig>();
+    public DbSet<CreditLot> CreditLots => Set<CreditLot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -135,6 +136,17 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.Note).HasMaxLength(256);
             b.Property(e => e.CallerId).HasMaxLength(64);
             b.Property(e => e.IdempotencyKey).HasMaxLength(128);
+        });
+
+        // P10 — credit lots: FEFO consumption + lazy expiry write-off.
+        modelBuilder.Entity<CreditLot>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.TenantId, e.ExpiresAtUtc });
+            b.HasIndex(e => new { e.TenantId, e.CreatedAtUtc });
+            b.HasIndex(e => e.TopupRequestId);
+            b.Property(e => e.CreditsGranted).HasPrecision(18, 4);
+            b.Property(e => e.CreditsRemaining).HasPrecision(18, 4);
         });
 
         // Issue #197 — master switch (singleton).
