@@ -239,6 +239,26 @@ public sealed class TingeeTests
     }
 
     [Fact]
+    public async Task PayLink_DecimalAmount_SerializesCanonicalInteger()
+    {
+        // Regression (prod 2026-11-19): Tingee canonicalizes the JSON body before
+        // verifying x-signature - "amount":50000.0 fails with code 97 while
+        // "amount":50000 passes. .NET decimal keeps scale, so 50000.0m must be
+        // written without the decimal point.
+        var handler = new StubHandler(HttpStatusCode.OK,
+            """{"code":"00","message":"Success","data":"https://payment-gateway.tingee.vn/checkout/x"}""");
+        var client = NewClient(handler);
+        var (_, _, topups) = NewSut(tingee: client);
+        var t = await SeedTopupAsync(topups, 50000.0m); // scale-1 decimal
+
+        var r = await topups.CreatePayLinkAsync(t.Id, Now);
+
+        r.CheckoutUrl.Should().NotBeNull();
+        handler.LastBody.Should().Contain("\"amount\":50000");
+        handler.LastBody.Should().NotContain("50000.0");
+    }
+
+    [Fact]
     public async Task PayLink_TopupWithoutAmount_Fails()
     {
         var client = NewClient(new StubHandler(HttpStatusCode.OK, "{}"));

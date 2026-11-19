@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -17,9 +18,13 @@ namespace VanAn.Metering.Infra;
 /// </summary>
 public sealed class TingeePaymentClient
 {
-    // UnsafeRelaxedJsonEscaping: Tingee verifies signature over the DECODED JSON
-    // (unicode literal), not raw escaped bytes — default encoder's \uXXXX escaping
-    // breaks it (code 97 Invalid signature, verified against prod 2026-11-19).
+    // Tingee canonicalizes the JSON body before verifying x-signature (verified
+    // against prod 2026-11-19):
+    //  - unicode must be literal UTF-8, not \uXXXX escapes → UnsafeRelaxedJsonEscaping
+    //  - numbers must be canonical: decimal 10000.0m serializes "10000.0" but
+    //    Tingee's canonical form is "10000" → code 97 Invalid signature.
+    //    CanonicalDecimalJsonConverter strips trailing zeros / writes integral
+    //    decimals as integers so our body == their canonical form.
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -78,8 +83,9 @@ public sealed class TingeePaymentClient
             if (code == "00" && root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.String)
                 return TingeeLinkResult.Ok(d.GetString()!);
             var msg = root.TryGetProperty("message", out var m) ? m.GetString() : null;
-            _logger.LogWarning("Tingee create-link rejected: http={Http} code={Code} msg={Msg}",
-                (int)resp.StatusCode, code, msg ?? text);
+            _logger.LogWarning("Tingee create-link rejected: http={Http} code={Code} msg={Msg} ts={Ts} sig={Sig} body={Body}",
+                (int)resp.StatusCode, code, msg ?? text, timestamp,
+                req.Headers.GetValues("x-signature").FirstOrDefault(), body);
             return TingeeLinkResult.Fail("tingee_error", msg ?? $"Tingee API error (HTTP {(int)resp.StatusCode})");
         }
         catch (JsonException ex)
@@ -97,10 +103,30 @@ public sealed class TingeePaymentClient
     private static string? Truncate(string? s, int max)
         => s == null ? null : s.Length <= max ? s : s[..max];
 
+    /// <summary>
+    /// Writes decimals in Tingee's canonical numeric form: strips trailing zeros
+    /// and writes integral values without a decimal point (10000.0m → 10000).
+    /// Non-integral values keep up to 28 fractional digits, trailing zeros trimmed.
+    /// </summary>
+    private sealed class CanonicalDecimalJsonConverter : JsonConverter<decimal>
+    {
+        public override decimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => reader.GetDecimal();
+
+        public override void Write(Utf8JsonWriter writer, decimal value, JsonSerializerOptions options)
+        {
+            var s = value.ToString("0.############################", CultureInfo.InvariantCulture);
+            if (s.Contains('.'))
+                s = s.TrimEnd('0').TrimEnd('.');
+            writer.WriteRawValue(s);
+        }
+    }
+
     private sealed record CreateLinkRequest(
         [property: JsonPropertyName("requestId")] string RequestId,
         [property: JsonPropertyName("orderId")] string OrderId,
-        [property: JsonPropertyName("amount")] decimal Amount,
+        [property: JsonPropertyName("amount")]
+        [property: JsonConverter(typeof(CanonicalDecimalJsonConverter))] decimal Amount,
         [property: JsonPropertyName("currency")] string Currency,
         [property: JsonPropertyName("expireInMinute")] int ExpireInMinute,
         [property: JsonPropertyName("description")] string? Description,
