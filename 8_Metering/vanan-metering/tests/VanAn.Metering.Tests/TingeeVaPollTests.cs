@@ -45,10 +45,10 @@ public class TingeeVaPollTests
     {
         var json = """
         {"code":"00","data":{"totalCount":2,"items":[
-          {"transactionId":"txn-1","code":"FT001","amount":10000,"type":"credit",
+          {"transactionId":"txn-1","code":"FT001","amount":"10000","type":"credit",
            "content":"Nap phi","vaAccountNumber":"VA-TEST-001",
            "transactionDate":"20261119120000","billId":"QRD-ABC"},
-          {"transactionId":"txn-2","code":"FT002","amount":5000,"type":"debit",
+          {"transactionId":"txn-2","code":"FT002","amount":"5000","type":"debit",
            "content":"Phi","vaAccountNumber":"VA-TEST-001",
            "transactionDate":"20261119120100","billId":null}
         ]}}
@@ -61,7 +61,8 @@ public class TingeeVaPollTests
         txns[0].Amount.Should().Be(10000m);
         txns[0].Type.Should().Be("credit");
         txns[1].BillId.Should().BeNull();
-        handler.LastBody.Should().Contain("VA-TEST-001");
+        handler.LastBody.Should().Contain("startTime");
+        handler.LastBody.Should().NotContain("vaAccountNumbers");
         handler.LastRequest!.RequestUri!.ToString().Should().Contain("transaction/get-paging");
     }
 

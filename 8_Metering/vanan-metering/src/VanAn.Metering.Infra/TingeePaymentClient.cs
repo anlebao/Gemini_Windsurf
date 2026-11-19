@@ -187,7 +187,20 @@ public sealed class TingeePaymentClient
         if (!IsEnabled || !_opt.IsQrEnabled)
             return result;
 
-        var payload = new { skipCount = 0, maxResultCount, vaAccountNumbers = new[] { _opt.VaAccountNumber } };
+        // Tingee requires startTime/endTime (yyyyMMddHHmmss, UTC+7, max 10-day window).
+        // IMPORTANT (verified on prod): vaAccountNumbers filter returns EMPTY — Tingee
+        // assigns a different sub-VA per dynamic QR (VQRQANxxxxx), so filtering by the
+        // configured parent VA matches nothing. The API key is already merchant-scoped;
+        // fetch all recent txns and match by globally-unique billId instead.
+        // 4-day window covers the 72h top-up TTL.
+        var nowUtc7 = DateTime.UtcNow.AddHours(7);
+        var payload = new
+        {
+            skipCount = 0,
+            maxResultCount,
+            startTime = nowUtc7.AddDays(-4).ToString("yyyyMMddHHmmss"),
+            endTime = nowUtc7.ToString("yyyyMMddHHmmss")
+        };
         var body = JsonSerializer.Serialize(payload, Json);
         var timestamp = TingeeSignature.TimestampUtc7(DateTime.UtcNow);
 
@@ -220,7 +233,7 @@ public sealed class TingeePaymentClient
             {
                 result.Add(new TingeeVaTransaction(
                     Get(it, "transactionId"), Get(it, "code"),
-                    it.TryGetProperty("amount", out var a) && a.TryGetDecimal(out var dec) ? dec : 0m,
+                    ParseAmount(it.TryGetProperty("amount", out var a) ? a : default),
                     Get(it, "type"), Get(it, "content"),
                     Get(it, "vaAccountNumber"), Get(it, "transactionDate"), Get(it, "billId")));
             }
@@ -233,6 +246,14 @@ public sealed class TingeePaymentClient
 
         static string? Get(JsonElement e, string name)
             => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        static decimal ParseAmount(JsonElement e)
+        {
+            if (e.ValueKind == JsonValueKind.Number && e.TryGetDecimal(out var d)) return d;
+            if (e.ValueKind == JsonValueKind.String
+                && decimal.TryParse(e.GetString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var s)) return s;
+            return 0m;
+        }
     }
 
     private static string? Truncate(string? s, int max)
