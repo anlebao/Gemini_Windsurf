@@ -62,6 +62,15 @@ public sealed class MeteringTopupPayDto
     public int ExpiresInMinute { get; set; }
 }
 
+/// <summary>P9 — POST /v1/topups/{id}/qr → Tingee dynamic QR (EMV VietQR payload).</summary>
+public sealed class MeteringTopupQrDto
+{
+    public string QrPayload { get; set; } = string.Empty;
+    public string BillId { get; set; } = string.Empty;
+    public string? QrAccount { get; set; }
+    public int ExpiresInMinute { get; set; }
+}
+
 public sealed class MeteringTopupConfigDto
 {
     public string BankCode { get; set; } = string.Empty;

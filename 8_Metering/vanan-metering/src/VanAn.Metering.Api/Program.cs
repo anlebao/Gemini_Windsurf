@@ -195,6 +195,22 @@ app.MapPost("/v1/topups/{id:guid}/pay", async (
     };
 });
 
+// P9 — mint a fresh Tingee dynamic QR for a Pending top-up (VA transfer, no checkout redirect).
+app.MapPost("/v1/topups/{id:guid}/qr", async (
+    Guid id, TopupService topups, CancellationToken ct) =>
+{
+    var r = await topups.CreateQrAsync(id, DateTime.UtcNow, ct);
+    if (r.QrPayload != null)
+        return Results.Ok(new TopupQrResponse(r.QrPayload, r.BillId!, r.QrAccount, r.ExpiresInMinute));
+    return r.ErrorCode switch
+    {
+        "not_found" => Results.NotFound(new { error = r.ErrorCode }),
+        "tingee_disabled" or "qr_disabled" => Results.Json(new { error = r.ErrorCode, message = r.ErrorMessage },
+            statusCode: StatusCodes.Status503ServiceUnavailable),
+        _ => Results.Conflict(new { error = r.ErrorCode, message = r.ErrorMessage })
+    };
+});
+
 // P8 — Tingee IPN webhook: exempt from caller-auth middleware (path starts /v1/webhooks);
 // authenticity is proven by x-signature HMAC-SHA512 inside TingeeWebhookService.
 app.MapPost("/v1/webhooks/tingee", async (
@@ -330,6 +346,7 @@ static void EnsureP7Schema(MeteringDbContext db)
                     "PaidAmountVnd" TEXT NULL,
                     "PaymentProvider" TEXT NULL,
                     "ProviderTransactionId" TEXT NULL,
+                    "QrBillId" TEXT NULL,
                     "Status" INTEGER NOT NULL,
                     "ConfirmedBy" TEXT NULL,
                     "ConfirmedAtUtc" TEXT NULL,
@@ -418,6 +435,8 @@ static void EnsureP7Schema(MeteringDbContext db)
                 Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "PaymentProvider" TEXT NULL""");
             if (!cols.Contains("ProviderTransactionId"))
                 Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "ProviderTransactionId" TEXT NULL""");
+            if (!cols.Contains("QrBillId"))
+                Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "QrBillId" TEXT NULL""");
         }
         if (tables.Contains("TopupConfigs"))
         {

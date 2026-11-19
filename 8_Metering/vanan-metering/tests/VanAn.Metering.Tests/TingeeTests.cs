@@ -38,12 +38,15 @@ public sealed class TingeeTests
     private static TingeeWebhookService NewWebhook(TopupService topups, string secret = Secret)
         => new(topups, Cfg(secret), NullLogger<TingeeWebhookService>.Instance);
 
-    private static IConfiguration Cfg(string secret = Secret, bool enabled = true) => new ConfigurationBuilder()
+    private static IConfiguration Cfg(string secret = Secret, bool enabled = true,
+        string? vaAccount = "VA-TEST-001", string? vaBin = "970422") => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Tingee:ClientId"] = enabled ? "cid" : null,
             ["Tingee:ClientSecret"] = enabled ? secret : null,
             ["Tingee:BaseUrl"] = "https://uat-open-api.tingee.vn",
+            ["Tingee:VaAccountNumber"] = vaAccount,
+            ["Tingee:VaBankBin"] = vaBin,
         }).Build();
 
     private static async Task<TopupRequest> SeedTopupAsync(TopupService topups, decimal? amount = 50000)
@@ -209,9 +212,10 @@ public sealed class TingeeTests
         }
     }
 
-    private static TingeePaymentClient NewClient(StubHandler handler, bool enabled = true)
+    private static TingeePaymentClient NewClient(StubHandler handler, bool enabled = true,
+        string? vaAccount = "VA-TEST-001", string? vaBin = "970422")
         => new(new HttpClient(handler) { BaseAddress = new Uri("https://uat-open-api.tingee.vn/") },
-            Cfg(Secret, enabled), NullLogger<TingeePaymentClient>.Instance);
+            Cfg(Secret, enabled, vaAccount, vaBin), NullLogger<TingeePaymentClient>.Instance);
 
     [Fact]
     public async Task PayLink_Success_ReturnsCheckoutUrl_AndSignsRequest()

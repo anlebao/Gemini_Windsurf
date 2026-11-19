@@ -92,4 +92,11 @@ public sealed record TopupPayResponse(
     decimal? AmountVnd,
     int ExpiresInMinute);
 
+/// <summary>P9 — POST /v1/topups/{id}/qr → Tingee dynamic QR payload (EMV VietQR string).</summary>
+public sealed record TopupQrResponse(
+    string QrPayload,
+    string BillId,
+    string? QrAccount,
+    int ExpiresInMinute);
+
 public sealed record TopupListResponse(IReadOnlyList<TopupDto> Items);

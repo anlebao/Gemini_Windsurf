@@ -69,4 +69,33 @@ test.describe('Phí nền tảng P7 — Tenant wallet page', () => {
       await expect(qr).toHaveAttribute('src', /img\.vietqr\.io\/image\/.*-compact\.jpg/);
     }
   });
+
+  test('P9 — dynamic QR button renders Tingee QR or a clear error', async ({ page, request }) => {
+    const login = await request.post(`${config.SHOPERP_URL}/dev/login/owner`);
+    expect(login.ok()).toBeTruthy();
+
+    await page.goto(`${config.SHOPERP_URL}/wallet/phi-nen-tang`);
+    await page.waitForLoadState('networkidle');
+    const topupBtn = page.getByTestId('btn-create-topup');
+    if (!(await topupBtn.isVisible({ timeout: 20000 }).catch(() => false))) {
+      test.skip(true, 'Metering unavailable in this environment');
+    }
+
+    await page.getByTestId('topup-amount').fill('50000');
+    await topupBtn.click();
+    await expect(page.getByTestId('topup-qr-panel')).toBeVisible({ timeout: 15000 });
+
+    const qrBtn = page.getByTestId('btn-create-qr');
+    await expect(qrBtn).toBeVisible();
+    await qrBtn.click();
+
+    // Success → dynamic QR PNG (data URI) replaces/overlays the static VietQR image.
+    // Failure (Tingee not configured) → alert explains fallback; either is acceptable.
+    const dynQr = page.getByTestId('topup-qr-image');
+    const alert = page.locator('.alert');
+    await expect(dynQr.or(alert)).toBeVisible({ timeout: 30000 });
+    if (await dynQr.isVisible().catch(() => false)) {
+      await expect(dynQr).toHaveAttribute('src', /data:image\/png;base64,/);
+    }
+  });
 });

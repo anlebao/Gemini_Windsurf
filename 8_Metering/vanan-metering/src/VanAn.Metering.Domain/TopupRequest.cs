@@ -26,6 +26,7 @@ public sealed class TopupRequest
     public decimal? PaidAmountVnd { get; private set; }
     public string? PaymentProvider { get; private set; }       // "tingee"
     public string? ProviderTransactionId { get; private set; } // providerTransactionCode / billId
+    public string? QrBillId { get; private set; }              // P9 — Tingee dynamic-QR billId (latest minted)
 
     public TopupStatus Status { get; private set; }
     public string? ConfirmedBy { get; private set; }
@@ -87,6 +88,10 @@ public sealed class TopupRequest
         ProviderTransactionId = transactionId;
         PaidAmountVnd = paidAmountVnd;
     }
+
+    /// <summary>P9 — persist the latest Tingee dynamic-QR billId for webhook matching.
+    /// Each /qr call mints a NEW one-time QR, so the old billId is overwritten.</summary>
+    public void AttachQrBill(string billId) => QrBillId = billId;
 
     /// <summary>D9 — lazy expiry: mark expired when read past TTL.</summary>
     public bool ExpireIfStale(DateTime nowUtc)

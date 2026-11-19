@@ -20,6 +20,15 @@ public sealed record TopupPayLinkResult(
         => new(null, null, null, 0, code, msg);
 }
 
+/// <summary>P9 — result of minting a Tingee dynamic QR for a pending top-up.</summary>
+public sealed record TopupQrResult(
+    string? QrPayload, string? BillId, string? QrAccount, int ExpiresInMinute,
+    string? ErrorCode = null, string? ErrorMessage = null)
+{
+    public static TopupQrResult Fail(string code, string msg)
+        => new(null, null, null, 0, code, msg);
+}
+
 /// <summary>
 /// P7 D6–D9 — manual VietQR top-ups: create (idempotent per caller key) → user
 /// transfers with ReferenceCode in the note → admin confirms → wallet Grant.
@@ -185,6 +194,43 @@ public sealed class TopupService(
             request.AmountVnd, 30);
     }
 
+    // ---- P9: Tingee dynamic QR ----
+
+    /// <summary>
+    /// POST /v1/topups/{id}/qr — mint a FRESH one-time dynamic VietQR (VA transfer,
+    /// no checkout redirect). billId is persisted on the request so the Payment
+    /// Callback webhook can match the incoming bank transaction to this top-up.
+    /// Every call overwrites QrBillId — only the LATEST QR's billId stays valid.
+    /// </summary>
+    public async Task<TopupQrResult> CreateQrAsync(
+        Guid id, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var request = await db.TopupRequests.FindAsync([id], ct);
+        if (request == null)
+            return TopupQrResult.Fail("not_found", "Topup request not found.");
+        await LazyExpireAsync([request], nowUtc, ct);
+        if (request.Status != TopupStatus.Pending)
+            return TopupQrResult.Fail("topup_not_pending",
+                $"Cannot create QR for a {StatusName(request.Status)} topup request.");
+        if (request.AmountVnd is null or <= 0)
+            return TopupQrResult.Fail("amount_required",
+                "Topup request has no amountVnd — cannot create a QR.");
+        if (_tingee?.IsQrEnabled != true)
+            return TopupQrResult.Fail(_tingee?.IsEnabled == true ? "qr_disabled" : "tingee_disabled",
+                "Tingee dynamic QR is not configured.");
+
+        var qr = await _tingee.GenerateDynamicQrAsync(
+            request.AmountVnd.Value, request.ReferenceCode, ct);
+        if (qr.QrPayload == null || qr.BillId == null)
+            return TopupQrResult.Fail(qr.ErrorCode ?? "tingee_error",
+                qr.ErrorMessage ?? "Tingee QR error");
+
+        request.AttachQrBill(qr.BillId);
+        await db.SaveChangesAsync(ct);
+        var expiresMin = Math.Max(1, (int)(request.ExpiresAtUtc - nowUtc).TotalMinutes);
+        return new TopupQrResult(qr.QrPayload, qr.BillId, qr.QrAccount, expiresMin);
+    }
+
     /// <summary>
     /// P8 — webhook success path: find by ReferenceCode (= Tingee orderId) → attach
     /// provider payment facts → auto-confirm credits = paidAmountVnd / VndPerCredit.
@@ -205,7 +251,35 @@ public sealed class TopupService(
         if (probe == Guid.Empty)
             return TopupOpResult.Fail("not_found", "Topup request not found.");
 
-        var request = await db.TopupRequests.FindAsync([probe], ct);
+        return await ConfirmPaidCoreAsync(probe, paidAmountVnd, providerTxnId, nowUtc, ct);
+    }
+
+    /// <summary>
+    /// P9 — Payment Callback path: find by QrBillId (= Tingee dynamic-QR billId)
+    /// → same attach + auto-confirm core as the P8 reference lookup.
+    /// </summary>
+    public async Task<TopupOpResult> ConfirmPaidByQrBillIdAsync(
+        string billId, decimal paidAmountVnd, string? providerTxnId,
+        DateTime nowUtc, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(billId))
+            return TopupOpResult.Fail("not_found", "Topup request not found.");
+
+        var probe = await db.TopupRequests.AsNoTracking()
+            .Where(t => t.QrBillId == billId)
+            .Select(t => t.Id).FirstOrDefaultAsync(ct);
+        if (probe == Guid.Empty)
+            return TopupOpResult.Fail("not_found", "Topup request not found.");
+
+        return await ConfirmPaidCoreAsync(probe, paidAmountVnd, providerTxnId, nowUtc, ct);
+    }
+
+    /// <summary>Shared paid-confirm core — attach provider facts + grant by VndPerCredit.</summary>
+    private async Task<TopupOpResult> ConfirmPaidCoreAsync(
+        Guid requestId, decimal paidAmountVnd, string? providerTxnId,
+        DateTime nowUtc, CancellationToken ct)
+    {
+        var request = await db.TopupRequests.FindAsync([requestId], ct);
         if (request == null) return TopupOpResult.Fail("not_found", "Topup request not found.");
         await LazyExpireAsync([request], nowUtc, ct);
 
@@ -229,7 +303,7 @@ public sealed class TopupService(
         var credits = paidAmountVnd / vndPerCredit;
         if (credits <= 0)
             return TopupOpResult.Fail("invalid_credits", "Computed credits <= 0.");
-        var note = $"tingee:{providerTxnId ?? referenceCode} paid={paidAmountVnd}";
+        var note = $"tingee:{providerTxnId ?? request.ReferenceCode} paid={paidAmountVnd}";
         return await ConfirmCoreAsync(request, credits, "tingee:webhook", note, nowUtc, ct);
     }
 

@@ -19,6 +19,9 @@ services:
       - Tingee__BaseUrl=${TINGEE_BASE_URL:-https://uat-open-api.tingee.vn}
       - Tingee__WebhookSecret=${TINGEE_WEBHOOK_SECRET}
       - Tingee__ReturnUrl=${TINGEE_RETURN_URL}
+      # P9 — Dynamic QR (VA transfer): non-secret config, defaults = prod VA
+      - Tingee__VaAccountNumber=${TINGEE_VA_ACCOUNT_NUMBER:-VQRQANSQG9134}
+      - Tingee__VaBankBin=${TINGEE_VA_BANK_BIN:-970422}
       - ASPNETCORE_URLS=http://+:5050
     volumes:
       - metering-data:/app/data

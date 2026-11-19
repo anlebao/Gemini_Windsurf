@@ -130,6 +130,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.Property(e => e.PaidAmountVnd).HasPrecision(18, 4);
             b.Property(e => e.PaymentProvider).HasMaxLength(32);
             b.Property(e => e.ProviderTransactionId).HasMaxLength(128);
+            b.Property(e => e.QrBillId).HasMaxLength(128);
             b.Property(e => e.ConfirmedBy).HasMaxLength(64);
             b.Property(e => e.Note).HasMaxLength(256);
             b.Property(e => e.CallerId).HasMaxLength(64);

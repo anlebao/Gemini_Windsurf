@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using VanAn.Metering.Domain;
@@ -6,11 +7,14 @@ using VanAn.Metering.Domain;
 namespace VanAn.Metering.Infra;
 
 /// <summary>
-/// P8 — handles Tingee IPN webhooks (POST /v1/webhooks/tingee).
+/// P8/P9 — handles Tingee webhooks (POST /v1/webhooks/tingee).
 /// Auth: x-signature = HMAC_SHA512(x-request-timestamp + ":" + rawBody, ClientSecret).
 ///   - webhook-type: url-validation → return {plainToken, encryptedToken} challenge response.
-///   - payment events → success → TopupService.ConfirmPaidByReferenceAsync (idempotent).
-/// Non-success statuses and unknown references still return 200/404 so Tingee's
+///   - Payment Gateway events (orderId/status) → success → ConfirmPaidByReferenceAsync.
+///   - P9 Payment Callback events (transactionCode/type/vaAccountNumber — QR/VA
+///     bank transactions) → credit only → match by additionalData[].billId
+///     (ConfirmPaidByQrBillIdAsync), fallback TOPUP-XXX inside transfer content.
+/// Non-success statuses, debits and unknown references return 200/404 so Tingee's
 /// 5-retry policy terminates; only a bad signature returns 401.
 /// </summary>
 public sealed class TingeeWebhookService(
@@ -35,6 +39,11 @@ public sealed class TingeeWebhookService(
             return (401, new { error = "invalid_signature" });
         }
 
+        // P9 — Payment Callback payloads carry transactionCode/type/vaAccountNumber
+        // and NO orderId/status. Detect by probing the raw JSON once.
+        if (IsTransactionCallback(rawBody))
+            return await HandleTransactionCallbackAsync(rawBody, ct);
+
         TingeePaymentEvent? evt;
         try { evt = JsonSerializer.Deserialize<TingeePaymentEvent>(rawBody, Json); }
         catch (JsonException) { return (400, new { error = "invalid_json" }); }
@@ -53,6 +62,55 @@ public sealed class TingeeWebhookService(
         var paid = evt.PaidAmount ?? evt.Amount ?? 0m;
         var r = await topups.ConfirmPaidByReferenceAsync(
             evt.OrderId ?? string.Empty, paid, evt.ProviderTransactionCode, DateTime.UtcNow, ct);
+        return ToResponse(r);
+    }
+
+    /// <summary>P9 — bank-transaction Payment Callback (dynamic QR / VA credit).</summary>
+    private async Task<(int Status, object Body)> HandleTransactionCallbackAsync(
+        string rawBody, CancellationToken ct)
+    {
+        TingeeTransactionEvent? evt;
+        try { evt = JsonSerializer.Deserialize<TingeeTransactionEvent>(rawBody, Json); }
+        catch (JsonException) { return (400, new { error = "invalid_json" }); }
+        if (evt == null) return (400, new { error = "invalid_json" });
+
+        // Only incoming money matters — debits (refunds/adjustments) are ignored.
+        if (string.Equals(evt.Type, "debit", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Tingee transaction callback debit ignored: txn={Txn}", evt.TransactionCode);
+            return (200, new { received = true, ignored = "debit" });
+        }
+
+        var paid = evt.Amount ?? 0m;
+        var billId = ExtractBillId(evt.AdditionalData);
+        TopupOpResult r;
+        if (!string.IsNullOrWhiteSpace(billId))
+        {
+            r = await topups.ConfirmPaidByQrBillIdAsync(
+                billId, paid, evt.TransactionCode, DateTime.UtcNow, ct);
+            // billId matched nothing — fall through to content reference before 404.
+            if (r.ErrorCode == "not_found")
+                r = await TryContentReferenceAsync(evt.Content, paid, evt.TransactionCode, ct);
+        }
+        else
+        {
+            r = await TryContentReferenceAsync(evt.Content, paid, evt.TransactionCode, ct);
+        }
+        return ToResponse(r);
+    }
+
+    private async Task<TopupOpResult> TryContentReferenceAsync(
+        string? content, decimal paid, string? txnId, CancellationToken ct)
+    {
+        var m = Regex.Match(content ?? string.Empty, @"TOPUP-[A-Z0-9]{8}",
+            RegexOptions.IgnoreCase);
+        if (!m.Success) return TopupOpResult.Fail("not_found", "Topup request not found.");
+        return await topups.ConfirmPaidByReferenceAsync(
+            m.Value.ToUpperInvariant(), paid, txnId, DateTime.UtcNow, ct);
+    }
+
+    private static (int Status, object Body) ToResponse(TopupOpResult r)
+    {
         if (r.Request != null)
         {
             return (200, new
@@ -67,7 +125,40 @@ public sealed class TingeeWebhookService(
             : (409, new { error = r.ErrorCode, message = r.ErrorMessage });
     }
 
-    private (int, object) HandleUrlValidation(string rawBody)
+    /// <summary>True when the payload looks like a Payment Callback transaction
+    /// (has transactionCode/type/vaAccountNumber, lacks the gateway orderId/status).</summary>
+    private static bool IsTransactionCallback(string rawBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(rawBody);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return false;
+            var hasOrder = root.TryGetProperty("orderId", out _)
+                           || root.TryGetProperty("status", out _)
+                           || root.TryGetProperty("statusCode", out _);
+            var hasTxn = root.TryGetProperty("transactionCode", out _)
+                         || root.TryGetProperty("vaAccountNumber", out _)
+                         || root.TryGetProperty("type", out _);
+            return hasTxn && !hasOrder;
+        }
+        catch (JsonException) { return false; }
+    }
+
+    /// <summary>additionalData shape varies (array of objects/strings) — scan its
+    /// raw JSON for a billId value defensively.</summary>
+    private static string? ExtractBillId(JsonElement? additionalData)
+    {
+        if (additionalData is not { } el) return null;
+        var raw = el.GetRawText();
+        var m = Regex.Match(raw, "\"billId\"\\s*:\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase);
+        if (m.Success) return m.Groups[1].Value;
+        // Fallback: bare billId-looking token inside string entries.
+        m = Regex.Match(raw, "\\b(QR[A-Z0-9]{5,})\\b");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    private (int Status, object Body) HandleUrlValidation(string rawBody)
     {
         string? plainToken = null;
         try
@@ -92,7 +183,7 @@ public sealed class TingeeWebhookService(
         _ => "pending",
     };
 
-    /// <summary>Inbound payment event fields (docs /webhook). Unknown fields ignored.</summary>
+    /// <summary>Inbound payment-gateway event fields (docs /webhook). Unknown fields ignored.</summary>
     private sealed class TingeePaymentEvent
     {
         public string? RequestId { get; set; }
@@ -105,5 +196,17 @@ public sealed class TingeeWebhookService(
         public string? PaymentMethod { get; set; }
         public string? ProviderTransactionCode { get; set; }
         public DateTime? PaidAt { get; set; }
+    }
+
+    /// <summary>P9 — inbound Payment Callback (bank transaction) fields.
+    /// additionalData is kept as raw JsonElement — its shape is provider-defined.</summary>
+    private sealed class TingeeTransactionEvent
+    {
+        public string? TransactionCode { get; set; }
+        public decimal? Amount { get; set; }
+        public string? Content { get; set; }
+        public string? Type { get; set; }               // "credit" | "debit"
+        public string? VaAccountNumber { get; set; }
+        public JsonElement? AdditionalData { get; set; }
     }
 }

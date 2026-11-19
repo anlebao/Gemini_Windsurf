@@ -214,6 +214,31 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
+    /// <summary>P9 — POST /v1/topups/{id}/qr → fresh Tingee dynamic QR (EMV payload).
+    /// Returns (dto, error) — error carries the metering API's message for UI display.</summary>
+    public async Task<(MeteringTopupQrDto? Dto, string? Error)> CreateTopupQrAsync(
+        Guid topupId, CancellationToken ct = default)
+    {
+        if (!Enabled()) return (null, "metering_unavailable");
+        try
+        {
+            using var resp = await _http.PostAsync($"v1/topups/{topupId}/qr", null, ct);
+            if (resp.IsSuccessStatusCode)
+            {
+                _consecutiveFailures = 0;
+                return (await resp.Content.ReadFromJsonAsync<MeteringTopupQrDto>(Json, ct), null);
+            }
+            var err = await ReadErrorAsync(resp, ct);
+            Fail($"HTTP {(int)resp.StatusCode}", "topup-qr");
+            return (null, err ?? $"HTTP {(int)resp.StatusCode}");
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "topup-qr");
+            return (null, ex.Message);
+        }
+    }
+
     /// <summary>Extract a human-readable message from metering error payloads
     /// ({error:{code,message}} or {error,message}).</summary>
     private static async Task<string?> ReadErrorAsync(HttpResponseMessage resp, CancellationToken ct)

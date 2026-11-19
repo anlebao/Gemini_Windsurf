@@ -44,6 +44,7 @@ public sealed class TingeePaymentClient
     }
 
     public bool IsEnabled => _opt.IsEnabled;
+    public bool IsQrEnabled => _opt.IsQrEnabled;
 
     public async Task<TingeeLinkResult> CreatePaymentLinkAsync(
         string orderId, decimal amountVnd, string description, CancellationToken ct = default)
@@ -100,6 +101,75 @@ public sealed class TingeePaymentClient
         }
     }
 
+    /// <summary>
+    /// P9 — POST v1/generate-dynamic-qr: mint a one-time dynamic VietQR for the
+    /// configured VA. Returns the EMV QR payload + Tingee billId (webhook match key).
+    /// Same signing rules as create-link — body serialized ONCE, exact string signed.
+    /// </summary>
+    public async Task<TingeeQrResult> GenerateDynamicQrAsync(
+        decimal amountVnd, string referenceCode, CancellationToken ct = default)
+    {
+        if (!IsEnabled)
+            return TingeeQrResult.Fail("tingee_disabled", "Tingee payment is not configured.");
+        if (!_opt.IsQrEnabled)
+            return TingeeQrResult.Fail("qr_disabled", "Tingee VA/bankBin is not configured.");
+        if (amountVnd < 2000)
+            return TingeeQrResult.Fail("amount_too_low", "Minimum payment amount is 2,000 VND.");
+
+        var payload = new GenerateQrRequest(
+            _opt.VaAccountNumber!,
+            "dynamic-one-time-payment",
+            _opt.VaBankBin!,
+            amountVnd,
+            Truncate($"Nạp phí nền tảng {referenceCode}", 100),
+            Truncate(referenceCode, 100));
+        var body = JsonSerializer.Serialize(payload, Json);
+        var timestamp = TingeeSignature.TimestampUtc7(DateTime.UtcNow);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/generate-dynamic-qr")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        req.Headers.TryAddWithoutValidation("x-client-id", _opt.ClientId);
+        req.Headers.TryAddWithoutValidation("x-request-timestamp", timestamp);
+        req.Headers.TryAddWithoutValidation("x-signature",
+            TingeeSignature.SignRequest(timestamp, body, _opt.ClientSecret!));
+
+        try
+        {
+            using var resp = await _http.SendAsync(req, ct);
+            var text = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            var code = root.TryGetProperty("code", out var c) ? c.GetString() : null;
+            if (code == "00" && root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
+            {
+                var qr = d.TryGetProperty("qrCode", out var q) ? q.GetString() : null;
+                var account = d.TryGetProperty("qrAccount", out var a) ? a.GetString() : null;
+                var billId = d.TryGetProperty("billId", out var b) ? b.GetString() : null;
+                if (!string.IsNullOrEmpty(qr) && !string.IsNullOrEmpty(billId))
+                    return TingeeQrResult.Ok(qr, account, billId);
+                _logger.LogWarning("Tingee generate-dynamic-qr: code 00 but missing qrCode/billId: {Body}", text);
+                return TingeeQrResult.Fail("tingee_bad_response", "Tingee QR response missing qrCode/billId.");
+            }
+            var msg = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+            _logger.LogWarning("Tingee generate-dynamic-qr rejected: http={Http} code={Code} msg={Msg} ts={Ts} sig={Sig} body={Body}",
+                (int)resp.StatusCode, code, msg ?? text, timestamp,
+                req.Headers.GetValues("x-signature").FirstOrDefault(), body);
+            return TingeeQrResult.Fail("tingee_error", msg ?? $"Tingee API error (HTTP {(int)resp.StatusCode})");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Tingee generate-dynamic-qr returned non-JSON response");
+            return TingeeQrResult.Fail("tingee_bad_response", "Tingee returned a non-JSON response.");
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Tingee generate-dynamic-qr transport error");
+            return TingeeQrResult.Fail("tingee_unreachable", "Cannot reach Tingee API.");
+        }
+    }
+
     private static string? Truncate(string? s, int max)
         => s == null ? null : s.Length <= max ? s : s[..max];
 
@@ -131,10 +201,29 @@ public sealed class TingeePaymentClient
         [property: JsonPropertyName("expireInMinute")] int ExpireInMinute,
         [property: JsonPropertyName("description")] string? Description,
         [property: JsonPropertyName("returnUrl")] string? ReturnUrl);
+
+    private sealed record GenerateQrRequest(
+        [property: JsonPropertyName("vaAccountNumber")] string VaAccountNumber,
+        [property: JsonPropertyName("qrCodeType")] string QrCodeType,
+        [property: JsonPropertyName("bankBin")] string BankBin,
+        [property: JsonPropertyName("amount")]
+        [property: JsonConverter(typeof(CanonicalDecimalJsonConverter))] decimal Amount,
+        [property: JsonPropertyName("purpose")] string? Purpose,
+        [property: JsonPropertyName("extraInfo")] string? ExtraInfo);
 }
 
 public sealed record TingeeLinkResult(string? CheckoutUrl, string? ErrorCode, string? ErrorMessage)
 {
     public static TingeeLinkResult Ok(string url) => new(url, null, null);
     public static TingeeLinkResult Fail(string code, string msg) => new(null, code, msg);
+}
+
+/// <summary>P9 — result of generate-dynamic-qr: EMV payload + Tingee billId.</summary>
+public sealed record TingeeQrResult(string? QrPayload, string? QrAccount, string? BillId,
+    string? ErrorCode, string? ErrorMessage)
+{
+    public static TingeeQrResult Ok(string payload, string? account, string billId)
+        => new(payload, account, billId, null, null);
+    public static TingeeQrResult Fail(string code, string msg)
+        => new(null, null, null, code, msg);
 }

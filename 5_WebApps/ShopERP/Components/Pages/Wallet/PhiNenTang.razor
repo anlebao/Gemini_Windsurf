@@ -7,6 +7,7 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.ShopERP.Services
+@using QRCoder
 @inject MeteringApiClient Metering
 @inject ITenantProvider TenantProvider
 @inject IThemeProvider ThemeProvider
@@ -88,7 +89,12 @@
             <VanACard Header="Quét mã để chuyển khoản" class="mb-3">
                 <ChildContent>
                     <div class="d-flex gap-4 align-items-start flex-wrap" data-testid="topup-qr-panel">
-                        @if (!string.IsNullOrEmpty(_activeTopup.QrPayload))
+                        @if (!string.IsNullOrEmpty(_dynamicQrPng))
+                        {
+                            <img src="data:image/png;base64,@_dynamicQrPng" alt="VietQR động" style="width:220px;height:auto;border:1px solid #ddd;border-radius:8px;"
+                                 data-testid="topup-qr-image" />
+                        }
+                        else if (!string.IsNullOrEmpty(_activeTopup.QrPayload))
                         {
                             <img src="@_activeTopup.QrPayload" alt="VietQR" style="width:220px;height:auto;border:1px solid #ddd;border-radius:8px;"
                                  data-testid="topup-qr-image" />
@@ -105,7 +111,11 @@
                             <p class="text-muted mb-0">Hết hạn: @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
                             @if (_activeTopup.Status == "pending")
                             {
-                                <VanAButton Variant="primary" Size="small" OnClick="PayOnlineAsync"
+                                <VanAButton Variant="primary" Size="small" OnClick="CreateDynamicQrAsync"
+                                            Loading="@_qrBusy" data-testid="btn-create-qr">
+                                    <i class="bi bi-qr-code"></i> QR tự động — quét &amp; CK ngay
+                                </VanAButton>
+                                <VanAButton Variant="secondary" Size="small" OnClick="PayOnlineAsync"
                                             Loading="@_payBusy" data-testid="btn-pay-online" class="mt-2">
                                     <i class="bi bi-credit-card"></i> Thanh toán online ngay
                                 </VanAButton>
@@ -171,6 +181,8 @@
     private bool _isLoading = true;
     private bool _topupBusy;
     private bool _payBusy;
+    private bool _qrBusy;
+    private string? _dynamicQrPng;
     private string? _checkoutUrl;
     private int _page = 1;
     private decimal? _topupAmount;
@@ -218,6 +230,33 @@
             _alertMessage = $"Đã tạo yêu cầu nạp {dto.ReferenceCode} — quét QR và chuyển khoản đúng nội dung.";
         }
         finally { _topupBusy = false; }
+    }
+
+    /// <summary>P9 — mint a Tingee dynamic QR (VA transfer): customer scans & pays
+    /// directly in the banking app; Tingee webhook auto-confirms by billId.</summary>
+    private async Task CreateDynamicQrAsync()
+    {
+        if (_activeTopup == null) return;
+        _qrBusy = true;
+        _dynamicQrPng = null;
+        _checkoutUrl = null;
+        try
+        {
+            var (qr, err) = await Metering.CreateTopupQrAsync(_activeTopup.Id);
+            if (qr?.QrPayload == null)
+            {
+                _alertType = "danger";
+                _alertMessage = $"Không tạo được QR tự động{(err != null ? $" ({err})" : "")} — vui lòng dùng QR VietQR bên dưới hoặc thanh toán online.";
+                return;
+            }
+            using var gen = new QRCodeGenerator();
+            using var data = gen.CreateQrCode(qr.QrPayload, QRCodeGenerator.ECCLevel.M);
+            using var png = new PngByteQRCode(data);
+            _dynamicQrPng = Convert.ToBase64String(png.GetGraphic(8));
+            _alertType = "success";
+            _alertMessage = $"Đã tạo QR động {qr.BillId} — quét bằng app ngân hàng và chuyển khoản, ví tự động cộng credit.";
+        }
+        finally { _qrBusy = false; }
     }
 
     /// <summary>P8 — mint a fresh Tingee checkout link, then show it as a real

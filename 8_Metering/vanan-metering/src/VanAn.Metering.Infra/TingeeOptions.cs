@@ -21,7 +21,16 @@ public sealed class TingeeOptions
     /// <summary>Tingee expireInMinute allowed range is 5–30; default 30.</summary>
     public int ExpireInMinute { get; set; } = 30;
 
+    /// <summary>P9 — virtual account for dynamic QR (Tingee-issued, e.g. VQR...).</summary>
+    public string? VaAccountNumber { get; set; }
+    /// <summary>P9 — bank BIN of the VA's receiving bank (e.g. 970422 = MB).</summary>
+    public string? VaBankBin { get; set; }
+
     public bool IsEnabled => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+    /// <summary>P9 — dynamic QR needs credentials AND a configured VA + bank BIN.</summary>
+    public bool IsQrEnabled => IsEnabled
+        && !string.IsNullOrWhiteSpace(VaAccountNumber)
+        && !string.IsNullOrWhiteSpace(VaBankBin);
 
     /// <summary>Secret used to verify inbound x-signature headers on webhooks.</summary>
     public string VerifySecret => WebhookSecret ?? ClientSecret ?? string.Empty;
@@ -37,7 +46,9 @@ public sealed class TingeeOptions
             BaseUrl = s["BaseUrl"] ?? "https://uat-open-api.tingee.vn",
             WebhookSecret = s["WebhookSecret"],
             ReturnUrl = s["ReturnUrl"],
-            ExpireInMinute = int.TryParse(s["ExpireInMinute"], out var m) ? m : 30
+            ExpireInMinute = int.TryParse(s["ExpireInMinute"], out var m) ? m : 30,
+            VaAccountNumber = s["VaAccountNumber"],
+            VaBankBin = s["VaBankBin"]
         };
     }
 }
