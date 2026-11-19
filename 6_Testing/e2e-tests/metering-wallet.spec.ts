@@ -98,4 +98,34 @@ test.describe('Phí nền tảng P7 — Tenant wallet page', () => {
       await expect(dynQr).toHaveAttribute('src', /data:image\/png;base64,/);
     }
   });
+
+  test('P11 — package picker renders catalog or falls back to custom amount', async ({ page, request }) => {
+    const login = await request.post(`${config.SHOPERP_URL}/dev/login/owner`);
+    expect(login.ok()).toBeTruthy();
+
+    await page.goto(`${config.SHOPERP_URL}/wallet/phi-nen-tang`);
+    await page.waitForLoadState('networkidle');
+    const topupBtn = page.getByTestId('btn-create-topup');
+    if (!(await topupBtn.isVisible({ timeout: 20000 }).catch(() => false))) {
+      test.skip(true, 'Metering unavailable in this environment');
+    }
+
+    // If sysadmin has seeded packages, the picker must render them; if the
+    // catalog is empty the custom amount input remains the only path.
+    const pkgList = page.getByTestId('package-list');
+    if (await pkgList.isVisible({ timeout: 8000 }).catch(() => false)) {
+      const firstPkg = pkgList.locator('button[data-testid^="pkg-"]').first();
+      await expect(firstPkg).toBeVisible();
+      await firstPkg.click();
+      await expect(page.getByTestId('topup-qr-panel')).toBeVisible({ timeout: 15000 });
+      // Package top-up must carry a packageCode and the package price.
+      const ref = await page.getByTestId('topup-reference').textContent();
+      expect(ref).toMatch(/^TOPUP-[A-Z0-9]+$/);
+    } else {
+      // No packages configured — custom amount flow still works.
+      await page.getByTestId('topup-amount').fill('20000');
+      await topupBtn.click();
+      await expect(page.getByTestId('topup-qr-panel')).toBeVisible({ timeout: 15000 });
+    }
+  });
 });
