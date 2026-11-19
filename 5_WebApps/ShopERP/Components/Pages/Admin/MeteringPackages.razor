@@ -1,0 +1,232 @@
+@page "/admin/metering/packages"
+@rendermode InteractiveServer
+@layout AdminLayout
+@attribute [Authorize(Policy = "SystemAdmin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Services
+@inject MeteringRateCardApiClient MeteringApi
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IThemeProvider ThemeProvider
+@inject ILogger<MeteringPackages> Logger
+
+<div class="metering-packages-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-box-seam"></i> Phí nền tảng — Gói credit</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAsync" Loading="@_isLoading">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    <p class="text-muted" style="font-size:.9em;">
+        Gói cước do hệ thống định nghĩa — tenant chỉ chọn mua. Credit trong gói
+        <strong>hết hạn sau số ngày ghi trên gói</strong> (tính từ lúc thanh toán thành công);
+        nạp số tiền tùy ý không hết hạn nhưng đơn giá cao hơn.
+    </p>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Variant="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @if (!_isSystemAdmin)
+    {
+        <VanACard><ChildContent><p class="text-muted mb-0">Trang này chỉ dành cho SystemAdmin.</p></ChildContent></VanACard>
+    }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <VanACard Header="Danh mục gói">
+                    <ChildContent>
+                        @if (_isLoading)
+                        {
+                            <div class="loading-state"><VanASpinner Size="large" /><p>Đang tải...</p></div>
+                        }
+                        else if (_packages.Count == 0)
+                        {
+                            <p class="text-muted mb-0" data-testid="packages-empty">Chưa có gói nào — tạo gói đầu tiên bằng form bên cạnh.</p>
+                        }
+                        else
+                        {
+                            <table class="vanan-table" data-testid="packages-table">
+                                <thead><tr>
+                                    <th>Mã</th><th>Tên gói</th><th class="text-end">Giá (VND)</th>
+                                    <th class="text-end">Credit</th><th class="text-end">Hiệu lực</th>
+                                    <th>TT</th><th></th>
+                                </tr></thead>
+                                <tbody>
+                                    @foreach (var p in _packages.OrderBy(x => x.SortOrder).ThenBy(x => x.Code))
+                                    {
+                                        <tr data-testid="package-row">
+                                            <td><code>@p.Code</code></td>
+                                            <td>@p.Name</td>
+                                            <td class="text-end">@p.PriceVnd.ToString("N0")</td>
+                                            <td class="text-end">@p.Credits.ToString("0.##")</td>
+                                            <td class="text-end">@p.ValidityDays ngày</td>
+                                            <td><span class="badge @(p.IsActive ? "bg-success" : "bg-secondary")" data-testid="package-status">@(p.IsActive ? "active" : "inactive")</span></td>
+                                            <td>
+                                                <div class="d-flex gap-1">
+                                                    <VanAButton Variant="secondary" Size="small" OnClick="() => EditPackage(p)" data-testid="btn-edit-package">Sửa</VanAButton>
+                                                    @if (p.IsActive)
+                                                    {
+                                                        <VanAButton Variant="error" Size="small" OnClick="() => DeactivateAsync(p)" data-testid="btn-deactivate-package">Ngừng</VanAButton>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </ChildContent>
+                </VanACard>
+            </div>
+            <div class="col-lg-5">
+                <VanACard Header="@(_editCode == null ? "Tạo gói mới" : $"Sửa gói {_editCode}")">
+                    <ChildContent>
+                        <div class="d-flex flex-column gap-2">
+                            <label class="form-label mb-0">Mã gói (VD: DAY, WEEK, MONTH, YEAR)</label>
+                            <input class="vanan-input" @bind="_fCode" disabled="@(_editCode != null)" data-testid="pkg-code" />
+                            <label class="form-label mb-0">Tên hiển thị</label>
+                            <input class="vanan-input" @bind="_fName" placeholder="Gói ngày" data-testid="pkg-name" />
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label mb-0">Giá (VND)</label>
+                                    <input class="vanan-input" type="number" min="0" step="1000" @bind="_fPrice" data-testid="pkg-price" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label mb-0">Credit</label>
+                                    <input class="vanan-input" type="number" min="0" step="0.5" @bind="_fCredits" data-testid="pkg-credits" />
+                                </div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label mb-0">Hiệu lực (ngày)</label>
+                                    <input class="vanan-input" type="number" min="1" @bind="_fDays" data-testid="pkg-days" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label mb-0">Thứ tự</label>
+                                    <input class="vanan-input" type="number" @bind="_fSort" data-testid="pkg-sort" />
+                                </div>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="_fActive" id="pkg-active" data-testid="pkg-active" />
+                                <label class="form-check-label" for="pkg-active">Đang bán</label>
+                            </div>
+                            <div class="d-flex gap-2 mt-1">
+                                <VanAButton Variant="primary" Size="small" OnClick="SaveAsync" Loading="@_busy" data-testid="btn-save-package">@( _editCode == null ? "Tạo gói" : "Lưu thay đổi")</VanAButton>
+                                @if (_editCode != null)
+                                {
+                                    <VanAButton Variant="secondary" Size="small" OnClick="ResetForm">Hủy</VanAButton>
+                                }
+                            </div>
+                        </div>
+                    </ChildContent>
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isSystemAdmin;
+    private bool _isLoading = true;
+    private bool _busy;
+    private List<MeteringAdminPackageDto> _packages = new();
+
+    private string? _editCode;
+    private string _fCode = string.Empty;
+    private string _fName = string.Empty;
+    private decimal _fPrice;
+    private decimal _fCredits;
+    private int _fDays = 30;
+    private int _fSort;
+    private bool _fActive = true;
+
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSystemAdmin = auth.User.IsInRole("SystemAdmin");
+        if (!_isSystemAdmin) { _isLoading = false; return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try { _packages = await MeteringApi.GetPackagesAsync(); }
+        catch (Exception ex) { _alertType = "danger"; _alertMessage = $"Không tải được danh mục gói: {ex.Message}"; }
+        finally { _isLoading = false; }
+    }
+
+    private void EditPackage(MeteringAdminPackageDto p)
+    {
+        _editCode = p.Code;
+        _fCode = p.Code;
+        _fName = p.Name;
+        _fPrice = p.PriceVnd;
+        _fCredits = p.Credits;
+        _fDays = p.ValidityDays;
+        _fSort = p.SortOrder;
+        _fActive = p.IsActive;
+    }
+
+    private void ResetForm()
+    {
+        _editCode = null;
+        _fCode = _fName = string.Empty;
+        _fPrice = _fCredits = 0;
+        _fDays = 30; _fSort = 0; _fActive = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_fCode) || string.IsNullOrWhiteSpace(_fName)
+            || _fPrice <= 0 || _fCredits <= 0 || _fDays <= 0)
+        {
+            _alertType = "danger";
+            _alertMessage = "Mã, tên, giá, credit và hiệu lực đều bắt buộc và phải > 0.";
+            return;
+        }
+        _busy = true;
+        try
+        {
+            await MeteringApi.UpsertPackageAsync(_fCode.Trim().ToUpperInvariant(), _fName.Trim(),
+                _fPrice, _fCredits, _fDays, _fSort, _fActive);
+            _alertType = "success";
+            _alertMessage = $"Đã lưu gói {_fCode}.";
+            ResetForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _alertType = "danger";
+            _alertMessage = $"Lưu gói thất bại: {ex.Message}";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task DeactivateAsync(MeteringAdminPackageDto p)
+    {
+        _busy = true;
+        try
+        {
+            await MeteringApi.DeactivatePackageAsync(p.Code);
+            _alertType = "success";
+            _alertMessage = $"Đã ngừng bán gói {p.Code}. Lịch sử mua vẫn giữ nguyên.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _alertType = "danger";
+            _alertMessage = $"Ngừng gói thất bại: {ex.Message}";
+        }
+        finally { _busy = false; }
+    }
+}

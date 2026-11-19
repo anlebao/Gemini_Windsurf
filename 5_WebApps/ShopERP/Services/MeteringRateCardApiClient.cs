@@ -155,6 +155,33 @@ public sealed class MeteringRateCardApiClient
             ?? throw new InvalidOperationException("Metering API returned empty response for enforcement config");
     }
 
+    // ---------- P11: admin package catalog (/v1/admin/packages*) ----------
+
+    /// <summary>GET /v1/admin/packages — full catalog incl. inactive (sysadmin only).</summary>
+    public async Task<List<MeteringAdminPackageDto>> GetPackagesAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Get, "v1/admin/packages", ct);
+        return await ReadAsync<List<MeteringAdminPackageDto>>(resp, ct) ?? new List<MeteringAdminPackageDto>();
+    }
+
+    /// <summary>PUT /v1/admin/packages/{code} — upsert package (reactivates if inactive).</summary>
+    public async Task<MeteringAdminPackageDto> UpsertPackageAsync(
+        string code, string name, decimal priceVnd, decimal credits,
+        int validityDays, int sortOrder, bool isActive, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Put, $"v1/admin/packages/{Uri.EscapeDataString(code)}", ct,
+            JsonContent.Create(new { name, priceVnd, credits, validityDays, sortOrder, isActive }, options: Json));
+        return await ReadAsync<MeteringAdminPackageDto>(resp, ct)
+            ?? throw new InvalidOperationException("Metering API returned empty response for package upsert");
+    }
+
+    /// <summary>POST /v1/admin/packages/{code}/deactivate — soft-disable, history preserved.</summary>
+    public async Task DeactivatePackageAsync(string code, CancellationToken ct = default)
+    {
+        var resp = await SendAsync(HttpMethod.Post, $"v1/admin/packages/{Uri.EscapeDataString(code)}/deactivate", ct);
+        if (!resp.IsSuccessStatusCode) throw await ApiErrorAsync(resp, ct);
+    }
+
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, CancellationToken ct, HttpContent? content = null)
     {
         if (!_enabled)
@@ -233,6 +260,20 @@ public sealed class MeteringRateCardUpsertRequest
     /// <summary>Issue #197: "Global" | "TenantType" | "TenantStatus" | "Tenant" (default Global).</summary>
     public string Scope { get; set; } = "Global";
     public string? ScopeValue { get; set; }
+}
+
+/// <summary>P11 — admin package DTO (GET/PUT /v1/admin/packages*).</summary>
+public sealed class MeteringAdminPackageDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public decimal PriceVnd { get; set; }
+    public decimal Credits { get; set; }
+    public int ValidityDays { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
 }
 
 /// <summary>Issue #197 — master switch DTO (GET/PUT /v1/config/enforcement).</summary>

@@ -116,7 +116,14 @@
                                  data-testid="topup-qr-image" />
                         }
                         <div>
-                            <p>Nội dung chuyển khoản <strong>bắt buộc</strong>:</p>
+                            @if (!string.IsNullOrEmpty(_dynamicQrPng))
+                            {
+                                <p class="mb-1"><i class="bi bi-check-circle text-success"></i> <strong>QR động đã sẵn sàng</strong> — quét bằng app ngân hàng và chuyển khoản, hệ thống tự đối soát &amp; cộng credit, <strong>không cần ghi nội dung</strong>.</p>
+                            }
+                            else
+                            {
+                                <p>Nội dung chuyển khoản <strong>bắt buộc</strong> (chỉ khi dùng VietQR tĩnh bên dưới):</p>
+                            }
                             <div class="d-flex align-items-center gap-2">
                                 <code class="fs-5" data-testid="topup-reference">@_activeTopup.ReferenceCode</code>
                                 <VanAButton Variant="secondary" Size="small" OnClick="CopyReferenceAsync" data-testid="btn-copy-ref">
@@ -127,9 +134,9 @@
                             <p class="text-muted mb-0">Hết hạn: @_activeTopup.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
                             @if (_activeTopup.Status == "pending")
                             {
-                                <VanAButton Variant="primary" Size="small" OnClick="CreateDynamicQrAsync"
+                                <VanAButton Variant="secondary" Size="small" OnClick="CreateDynamicQrAsync"
                                             Loading="@_qrBusy" data-testid="btn-create-qr">
-                                    <i class="bi bi-qr-code"></i> QR tự động — quét &amp; CK ngay
+                                    <i class="bi bi-arrow-clockwise"></i> Tạo lại QR động
                                 </VanAButton>
                                 <VanAButton Variant="secondary" Size="small" OnClick="PayOnlineAsync"
                                             Loading="@_payBusy" data-testid="btn-pay-online" class="mt-2">
@@ -204,6 +211,7 @@
     private decimal? _topupAmount;
     private List<MeteringPackageDto> _packages = new();
     private string? _selectedPackage;
+    private Guid? _autoQrFor;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
 
@@ -220,8 +228,19 @@
             var topups = await Metering.GetTopupsAsync(TenantProvider.TenantId);
             _activeTopup ??= topups.FirstOrDefault(t => t.Status == "pending");
             _packages = await Metering.GetPackagesAsync();
+            if (_activeTopup?.Status == "pending") await TryAutoQrAsync();
         }
         finally { _isLoading = false; }
+    }
+
+    /// <summary>Tự sinh QR động ngay khi top-up pending hiển thị — khách không cần
+    /// bấm nút; chỉ thử 1 lần cho mỗi top-up (nút "Tạo lại QR động" vẫn thủ công).</summary>
+    private async Task TryAutoQrAsync()
+    {
+        if (_activeTopup == null || _activeTopup.Status != "pending") return;
+        if (_autoQrFor == _activeTopup.Id || !string.IsNullOrEmpty(_dynamicQrPng)) return;
+        _autoQrFor = _activeTopup.Id;
+        await CreateDynamicQrAsync();
     }
 
     private async Task LoadLedgerAsync(int page)
@@ -249,7 +268,8 @@
             _activeTopup = dto;
             _selectedPackage = code;
             _alertType = "success";
-            _alertMessage = $"Đã tạo yêu cầu nạp gói {code} {dto.ReferenceCode} — quét QR/thanh toán để nhận credit (có hạn dùng).";
+            _alertMessage = $"Đã tạo yêu cầu nạp gói {code} {dto.ReferenceCode} — QR động đang được tạo, quét &amp; CK để nhận credit (có hạn dùng).";
+            await TryAutoQrAsync();
         }
         finally { _topupBusy = false; }
     }
@@ -269,7 +289,8 @@
             }
             _activeTopup = dto;
             _alertType = "success";
-            _alertMessage = $"Đã tạo yêu cầu nạp {dto.ReferenceCode} — quét QR và chuyển khoản đúng nội dung.";
+            _alertMessage = $"Đã tạo yêu cầu nạp {dto.ReferenceCode} — QR động đang được tạo, quét &amp; CK (không cần ghi nội dung).";
+            await TryAutoQrAsync();
         }
         finally { _topupBusy = false; }
     }
