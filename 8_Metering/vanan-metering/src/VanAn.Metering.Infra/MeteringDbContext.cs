@@ -20,6 +20,7 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
     public DbSet<TopupRequest> TopupRequests => Set<TopupRequest>();
     public DbSet<EnforcementConfig> EnforcementConfigs => Set<EnforcementConfig>();
     public DbSet<CreditLot> CreditLots => Set<CreditLot>();
+    public DbSet<CreditPackage> CreditPackages => Set<CreditPackage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -147,6 +148,17 @@ public sealed class MeteringDbContext(DbContextOptions<MeteringDbContext> option
             b.HasIndex(e => e.TopupRequestId);
             b.Property(e => e.CreditsGranted).HasPrecision(18, 4);
             b.Property(e => e.CreditsRemaining).HasPrecision(18, 4);
+        });
+
+        // P11 — sysadmin-defined package catalog (global, not per-tenant).
+        modelBuilder.Entity<CreditPackage>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => e.Code).IsUnique();
+            b.Property(e => e.Code).HasMaxLength(32);
+            b.Property(e => e.Name).HasMaxLength(128);
+            b.Property(e => e.PriceVnd).HasPrecision(18, 4);
+            b.Property(e => e.Credits).HasPrecision(18, 4);
         });
 
         // Issue #197 — master switch (singleton).

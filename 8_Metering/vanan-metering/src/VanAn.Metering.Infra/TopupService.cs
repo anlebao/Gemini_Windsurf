@@ -36,7 +36,7 @@ public sealed record TopupQrResult(
 /// </summary>
 public sealed class TopupService(
     MeteringDbContext db, WalletService wallet, TimeSpan? topupTtl = null,
-    TingeePaymentClient? tingee = null)
+    TingeePaymentClient? tingee = null, PackageService? packages = null)
 {
     // Unambiguous alphabet — no 0/O, 1/I/L — safe to retype into a bank note.
     private const string RefAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -44,6 +44,7 @@ public sealed class TopupService(
 
     private TimeSpan Ttl => topupTtl ?? TimeSpan.FromHours(72);
     private readonly TingeePaymentClient? _tingee = tingee;
+    private readonly PackageService? _packages = packages;
 
     /// <summary>D6 — POST /v1/topups. Dedupe (CallerId, Idempotency-Key) → replay same request.</summary>
     public async Task<TopupOpResult> CreateAsync(
@@ -58,6 +59,21 @@ public sealed class TopupService(
         if (req.AmountVnd is < 0)
             return TopupOpResult.Fail("invalid_amountVnd", "amountVnd must be >= 0.");
 
+        // P11 — package selection: price/credits/validity come from the catalog.
+        CreditPackage? package = null;
+        if (!string.IsNullOrWhiteSpace(req.PackageCode))
+        {
+            if (_packages == null)
+                return TopupOpResult.Fail("packages_unavailable", "Package catalog is not configured.");
+            package = await _packages.GetByCodeAsync(req.PackageCode, activeOnly: true, ct);
+            if (package == null)
+            {
+                var any = await _packages.GetByCodeAsync(req.PackageCode, activeOnly: false, ct);
+                return TopupOpResult.Fail(any == null ? "package_not_found" : "package_unavailable",
+                    any == null ? "Unknown package code." : "Package is not active.");
+            }
+        }
+
         var existing = await db.TopupRequests.AsNoTracking()
             .FirstOrDefaultAsync(t => t.CallerId == callerId && t.IdempotencyKey == idemKey, ct);
         if (existing != null) return TopupOpResult.Ok(existing);
@@ -66,8 +82,9 @@ public sealed class TopupService(
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var referenceCode = "TOPUP-" + RandomReference();
-            var request = TopupRequest.Create(req.TenantId, referenceCode, req.AmountVnd,
-                callerId, idemKey, nowUtc, Ttl);
+            var request = TopupRequest.Create(req.TenantId, referenceCode,
+                package?.PriceVnd ?? req.AmountVnd,
+                callerId, idemKey, nowUtc, Ttl, package?.Code);
             db.TopupRequests.Add(request);
             try
             {
@@ -125,12 +142,21 @@ public sealed class TopupService(
         TopupRequest request, decimal credits, string actor, string? note,
         DateTime nowUtc, CancellationToken ct)
     {
+        // P11 — package top-ups grant an expiring lot (validity from confirm time).
+        DateTime? lotExpiresAt = null;
+        if (request.PackageCode != null && _packages != null)
+        {
+            var pkg = await _packages.GetByCodeAsync(request.PackageCode, activeOnly: false, ct);
+            if (pkg != null) lotExpiresAt = nowUtc.AddDays(pkg.ValidityDays);
+        }
+
         // Same context save: status flip + ledger Grant + wallet update = 1 commit.
         request.Confirm(credits, actor, note, nowUtc);
         try
         {
             await wallet.GrantAsync(request.TenantId, credits,
-                $"topup:{request.ReferenceCode}", actor, nowUtc, topupRequestId: request.Id, ct: ct);
+                $"topup:{request.ReferenceCode}", actor, nowUtc,
+                topupRequestId: request.Id, expiresAtUtc: lotExpiresAt, ct: ct);
             await db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException)
@@ -300,6 +326,24 @@ public sealed class TopupService(
             return TopupOpResult.Ok(request);
         }
 
+        // P11 — package top-up: must pay the FULL package price; credits come
+        // from the catalog (not VndPerCredit). Partial stays Pending with the
+        // payment fact recorded for manual handling.
+        if (request.PackageCode != null && _packages != null)
+        {
+            var pkg = await _packages.GetByCodeAsync(request.PackageCode, activeOnly: false, ct);
+            if (pkg != null)
+            {
+                if (paidAmountVnd < pkg.PriceVnd)
+                {
+                    await db.SaveChangesAsync(ct); // payment fact persisted, stays Pending
+                    return TopupOpResult.Ok(request);
+                }
+                var pkgNote = $"tingee:{providerTxnId ?? request.ReferenceCode} package={pkg.Code} paid={paidAmountVnd}";
+                return await ConfirmCoreAsync(request, pkg.Credits, "tingee:webhook", pkgNote, nowUtc, ct);
+            }
+        }
+
         var credits = paidAmountVnd / vndPerCredit;
         if (credits <= 0)
             return TopupOpResult.Fail("invalid_credits", "Computed credits <= 0.");
@@ -379,6 +423,7 @@ public sealed class TopupService(
         t.Id, t.TenantId, t.ReferenceCode, t.AmountVnd, t.CreditsGranted,
         StatusName(t.Status),
         cfg != null ? VietQrPayloadBuilder.Build(cfg, t.ReferenceCode, t.AmountVnd) : null,
+        t.PackageCode,
         t.Note, t.ConfirmedBy, t.ConfirmedAtUtc, t.CreatedAtUtc, t.ExpiresAtUtc);
 
     private static TopupConfigDto ToDto(TopupConfig c) => new(

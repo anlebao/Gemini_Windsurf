@@ -12,11 +12,13 @@ builder.Services.AddDbContext<MeteringDbContext>(o => o.UseSqlite($"Data Source=
 builder.Services.AddScoped<RateCardService>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<EnforcementConfigService>();
+builder.Services.AddScoped<PackageService>();
 builder.Services.AddScoped(s => new TopupService(
     s.GetRequiredService<MeteringDbContext>(),
     s.GetRequiredService<WalletService>(),
     TimeSpan.FromHours(builder.Configuration.GetValue("Metering:TopupTtlHours", 72)),
-    s.GetService<TingeePaymentClient>()));
+    s.GetService<TingeePaymentClient>(),
+    s.GetService<PackageService>()));
 builder.Services.AddScoped<UsageService>();
 
 // P8 — Tingee Payment Gateway (optional: missing Tingee__* config self-disables).
@@ -134,6 +136,37 @@ app.MapPut("/v1/topup-config", async (
     return Results.Ok(await topups.PutConfigAsync(req, actor, DateTime.UtcNow, ct));
 });
 
+// P11 — package catalog: tenants read active list; sysadmin manages.
+app.MapGet("/v1/packages", async (PackageService packages, CancellationToken ct) =>
+    Results.Ok(await packages.ListActiveAsync(ct)));
+
+app.MapGet("/v1/admin/packages", async (HttpContext http, PackageService packages, CancellationToken ct) =>
+    IsAdmin(http) ? Results.Ok(await packages.ListAllAsync(ct)) : Forbidden());
+
+app.MapPut("/v1/admin/packages/{code}", async (
+    string code, PackageUpsertRequest req, HttpContext http,
+    PackageService packages, CancellationToken ct) =>
+{
+    if (!IsAdmin(http)) return Forbidden();
+    if (req == null || string.IsNullOrWhiteSpace(req.Name)
+        || req.PriceVnd <= 0 || req.Credits <= 0 || req.ValidityDays <= 0)
+        return Results.BadRequest(new { error = "name/priceVnd/credits/validityDays are required and must be > 0" });
+    var actor = (string?)http.Items["CallerId"] ?? "unknown";
+    var pkg = await packages.UpsertAsync(code, req.Name, req.PriceVnd, req.Credits,
+        req.ValidityDays, req.SortOrder, req.IsActive, actor, DateTime.UtcNow, ct);
+    return Results.Ok(new PackageDto(pkg.Code, pkg.Name, pkg.PriceVnd, pkg.Credits, pkg.ValidityDays, pkg.SortOrder));
+});
+
+app.MapPost("/v1/admin/packages/{code}/deactivate", async (
+    string code, HttpContext http, PackageService packages, CancellationToken ct) =>
+{
+    if (!IsAdmin(http)) return Forbidden();
+    var actor = (string?)http.Items["CallerId"] ?? "unknown";
+    return await packages.DeactivateAsync(code, actor, DateTime.UtcNow, ct)
+        ? Results.Ok(new { code, isActive = false })
+        : Results.NotFound(new { error = "package_not_found" });
+});
+
 app.MapPost("/v1/topups", async (
     TopupCreateRequest req, HttpContext http,
     TopupService topups, CancellationToken ct) =>
@@ -239,6 +272,7 @@ static TopupDto ToTopupDto(TopupRequest t, TopupConfig? cfg) => new(
     t.Id, t.TenantId, t.ReferenceCode, t.AmountVnd, t.CreditsGranted,
     StatusName(t.Status),
     cfg != null ? VietQrPayloadBuilder.Build(cfg, t.ReferenceCode, t.AmountVnd) : null,
+    t.PackageCode,
     t.Note, t.ConfirmedBy, t.ConfirmedAtUtc, t.CreatedAtUtc, t.ExpiresAtUtc);
 
 static string Sha256Hex(string input)
@@ -449,6 +483,37 @@ static void EnsureP7Schema(MeteringDbContext db)
             }
             if (!cols.Contains("VndPerCredit"))
                 Exec("""ALTER TABLE "TopupConfigs" ADD COLUMN "VndPerCredit" TEXT NOT NULL DEFAULT '0'""");
+        }
+
+        // P11 (task_p11_package_catalog) — package catalog + PackageCode on topups.
+        if (!tables.Contains("CreditPackages"))
+        {
+            Exec("""
+                CREATE TABLE "CreditPackages" (
+                    "Id" TEXT NOT NULL CONSTRAINT "PK_CreditPackages" PRIMARY KEY,
+                    "Code" TEXT NOT NULL,
+                    "Name" TEXT NOT NULL,
+                    "PriceVnd" TEXT NOT NULL,
+                    "Credits" TEXT NOT NULL,
+                    "ValidityDays" INTEGER NOT NULL,
+                    "SortOrder" INTEGER NOT NULL,
+                    "IsActive" INTEGER NOT NULL,
+                    "UpdatedAtUtc" TEXT NOT NULL
+                )
+                """);
+            Exec("""CREATE UNIQUE INDEX "IX_CreditPackages_Code" ON "CreditPackages" ("Code")""");
+        }
+        if (tables.Contains("TopupRequests"))
+        {
+            var tcols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var tcmd = conn.CreateCommand())
+            {
+                tcmd.CommandText = "PRAGMA table_info('TopupRequests')";
+                using var tr = tcmd.ExecuteReader();
+                while (tr.Read()) tcols.Add(tr.GetString(1));
+            }
+            if (!tcols.Contains("PackageCode"))
+                Exec("""ALTER TABLE "TopupRequests" ADD COLUMN "PackageCode" TEXT NULL""");
         }
 
         // P10 (task_p10_credit_lots_expiry) — credit lots table + legacy backfill.

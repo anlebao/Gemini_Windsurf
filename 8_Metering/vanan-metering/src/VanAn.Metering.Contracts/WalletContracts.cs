@@ -72,8 +72,19 @@ public sealed record EnforcementConfigPutRequest(bool Enabled);
 
 // ---- Top-up requests ----
 
-/// <summary>POST /v1/topups — tenant-side; caller key + Idempotency-Key dedupe.</summary>
-public sealed record TopupCreateRequest(Guid TenantId, decimal? AmountVnd = null);
+/// <summary>POST /v1/topups — tenant-side; caller key + Idempotency-Key dedupe.
+/// P11 — PackageCode selects a sysadmin-defined package (price/credits/validity
+/// come from the catalog; amountVnd is ignored when set).</summary>
+public sealed record TopupCreateRequest(Guid TenantId, decimal? AmountVnd = null, string? PackageCode = null);
+
+/// <summary>P11 — GET /v1/packages — active package catalog for tenants.</summary>
+public sealed record PackageDto(
+    string Code, string Name, decimal PriceVnd, decimal Credits, int ValidityDays, int SortOrder);
+
+/// <summary>P11 — admin upsert body (sysadmin only).</summary>
+public sealed record PackageUpsertRequest(
+    string Name, decimal PriceVnd, decimal Credits, int ValidityDays,
+    int SortOrder = 0, bool IsActive = true);
 
 public sealed record TopupDto(
     Guid Id,
@@ -83,6 +94,7 @@ public sealed record TopupDto(
     decimal? CreditsGranted,
     string Status,               // pending | confirmed | rejected | expired
     string? QrPayload,           // vietqr.io URL (D7); null until topup-config is set
+    string? PackageCode,         // P11 — set when created from a package
     string? Note,
     string? ConfirmedBy,
     DateTime? ConfirmedAtUtc,

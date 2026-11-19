@@ -27,6 +27,7 @@ public sealed class TopupRequest
     public string? PaymentProvider { get; private set; }       // "tingee"
     public string? ProviderTransactionId { get; private set; } // providerTransactionCode / billId
     public string? QrBillId { get; private set; }              // P9 — Tingee dynamic-QR billId (latest minted)
+    public string? PackageCode { get; private set; }           // P11 — CreditPackage.Code; null = custom top-up (non-expiring)
 
     public TopupStatus Status { get; private set; }
     public string? ConfirmedBy { get; private set; }
@@ -43,13 +44,15 @@ public sealed class TopupRequest
 
     public static TopupRequest Create(
         Guid tenantId, string referenceCode, decimal? amountVnd,
-        string callerId, string idempotencyKey, DateTime nowUtc, TimeSpan ttl)
+        string callerId, string idempotencyKey, DateTime nowUtc, TimeSpan ttl,
+        string? packageCode = null)
         => new()
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             ReferenceCode = referenceCode,
             AmountVnd = amountVnd,
+            PackageCode = packageCode,
             Status = TopupStatus.Pending,
             CreatedAtUtc = nowUtc,
             ExpiresAtUtc = nowUtc + ttl,
