@@ -7,7 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<Register> Logger
 
-<PageTitle>Đăng ký cửa hàng — Vạn An</PageTitle>
+<PageTitle>Đăng ký cửa hàng — Shop AI</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4">
@@ -25,11 +25,11 @@
         else
         {
             <h3 class="mb-3">
-                <i class="bi bi-shop text-primary"></i> Đăng ký cửa hàng lên Vạn An
+                <i class="bi bi-shop text-primary"></i> Đăng ký cửa hàng lên Shop AI
             </h3>
             <p class="text-muted mb-4">
                 Bạn đang đăng ký đưa <strong>@(string.IsNullOrWhiteSpace(_form.ShopName) ? "cửa hàng" : _form.ShopName)</strong>
-                lên nền tảng Vạn An. Đội ngũ chúng tôi sẽ liên hệ trong 1-2 ngày làm việc.
+                lên nền tảng Shop AI. Đội ngũ chúng tôi sẽ liên hệ trong 1-2 ngày làm việc.
             </p>
 
             @* Self-serve onboarding (P1): đăng ký nhanh bằng quét giấy tờ/biển hiệu *@

@@ -16,11 +16,11 @@
 @inject ITenantProvider TenantProvider
 @inject VanAn.CoreHub.Infrastructure.VanAnDbContext PgDbContext
 
-<PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Vạn An" : _tenantName)</PageTitle>
+<PageTitle>Sitemap - @(string.IsNullOrEmpty(_tenantName) ? "Shop AI" : _tenantName)</PageTitle>
 
 <div class="sitemap-page @ThemeProvider.CurrentTheme" data-testid="sitemap-page">
     <header class="sitemap-header">
-        <h1 data-testid="sitemap-title">@(string.IsNullOrEmpty(_tenantName) ? "Vạn An Ecosystem" : _tenantName)</h1>
+        <h1 data-testid="sitemap-title">@(string.IsNullOrEmpty(_tenantName) ? "Shop AI Ecosystem" : _tenantName)</h1>
         <p class="sitemap-subtitle">Chào mừng, <strong>@_displayName</strong> (@_roleName)</p>
         <div class="sitemap-header-actions">
             <VanAButton

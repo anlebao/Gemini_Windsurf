@@ -15,12 +15,12 @@
     <VanAnCard CssClass="nav-menu-card" Shadow="false">
         <div class="nav-header">
             <a class="nav-brand" href="/">
-                @* W3-3 Option A: tenant branding — logo + shop name thay "Vạn An KhachLink" hardcode *@
+                @* W3-3 Option A: tenant branding — logo + shop name thay "Shop AI" hardcode *@
                 @if (!string.IsNullOrEmpty(_branding?.LogoUrl))
                 {
                     <img src="@_branding.LogoUrl" alt="" class="nav-brand-logo" />
                 }
-                <span class="nav-brand-name">@(_branding?.ShopName ?? "Vạn An KhachLink")</span>
+                <span class="nav-brand-name">@(_branding?.ShopName ?? "Shop AI")</span>
             </a>
         </div>
         <nav class="nav-scrollable">

@@ -32,7 +32,7 @@ else
         <div class="d-flex justify-content-between align-items-center px-3 py-2">
             <a href="/" class="app-brand">
                 <i class="bi bi-shop"></i>
-                <span class="fw-bold">Vạn An</span>
+                <span class="fw-bold">Shop AI</span>
             </a>
             <div class="d-flex gap-2">
                 @if (_navFlags.ShowCart)
@@ -251,7 +251,7 @@ else
             var shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
             _branding = new KhachLinkBrandingDto
             {
-                ShopName = string.IsNullOrWhiteSpace(shopConfig?.ShopName) ? "Vạn An KhachLink" : shopConfig.ShopName,
+                ShopName = string.IsNullOrWhiteSpace(shopConfig?.ShopName) ? "Shop AI" : shopConfig.ShopName,
                 LogoUrl = _instanceStyle?.LogoUrl ?? shopConfig?.LogoUrl?.ToString()
             };
         }

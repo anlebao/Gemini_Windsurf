@@ -1,8 +1,8 @@
 ﻿{
   "id": "/",
-  "name": "timlathay.com — Danh bạ doanh nghiệp địa phương",
-  "short_name": "Tìm Là Thấy",
-  "description": "Danh bạ doanh nghiệp địa phương — tìm cửa hàng, dịch vụ gần bạn nhanh chóng",
+  "name": "ShopAI",
+  "short_name": "ShopAI",
+  "description": "ShopAI — ứng dụng bán hàng & quản lý cửa hàng",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#2c5f2d",

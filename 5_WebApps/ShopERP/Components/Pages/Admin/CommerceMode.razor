@@ -51,7 +51,7 @@
                         @onchange="@(e => _formGlobalMode = e.Value?.ToString() ?? "Marketplace")"
                         aria-label="Global mode">
                     <option value="Marketplace" selected="@(_formGlobalMode == "Marketplace")">Marketplace (Shop bán trực tiếp)</option>
-                    <option value="Reseller" selected="@(_formGlobalMode == "Reseller")">Reseller (Vạn An là trung gian)</option>
+                    <option value="Reseller" selected="@(_formGlobalMode == "Reseller")">Reseller (Shop AI là trung gian)</option>
                 </select>
             </div>
             <div class="form-group">

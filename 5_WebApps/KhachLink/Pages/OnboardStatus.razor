@@ -8,7 +8,7 @@
 @inject IConfiguration Configuration
 @inject ILogger<OnboardStatus> Logger
 
-<PageTitle>Trạng thái đăng ký — Vạn An</PageTitle>
+<PageTitle>Trạng thái đăng ký — Shop AI</PageTitle>
 
 <div class="container py-4" style="max-width:560px;">
     <h4 class="mb-3"><i class="bi bi-search text-primary"></i> Tra trạng thái đăng ký cửa hàng</h4>
@@ -47,7 +47,7 @@
                     <div class="text-center">
                         <i class="bi bi-hourglass-split text-warning" style="font-size:2.5rem;"></i>
                         <h5 class="mt-2">Đang chờ đội ngũ duyệt</h5>
-                        <p class="text-muted">@(_status.Message ?? "Đội ngũ Vạn An sẽ xác minh trong 1-2 ngày làm việc.")</p>
+                        <p class="text-muted">@(_status.Message ?? "Đội ngũ Shop AI sẽ xác minh trong 1-2 ngày làm việc.")</p>
                     </div>
                     break;
                 case "Active":
@@ -164,7 +164,7 @@
 
     private void GoToLogin()
     {
-        // PF1: owner login = ShopERP host (app2.khachvip.online/login) — username+password
+        // PF1: owner login = ShopAI host (app2.khachvip.online/login) — username+password
         // merchant tự đặt; slug chỉ dùng cho storefront, không phải login URL.
         Navigation.NavigateTo($"{OwnerPortalHost.TrimEnd('/')}/login", forceLoad: true);
     }

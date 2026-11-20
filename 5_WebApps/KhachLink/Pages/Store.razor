@@ -112,7 +112,7 @@ else if (_suspended)
             </div>
             <p class="text-muted mt-3" style="font-size:.85em;">
                 <i class="bi bi-info-circle"></i>
-                Chủ cửa hàng đăng nhập ShopERP → mục <em>Ví phí nền tảng</em> để xem lịch sử &amp; nạp thêm.
+                Chủ cửa hàng đăng nhập ShopAI → mục <em>Ví phí nền tảng</em> để xem lịch sử &amp; nạp thêm.
             </p>
             <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
@@ -1262,7 +1262,7 @@ else
             _products = await ProductService.GetProductsAsync(tenantId);
             _productsLoading = false;
 
-            // Free/Charity fix (2026-09-17): the ShopERP product API has no ProductType field, so a
+            // Free/Charity fix (2026-09-17): the ShopAI product API has no ProductType field, so a
             // 0-price Free/Charity product would arrive here as Paid → IsFree=false on the cart item
             // → checkout rejected ("giá không hợp lệ"). Enrich from the featured catalog, which does
             // carry ProductType. Best-effort: if it fails the Gateway still resolves it server-side.

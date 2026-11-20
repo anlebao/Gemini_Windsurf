@@ -131,7 +131,7 @@ else if (ShopConfig != null)
             ShopConfig = new ShopConfig
             {
                 TenantId = ShopId,
-                ShopName = "Vạn An",
+                ShopName = "Shop AI",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#FFA500",
                 LogoUrl = new Uri("/favicon.png", UriKind.Relative),
@@ -152,7 +152,7 @@ else if (ShopConfig != null)
             // P4 FIX: JSRuntime calls moved here — only available after hydration.
             try
             {
-                var displayTitle = ShopConfig?.ShopName ?? "Vạn An";
+                var displayTitle = ShopConfig?.ShopName ?? "Shop AI";
                 await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
 
                 await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");

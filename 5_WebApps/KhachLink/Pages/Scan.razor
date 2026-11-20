@@ -344,7 +344,7 @@
 
             if (qrPayload == null)
             {
-                _errorMessage = "Mã QR không hợp lệ. Vui lòng quét mã QR sản phẩm của Vạn An.";
+                _errorMessage = "Mã QR không hợp lệ. Vui lòng quét mã QR sản phẩm của Shop AI.";
                 StateHasChanged();
                 return;
             }
@@ -408,7 +408,7 @@
             return;
         }
 
-        // Issue #177: the ShopERP product API has no ProductType field, so a 0-price Free/Charity
+        // Issue #177: the ShopAI product API has no ProductType field, so a 0-price Free/Charity
         // product arrives as Paid → cart IsFree=false → checkout rejected "giá không hợp lệ" for
         // non-featured products / payment selector shown for 0đ carts. Best-effort enrich from the
         // featured catalog (mirrors Store.razor); fallback: any 0-price product is treated as Free.
@@ -450,7 +450,7 @@
             return url;
 
         // Relative path → prefix with gateway base URL
-        // (ShopERP serves product images under /api/products/{id}/image or /uploads/...)
+        // (ShopAI serves product images under /api/products/{id}/image or /uploads/...)
         string baseUri = Navigation.BaseUri.TrimEnd('/');
         return $"{baseUri}/{url.TrimStart('/')}";
     }
