@@ -251,7 +251,7 @@
         }
     }
 
-    private void NavigateToStore(TenantStoreDto store, string? chatMode = null)
+    private async Task NavigateToStore(TenantStoreDto store, string? chatMode = null)
     {
         if (string.IsNullOrEmpty(store.Slug)) return;
         var domain = !string.IsNullOrEmpty(store.KhachLinkDomain)
@@ -259,7 +259,8 @@
             : (Configuration["KhachLink:DefaultDomain"] ?? "khachvip.online");
         // W3-1: contextual deep-link — ?chat=ai|human mở chat panel trên storefront.
         var chatQuery = string.IsNullOrEmpty(chatMode) ? string.Empty : $"?chat={chatMode}";
-        Navigation.NavigateTo($"https://{domain}/store/{store.Slug}{chatQuery}", forceLoad: true);
+        // New tab — directory giữ nguyên, storefront mở song song (window.open).
+        await JSRuntime.InvokeVoidAsync("open", $"https://{domain}/store/{store.Slug}{chatQuery}", "_blank");
     }
 
     private sealed class GeoPositionResult

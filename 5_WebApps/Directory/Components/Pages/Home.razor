@@ -647,7 +647,7 @@
         return json;
     }
 
-    private void NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId, string? chatMode = null)
+    private async Task NavigateToStore(string slug, string? khachLinkDomain, Guid tenantId, string? chatMode = null)
     {
         // Phí nền tảng P4 (hook c): directory.redirect — tenant-facing click-through,
         // fire-and-forget before navigation (G9).
@@ -659,10 +659,11 @@
         // W3-1: contextual deep-link — ?chat=ai|human mở chat panel trên storefront.
         var chatQuery = string.IsNullOrEmpty(chatMode) ? string.Empty : $"?chat={chatMode}";
 
+        string url;
         if (!string.IsNullOrEmpty(khachLinkDomain))
         {
             // Redirect to tenant's own KhachLink domain
-            Navigation.NavigateTo($"https://{khachLinkDomain}/store/{slug}{chatQuery}", forceLoad: true);
+            url = $"https://{khachLinkDomain}/store/{slug}{chatQuery}";
         }
         else
         {
@@ -672,8 +673,11 @@
             var defaultDomain = Configuration["KhachLink:DefaultDomain"];
             if (string.IsNullOrWhiteSpace(defaultDomain))
                 defaultDomain = "khachvip.online"; // ultimate fallback if config missing
-            Navigation.NavigateTo($"https://{defaultDomain}/store/{slug}{chatQuery}", forceLoad: true);
+            url = $"https://{defaultDomain}/store/{slug}{chatQuery}";
         }
+
+        // New tab — directory giữ nguyên, storefront mở song song (window.open).
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 
     private string? _pendingAlert;
