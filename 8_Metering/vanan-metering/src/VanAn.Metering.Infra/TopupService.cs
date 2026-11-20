@@ -84,8 +84,11 @@ public sealed class TopupService(
         if (existing != null) return TopupOpResult.Ok(existing);
 
         // P13 — rate-limit before insert (idempotent replays already returned above).
+        // Pending cap chỉ đếm lệnh CHƯA hết hạn — row quá TTL mà chưa lazy-expire
+        // (chưa ai đọc) không được chặn tenant mãi mãi.
         var pendingCount = await db.TopupRequests
-            .CountAsync(t => t.TenantId == req.TenantId && t.Status == TopupStatus.Pending, ct);
+            .CountAsync(t => t.TenantId == req.TenantId
+                && t.Status == TopupStatus.Pending && t.ExpiresAtUtc > nowUtc, ct);
         if (pendingCount >= MaxPendingPerTenant)
             return TopupOpResult.Fail("too_many_pending_topups",
                 $"Too many pending top-up requests ({MaxPendingPerTenant}) — finish or let them expire first.");

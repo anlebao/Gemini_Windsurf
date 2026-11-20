@@ -73,6 +73,19 @@ public sealed class TopupRateLimitTests
     }
 
     [Fact]
+    public async Task Create_ExpiredPending_DoesNotCountTowardCap()
+    {
+        var (_, _, topups) = NewSut();
+        // 5 pending created 73h ago — past the 72h TTL, never lazy-expired (no read).
+        for (var i = 0; i < 5; i++)
+            (await Create(topups, $"k{i}", now: Now.AddHours(-73))).Request.Should().NotBeNull();
+
+        var r = await Create(topups, "k-fresh", now: Now);
+
+        r.Request.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Create_RateWindowExceeded_Fails_ThenRecoversAfterOneHour()
     {
         var (db, _, topups) = NewSut();
