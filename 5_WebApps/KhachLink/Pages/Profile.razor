@@ -95,7 +95,7 @@
                             {
                                 <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
                                              CssClass="text-nowrap"
-                                             TestId="@($"ctx-cta-{card.Id}")"
+                                             data-testid="@($"ctx-cta-{card.Id}")"
                                              OnClick="() => GoTo(card.Href)">@card.CtaLabel</VanAnButton>
                             }
                         </div>
