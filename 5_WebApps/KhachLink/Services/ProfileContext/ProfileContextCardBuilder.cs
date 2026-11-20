@@ -49,6 +49,23 @@ public static class ProfileContextCardBuilder
             });
         }
 
+        // 1b. Voucher expiring soon — money about to be lost; just below active-order.
+        if (s.ExpiringVoucherCount > 0)
+        {
+            cards.Add(new ProfileContextCard
+            {
+                Id = "voucher-expiring",
+                Priority = 15,
+                Icon = "bi bi-ticket-perforated-fill",
+                Title = "Voucher sắp hết hạn",
+                Reason = s.VoucherDaysLeft is int d && d <= 1
+                    ? $"Voucher của bạn hết hạn {(d <= 0 ? "hôm nay" : "ngày mai")} — dùng ngay."
+                    : $"Bạn có {s.ExpiringVoucherCount} voucher sắp hết hạn trong 7 ngày tới.",
+                Href = "/rewards",
+                CtaLabel = "Xem voucher"
+            });
+        }
+
         // 2. Identity upgrade — Social/Guest cannot redeem points; functional blocker.
         if (s.IdentityLevel is "Social" or "Guest" or null)
         {
@@ -148,9 +165,31 @@ public static class ProfileContextCardBuilder
             });
         }
 
-        if (cards.Count == 0)
+        // 6b. Win-back — past customer inactive ≥30 days, no active order.
+        if (s.TotalOrderCount > 0 && s.ActiveOrderCount == 0
+            && s.DaysSinceLastOrder is int inactiveDays && inactiveDays >= 30)
         {
             cards.Add(new ProfileContextCard
+            {
+                Id = "win-back",
+                Priority = 70,
+                Icon = "bi bi-emoji-smile",
+                Title = "Lâu rồi không ghé",
+                Reason = $"Đã {inactiveDays} ngày kể từ đơn gần nhất — xem ưu đãi mới.",
+                Href = "/campaigns",
+                CtaLabel = "Xem ưu đãi"
+            });
+        }
+
+        // 6c. Dismissed cards (v2) — filter BEFORE fallback/cap so dismissed cards
+        //     don't consume slots. Applied to rule cards AND the fallback below.
+        var dismissed = s.DismissedCardIds;
+        if (dismissed is { Count: > 0 })
+            cards.RemoveAll(c => dismissed.Contains(c.Id));
+
+        if (cards.Count == 0)
+        {
+            var fallback = new ProfileContextCard
             {
                 Id = "discover-stores",
                 Priority = 100,
@@ -159,7 +198,9 @@ public static class ProfileContextCardBuilder
                 Reason = "Tìm cửa hàng và sản phẩm gần bạn.",
                 Href = "/stores",
                 CtaLabel = "Tìm cửa hàng"
-            });
+            };
+            if (dismissed is null || !dismissed.Contains(fallback.Id))
+                cards.Add(fallback);
         }
 
         return cards

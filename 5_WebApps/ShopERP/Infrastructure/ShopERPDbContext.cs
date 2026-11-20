@@ -170,6 +170,10 @@ namespace VanAn.ShopERP.Infrastructure
         // /admin/loyalty-reconcile.
         public DbSet<LoyaltyReconcileCase> LoyaltyReconcileCases { get; set; }
 
+        // KhachLink Profile Contextual UX v2: customer context-card dismissals — SQLite-mapped
+        // (per-tenant, customer-facing). Config via CustomerContextDismissalConfiguration.
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.CustomerContextDismissalEntity> CustomerContextDismissals { get; set; }
+
         // #100: KhachLink home page section toggles — GLOBAL (PG-only, ignored in ShopERP SQLite)
         public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; }
 

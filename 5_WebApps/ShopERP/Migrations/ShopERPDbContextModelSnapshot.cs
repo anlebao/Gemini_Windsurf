@@ -155,6 +155,54 @@ namespace VanAn.ShopERP.Migrations
                     b.ToTable("BookingIdempotencyRecord");
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.CustomerContextDismissalEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CardId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DismissedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "ExpiresAt");
+
+                    b.HasIndex("TenantId", "CustomerId", "CardId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerContextDismissals");
+                });
+
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.PlatformUser", b =>
                 {
                     b.Property<Guid>("Id")

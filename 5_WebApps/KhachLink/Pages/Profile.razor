@@ -79,15 +79,23 @@
                                 <div class="fw-semibold">@card.Title</div>
                                 <div class="text-muted small">@card.Reason</div>
                             </div>
+                            <button type="button" class="btn btn-sm btn-link text-muted p-1 flex-shrink-0"
+                                    title="Ẩn gợi ý này (7 ngày)" aria-label="Ẩn gợi ý"
+                                    @onclick="() => DismissCardAsync(card)"
+                                    data-testid="@($"ctx-dismiss-{card.Id}")">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                             @if (card.Href.StartsWith("#", StringComparison.Ordinal))
                             {
                                 <a class="btn btn-sm btn-primary text-nowrap" href="@card.Href"
+                                   data-testid="@($"ctx-cta-{card.Id}")"
                                    @onclick:preventDefault @onclick="OpenSettingsAsync">@card.CtaLabel</a>
                             }
                             else
                             {
                                 <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
                                              CssClass="text-nowrap"
+                                             TestId="@($"ctx-cta-{card.Id}")"
                                              OnClick="() => GoTo(card.Href)">@card.CtaLabel</VanAnButton>
                             }
                         </div>
@@ -437,6 +445,10 @@
 
     // Sprint 7 gap fix: Device info
     private string? _deviceToken;
+    private string? _customerDeviceId;
+
+    // v2: aggregated context payload (null when endpoint unavailable → legacy path)
+    private CustomerContextDto? _ctx;
 
     // KhachLink Multi-Profile: nav flags cascaded from KhachLinkLayout (gate quick-access grid)
     [CascadingParameter(Name = "NavFlags")]
@@ -486,6 +498,7 @@
 
             // Sprint 7 gap fix: Load device token from localStorage
             _deviceToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "device_token");
+            _customerDeviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
 
             var client = HttpClientFactory.CreateClient("gateway");
             var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/customers/me");
@@ -510,17 +523,24 @@
                         _birthday = profile.Birthday;
                         _birthdaySaved = profile.Birthday.HasValue;
 
-                        // Contextual profile: fire all supplementary loads in parallel.
-                        // Each is best-effort — failures degrade to fewer context signals,
-                        // never break the page.
-                        var pushTask = LoadPushStatusAsync(client, token);
+                        // Contextual profile v2: try aggregated /api/customer-context/me first
+                        // (1 call replaces push+orders+missions). Fallback: legacy parallel calls.
                         var prefsTask = LoadNotificationPrefsAsync();
                         var communityTask = LoadCommunityAsync(token);
-                        var ordersTask = LoadActiveOrderCountAsync(client, token);
-                        var missionsTask = LoadMissionSignalsAsync(client, token);
-                        await Task.WhenAll(pushTask, prefsTask, communityTask, ordersTask, missionsTask);
-
-                        BuildContextCards(ordersTask.Result, missionsTask.Result);
+                        var ctx = await TryLoadContextAsync(client, token);
+                        if (ctx != null)
+                        {
+                            ApplyContext(ctx);
+                            await Task.WhenAll(prefsTask, communityTask);
+                        }
+                        else
+                        {
+                            var pushTask = LoadPushStatusAsync(client, token);
+                            var ordersTask = LoadActiveOrderCountAsync(client, token);
+                            var missionsTask = LoadMissionSignalsAsync(client, token);
+                            await Task.WhenAll(pushTask, prefsTask, communityTask, ordersTask, missionsTask);
+                            BuildContextCards(ordersTask.Result, missionsTask.Result);
+                        }
                     }
                 }
                 else
@@ -594,11 +614,10 @@
     {
         try
         {
-            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
             var req = new HttpRequestMessage(HttpMethod.Get, "/api/customerorders?page=1&pageSize=5");
             req.Headers.Add("X-Customer-Token", token);
-            if (!string.IsNullOrEmpty(deviceId))
-                req.Headers.Add("X-Customer-Device-Id", deviceId);
+            if (!string.IsNullOrEmpty(_customerDeviceId))
+                req.Headers.Add("X-Customer-Device-Id", _customerDeviceId);
 
             var resp = await client.SendAsync(req);
             if (!resp.IsSuccessStatusCode) return 0;
@@ -628,6 +647,61 @@
         catch { return (0, 0); }
     }
 
+    /// <summary>
+    /// v2: GET /api/customer-context/me — aggregated signals in 1 call.
+    /// Returns null on any failure so caller falls back to legacy parallel loads.
+    /// </summary>
+    private async Task<CustomerContextDto?> TryLoadContextAsync(HttpClient client, string token)
+    {
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, "/api/customer-context/me");
+            req.Headers.Add("X-Customer-Token", token);
+            if (!string.IsNullOrEmpty(_customerDeviceId))
+                req.Headers.Add("X-Customer-Device-Id", _customerDeviceId);
+
+            var resp = await client.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<CustomerContextDto>();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Apply aggregated context: push state + build cards from v2 signals.</summary>
+    private void ApplyContext(CustomerContextDto ctx)
+    {
+        _ctx = ctx;
+        _pushEnabled = ctx.PushEnabled;
+        _pushStatusKnown = true;
+
+        var incomplete = (ctx.Missions ?? new())
+            .Where(m => !m.IsCompleted)
+            .ToList();
+
+        BuildContextCards(ctx.ActiveOrderCount, (incomplete.Count, incomplete.Count > 0 ? incomplete.Max(m => m.PointsReward) : 0));
+    }
+
+    /// <summary>v2: dismiss a context card — POST server-side (TTL 7d) + remove locally.</summary>
+    private async Task DismissCardAsync(ProfileContextCard card)
+    {
+        var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                var client = HttpClientFactory.CreateClient("gateway");
+                var req = new HttpRequestMessage(HttpMethod.Post, "/api/customer-context/me/dismiss");
+                req.Headers.Add("X-Customer-Token", token);
+                req.Content = System.Net.Http.Json.JsonContent.Create(new { cardId = card.Id });
+                await client.SendAsync(req);
+            }
+            catch { /* best-effort — card still hides locally */ }
+        }
+
+        _contextCards = _contextCards.Where(c => c.Id != card.Id).ToList();
+        StateHasChanged();
+    }
+
     private void BuildContextCards(int activeOrderCount, (int Count, int MaxPoints) missions)
     {
         _contextCards = ProfileContextCardBuilder.Build(new ProfileContextSnapshot
@@ -639,7 +713,14 @@
             PushEnabled = _pushStatusKnown ? _pushEnabled : null,
             ActiveOrderCount = activeOrderCount,
             IncompleteMissionCount = missions.Count,
-            MaxIncompleteMissionPoints = missions.MaxPoints
+            MaxIncompleteMissionPoints = missions.MaxPoints,
+            DismissedCardIds = _ctx?.DismissedCardIds?.ToHashSet(StringComparer.Ordinal),
+            ExpiringVoucherCount = _ctx?.ExpiringVoucherCount ?? 0,
+            VoucherDaysLeft = _ctx?.SoonestVoucherExpiry is DateTime exp
+                ? Math.Max(0, (int)Math.Ceiling((exp - DateTime.UtcNow).TotalDays))
+                : null,
+            TotalOrderCount = _ctx?.TotalOrderCount ?? 0,
+            DaysSinceLastOrder = _ctx?.DaysSinceLastOrder
         });
     }
 
@@ -905,6 +986,26 @@
 
     // Mirrors MissionProgressDto in Missions.razor — only fields the builder needs.
     private class MissionProgressDto
+    {
+        public bool IsCompleted { get; set; }
+        public int PointsReward { get; set; }
+    }
+
+    // v2: GET /api/customer-context/me response — mirrors ShopERP CustomerContextResponse.
+    private class CustomerContextDto
+    {
+        public int ActiveOrderCount { get; set; }
+        public int TotalOrderCount { get; set; }
+        public DateTime? LastOrderAt { get; set; }
+        public int? DaysSinceLastOrder { get; set; }
+        public List<ContextMissionDto>? Missions { get; set; }
+        public bool PushEnabled { get; set; }
+        public int ExpiringVoucherCount { get; set; }
+        public DateTime? SoonestVoucherExpiry { get; set; }
+        public List<string>? DismissedCardIds { get; set; }
+    }
+
+    private class ContextMissionDto
     {
         public bool IsCompleted { get; set; }
         public int PointsReward { get; set; }

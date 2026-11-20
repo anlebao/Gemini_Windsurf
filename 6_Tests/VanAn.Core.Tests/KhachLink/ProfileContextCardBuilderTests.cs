@@ -18,7 +18,12 @@ public class ProfileContextCardBuilderTests
         bool? push = true,
         int activeOrders = 0,
         int incompleteMissions = 0,
-        int maxMissionPoints = 0) => new()
+        int maxMissionPoints = 0,
+        int expiringVouchers = 0,
+        int? voucherDaysLeft = null,
+        int totalOrders = 0,
+        int? daysSinceLastOrder = null,
+        IReadOnlySet<string>? dismissed = null) => new()
     {
         IdentityLevel = identity,
         PointBalance = points,
@@ -27,6 +32,11 @@ public class ProfileContextCardBuilderTests
         ActiveOrderCount = activeOrders,
         IncompleteMissionCount = incompleteMissions,
         MaxIncompleteMissionPoints = maxMissionPoints,
+        ExpiringVoucherCount = expiringVouchers,
+        VoucherDaysLeft = voucherDaysLeft,
+        TotalOrderCount = totalOrders,
+        DaysSinceLastOrder = daysSinceLastOrder,
+        DismissedCardIds = dismissed,
         UtcNow = Now
     };
 
@@ -185,5 +195,98 @@ public class ProfileContextCardBuilderTests
             birthday: new DateTime(2000, 2, 29)));
 
         act.Should().NotThrow();
+    }
+
+    // === v2 rules ===
+
+    [Fact]
+    public void ExpiringVoucher_CardShown_BelowActiveOrder()
+    {
+        var cards = ProfileContextCardBuilder.Build(Snapshot(
+            activeOrders: 1, expiringVouchers: 2, voucherDaysLeft: 3));
+
+        cards[0].Id.Should().Be("active-order");
+        cards.Should().Contain(c => c.Id == "voucher-expiring" && c.Href == "/rewards");
+    }
+
+    [Fact]
+    public void ExpiringVoucher_Tomorrow_ReasonSaysNgayMai()
+    {
+        var cards = ProfileContextCardBuilder.Build(Snapshot(
+            expiringVouchers: 1, voucherDaysLeft: 1));
+
+        var card = cards.Should().ContainSingle(c => c.Id == "voucher-expiring").Subject;
+        card.Reason.Should().Contain("ngày mai");
+    }
+
+    [Fact]
+    public void NoExpiringVoucher_NoCard()
+    {
+        var cards = ProfileContextCardBuilder.Build(Snapshot(expiringVouchers: 0));
+
+        cards.Should().NotContain(c => c.Id == "voucher-expiring");
+    }
+
+    [Fact]
+    public void WinBack_Shown_WhenInactive30DaysAndHasOrders()
+    {
+        var cards = ProfileContextCardBuilder.Build(Snapshot(
+            totalOrders: 3, daysSinceLastOrder: 45));
+
+        var card = cards.Should().ContainSingle(c => c.Id == "win-back").Subject;
+        card.Href.Should().Be("/campaigns");
+        card.Reason.Should().Contain("45");
+    }
+
+    [Fact]
+    public void WinBack_Hidden_WhenRecentOrderOrNoOrdersOrActiveOrder()
+    {
+        // Recent order
+        ProfileContextCardBuilder.Build(Snapshot(totalOrders: 2, daysSinceLastOrder: 10))
+            .Should().NotContain(c => c.Id == "win-back");
+        // Never ordered
+        ProfileContextCardBuilder.Build(Snapshot(totalOrders: 0, daysSinceLastOrder: null))
+            .Should().NotContain(c => c.Id == "win-back");
+        // Active order in flight
+        ProfileContextCardBuilder.Build(Snapshot(totalOrders: 2, daysSinceLastOrder: 60, activeOrders: 1))
+            .Should().NotContain(c => c.Id == "win-back");
+    }
+
+    [Fact]
+    public void DismissedCard_IsFilteredBeforeCap()
+    {
+        // active-order dismissed → next cards move up, cap still 3
+        var cards = ProfileContextCardBuilder.Build(Snapshot(
+            identity: "Social", push: false, activeOrders: 1, incompleteMissions: 1,
+            dismissed: new HashSet<string> { "active-order" }));
+
+        cards.Should().NotContain(c => c.Id == "active-order");
+        cards.Should().HaveCountLessThanOrEqualTo(ProfileContextCardBuilder.MaxCards);
+        cards[0].Id.Should().Be("identity-upgrade");
+    }
+
+    [Fact]
+    public void NoRuleCards_FallbackShown_UlessFallbackDismissed()
+    {
+        // Verified + far birthday + push on + 0 points → only fallback card.
+        ProfileContextCardBuilder.Build(new ProfileContextSnapshot
+        {
+            IdentityLevel = "Verified",
+            Birthday = new DateTime(1990, 12, 25),
+            PushEnabled = true,
+            PointBalance = 0,
+            UtcNow = Now
+        }).Should().ContainSingle(c => c.Id == "discover-stores");
+
+        // Same snapshot but fallback dismissed → zone renders nothing.
+        ProfileContextCardBuilder.Build(new ProfileContextSnapshot
+        {
+            IdentityLevel = "Verified",
+            Birthday = new DateTime(1990, 12, 25),
+            PushEnabled = true,
+            PointBalance = 0,
+            UtcNow = Now,
+            DismissedCardIds = new HashSet<string> { "discover-stores" }
+        }).Should().BeEmpty();
     }
 }

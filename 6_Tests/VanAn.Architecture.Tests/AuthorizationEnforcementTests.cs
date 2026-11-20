@@ -149,6 +149,9 @@ public class AuthorizationEnforcementTests
             // Loyalty-C WS-B/C: Customer profile + missions endpoints (X-Customer-Token header auth)
             "CustomerProfileController",
             "MissionsController",
+            // Profile Contextual UX v2: customer context aggregation + card dismiss —
+            // [AllowAnonymous] + X-Customer-Token header auth (same Wave 17 pattern)
+            "CustomerContextController",
             // CC-S0-T3 (Sprint 0.5): DeviceRegistrationController — customer-facing (X-Customer-Token header auth, validated via ShopERP /me forward)
             "DeviceRegistrationController",
             // CC-S1-T1/T2 (Sprint 1): CommunityController — shipper-facing (X-Customer-Token header auth + CommunityRole check)

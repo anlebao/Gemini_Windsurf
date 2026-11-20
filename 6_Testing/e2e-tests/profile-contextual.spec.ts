@@ -61,9 +61,10 @@ test.describe('Profile contextual UX v1 @mobile', () => {
         const card = cards.nth(i);
         await expect(card.locator('.fw-semibold')).toBeVisible();
         await expect(card.locator('.text-muted.small')).toBeVisible();
-        // CTA: either VanAnButton or anchor for "#" hrefs
-        const hasCta = await card.locator('button, a.btn').count();
-        expect(hasCta).toBeGreaterThanOrEqual(1);
+        // CTA: dedicated testid (v2 added a dismiss × button before the CTA)
+        await expect(card.locator('[data-testid^="ctx-cta-"]')).toBeVisible();
+        // v2: every card has a dismiss button (server-side persistence, 7d TTL)
+        await expect(card.locator('[data-testid^="ctx-dismiss-"]')).toBeVisible();
       }
     });
 
@@ -89,7 +90,7 @@ test.describe('Profile contextual UX v1 @mobile', () => {
 
     test('context card CTA navigates or opens settings', async ({ page }) => {
       const firstCard = page.locator('[data-testid^="ctx-card-"]').first();
-      const cta = firstCard.locator('button, a.btn').first();
+      const cta = firstCard.locator('[data-testid^="ctx-cta-"]').first();
       const href = await cta.getAttribute('href');
 
       await cta.click();
@@ -100,6 +101,15 @@ test.describe('Profile contextual UX v1 @mobile', () => {
         // Route card → URL changes away from /profile
         await page.waitForURL((url) => !url.pathname.endsWith('/profile'), { timeout: 15000 });
       }
+    });
+
+    test('v2: dismiss button hides card locally', async ({ page }) => {
+      const cards = page.locator('[data-testid^="ctx-card-"]');
+      const before = await cards.count();
+      test.skip(before === 0, 'no context cards to dismiss');
+
+      await page.locator('[data-testid^="ctx-dismiss-"]').first().click();
+      await expect(cards).toHaveCount(before - 1, { timeout: 10000 });
     });
 
     test('no horizontal overflow at 375px', async ({ page }) => {
