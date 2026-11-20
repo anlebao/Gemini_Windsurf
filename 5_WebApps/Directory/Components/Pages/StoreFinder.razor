@@ -11,33 +11,55 @@
    Port tối thiểu: keyword search + nearby theo vị trí + Leaflet map (directory-map.js)
    + danh sách cửa hàng. Voice search là nợ kỹ thuật (Home đã có — có thể port sau). *@
 
-<PageTitle>Tìm cửa hàng — Danh bạ Vạn An</PageTitle>
+<PageTitle>Tìm cửa hàng — Shop AI</PageTitle>
 
 <div class="container py-4">
     <div class="text-center mb-4">
         <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2.5rem;"></i>
-        <h3 class="mt-2 mb-1">Tìm cửa hàng</h3>
-        <p class="text-muted mb-0">Tìm theo tên, sản phẩm, hoặc vị trí gần bạn</p>
+        <h3 class="mt-2 mb-1">Tìm cửa hàng &amp; sản phẩm gần bạn</h3>
+        <p class="text-muted mb-0">Nhập tên, nói bằng giọng nói, hoặc bật vị trí để xem cửa hàng trong bán kính 5–20 km</p>
     </div>
 
     <VanAnCard CssClass="mb-4 py-4">
-        <div class="input-group input-group-lg">
-            <span class="input-group-text bg-white border-end-0">
-                <i class="bi bi-search text-primary"></i>
-            </span>
-            <input type="text" class="form-control border-start-0 border-end-0"
-                   @bind="_keyword"
-                   @onkeyup="OnKeyUp"
-                   placeholder="Tên cửa hàng, sản phẩm, dịch vụ..."
-                   aria-label="Tìm cửa hàng" />
-            <button type="button" class="btn btn-primary" @onclick="SearchAsync" disabled="@_loading">
-                <i class="bi bi-search"></i>
-            </button>
-        </div>
-        <div class="d-flex gap-2 mt-3">
+        @* W3-2d: VanAnPublicSearchBar (UI.Platform) — mic voice + clear + enterkeyhint=search *@
+        <VanAnPublicSearchBar @bind-Value="_keyword"
+                              Placeholder="@(_listening ? "Đang nghe..." : "Tên cửa hàng, sản phẩm, dịch vụ...")"
+                              AriaLabel="Tìm cửa hàng"
+                              SearchText="Tìm kiếm"
+                              Loading="_loading"
+                              ShowVoiceButton="_speechSupported"
+                              IsListening="_listening"
+                              OnVoiceToggle="ToggleVoiceAsync"
+                              OnSearch="SearchAsync"
+                              OnCleared="ClearSearch" />
+        @if (_listening)
+        {
+            <div class="text-danger small mt-2">
+                <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+                Đang nghe... nói tên cửa hàng hoặc sản phẩm
+            </div>
+        }
+        @if (_voiceError is not null)
+        {
+            <div class="text-danger small mt-2">@_voiceError</div>
+        }
+        <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="SearchWithKeyword" />
+
+        <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
             <VanAnButton Variant="ButtonVariant.Outline" OnClick="UseMyLocationAsync" Disabled="@_loading">
                 <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
             </VanAnButton>
+            @* Bán kính tìm kiếm — user chọn rõ 5/10/20km quanh vị trí *@
+            <div class="btn-group btn-group-sm" role="group" aria-label="Bán kính tìm kiếm">
+                @foreach (var r in new[] { 5, 10, 20 })
+                {
+                    <button type="button"
+                            class="btn @(_radiusKm == r ? "btn-primary" : "btn-outline-primary")"
+                            @onclick="() => SetRadiusAsync(r)">
+                        @r km
+                    </button>
+                }
+            </div>
             @if (!string.IsNullOrEmpty(_keyword))
             {
                 <VanAnButton Variant="ButtonVariant.Secondary" OnClick="ClearSearch">
@@ -45,6 +67,12 @@
                 </VanAnButton>
             }
         </div>
+        @if (_searchedByLocation)
+        {
+            <p class="text-muted small mt-2 mb-0">
+                <i class="bi bi-signpost"></i> Hiển thị cửa hàng trong bán kính <strong>@_radiusKm km</strong> quanh vị trí của bạn — gần nhất trước
+            </p>
+        }
         @if (_geoError is not null)
         {
             <div class="text-danger small mt-2">@_geoError</div>
@@ -68,11 +96,7 @@
     }
     else if (_stores.Count > 0)
     {
-        @if (_searchedByLocation)
-        {
-            <p class="text-muted small mb-2"><i class="bi bi-signpost"></i> Cửa hàng gần bạn (bán kính 5km)</p>
-        }
-        else if (!string.IsNullOrWhiteSpace(_keyword))
+        @if (!string.IsNullOrWhiteSpace(_keyword))
         {
             <p class="text-muted small mb-2">@_stores.Count cửa hàng phù hợp với "@_keyword"</p>
         }
@@ -157,6 +181,8 @@
 .store-map { height: 320px; border-radius: 12px; overflow: hidden; }
 </style>
 
+@implements IAsyncDisposable
+
 @code {
     /// <summary>W3-2 (FR-U6): footer category links → /stores?q={category} prefill + auto-search.</summary>
     [Parameter, SupplyParameterFromQuery(Name = "q")]
@@ -172,22 +198,37 @@
     private double? _userLat;
     private double? _userLng;
     private bool _mapRendered;
+    private int _radiusKm = 10;
+    private string? _didYouMean;
+
+    // Voice input state (vananVoiceInput — script loaded via App.razor, giống Home.razor)
+    private bool _speechSupported;
+    private bool _listening;
+    private string? _voiceError;
+    private DotNetObjectReference<StoreFinder>? _voiceRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender) return;
+        // SF-W3: voice mic — platform page (no tenant flag); browser-gated only.
+        try
+        {
+            _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
+            if (_speechSupported) StateHasChanged();
+        }
+        catch
+        {
+            _speechSupported = false; // script not loaded — mic hidden
+        }
+
         // W3-2 (FR-U6): áp dụng ?q= một lần sau first render (InteractiveServer —
         // SupplyParameterFromQuery set trong OnInitialized, search cần sau render).
-        if (firstRender && !_queryApplied && !string.IsNullOrWhiteSpace(Q))
+        if (!_queryApplied && !string.IsNullOrWhiteSpace(Q))
         {
             _queryApplied = true;
             _keyword = Q;
             await SearchAsync();
         }
-    }
-
-    private async Task OnKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await SearchAsync();
     }
 
     private async Task SearchAsync()
@@ -197,8 +238,37 @@
         _searchedByLocation = false;
         var result = await CatalogService.SearchStoresAsync(_keyword);
         _stores = result.Results;
+        _didYouMean = result.DidYouMean;
         _loading = false;
         await RenderMapAsync();
+    }
+
+    /// <summary>Issue #166 comment: search với gợi ý "Ý bạn là: X?".</summary>
+    private async Task SearchWithKeyword(string keyword)
+    {
+        _keyword = keyword;
+        await SearchAsync();
+    }
+
+    private async Task SetRadiusAsync(int radiusKm)
+    {
+        _radiusKm = radiusKm;
+        // Đã có vị trí user → refetch ngay với bán kính mới.
+        if (_searchedByLocation && _userLat.HasValue && _userLng.HasValue)
+        {
+            await LoadNearbyAsync();
+            await RenderMapAsync();
+        }
+    }
+
+    private async Task LoadNearbyAsync()
+    {
+        _stores = await CatalogService.GetNearbyStoresAsync(_userLat!.Value, _userLng!.Value, _radiusKm);
+        // Sort client-side theo khoảng cách — gần nhất trước.
+        _stores = _stores.OrderBy(s => s.DistanceKm ?? double.MaxValue).ToList();
+        _searched = true;
+        _searchedByLocation = true;
+        _didYouMean = null;
     }
 
     private async Task UseMyLocationAsync()
@@ -210,9 +280,7 @@
             var pos = await JSRuntime.InvokeAsync<GeoPositionResult>("directoryMap.getUserLocation");
             _userLat = pos.Lat;
             _userLng = pos.Lng;
-            _stores = await CatalogService.GetNearbyStoresAsync(pos.Lat, pos.Lng, 5);
-            _searched = true;
-            _searchedByLocation = true;
+            await LoadNearbyAsync();
         }
         catch (Exception ex)
         {
@@ -233,6 +301,73 @@
         _searchedByLocation = false;
         _stores = new();
         _mapRendered = false;
+        _didYouMean = null;
+    }
+
+    // ── Voice input (port từ Home.razor — vananVoiceInput vi-VN) ──────────────
+
+    private async Task ToggleVoiceAsync()
+    {
+        _voiceError = null;
+        try
+        {
+            if (_listening)
+            {
+                _listening = false; // JS onend → OnVoiceEnd re-confirms
+                await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+            }
+            else
+            {
+                _voiceRef ??= DotNetObjectReference.Create(this);
+                _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+            }
+        }
+        catch
+        {
+            _listening = false;
+        }
+    }
+
+    /// <summary>Live transcript while speaking — fills the input in real time.</summary>
+    [JSInvokable]
+    public void OnVoiceInterim(string text)
+    {
+        _keyword = text;
+        StateHasChanged();
+    }
+
+    /// <summary>Silence/manual stop → final transcript → auto-submit the search.</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _keyword = text;
+        _listening = false;
+        await SearchAsync();
+    }
+
+    [JSInvokable]
+    public void OnVoiceError(string message)
+    {
+        _listening = false;
+        _voiceError = message;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening) await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
+        _voiceRef?.Dispose();
     }
 
     /// <summary>Render Leaflet map sau khi có kết quả (chỉ 1 lần / kết quả mới).</summary>
