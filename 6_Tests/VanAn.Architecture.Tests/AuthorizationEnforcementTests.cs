@@ -211,6 +211,11 @@ public class AuthorizationEnforcementTests
             // 60 req/min/IP + 20 msg/session/giờ cap) + server-side tenant resolution (T6).
             // Same pattern as PublicBookingController.
             "PublicTenantAiController",
+            // Task P13 (2026-11-20): PublicTopupController — anonymous storefront top-up
+            // surface (suspended KhachLink page) — [AllowAnonymous] + "public-metering"
+            // rate-limit (60 req/min/IP) + low-wallet guard + metering-side pending/hourly
+            // caps. Same pattern as PublicMeteringController.
+            "PublicTopupController",
             // Entry Points Retention W2-1 (2026-11-14): CooperativesController — anonymous
             // public cooperative directory for hoptacxa portal ([AllowAnonymous] +
             // "cooperatives-public" rate-limit policy). Read-only, no PII.
