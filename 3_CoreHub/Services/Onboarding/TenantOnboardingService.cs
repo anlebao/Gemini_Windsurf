@@ -249,16 +249,16 @@ namespace VanAn.CoreHub.Services.Onboarding
             // Auto slug: thêm hậu tố -2/-3/... (tối đa 20) rồi random. User slug (req.Slug):
             // trùng → throw rõ ràng (không tự ý đổi slug user chọn).
             bool isAutoSlug = string.IsNullOrWhiteSpace(req.Slug);
-            string baseSlug = Slugify(isAutoSlug ? tenant.Name : req.Slug);
+            string baseSlug = SlugHelper.Slugify(isAutoSlug ? tenant.Name : req.Slug);
             string publishedSlug = baseSlug;
             if (isAutoSlug)
             {
-                for (int i = 2; i <= 20 && await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct); i++)
+                for (int i = 2; i <= 20 && await SlugHelper.SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct); i++)
                     publishedSlug = $"{baseSlug}-{i}";
-                if (await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
+                if (await SlugHelper.SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
                     publishedSlug = $"{baseSlug}-{Guid.NewGuid().ToString("N")[..4]}";
             }
-            else if (await SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
+            else if (await SlugHelper.SlugExistsAsync(dbContext, publishedSlug, tenantIdVo, ct))
             {
                 throw new InvalidOperationException($"Slug '{publishedSlug}' đã tồn tại — chọn slug khác.");
             }
@@ -334,16 +334,6 @@ namespace VanAn.CoreHub.Services.Onboarding
 
         // ── Private helpers ──────────────────────────────────────────────────
 
-        /// <summary>Kiểm tra slug đã tồn tại trên tenant khác (IgnoreQueryFilters — toàn hệ thống).</summary>
-        private static Task<bool> SlugExistsAsync(
-            IVanAnDbContext dbContext,
-            string slug,
-            TenantId excludeTenantId,
-            CancellationToken ct)
-            => dbContext.Tenants
-                .IgnoreQueryFilters()
-                .AnyAsync(t => t.Settings.Slug == slug && t.Id != excludeTenantId, ct);
-
         private static string GeneratePendingSlug(string? taxCode)
         {
             var prefix = !string.IsNullOrWhiteSpace(taxCode)
@@ -351,63 +341,6 @@ namespace VanAn.CoreHub.Services.Onboarding
                 : Guid.NewGuid().ToString("N")[..8];
             var random4 = Guid.NewGuid().ToString("N")[..4];
             return $"pending-{prefix}-{random4}";
-        }
-
-        /// <summary>
-        /// Explicit Vietnamese diacritics → ASCII map.
-        /// Issue #180 (round 2): the Gateway runs with System.Globalization.Invariant=true
-        /// (VanAn.Gateway.runtimeconfig.json) → Normalize(FormD) + \p{Mn} are NO-OPs on the
-        /// deployed runtime, so NFD-based stripping silently fails there while passing on dev.
-        /// An explicit map works in every globalization mode and also covers "đ" (U+0111 —
-        /// a single precomposed letter that NFD never decomposes).
-        /// </summary>
-        private static readonly Dictionary<char, string> VietnameseDiacriticsMap = BuildVietnameseDiacriticsMap();
-
-        private static Dictionary<char, string> BuildVietnameseDiacriticsMap()
-        {
-            var map = new Dictionary<char, string>();
-            void Add(string from, string to)
-            {
-                foreach (var c in from) map[c] = to;
-            }
-            Add("áàảãạăắằẳẵặâấầẩẫậ", "a");
-            Add("ÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬ", "A");
-            Add("éèẻẽẹêếềểễệ", "e");
-            Add("ÉÈẺẼẸÊẾỀỂỄỆ", "E");
-            Add("íìỉĩị", "i");
-            Add("ÍÌỈĨỊ", "I");
-            Add("óòỏõọôốồổỗộơớờởỡợ", "o");
-            Add("ÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢ", "O");
-            Add("úùủũụưứừửữự", "u");
-            Add("ÚÙỦŨỤƯỨỪỬỮỰ", "U");
-            Add("ýỳỷỹỵ", "y");
-            Add("ÝỲỶỸỴ", "Y");
-            Add("đ", "d");
-            Add("Đ", "D");
-            return map;
-        }
-
-        private static string Slugify(string name)
-        {
-            // Simple slugify: lowercase, strip Vietnamese diacritics, replace spaces with hyphens.
-            // 1) NFD + \p{Mn} — best-effort for non-Vietnamese accents (no-op under invariant globalization).
-            // 2) Explicit Vietnamese map — works in EVERY globalization mode (invariant runtime included).
-            // 3) Keep ONLY ASCII [a-z0-9 -] — deterministic; \w would let non-ASCII letters through.
-            // Result always satisfies Tenant.UpdateSlug regex (^[a-z0-9]+(?:-[a-z0-9]+)*$).
-            var slug = name.Trim().ToLowerInvariant();
-            slug = slug.Normalize(System.Text.NormalizationForm.FormD);
-            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\p{Mn}", "");
-            var sb = new System.Text.StringBuilder(slug.Length);
-            foreach (var ch in slug)
-            {
-                sb.Append(VietnameseDiacriticsMap.TryGetValue(ch, out var rep) ? rep : ch);
-            }
-            slug = sb.ToString();
-            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\s-]", "");
-            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\s+", "-");
-            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
-            slug = slug.Trim('-');
-            return string.IsNullOrWhiteSpace(slug) ? $"tenant-{Guid.NewGuid():N}"[..30] : slug[..Math.Min(slug.Length, 100)];
         }
 
         private async Task PublishTenantVerifiedEventAsync(

@@ -31,11 +31,15 @@ namespace VanAn.CoreHub.Services
         public async Task<Tenant> CreateTenantAsync(CreateTenantRequest request, CancellationToken ct = default)
         {
             var id = new TenantId(Guid.NewGuid());
+            // Auto slug từ tên — directory "Xem trang cửa hàng" cần Settings.Slug;
+            // trước đây tenant tạo tay (admin/API) không có slug → không có storefront.
+            // Admin vẫn override qua UpdateSlugAsync (TenantManagement edit form).
+            var slug = await SlugHelper.GenerateUniqueSlugAsync(dbContext, request.Name, id, ct);
             var settings = new TenantSettings(
                 request.ContactEmail,
                 request.ContactPhone,
                 request.Address,
-                taxCode: request.TaxCode);
+                taxCode: request.TaxCode).WithSlug(slug);
 
             Tenant tenant = request.BusinessType == BusinessType.HouseholdBusiness && request.HKDGroup.HasValue
                 ? Tenant.CreateHouseholdBusiness(id, request.Name, request.HKDGroup.Value, settings)

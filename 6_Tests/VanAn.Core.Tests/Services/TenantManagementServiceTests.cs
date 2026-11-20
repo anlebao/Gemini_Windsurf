@@ -94,6 +94,26 @@ public class TenantManagementServiceTests : IDisposable
         result.HKDGroup.Should().Be(HKDGroup.Group2);
     }
 
+    // ── 1b. Auto slug on create (directory "Xem trang cửa hàng" fix) ──────────
+
+    [Fact(DisplayName = "W5-S11: CreateTenant auto-assigns slug từ tên (bỏ dấu tiếng Việt)")]
+    public async Task CreateTenant_AutoAssignsSlug_FromName()
+    {
+        Tenant result = await _sut.CreateTenantAsync(
+            new CreateTenantRequest("Công Ty TNHH Trà Sữa 79", BusinessType.Company, null, null, null, null, null));
+
+        result.Settings.Slug.Should().Be("cong-ty-tnhh-tra-sua-79");
+    }
+
+    [Fact(DisplayName = "W5-S12: CreateTenant dedupes slug khi trùng tên")]
+    public async Task CreateTenant_DedupesSlug_WhenNameTaken()
+    {
+        await _sut.CreateTenantAsync(new CreateTenantRequest("Quán Cà Phê", BusinessType.Company, null, null, null, null, null));
+        Tenant second = await _sut.CreateTenantAsync(new CreateTenantRequest("Quán Cà Phê", BusinessType.Company, null, null, null, null, null));
+
+        second.Settings.Slug.Should().Be("quan-ca-phe-2");
+    }
+
     // ── 2. GetTenantById ──────────────────────────────────────────────────────
 
     [Fact(DisplayName = "W5-S5: GetTenantById returns null for unknown ID")]
