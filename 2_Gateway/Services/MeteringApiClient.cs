@@ -129,6 +129,125 @@ public sealed class MeteringApiClient : IMeteringClient
         }
     }
 
+    // ---- P13: public storefront top-up (anonymous → gateway → metering) ----
+
+    /// <summary>GET /v1/wallets/{tenantId} — balance + alertLevel only.</summary>
+    public async Task<MeteringWalletInfo?> GetWalletAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        if (!Enabled()) return null;
+        try
+        {
+            using var resp = await _http.GetAsync($"v1/wallets/{tenantId}", ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "wallet"); return null; }
+            var dto = await resp.Content.ReadFromJsonAsync<WalletWire>(Json, ct);
+            _consecutiveFailures = 0;
+            return dto == null ? null : new MeteringWalletInfo(dto.Balance, dto.AlertLevel);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "wallet");
+            return null;
+        }
+    }
+
+    /// <summary>GET /v1/packages — active package catalog.</summary>
+    public async Task<IReadOnlyList<MeteringPackageInfo>> ListPackagesAsync(CancellationToken ct = default)
+    {
+        if (!Enabled()) return Array.Empty<MeteringPackageInfo>();
+        try
+        {
+            using var resp = await _http.GetAsync("v1/packages", ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "packages"); return Array.Empty<MeteringPackageInfo>(); }
+            var list = await resp.Content.ReadFromJsonAsync<List<PackageWire>>(Json, ct);
+            _consecutiveFailures = 0;
+            return list?.Select(p => new MeteringPackageInfo(
+                p.Code ?? string.Empty, p.Name ?? string.Empty, p.PriceVnd, p.Credits,
+                p.ValidityDays, p.SortOrder)).ToList() ?? new List<MeteringPackageInfo>();
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "packages");
+            return Array.Empty<MeteringPackageInfo>();
+        }
+    }
+
+    /// <summary>POST /v1/topups — create pending top-up (caller = gateway).</summary>
+    public async Task<MeteringTopupCreated?> CreateTopupAsync(Guid tenantId, decimal? amountVnd,
+        string? packageCode, string idempotencyKey, CancellationToken ct = default)
+    {
+        if (!Enabled()) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "v1/topups");
+            req.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+            req.Content = JsonContent.Create(new { tenantId, amountVnd, packageCode }, options: Json);
+            using var resp = await _http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "topup-create"); return null; }
+            var dto = await resp.Content.ReadFromJsonAsync<TopupWire>(Json, ct);
+            _consecutiveFailures = 0;
+            return dto == null ? null : new MeteringTopupCreated(
+                dto.Id, dto.ReferenceCode ?? string.Empty, dto.AmountVnd, dto.Status ?? "pending", dto.ExpiresAtUtc);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "topup-create");
+            return null;
+        }
+    }
+
+    /// <summary>POST /v1/topups/{id}/qr — mint Tingee dynamic QR (EMV payload).</summary>
+    public async Task<MeteringQrCreated?> CreateTopupQrAsync(Guid topupId, CancellationToken ct = default)
+    {
+        if (!Enabled()) return null;
+        try
+        {
+            using var resp = await _http.PostAsync($"v1/topups/{topupId}/qr", content: null, ct);
+            if (!resp.IsSuccessStatusCode) { Fail($"HTTP {(int)resp.StatusCode}", "topup-qr"); return null; }
+            var dto = await resp.Content.ReadFromJsonAsync<QrWire>(Json, ct);
+            _consecutiveFailures = 0;
+            return dto == null || dto.QrPayload == null ? null
+                : new MeteringQrCreated(dto.QrPayload, dto.BillId ?? string.Empty, dto.QrAccount, dto.ExpiresInMinute);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Fail(ex.Message, "topup-qr");
+            return null;
+        }
+    }
+
+    private sealed class WalletWire
+    {
+        public decimal Balance { get; set; }
+        public string? AlertLevel { get; set; }
+    }
+
+    private sealed class PackageWire
+    {
+        public string? Code { get; set; }
+        public string? Name { get; set; }
+        public decimal PriceVnd { get; set; }
+        public decimal Credits { get; set; }
+        public int ValidityDays { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    private sealed class TopupWire
+    {
+        public Guid Id { get; set; }
+        public string? ReferenceCode { get; set; }
+        public decimal? AmountVnd { get; set; }
+        public string? Status { get; set; }
+        public DateTime ExpiresAtUtc { get; set; }
+    }
+
+    private sealed class QrWire
+    {
+        public string? QrPayload { get; set; }
+        public string? BillId { get; set; }
+        public string? QrAccount { get; set; }
+        public int ExpiresInMinute { get; set; }
+    }
+
     private bool Enabled()
     {
         if (!_enabled) return false;

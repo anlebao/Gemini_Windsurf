@@ -95,6 +95,7 @@ namespace VanAn.KhachLink
 
             // Storefront deny gate: anonymous metering balance check before Store render
             _ = builder.Services.AddScoped<Services.Http.MeteringCheckHttpService>();
+            _ = builder.Services.AddScoped<Services.Http.PublicTopupHttpService>();
 
             // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped)
             _ = builder.Services.AddScoped<Services.Http.KhachLinkHomeSettingsHttpService>();

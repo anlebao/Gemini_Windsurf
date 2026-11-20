@@ -42,6 +42,11 @@ public sealed class TopupService(
     private const string RefAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private const int RefLength = 8;
 
+    // P13 — public top-up guardrail (storefront callers are anonymous): bound
+    // QR-spam by capping live pending requests and creation rate per tenant.
+    private const int MaxPendingPerTenant = 5;
+    private const int MaxCreationsPerHour = 20;
+
     private TimeSpan Ttl => topupTtl ?? TimeSpan.FromHours(72);
     private readonly TingeePaymentClient? _tingee = tingee;
     private readonly PackageService? _packages = packages;
@@ -77,6 +82,18 @@ public sealed class TopupService(
         var existing = await db.TopupRequests.AsNoTracking()
             .FirstOrDefaultAsync(t => t.CallerId == callerId && t.IdempotencyKey == idemKey, ct);
         if (existing != null) return TopupOpResult.Ok(existing);
+
+        // P13 — rate-limit before insert (idempotent replays already returned above).
+        var pendingCount = await db.TopupRequests
+            .CountAsync(t => t.TenantId == req.TenantId && t.Status == TopupStatus.Pending, ct);
+        if (pendingCount >= MaxPendingPerTenant)
+            return TopupOpResult.Fail("too_many_pending_topups",
+                $"Too many pending top-up requests ({MaxPendingPerTenant}) — finish or let them expire first.");
+        var hourlyCount = await db.TopupRequests
+            .CountAsync(t => t.TenantId == req.TenantId && t.CreatedAtUtc >= nowUtc.AddHours(-1), ct);
+        if (hourlyCount >= MaxCreationsPerHour)
+            return TopupOpResult.Fail("topup_rate_limited",
+                $"Too many top-up requests this hour ({MaxCreationsPerHour}) — try again later.");
 
         // Card §5-e: referenceCode collision (astronomically rare) → regenerate once.
         for (var attempt = 0; attempt < 2; attempt++)

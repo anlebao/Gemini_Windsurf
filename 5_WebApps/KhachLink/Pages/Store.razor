@@ -25,6 +25,7 @@
 @inject IConfiguration Config
 @inject VanAn.KhachLink.Services.FeatureContextService FeatureContext
 @inject MeteringCheckHttpService MeteringCheck
+@inject VanAn.KhachLink.Services.Http.PublicTopupHttpService PublicTopup
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
@@ -47,19 +48,71 @@ else if (_suspended)
             <h2>Trang web này tạm ngưng phục vụ</h2>
             <p>Cửa hàng đang tạm ngừng hoạt động do hết phí nền tảng. Vui lòng quay lại sau.</p>
             <div class="suspend-topup-box text-start mx-auto" style="max-width:340px;">
-                <p class="mb-2 fw-semibold"><i class="bi bi-wallet2"></i> Chủ cửa hàng — nạp phí để mở lại ngay:</p>
-                <ul class="text-muted mb-2" style="font-size:.88em;">
-                    <li>Gói ngày / tuần / tháng / năm — credit có hạn dùng, giá ưu đãi</li>
-                    <li>Nạp số tiền tùy ý — không hết hạn</li>
-                    <li>Quét VietQR bằng app ngân hàng → ví <strong>tự động cộng credit</strong></li>
-                </ul>
-                <a class="btn-cta d-inline-block text-decoration-none" href="@OwnerPortalWalletUrl" target="_blank" rel="noopener">
-                    <i class="bi bi-plus-circle me-1"></i> Nạp phí nền tảng ngay
+                <p class="mb-2 fw-semibold"><i class="bi bi-wallet2"></i> Nạp phí để mở lại ngay:</p>
+                @if (_topupOptions?.Allowed == true)
+                {
+                    @* P13 — inline QR top-up: ai cũng tạo được, ví tự cộng credit sau CK *@
+                    @if (_topupQrDataUrl != null)
+                    {
+                        <img src="@_topupQrDataUrl" alt="VietQR nạp phí" class="mb-2"
+                             style="width:min(220px,60vw);height:auto;border:1px solid #ddd;border-radius:8px;" />
+                        <p class="mb-1" style="font-size:.85em;">
+                            <i class="bi bi-check-circle text-success"></i>
+                            Quét bằng app ngân hàng — <strong>tự động cộng credit</strong>, không cần ghi nội dung.
+                        </p>
+                        <p class="text-muted mb-2" style="font-size:.8em;">
+                            @_topupResult?.ReferenceCode · @_topupResult?.AmountVnd?.ToString("N0") đ
+                        </p>
+                        <button class="btn-cta w-100" @onclick="ResetTopupAsync" disabled="@_topupBusy">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Tạo QR khác
+                        </button>
+                    }
+                    else
+                    {
+                        @if (_topupOptions.Packages.Count > 0)
+                        {
+                            <div class="d-flex gap-1 flex-wrap mb-2">
+                                @foreach (var pkg in _topupOptions.Packages)
+                                {
+                                    <button type="button" class="btn btn-sm @(_selectedPkg == pkg.Code ? "btn-primary" : "btn-outline-primary")"
+                                            @onclick="() => _selectedPkg = (_selectedPkg == pkg.Code ? null : pkg.Code)" disabled="@_topupBusy"
+                                            title="@($"{pkg.Credits:0.##} credit, dùng trong {pkg.ValidityDays} ngày")">
+                                        @pkg.Name · @pkg.PriceVnd.ToString("N0")đ
+                                    </button>
+                                }
+                            </div>
+                        }
+                        <div class="d-flex gap-2 mb-2">
+                            <input class="form-control form-control-sm" type="number" min="10000" step="10000"
+                                   placeholder="Số tiền (đ)" @bind="_topupAmount" disabled="@(_topupBusy || _selectedPkg != null)" />
+                            <button class="btn btn-primary btn-sm text-nowrap" @onclick="CreatePublicTopupAsync"
+                                    disabled="@(_topupBusy || (_selectedPkg == null && !_topupAmount.HasValue))">
+                                @(_topupBusy ? "Đang tạo..." : "Tạo QR")
+                            </button>
+                        </div>
+                        <p class="text-muted mb-0" style="font-size:.78em;">
+                            Gói có hạn dùng; nạp tự do không hết hạn. Ví cộng credit ngay sau khi CK thành công.
+                        </p>
+                        @if (!string.IsNullOrEmpty(_topupError))
+                        {
+                            <p class="text-danger mb-0 mt-1" style="font-size:.8em;">@_topupError</p>
+                        }
+                    }
+                }
+                else if (_topupOptions != null)
+                {
+                    <p class="text-muted mb-2" style="font-size:.85em;">
+                        Hệ thống nạp tự động đang bận — vui lòng dùng trang ví bên dưới.
+                    </p>
+                }
+                <a class="btn-cta d-inline-block text-decoration-none @( _topupQrDataUrl != null ? "mt-2" : "")"
+                   href="@OwnerPortalWalletUrl" target="_blank" rel="noopener">
+                    <i class="bi bi-wallet2 me-1"></i> Mở trang ví đầy đủ
                 </a>
             </div>
             <p class="text-muted mt-3" style="font-size:.85em;">
                 <i class="bi bi-info-circle"></i>
-                Đăng nhập ShopERP → mục <em>Ví phí nền tảng</em> để chọn gói và thanh toán.
+                Chủ cửa hàng đăng nhập ShopERP → mục <em>Ví phí nền tảng</em> để xem lịch sử &amp; nạp thêm.
             </p>
             <button class="btn-cta" @onclick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
@@ -872,6 +925,56 @@ else
     private string _voiceServiceUrl => Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
     private string OwnerPortalWalletUrl
         => $"{(Config["Onboarding:OwnerPortalUrl"] ?? "https://app2.khachvip.online").TrimEnd('/')}/wallet/phi-nen-tang";
+
+    // P13 — anonymous top-up on the suspended page (via Gateway public proxy).
+    private VanAn.KhachLink.Services.Http.PublicTopupHttpService.TopupOptions? _topupOptions;
+    private VanAn.KhachLink.Services.Http.PublicTopupHttpService.CreatedTopup? _topupResult;
+    private string? _topupQrDataUrl;
+    private string? _selectedPkg;
+    private decimal? _topupAmount;
+    private bool _topupBusy;
+    private string? _topupIdemKey;
+    private string? _topupError;
+
+    private async Task LoadTopupOptionsAsync()
+    {
+        if (_store == null) return;
+        _topupOptions = await PublicTopup.GetOptionsAsync(_store.Id);
+    }
+
+    private async Task CreatePublicTopupAsync()
+    {
+        if (_store == null || _topupBusy) return;
+        _topupBusy = true;
+        _topupError = null;
+        try
+        {
+            // One idempotency key per QR session — double-click/retry dedupes server-side.
+            _topupIdemKey ??= $"pub-{_store.Id}-{Guid.NewGuid():N}";
+            var dto = await PublicTopup.CreateAsync(_store.Id, _selectedPkg,
+                _selectedPkg == null ? _topupAmount : null, _topupIdemKey);
+            if (dto == null)
+            {
+                _topupError = "Không tạo được mã QR — vui lòng thử lại hoặc dùng trang ví.";
+                return;
+            }
+            _topupResult = dto;
+            if (!string.IsNullOrEmpty(dto.QrPayload))
+                _topupQrDataUrl = await JSRuntime.InvokeAsync<string>(
+                    "vananQrWallet.generateQrDataUrl", dto.QrPayload, 300);
+            if (_topupQrDataUrl == null)
+                _topupError = "Không hiển thị được QR — vui lòng dùng trang ví.";
+        }
+        finally { _topupBusy = false; }
+    }
+
+    private void ResetTopupAsync()
+    {
+        _topupQrDataUrl = null;
+        _topupResult = null;
+        _topupIdemKey = null;
+        _topupError = null;
+    }
     private string _voiceHubUrl => Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
 
     /// <summary>VOICE SERVICE P4/C2: voice call button — resolved from _features.Voice_Call_Enabled
@@ -1041,6 +1144,7 @@ else
             if (!await MeteringCheck.IsStorefrontAllowedAsync(_store.Id))
             {
                 _suspended = true;
+                await LoadTopupOptionsAsync();
                 return;
             }
 

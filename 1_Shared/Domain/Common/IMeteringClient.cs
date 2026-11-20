@@ -62,6 +62,22 @@ public static class MeteringAttributeValues
     public const string Unverified = "unverified";
 }
 
+/// <summary>P13 — wallet summary for the public top-up guard (balance + alert only,
+/// never exposed to anonymous callers — gateway uses it internally).</summary>
+public sealed record MeteringWalletInfo(decimal Balance, string? AlertLevel);
+
+/// <summary>P13 — active package catalog entry (GET /v1/packages).</summary>
+public sealed record MeteringPackageInfo(
+    string Code, string Name, decimal PriceVnd, decimal Credits, int ValidityDays, int SortOrder);
+
+/// <summary>P13 — created top-up request (POST /v1/topups).</summary>
+public sealed record MeteringTopupCreated(
+    Guid Id, string ReferenceCode, decimal? AmountVnd, string Status, DateTime ExpiresAtUtc);
+
+/// <summary>P13 — minted dynamic QR (POST /v1/topups/{id}/qr).</summary>
+public sealed record MeteringQrCreated(
+    string QrPayload, string BillId, string? QrAccount, int ExpiresInMinute);
+
 /// <summary>
 /// Thin, fail-safe client into vanan-metering. Implemented per-host (ShopERP/Gateway/Directory),
 /// NOT a shared DLL (D2). Contracts:
@@ -80,6 +96,25 @@ public interface IMeteringClient
     /// unconfigured — callers MUST treat null as "allow" (fail-open per G9).
     /// Issue #197: <paramref name="attributes"/> scope the rate resolution.</summary>
     Task<MeteringBalanceCheck?> CheckBalanceAsync(Guid tenantId, string serviceCode, MeteringTenantAttributes? attributes = null, CancellationToken ct = default);
+
+    // ---- P13: public storefront top-up (Gateway only implements; others default no-op) ----
+
+    /// <summary>GET /v1/wallets/{tenantId} — null on failure/unimplemented.</summary>
+    Task<MeteringWalletInfo?> GetWalletAsync(Guid tenantId, CancellationToken ct = default)
+        => Task.FromResult<MeteringWalletInfo?>(null);
+
+    /// <summary>GET /v1/packages — active catalog. Empty on failure/unimplemented.</summary>
+    Task<IReadOnlyList<MeteringPackageInfo>> ListPackagesAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<MeteringPackageInfo>>(Array.Empty<MeteringPackageInfo>());
+
+    /// <summary>POST /v1/topups — null on failure/unimplemented.</summary>
+    Task<MeteringTopupCreated?> CreateTopupAsync(Guid tenantId, decimal? amountVnd, string? packageCode,
+        string idempotencyKey, CancellationToken ct = default)
+        => Task.FromResult<MeteringTopupCreated?>(null);
+
+    /// <summary>POST /v1/topups/{id}/qr — Tingee dynamic QR. Null on failure/unimplemented.</summary>
+    Task<MeteringQrCreated?> CreateTopupQrAsync(Guid topupId, CancellationToken ct = default)
+        => Task.FromResult<MeteringQrCreated?>(null);
 }
 
 /// <summary>
