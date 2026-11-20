@@ -2,7 +2,7 @@
 @using VanAn.Shared.Domain
 @model VanAn.ShopERP.Pages.LoginModel
 @{
-    ViewData["Title"] = "Đăng nhập - ShopERP";
+    ViewData["Title"] = "Đăng nhập - ShopAI";
     Layout = null;
 }
 <!DOCTYPE html>
@@ -116,20 +116,6 @@
             color: #c53030;
             font-size: 0.875rem;
         }
-        .demo-hint {
-            background: #ebf8ff;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            font-size: 0.8rem;
-            color: #2c5282;
-            margin-top: 1.5rem;
-        }
-        .demo-hint code {
-            background: #bfdbfe;
-            padding: 1px 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-        }
         .pwa-install-btn {
             height: 48px;
             border-radius: 8px;
@@ -152,8 +138,8 @@
         <div class="login-logo">
             <i class="bi bi-shop"></i>
         </div>
-        <h1 class="login-title">Vạn An ShopERP</h1>
-        <p class="login-subtitle">Hệ thống quản lý cửa hàng Vạn An</p>
+        <h1 class="login-title">ShopAI</h1>
+        <p class="login-subtitle">Hệ thống quản lý cửa hàng ShopAI</p>
 
         @if (Model.MfaStep)
         {
@@ -213,7 +199,7 @@
         }
         else
         {
-        <form method="post" aria-label="Đăng nhập ShopERP">
+        <form method="post" aria-label="Đăng nhập ShopAI">
             @Html.AntiForgeryToken()
 
             <div class="mb-3">
@@ -267,17 +253,11 @@
         }
 
         <button type="button" id="pwa-install-btn"
-                aria-label="Cài đặt ứng dụng ShopERP"
+                aria-label="Cài đặt ứng dụng ShopAI"
                 class="btn pwa-install-btn w-100 mt-3">
             <i class="bi bi-phone me-2"></i>Cài ứng dụng lên điện thoại
         </button>
 
-        <div class="demo-hint">
-            <i class="bi bi-info-circle me-1"></i>
-            <strong>Tài khoản demo:</strong><br />
-            Owner: <code>adminvanan1</code> / Staff: <code>staff@vanan.vn</code><br />
-            Masterchef: <code>bep@vanan.vn</code> / Guard: <code>baove@vanan.vn</code>
-        </div>
     </div>
     <script src="~/js/pwa.js"></script>
     <script>

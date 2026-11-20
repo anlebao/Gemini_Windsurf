@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Vạn An ShopERP — Vận hành cửa hàng",
-  "short_name": "ShopERP",
+  "name": "ShopAI — Vận hành cửa hàng",
+  "short_name": "ShopAI",
   "description": "POS · Bếp · Đơn hàng · Đặt lịch · Kho — vận hành cửa hàng trên điện thoại/tablet",
   "start_url": "/",
   "display": "standalone",

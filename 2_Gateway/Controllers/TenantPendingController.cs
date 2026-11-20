@@ -19,6 +19,7 @@ namespace VanAn.Gateway.Controllers
         IVanAnDbContext dbContext,
         ITenantOnboardingService onboardingService,
         IDuplicateDetectionService duplicateService,
+        IMerchantSignupService signupService,
         ILogger<TenantPendingController> logger) : ControllerBase
     {
         // ── Pending tenants ──────────────────────────────────────────────────
@@ -117,6 +118,17 @@ namespace VanAn.Gateway.Controllers
             var sysAdminUserId = GetSysAdminUserId();
             if (sysAdminUserId == Guid.Empty)
                 return Unauthorized(new { error = "SysAdmin user ID not found in JWT claims." });
+
+            // Self-serve signup phải đi qua verify-signup: merchant đã chọn
+            // username + password (protected) — direct verify sẽ hỏi lại và ghi đè.
+            var signupDetail = await signupService.GetSignupDetailAsync(tenantId, ct);
+            if (signupDetail?.HasSelfServePayload == true)
+            {
+                return Conflict(new
+                {
+                    error = "Tenant này là self-serve signup — dùng POST /api/v1/tenants/{tenantId}/verify-signup để giữ credentials merchant đã đăng ký."
+                });
+            }
 
             try
             {

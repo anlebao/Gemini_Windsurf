@@ -1857,8 +1857,16 @@
 
     // ── Verify (direct verify Pending tenant) ──────────────────────────────
 
-    private void OpenVerifyModal(PendingTenantApiDto p)
+    private async Task OpenVerifyModal(PendingTenantApiDto p)
     {
+        // Self-serve signup: bắt buộc đi qua hồ sơ đăng ký — form đó prefill
+        // OwnerUsername merchant đã chọn + dùng OwnerPasswordProtected đã lưu.
+        // Direct verify sẽ hỏi lại credentials và ghi đè lựa chọn của merchant.
+        if (p.HasSignupPayload)
+        {
+            await OpenSignupDetail(p);
+            return;
+        }
         _selectedPending = p;
         _verifyForm = new VerifyForm
         {

@@ -321,7 +321,7 @@ window.vananPWA = {
                 '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
         } else if (hint) {
             // iOS: show Share → Add to Home Screen instructions
-            toast.innerHTML = '<div style="font-weight:600;margin-bottom:8px;">Cài đặt Vạn An App</div>' +
+            toast.innerHTML = '<div style="font-weight:600;margin-bottom:8px;">Cài đặt ShopAI</div>' +
                 '<div style="opacity:0.9;margin-bottom:12px;">' + hint + '</div>' +
                 '<button onclick="window.location.reload()" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
         } else {
