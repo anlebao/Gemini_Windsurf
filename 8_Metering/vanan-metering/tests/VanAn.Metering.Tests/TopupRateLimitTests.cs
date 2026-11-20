@@ -105,4 +105,38 @@ public sealed class TopupRateLimitTests
         var afterHour = await Create(topups, "k-22", now: Now.AddHours(1).AddMinutes(1));
         afterHour.Request.Should().NotBeNull();
     }
+
+    // ---------- P13b: physical purge of stale top-ups ----------
+
+    [Fact]
+    public async Task PurgeStale_DeletesOnlyOldNonConfirmed()
+    {
+        var (db, _, topups) = NewSut();
+        var old = Now.AddDays(-100);
+        // expired + rejected + stale-pending, all >90d old → deleted
+        foreach (var key in new[] { "e1", "r1", "p1" })
+        {
+            var r = await Create(topups, key, now: old);
+            r.Request.Should().NotBeNull();
+        }
+        db.TopupRequests.Local.First(t => t.IdempotencyKey == "e1").ExpireIfStale(Now);
+        db.TopupRequests.Local.First(t => t.IdempotencyKey == "r1").Reject("admin", null, old);
+        // p1 stays Pending but ExpiresAtUtc = old+72h << Now → stale
+        await db.SaveChangesAsync();
+
+        // confirmed old → KEPT (payment fact); fresh pending → KEPT; fresh expired → KEPT (<90d)
+        var conf = await Create(topups, "c1", now: old);
+        conf.Request!.Confirm(10m, "admin", null, old);
+        await db.SaveChangesAsync();
+        (await Create(topups, "fresh", now: Now)).Request.Should().NotBeNull();
+        var freshExpired = await Create(topups, "fe1", now: Now.AddDays(-10));
+        freshExpired.Request!.ExpireIfStale(Now);
+        await db.SaveChangesAsync();
+
+        var deleted = await topups.PurgeStaleAsync(Now);
+
+        deleted.Should().Be(3);
+        var remaining = await db.TopupRequests.Select(t => t.IdempotencyKey).ToListAsync();
+        remaining.Should().BeEquivalentTo(new[] { "c1", "fresh", "fe1" });
+    }
 }

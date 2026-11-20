@@ -425,6 +425,25 @@ public sealed class TopupService(
         foreach (var s in stale) s.ExpireIfStale(nowUtc); // keep returned DTOs consistent
     }
 
+    /// <summary>P13b — physical purge of stale top-up rows (lazy expiry only marks
+    /// status; rows would otherwise accumulate forever). Deletes Expired/Rejected
+    /// and stale Pending rows older than <paramref name="retentionDays"/>.
+    /// Confirmed rows are NEVER deleted — they are the payment fact behind ledger
+    /// grants (TopupRequestId references, provider transaction id, paid amount).</summary>
+    public async Task<int> PurgeStaleAsync(DateTime nowUtc, int retentionDays = 90, CancellationToken ct = default)
+    {
+        var cutoff = nowUtc.AddDays(-retentionDays);
+        var stale = await db.TopupRequests
+            .Where(t => t.CreatedAtUtc < cutoff
+                && t.Status != TopupStatus.Confirmed
+                && (t.Status != TopupStatus.Pending || t.ExpiresAtUtc < nowUtc))
+            .ToListAsync(ct);
+        if (stale.Count == 0) return 0;
+        db.TopupRequests.RemoveRange(stale);
+        await db.SaveChangesAsync(ct);
+        return stale.Count;
+    }
+
     private static string StatusName(TopupStatus s) => s switch
     {
         TopupStatus.Confirmed => "confirmed",

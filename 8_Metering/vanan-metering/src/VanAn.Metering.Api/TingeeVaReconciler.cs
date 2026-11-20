@@ -14,6 +14,7 @@ public sealed class TingeeVaReconciler(
     ILogger<TingeeVaReconciler> logger) : BackgroundService
 {
     private static readonly TimeSpan MinDelay = TimeSpan.FromSeconds(30);
+    private DateOnly _lastPurgeDate = DateOnly.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -41,6 +42,19 @@ public sealed class TingeeVaReconciler(
 
             var tingee = sp.GetRequiredService<TingeePaymentClient>();
             var topups = sp.GetRequiredService<TopupService>();
+
+            // P13b — daily physical purge of stale top-up rows (lazy expiry only
+            // marks status; without this, expired/rejected rows accumulate forever).
+            // Confirmed rows are always kept (payment facts behind ledger grants).
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (today != _lastPurgeDate)
+            {
+                _lastPurgeDate = today;
+                var purged = await topups.PurgeStaleAsync(DateTime.UtcNow, ct: ct);
+                if (purged > 0)
+                    logger.LogInformation("Topup purge: removed {Count} stale request(s)", purged);
+            }
+
             if (cfg == null || !cfg.VaPollEnabled || !tingee.IsEnabled)
                 return delay;
 
