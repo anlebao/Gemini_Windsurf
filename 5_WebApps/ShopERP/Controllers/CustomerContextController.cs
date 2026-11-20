@@ -48,10 +48,8 @@ namespace VanAn.ShopERP.Controllers
         /// <summary>Ngưỡng ngày không đặt đơn để trigger win-back card.</summary>
         private const int WinBackDaysThreshold = 30;
 
-        private static readonly HashSet<string> ActiveOrderStatuses = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "pending", "confirmed", "preparing", "ready", "delivering"
-        };
+        // NOTE: active-order count uses OrderStatusId equality OR-chain below —
+        // HashSet.Contains on Status.Value VO property is NOT EF-translatable (500 in RV).
 
         /// <summary>
         /// GET /api/customer-context/me — aggregated profile context for /profile page.
@@ -80,7 +78,12 @@ namespace VanAn.ShopERP.Controllers
                 .Where(o => !o.IsDeleted && (
                     o.CustomerId == customerId.Value ||
                     (devId != null && o.CustomerDeviceId == devId)));
-            var activeOrderCount = await orderQuery.CountAsync(o => ActiveOrderStatuses.Contains(o.Status.Value));
+            var activeOrderCount = await orderQuery.CountAsync(o =>
+                o.Status == new OrderStatusId("pending") ||
+                o.Status == new OrderStatusId("confirmed") ||
+                o.Status == new OrderStatusId("preparing") ||
+                o.Status == new OrderStatusId("ready") ||
+                o.Status == new OrderStatusId("delivering"));
             var orderStats = await orderQuery
                 .GroupBy(_ => 1)
                 .Select(g => new
