@@ -54,9 +54,16 @@
 
 ## 4. Next Actions
 
-**▶ KHACHLINK PROFILE CONTEXTUAL UX — ✅ v1 DEPLOYED + ✅ RV PASS:**
-- [x] **RV `/profile` prod** — `profile-contextual.spec.ts` với minted dev-token: **41/42 PASS** (guest login prompt · ≤3 cards + priority · settings toggle · CTA nav · 375px no-overflow). 1 fail = firefox env timeout `h5` (WASM/app load >40s), cùng test pass 4 browser khác → env flake, không phải app bug. Dev-token window đã đóng + verify (audit log `task_card_04_dev_otp_gate.md`).
-- [ ] **v2 candidates (chưa duyệt):** `/api/customers/me/context` aggregation endpoint (1 call thay multi-call) · ML/personalization · dismiss-card persistence.
+**▶ KHACHLINK PROFILE CONTEXTUAL UX — ✅ v1 + ✅ v2 DEPLOYED + ✅ RV PASS:**
+- [x] **v1** `50cd0627` — 4-zone rewrite + rule builder + E2E · RV 41/42 (1 firefox env flake).
+- [x] **v2** `31622ddb`+`8cf324f5`+`ca5942e9` (CD `44771304822` SUCCESS) — **3 items đủ scope:**
+  - `GET /api/customer-context/me` (ShopERP `CustomerContextController`) — 1 call aggregate profile+tier/orders/missions/push/vouchers/dismissals; Gateway forward `CustomerContextController`; mỗi section best-effort.
+  - **Dismiss persistence** — `CustomerContextDismissalEntity` (CoreHub.Infrastructure, precedent ShopFeatureSettings) + migration `AddCustomerContextDismissals` + `POST/DELETE /me/dismiss` upsert TTL 7 ngày.
+  - **Personalization** — rules mới `voucher-expiring` (pri 15 → /rewards) + `win-back` ≥30d (pri 70 → /campaigns); dismissal filter trước cap-3; fallback cũng dismissible.
+  - `Profile.razor` — context-first load + **legacy multi-call fallback** khi endpoint lỗi; nút × dismiss mỗi card; `data-testid` CTA (fix: VanAnButton không có TestId param → splat attribute).
+  - `LoyaltyTierCalculator` shared (dedupe CalcTier).
+  - Tests: builder **23/23** · arch **41/41** (exempt thêm CustomerContextController) · guard ALL PASSED · E2E spec +dismiss test.
+  - **RV PASS 2026-11-20** — dev-token window #2: context endpoint 200 shape đúng (fix `8cf324f5`: OrderStatusId equality — HashSet.Contains trên Status.Value VO không EF-translatable → 500) · dismiss→GET→restore round-trip OK · Playwright chromium **7/7 PASS** · cleanup verified (env=0, endpoint 404, files deleted — audit `task_card_04`).
 
 **▶ ENTRY POINTS RETENTION — ✅ W1+W2+W3 DONE 100% (W3-2 `5a01f0e1` deployed, RV PASS) · M1/M2 ⏸ DEFERRED (user 2026-11-15):**
 - [x] **FIX nav duplicate (RV finding)** — `NavMenu Variant` param (all|sidebar|mobile); MainLayout truyền variant → 1 `.mobile-bottom-nav` + 1 `#nav-more-mobile` trên DOM. Deployed `708dc8ef`.
@@ -221,7 +228,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log (pre-2026-09-17): see `docs/AI/project_state_archive.md`.
 
-> **Last Updated:** 2026-11-20 · **Branch:** `main` @ `819da677` (KhachLink profile contextual UX v1 DONE + RV PASS; chờ quyết định v2)
+> **Last Updated:** 2026-11-20 · **Branch:** `main` @ `ca5942e9` (KhachLink profile contextual UX v1+v2 DONE + RV PASS)
 
 * **2026-11-20 (KHACHLINK PROFILE) — CONTEXTUAL PROFILE UX v1 DONE + DEPLOYED + CD `44739587449` SUCCESS.** User report: `/profile` show quá nhiều thông tin → rewrite 4 zones: header gọn · "Việc cần làm" max-3 rule-based context cards · quick-access grid (NavFlags-gated) · settings collapsed (push/prefs/birthday/upgrade/community/fraud/device/logout — không mất chức năng). `ProfileContextCardBuilder` pure static (snapshot→sorted cards, 8 rules priority + fallback `/stores`; tier-progress gate ≥50% ngưỡng; push card chỉ khi status known-off) · data reuse `/api/customerorders` (token+device-id, client-side active filter pending/confirmed/preparing/ready/delivering) + `/api/missions/my/progress` — song song best-effort. Tests 16/16 unit + E2E spec. Commits `50cd0627` (code+docs) — pre-push CI ALL PASSED (2942 core). **RV PASS 2026-11-20** (mint dev-token window → `profile-contextual.spec.ts` **41/42** — 1 firefox env-timeout flake `h5`, cùng test pass chromium/webkit/Mobile Chrome/Safari → không phải app bug; dev-token disabled + verified 404/env=0/files deleted; audit `task_card_04_dev_otp_gate.md`).
 * **2026-11-19 (ATRS-21) — CUSTOMER PASSKEY LOGIN DONE + DEPLOYED + RV prod 13/13 PASS.** Customer không Google/Facebook giờ login free bằng passkey (0đ, ATRS-native, không SMS/email/OAuth): guest device → guest TrustSubject (ATRS-16) → register passkey (`ResidentKey=Required` sync cross-device) → discoverable login (`allowCredentials=[]`, `TrustSubjectId=Guid.Empty` sentinel, UV=Required) → atrs resolve credential→subject→customer → ShopERP `[InternalApiKey]` mint `customer_token` → voice call eligible ngay. Commits `9794d5f8` impl · `bb75c3fb` CD env (`INTERNAL_LOYALTY_API_KEY`→atrs) · `8e8d6687` cross-tenant `GetAnyCustomerByDeviceIdAsync` (fix duplicate stub) · `4b2f0dc0`/`8caf6652` RV+docs. Tests atrs 179/179 · ShopERP 10/10 · guard PASS · CD SUCCESS · RV `atrs-passkey-login-rv.mjs` 13/13 (register→auto-login→token→/me 200→re-login same customer→anti-enum 400→0 errors).

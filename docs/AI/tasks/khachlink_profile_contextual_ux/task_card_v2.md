@@ -1,6 +1,6 @@
 # Task Card v2: KhachLink Profile Contextual UX — Aggregation + Dismiss + Personalization
 
-> **Status:** IMPLEMENT
+> **Status:** ✅ DONE — deployed + RV PASS (2026-11-20, commits `31622ddb` `8cf324f5` `ca5942e9`, CD `44771304822`)
 > **Depends on:** v1 deployed + RV PASS (`50cd0627`, CD `44739587449`)
 > **Scope approved by user 2026-11-20:** all 3 items — aggregation endpoint, dismiss persistence, personalization signals.
 

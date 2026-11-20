@@ -77,6 +77,14 @@ same test passed chromium/webkit/Mobile Chrome/Safari), then removed: `DevToken_
 env count `0`, endpoint `404`, `~/.devtoken_rv_secret` + `/tmp/rv_dev_token.json` +
 local token files deleted.
 
+**Re-used 2026-11-20 (2nd window)** for the KhachLink profile contextual UX **v2** RV
+(`docs/AI/tasks/khachlink_profile_contextual_ux/task_card_v2.md`). Enabled inline on
+vanan-shop-a, minted token for `+84900000001`, verified `GET /api/customer-context/me`
+200 + dismiss/restore round-trip, ran `profile-contextual.spec.ts` chromium (**7/7 PASS**),
+then removed: `DevToken__Secret` env count `0`, endpoint `404`, `~/.devtoken_rv_secret` +
+`/tmp/rv_dev_token.json` + local `.tmp-rv/` token files deleted. Note: CD deploy also
+cleared the env var automatically (CD rewrites `.env.shoperp` without it).
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash
