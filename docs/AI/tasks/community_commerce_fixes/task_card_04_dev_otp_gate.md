@@ -68,6 +68,15 @@ from PG (`aef5cefd-…` ×3, `a9e4194a-…` ×2), window closed (`DevToken__Secr
 endpoint `404`), `~/.rvsec`/`~/.rvtoken*` removed. Note: stale `/tmp/.rvsec` (root-owned,
 secret no longer valid) could not be removed by user `lebao` — needs root cleanup.
 
+**Re-used 2026-11-20** for the KhachLink profile contextual UX v1 RV
+(`docs/AI/tasks/khachlink_profile_contextual_ux/`). Enabled inline on vanan-shop-a
+(fresh `DEV_TOKEN_SECRET` via `~/.devtoken_rv_secret`, `--force-recreate shoperp`),
+minted token for `0900000001` via `https://shopai.timlathay.com/api/customer-identity/dev-token`,
+ran `profile-contextual.spec.ts` RV (**41/42 PASS** — 1 firefox env-timeout flake,
+same test passed chromium/webkit/Mobile Chrome/Safari), then removed: `DevToken__Secret`
+env count `0`, endpoint `404`, `~/.devtoken_rv_secret` + `/tmp/rv_dev_token.json` +
+local token files deleted.
+
 **How it was enabled (NOT persisted to `.env.shoperp`):**
 
 ```bash
