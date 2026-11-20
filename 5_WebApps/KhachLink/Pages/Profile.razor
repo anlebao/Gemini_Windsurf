@@ -3,6 +3,8 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.PWA
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Services.ProfileContext
+@using VanAn.KhachLink.Models
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
@@ -32,7 +34,8 @@
         }
         else
         {
-            <VanAnCard Shadow="true" CssClass="mb-4">
+            @* === ZONE 1: Compact identity header === *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex align-items-center gap-3 p-2">
                     <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
                          style="width:64px;height:64px;font-size:1.8rem;">
@@ -58,245 +61,319 @@
                 </div>
             </VanAnCard>
 
-            <div class="list-group mb-4">
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-                   @onclick='() => Navigation.NavigateTo("/my-loyalty")'>
-                    <i class="bi bi-clock-history text-warning"></i>
-                    <span>Lịch sử tích điểm</span>
-                    <i class="bi bi-chevron-right ms-auto"></i>
-                </a>
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-                   @onclick='() => Navigation.NavigateTo("/my-orders")'>
-                    <i class="bi bi-bag text-primary"></i>
-                    <span>Lịch sử đơn hàng</span>
-                    <i class="bi bi-chevron-right ms-auto"></i>
-                </a>
-                @* ATRS-11 subset (Wave 2): Security center entry — Tài khoản → Bảo mật tài khoản (UI SRS) *@
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-                   @onclick='() => Navigation.NavigateTo("/security")'>
-                    <i class="bi bi-shield-lock text-success"></i>
-                    <span>Bảo mật tài khoản</span>
-                    <i class="bi bi-chevron-right ms-auto"></i>
-                </a>
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-                   @onclick='() => Navigation.NavigateTo("/disputes")'>
-                    <i class="bi bi-chat-square-text text-primary"></i>
-                    <span>Khiếu nại &amp; tranh chấp</span>
-                    <i class="bi bi-chevron-right ms-auto"></i>
-                </a>
-            </div>
-
-            @* Phase 5: Push notification toggle *@
-            <VanAnCard Shadow="true" CssClass="mb-4">
-                <div class="d-flex align-items-center justify-content-between p-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-bell-fill text-primary"></i>
-                        <div>
-                            <div class="fw-medium">Thông báo đẩy</div>
-                            <div class="text-muted small">Nhận push khi đơn hàng đổi trạng thái, điểm thưởng biến động.</div>
-                        </div>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch"
-                               id="pushToggle" checked="@_pushEnabled"
-                               disabled="@_pushToggling"
-                               @onchange="TogglePushAsync" />
-                        <label class="form-check-label" for="pushToggle">@( _pushToggling ? "..." : (_pushEnabled ? "Bật" : "Tắt") )</label>
-                    </div>
-                </div>
-                @if (!string.IsNullOrEmpty(_pushStatusMessage))
-                {
-                    <div class="px-2 pb-2">
-                        <VanAnAlert Variant="@_pushAlertVariant" Message="@_pushStatusMessage" />
-                    </div>
-                }
-            </VanAnCard>
-
-            @* Phase 5 Session 10 (5.10): Notification alert prefs (sound + vibrate) *@
-            @if (_pushEnabled)
+            @* === ZONE 2: Contextual next-best-action cards (max 3, rule-based) === *@
+            @if (_contextCards.Count > 0)
             {
-                <VanAnCard Shadow="true" CssClass="mb-4">
-                    <div class="p-2">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <i class="bi bi-volume-up text-primary"></i>
-                            <div>
-                                <div class="fw-medium">Cài đặt thông báo</div>
-                                <div class="text-muted small">Tùy chỉnh đổ chuông và rung khi nhận thông báo đẩy.</div>
+                <h6 class="text-muted text-uppercase small fw-semibold mb-2">
+                    <i class="bi bi-stars me-1"></i> Việc cần làm
+                </h6>
+                @foreach (var card in _contextCards)
+                {
+                    <VanAnCard Shadow="true" CssClass="mb-2 profile-context-card" data-testid="@($"ctx-card-{card.Id}")">
+                        <div class="d-flex align-items-center gap-3 p-2">
+                            <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0"
+                                 style="width:44px;height:44px;">
+                                <i class="@card.Icon" style="font-size:1.2rem;"></i>
                             </div>
-                        </div>
-
-                        <div class="d-flex align-items-center justify-content-between py-2 border-top">
-                            <div>
-                                <div class="fw-medium small">Âm thanh chuông</div>
-                                <div class="text-muted small">Phát chuông khi app đang mở. Nền tảng chỉ phát âm thanh mặc định hệ thống khi app đóng.</div>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">@card.Title</div>
+                                <div class="text-muted small">@card.Reason</div>
                             </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="soundToggle" checked="@_soundEnabled"
-                                       disabled="@_prefsToggling"
-                                       @onchange="ToggleSoundAsync" />
-                                <label class="form-check-label" for="soundToggle">@(_soundEnabled ? "Bật" : "Tắt")</label>
-                            </div>
-                        </div>
-
-                        <div class="d-flex align-items-center justify-content-between py-2 border-top">
-                            <div>
-                                <div class="fw-medium small">Rung điện thoại</div>
-                                <div class="text-muted small">Rung khi nhận push (Android). <span class="text-warning">iOS không hỗ trợ rung cho web push.</span></div>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="vibrateToggle" checked="@_vibrateEnabled"
-                                       disabled="@_prefsToggling"
-                                       @onchange="ToggleVibrateAsync" />
-                                <label class="form-check-label" for="vibrateToggle">@(_vibrateEnabled ? "Bật" : "Tắt")</label>
-                            </div>
-                        </div>
-                    </div>
-                </VanAnCard>
-            }
-
-            @* Loyalty-C WS-B: Birthday input — triggers BirthdayEntry mission (one-time reward) *@
-            <VanAnCard Shadow="true" CssClass="mb-4">
-                <div class="p-2">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <i class="bi bi-cake2 text-danger"></i>
-                        <div>
-                            <div class="fw-medium">Ngày sinh</div>
-                            <div class="text-muted small">Nhập ngày sinh để nhận điểm thưởng sinh nhật hàng năm.</div>
-                        </div>
-                    </div>
-                    @if (_birthday.HasValue)
-                    {
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="text-muted">Đã đặt: <strong>@_birthday.Value.ToString("dd/MM/yyyy")</strong></span>
-                            @if (_birthdaySaved)
+                            @if (card.Href.StartsWith("#", StringComparison.Ordinal))
                             {
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Đã nhận điểm</span>
+                                <a class="btn btn-sm btn-primary text-nowrap" href="@card.Href"
+                                   @onclick:preventDefault @onclick="OpenSettingsAsync">@card.CtaLabel</a>
+                            }
+                            else
+                            {
+                                <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                                             CssClass="text-nowrap"
+                                             OnClick="() => GoTo(card.Href)">@card.CtaLabel</VanAnButton>
                             }
                         </div>
-                    }
-                    else
-                    {
-                        <div class="d-flex gap-2 align-items-center">
-                            <input type="date" class="form-control" @bind="_birthdayInput" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" min="1900-01-01" />
-                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="SaveBirthdayAsync" Disabled="@_birthdaySaving">
-                                @if (_birthdaySaving)
-                                {
-                                    <span class="spinner-border spinner-border-sm"></span>
-                                }
-                                else
-                                {
-                                    @:Lưu
-                                }
-                            </VanAnButton>
-                        </div>
-                        @if (_birthdayError != null)
-                        {
-                            <div class="text-danger small mt-1">@_birthdayError</div>
-                        }
-                        @if (_birthdaySuccess != null)
-                        {
-                            <div class="text-success small mt-1">@_birthdaySuccess</div>
-                        }
-                    }
+                    </VanAnCard>
+                }
+            }
+
+            @* === ZONE 3: Quick access grid === *@
+            <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3">Truy cập nhanh</h6>
+            <div class="row row-cols-2 row-cols-sm-3 g-2 mb-3">
+                @if (_navFlags.ShowLoyaltyHistory)
+                {
+                    <div class="col">
+                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                     OnClick='() => Navigation.NavigateTo("/my-loyalty")'>
+                            <i class="bi bi-clock-history text-warning me-1"></i> Lịch sử tích điểm
+                        </VanAnButton>
+                    </div>
+                }
+                @if (_navFlags.ShowOrders)
+                {
+                    <div class="col">
+                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                     OnClick='() => Navigation.NavigateTo("/my-orders")'>
+                            <i class="bi bi-bag text-primary me-1"></i> Đơn hàng
+                        </VanAnButton>
+                    </div>
+                }
+                @if (_navFlags.ShowMissions)
+                {
+                    <div class="col">
+                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                     OnClick='() => Navigation.NavigateTo("/missions")'>
+                            <i class="bi bi-trophy text-warning me-1"></i> Nhiệm vụ
+                        </VanAnButton>
+                    </div>
+                }
+                @if (_navFlags.ShowStores)
+                {
+                    <div class="col">
+                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                     OnClick='() => Navigation.NavigateTo("/stores")'>
+                            <i class="bi bi-geo-alt text-success me-1"></i> Cửa hàng
+                        </VanAnButton>
+                    </div>
+                }
+                <div class="col">
+                    <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                 OnClick='() => Navigation.NavigateTo("/security")'>
+                        <i class="bi bi-shield-lock text-success me-1"></i> Bảo mật
+                    </VanAnButton>
                 </div>
-            </VanAnCard>
-
-            @* Tiered Auth Phase 3: Upgrade button for Social customers *@
-            @if (NeedsUpgrade)
-            {
-                <VanAnAlert Variant="AlertVariant.Info"
-                            Message="Tài khoản Social — nâng cấp qua OTP để đổi điểm thưởng."
-                            CssClass="mb-3" />
-                <VanAnButton Variant="ButtonVariant.Primary"
-                             FullWidth="true"
-                             CssClass="mb-3"
-                             OnClick="NavigateToLoyaltyUpgrade"
-                             TestId="btn-upgrade-identity">
-                    <i class="fas fa-shield-alt me-1"></i> Nâng cấp xác thực
-                </VanAnButton>
-            }
-
-            @* CC-S6 (Sprint 6): Community roles + fraud flags section *@
-            @if (_communityRoles.Count > 0)
-            {
-                <VanAnCard CssClass="mb-3">
-                    <h5 class="mb-3"><i class="bi bi-people-fill me-2"></i>Vai trò cộng tác viên</h5>
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach (var role in _communityRoles)
-                        {
-                            <span class="badge @(role.IsActive ? "bg-success" : "bg-secondary")">
-                                @role.RoleType @(role.IsActive ? "(Active)" : "(Inactive)")
-                                @if (!string.IsNullOrEmpty(role.SalesmanCode))
-                                {
-                                    @:— Code: @role.SalesmanCode
-                                }
-                            </span>
-                        }
-                    </div>
-                </VanAnCard>
-            }
-
-            @if (_myFraudFlags.Count > 0)
-            {
-                <VanAnCard CssClass="mb-3">
-                    <h5 class="mb-3"><i class="bi bi-shield-exclamation me-2"></i>Fraud Flags</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Loại</th>
-                                    <th>Risk Score</th>
-                                    <th>Trạng thái</th>
-                                    <th>Ngày tạo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var flag in _myFraudFlags)
-                                {
-                                    <tr>
-                                        <td>@flag.EntityType</td>
-                                        <td>@flag.RiskScore</td>
-                                        <td><span class="badge bg-@(flag.Status == "Confirmed" ? "danger" : flag.Status == "Pending" ? "warning" : "secondary")">@flag.Status</span></td>
-                                        <td>@flag.CreatedAt.ToString("yyyy-MM-dd")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </VanAnCard>
-            }
-
-            @* Device info section — Sprint 7 gap fix (doc 07-customer §2.3) *@
-            <VanAnCard Shadow="true" CssClass="mb-4">
-                <div class="p-2">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <i class="bi bi-phone text-info"></i>
-                        <div>
-                            <div class="fw-medium">Thiết bị đang sử dụng</div>
-                            <div class="text-muted small">Tối đa 3 thiết bị/tài khoản. Thiết bị thứ 4 cần admin duyệt.</div>
-                        </div>
-                    </div>
-                    @if (!string.IsNullOrEmpty(_deviceToken))
-                    {
-                        <div class="text-muted small">
-                            <i class="bi bi-key me-1"></i> Device Token: <code>@_deviceToken[..12]...</code>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-muted small">Chưa đăng ký thiết bị.</div>
-                    }
-                    <div class="text-muted small mt-2">
-                        <i class="bi bi-info-circle me-1"></i> Để đăng xuất thiết bị khác, liên hệ admin.
-                    </div>
+                <div class="col">
+                    <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                 OnClick='() => Navigation.NavigateTo("/disputes")'>
+                        <i class="bi bi-chat-square-text text-primary me-1"></i> Khiếu nại
+                    </VanAnButton>
                 </div>
-            </VanAnCard>
+            </div>
 
-            <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" OnClick="Logout">
-                <i class="bi bi-box-arrow-right"></i> Đăng xuất
+            @* === ZONE 4: Settings & account (collapsed by default) === *@
+            <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true"
+                         CssClass="text-start mb-2 profile-settings-toggle"
+                         OnClick="() => _settingsOpen = !_settingsOpen"
+                         data-testid="settings-toggle">
+                <i class="bi bi-gear me-1"></i> Cài đặt &amp; tài khoản
+                <i class="bi bi-chevron-@(_settingsOpen ? "up" : "down") float-end mt-1"></i>
             </VanAnButton>
+            @if (_settingsOpen)
+            {
+            <div id="profile-settings" class="mb-3">
+                <div class="mt-1">
+                    @* Phase 5: Push notification toggle *@
+                    <VanAnCard Shadow="true" CssClass="mb-3">
+                        <div class="d-flex align-items-center justify-content-between p-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-bell-fill text-primary"></i>
+                                <div>
+                                    <div class="fw-medium">Thông báo đẩy</div>
+                                    <div class="text-muted small">Nhận push khi đơn hàng đổi trạng thái, điểm thưởng biến động.</div>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="pushToggle" checked="@_pushEnabled"
+                                       disabled="@_pushToggling"
+                                       @onchange="TogglePushAsync" />
+                                <label class="form-check-label" for="pushToggle">@( _pushToggling ? "..." : (_pushEnabled ? "Bật" : "Tắt") )</label>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_pushStatusMessage))
+                        {
+                            <div class="px-2 pb-2">
+                                <VanAnAlert Variant="@_pushAlertVariant" Message="@_pushStatusMessage" />
+                            </div>
+                        }
+                    </VanAnCard>
+
+                    @* Phase 5 Session 10 (5.10): Notification alert prefs (sound + vibrate) *@
+                    @if (_pushEnabled)
+                    {
+                        <VanAnCard Shadow="true" CssClass="mb-3">
+                            <div class="p-2">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-volume-up text-primary"></i>
+                                    <div>
+                                        <div class="fw-medium">Cài đặt thông báo</div>
+                                        <div class="text-muted small">Tùy chỉnh đổ chuông và rung khi nhận thông báo đẩy.</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between py-2 border-top">
+                                    <div>
+                                        <div class="fw-medium small">Âm thanh chuông</div>
+                                        <div class="text-muted small">Phát chuông khi app đang mở. Nền tảng chỉ phát âm thanh mặc định hệ thống khi app đóng.</div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="soundToggle" checked="@_soundEnabled"
+                                               disabled="@_prefsToggling"
+                                               @onchange="ToggleSoundAsync" />
+                                        <label class="form-check-label" for="soundToggle">@(_soundEnabled ? "Bật" : "Tắt")</label>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between py-2 border-top">
+                                    <div>
+                                        <div class="fw-medium small">Rung điện thoại</div>
+                                        <div class="text-muted small">Rung khi nhận push (Android). <span class="text-warning">iOS không hỗ trợ rung cho web push.</span></div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="vibrateToggle" checked="@_vibrateEnabled"
+                                               disabled="@_prefsToggling"
+                                               @onchange="ToggleVibrateAsync" />
+                                        <label class="form-check-label" for="vibrateToggle">@(_vibrateEnabled ? "Bật" : "Tắt")</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    }
+
+                    @* Loyalty-C WS-B: Birthday input — triggers BirthdayEntry mission (one-time reward) *@
+                    <VanAnCard Shadow="true" CssClass="mb-3">
+                        <div class="p-2">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-cake2 text-danger"></i>
+                                <div>
+                                    <div class="fw-medium">Ngày sinh</div>
+                                    <div class="text-muted small">Nhập ngày sinh để nhận điểm thưởng sinh nhật hàng năm.</div>
+                                </div>
+                            </div>
+                            @if (_birthday.HasValue)
+                            {
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="text-muted">Đã đặt: <strong>@_birthday.Value.ToString("dd/MM/yyyy")</strong></span>
+                                    @if (_birthdaySaved)
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Đã nhận điểm</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="date" class="form-control" @bind="_birthdayInput" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" min="1900-01-01" />
+                                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="SaveBirthdayAsync" Disabled="@_birthdaySaving">
+                                        @if (_birthdaySaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm"></span>
+                                        }
+                                        else
+                                        {
+                                            @:Lưu
+                                        }
+                                    </VanAnButton>
+                                </div>
+                                @if (_birthdayError != null)
+                                {
+                                    <div class="text-danger small mt-1">@_birthdayError</div>
+                                }
+                                @if (_birthdaySuccess != null)
+                                {
+                                    <div class="text-success small mt-1">@_birthdaySuccess</div>
+                                }
+                            }
+                        </div>
+                    </VanAnCard>
+
+                    @* Tiered Auth Phase 3: Upgrade button for Social customers *@
+                    @if (NeedsUpgrade)
+                    {
+                        <VanAnAlert Variant="AlertVariant.Info"
+                                    Message="Tài khoản Social — nâng cấp qua OTP để đổi điểm thưởng."
+                                    CssClass="mb-3" />
+                        <VanAnButton Variant="ButtonVariant.Primary"
+                                     FullWidth="true"
+                                     CssClass="mb-3"
+                                     OnClick="NavigateToLoyaltyUpgrade"
+                                     TestId="btn-upgrade-identity">
+                            <i class="fas fa-shield-alt me-1"></i> Nâng cấp xác thực
+                        </VanAnButton>
+                    }
+
+                    @* CC-S6 (Sprint 6): Community roles + fraud flags section *@
+                    @if (_communityRoles.Count > 0)
+                    {
+                        <VanAnCard CssClass="mb-3">
+                            <h5 class="mb-3"><i class="bi bi-people-fill me-2"></i>Vai trò cộng tác viên</h5>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var role in _communityRoles)
+                                {
+                                    <span class="badge @(role.IsActive ? "bg-success" : "bg-secondary")">
+                                        @role.RoleType @(role.IsActive ? "(Active)" : "(Inactive)")
+                                        @if (!string.IsNullOrEmpty(role.SalesmanCode))
+                                        {
+                                            @:— Code: @role.SalesmanCode
+                                        }
+                                    </span>
+                                }
+                            </div>
+                        </VanAnCard>
+                    }
+
+                    @if (_myFraudFlags.Count > 0)
+                    {
+                        <VanAnCard CssClass="mb-3">
+                            <h5 class="mb-3"><i class="bi bi-shield-exclamation me-2"></i>Fraud Flags</h5>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Loại</th>
+                                            <th>Risk Score</th>
+                                            <th>Trạng thái</th>
+                                            <th>Ngày tạo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var flag in _myFraudFlags)
+                                        {
+                                            <tr>
+                                                <td>@flag.EntityType</td>
+                                                <td>@flag.RiskScore</td>
+                                                <td><span class="badge bg-@(flag.Status == "Confirmed" ? "danger" : flag.Status == "Pending" ? "warning" : "secondary")">@flag.Status</span></td>
+                                                <td>@flag.CreatedAt.ToString("yyyy-MM-dd")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </VanAnCard>
+                    }
+
+                    @* Device info section — Sprint 7 gap fix (doc 07-customer §2.3) *@
+                    <VanAnCard Shadow="true" CssClass="mb-3">
+                        <div class="p-2">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-phone text-info"></i>
+                                <div>
+                                    <div class="fw-medium">Thiết bị đang sử dụng</div>
+                                    <div class="text-muted small">Tối đa 3 thiết bị/tài khoản. Thiết bị thứ 4 cần admin duyệt.</div>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_deviceToken))
+                            {
+                                <div class="text-muted small">
+                                    <i class="bi bi-key me-1"></i> Device Token: <code>@_deviceToken[..12]...</code>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-muted small">Chưa đăng ký thiết bị.</div>
+                            }
+                            <div class="text-muted small mt-2">
+                                <i class="bi bi-info-circle me-1"></i> Để đăng xuất thiết bị khác, liên hệ admin.
+                            </div>
+                        </div>
+                    </VanAnCard>
+
+                    <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" OnClick="Logout">
+                        <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                    </VanAnButton>
+                </div>
+            </div>
+            }
         }
     </div>
 </KhachLinkLayout>
@@ -310,8 +387,30 @@
     private int _pointBalance = 0;
     private string _identityLevel = "Social";
 
+    // Contextual profile cards
+    private IReadOnlyList<ProfileContextCard> _contextCards = Array.Empty<ProfileContextCard>();
+
+    // Settings section collapse state (Zone 4)
+    private bool _settingsOpen;
+
+    /// <summary>Card CTA for "#" hrefs — opens settings section + scrolls to it.</summary>
+    private async Task OpenSettingsAsync()
+    {
+        _settingsOpen = true;
+        StateHasChanged();
+        try
+        {
+            // Wait one frame for the settings DOM to render, then scroll.
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("eval",
+                "document.getElementById('profile-settings')?.scrollIntoView({behavior:'smooth',block:'start'})");
+        }
+        catch { /* scroll is enhancement — section is already open */ }
+    }
+
     // Phase 5: Push notification toggle state
     private bool _pushEnabled;
+    private bool _pushStatusKnown;
     private bool _pushToggling;
     private string? _pushStatusMessage;
     private AlertVariant _pushAlertVariant = AlertVariant.Info;
@@ -338,6 +437,10 @@
 
     // Sprint 7 gap fix: Device info
     private string? _deviceToken;
+
+    // KhachLink Multi-Profile: nav flags cascaded from KhachLinkLayout (gate quick-access grid)
+    [CascadingParameter(Name = "NavFlags")]
+    private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
 
     private string GetIdentityLevelLabel() => _identityLevel switch
     {
@@ -407,36 +510,17 @@
                         _birthday = profile.Birthday;
                         _birthdaySaved = profile.Birthday.HasValue;
 
-                        // Bug 3 fix: Load push notification toggle state from server
-                        try
-                        {
-                            var statusReq = new HttpRequestMessage(HttpMethod.Get, "/api/notifications/push/status");
-                            statusReq.Headers.Add("X-Customer-Token", token);
-                            var statusResp = await client.SendAsync(statusReq);
-                            if (statusResp.IsSuccessStatusCode)
-                            {
-                                var pushStatus = await statusResp.Content.ReadFromJsonAsync<PushStatusResponse>();
-                                _pushEnabled = pushStatus?.Enabled ?? false;
-                            }
-                        }
-                        catch { /* non-critical — default to off */ }
+                        // Contextual profile: fire all supplementary loads in parallel.
+                        // Each is best-effort — failures degrade to fewer context signals,
+                        // never break the page.
+                        var pushTask = LoadPushStatusAsync(client, token);
+                        var prefsTask = LoadNotificationPrefsAsync();
+                        var communityTask = LoadCommunityAsync(token);
+                        var ordersTask = LoadActiveOrderCountAsync(client, token);
+                        var missionsTask = LoadMissionSignalsAsync(client, token);
+                        await Task.WhenAll(pushTask, prefsTask, communityTask, ordersTask, missionsTask);
 
-                        // Phase 5 Session 10: Load notification alert prefs (sound + vibrate) from Cache API
-                        try
-                        {
-                            var (sound, vibrate) = await PWA.GetNotificationPrefsAsync();
-                            _soundEnabled = sound;
-                            _vibrateEnabled = vibrate;
-                        }
-                        catch { /* non-critical — defaults ON */ }
-
-                        // CC-S6 (Sprint 6): Load community roles + fraud flags
-                        try
-                        {
-                            _communityRoles = await CommunityHttp.GetMyRolesAsync(token);
-                            _myFraudFlags = await CommunityHttp.GetMyFraudFlagsAsync(token);
-                        }
-                        catch { /* non-critical — hide community sections */ }
+                        BuildContextCards(ordersTask.Result, missionsTask.Result);
                     }
                 }
                 else
@@ -455,6 +539,111 @@
         }
         finally { _loading = false; }
     }
+
+    // Bug 3 fix: Load push notification toggle state from server
+    private async Task LoadPushStatusAsync(HttpClient client, string token)
+    {
+        try
+        {
+            var statusReq = new HttpRequestMessage(HttpMethod.Get, "/api/notifications/push/status");
+            statusReq.Headers.Add("X-Customer-Token", token);
+            var statusResp = await client.SendAsync(statusReq);
+            if (statusResp.IsSuccessStatusCode)
+            {
+                var pushStatus = await statusResp.Content.ReadFromJsonAsync<PushStatusResponse>();
+                _pushEnabled = pushStatus?.Enabled ?? false;
+                _pushStatusKnown = true;
+            }
+        }
+        catch { /* non-critical — default to off */ }
+    }
+
+    // Phase 5 Session 10: Load notification alert prefs (sound + vibrate) from Cache API
+    private async Task LoadNotificationPrefsAsync()
+    {
+        try
+        {
+            var (sound, vibrate) = await PWA.GetNotificationPrefsAsync();
+            _soundEnabled = sound;
+            _vibrateEnabled = vibrate;
+        }
+        catch { /* non-critical — defaults ON */ }
+    }
+
+    // CC-S6 (Sprint 6): Load community roles + fraud flags
+    private async Task LoadCommunityAsync(string token)
+    {
+        try
+        {
+            _communityRoles = await CommunityHttp.GetMyRolesAsync(token);
+            _myFraudFlags = await CommunityHttp.GetMyFraudFlagsAsync(token);
+        }
+        catch { /* non-critical — hide community sections */ }
+    }
+
+    // Contextual profile: count active orders via existing /api/customerorders.
+    // Forwards X-Customer-Token + X-Customer-Device-Id (same pattern as OrderHistory).
+    // Endpoint accepts only ONE status filter → fetch recent page unfiltered,
+    // count client-side against the active status set.
+    private static readonly HashSet<string> ActiveOrderStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "pending", "confirmed", "preparing", "ready", "delivering"
+    };
+
+    private async Task<int> LoadActiveOrderCountAsync(HttpClient client, string token)
+    {
+        try
+        {
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            var req = new HttpRequestMessage(HttpMethod.Get, "/api/customerorders?page=1&pageSize=5");
+            req.Headers.Add("X-Customer-Token", token);
+            if (!string.IsNullOrEmpty(deviceId))
+                req.Headers.Add("X-Customer-Device-Id", deviceId);
+
+            var resp = await client.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return 0;
+
+            var result = await resp.Content.ReadFromJsonAsync<OrdersResult>();
+            return result?.Orders?.Count(o => ActiveOrderStatuses.Contains(o.Status)) ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    // Contextual profile: incomplete mission count + max points reward.
+    private async Task<(int Count, int MaxPoints)> LoadMissionSignalsAsync(HttpClient client, string token)
+    {
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, "/api/missions/my/progress");
+            req.Headers.Add("X-Customer-Token", token);
+            var resp = await client.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return (0, 0);
+
+            var missions = await resp.Content.ReadFromJsonAsync<List<MissionProgressDto>>();
+            if (missions == null) return (0, 0);
+
+            var incomplete = missions.Where(m => !m.IsCompleted).ToList();
+            return (incomplete.Count, incomplete.Count > 0 ? incomplete.Max(m => m.PointsReward) : 0);
+        }
+        catch { return (0, 0); }
+    }
+
+    private void BuildContextCards(int activeOrderCount, (int Count, int MaxPoints) missions)
+    {
+        _contextCards = ProfileContextCardBuilder.Build(new ProfileContextSnapshot
+        {
+            IdentityLevel = _identityLevel,
+            Tier = _tier,
+            PointBalance = _pointBalance,
+            Birthday = _birthday,
+            PushEnabled = _pushStatusKnown ? _pushEnabled : null,
+            ActiveOrderCount = activeOrderCount,
+            IncompleteMissionCount = missions.Count,
+            MaxIncompleteMissionPoints = missions.MaxPoints
+        });
+    }
+
+    private void GoTo(string href) => Navigation.NavigateTo(href);
 
     private void GoToLogin() => Navigation.NavigateTo("/login");
 
@@ -700,5 +889,24 @@
     {
         public bool Enabled { get; set; }
         public int Count { get; set; }
+    }
+
+    // Minimal DTO for /api/customerorders — only Status is needed for context cards.
+    private class OrdersResult
+    {
+        public int Total { get; set; }
+        public List<OrderStatusDto> Orders { get; set; } = new();
+    }
+
+    private class OrderStatusDto
+    {
+        public string Status { get; set; } = string.Empty;
+    }
+
+    // Mirrors MissionProgressDto in Missions.razor — only fields the builder needs.
+    private class MissionProgressDto
+    {
+        public bool IsCompleted { get; set; }
+        public int PointsReward { get; set; }
     }
 }
