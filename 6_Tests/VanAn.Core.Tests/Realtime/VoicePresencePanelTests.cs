@@ -2,7 +2,9 @@ using Bunit;
 using Bunit.JSInterop;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using VanAn.UI.Platform.Adapters;
 using VanAn.UI.Platform.Components.Realtime;
+using VanAn.UI.Platform.Core.Interfaces;
 using Xunit;
 
 namespace VanAn.Core.Tests.Realtime;
@@ -18,6 +20,7 @@ public class VoicePresencePanelTests : TestContext
     public VoicePresencePanelTests()
     {
         Services.AddSingleton(_coordinator);
+        Services.AddSingleton<ICssAdapter, BootstrapAdapter>(); // VanAnButton call controls
         JSInterop.Mode = JSRuntimeMode.Loose; // vananVoiceChat.* → default
     }
 

@@ -25,14 +25,16 @@
                 }
             </div>
             <div class="voice-presence-actions">
-                <button type="button" class="voice-presence-btn voice-presence-btn--accept"
-                        @onclick="AcceptCallAsync" data-testid="voice-presence-accept" aria-label="Nghe">
+                <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small"
+                             OnClick="AcceptCallAsync" CssClass="voice-presence-btn voice-presence-btn--accept"
+                             data-testid="voice-presence-accept" aria-label="Nghe">
                     <i class="bi bi-telephone"></i>
-                </button>
-                <button type="button" class="voice-presence-btn voice-presence-btn--reject"
-                        @onclick="RejectCallAsync" data-testid="voice-presence-reject" aria-label="Từ chối">
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                             OnClick="RejectCallAsync" CssClass="voice-presence-btn voice-presence-btn--reject"
+                             data-testid="voice-presence-reject" aria-label="Từ chối">
                     <i class="bi bi-telephone-x"></i>
-                </button>
+                </VanAnButton>
             </div>
         </div>
     }
@@ -42,14 +44,16 @@
             <i class="bi bi-telephone"></i>
             <span class="voice-presence-callbar-state">@CallBarLabel(c.CallState)</span>
             <span class="voice-presence-callbar-timer">@CallDurationText</span>
-            <button type="button" class="voice-presence-icon-btn" @onclick="ToggleMuteAsync"
-                    data-testid="voice-presence-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">
+            <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
+                         OnClick="ToggleMuteAsync" CssClass="voice-presence-icon-btn"
+                         data-testid="voice-presence-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">
                 <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i>
-            </button>
-            <button type="button" class="voice-presence-icon-btn voice-presence-icon-btn--end"
-                    @onclick="EndCallAsync" data-testid="voice-presence-end" aria-label="Kết thúc cuộc gọi">
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                         OnClick="EndCallAsync" CssClass="voice-presence-icon-btn voice-presence-icon-btn--end"
+                         data-testid="voice-presence-end" aria-label="Kết thúc cuộc gọi">
                 <i class="bi bi-telephone-x"></i>
-            </button>
+            </VanAnButton>
         </div>
     }
 }
