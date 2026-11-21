@@ -12,7 +12,6 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ShopInboxApiClient ApiClient
 @inject IShopFeatureSettingsService FeatureSettings
-@inject ITenantProvider TenantProvider
 @inject IConfiguration Config
 @inject IJSRuntime JSRuntime
 
@@ -95,14 +94,20 @@
         _voiceHubUrl = Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
 
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated != true || !TenantProvider.HasTenant)
+        var user = authState.User;
+        // TenantId đọc trực tiếp từ claims (giống UserHeader) — tránh TenantProvider
+        // sync-over-async GetResult() trong Blazor circuit có thể deadlock →
+        // OnInitializedAsync không bao giờ complete → toggle không render.
+        var tenantClaim = user.FindFirst("tenant_id")?.Value ?? user.FindFirst("TenantId")?.Value;
+        if (user.Identity?.IsAuthenticated != true
+            || !Guid.TryParse(tenantClaim, out var tenantId) || tenantId == Guid.Empty)
             return;
 
         bool flag;
         try
         {
             flag = await FeatureSettings.IsEnabledAsync(
-                TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
+                tenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
         }
         catch { flag = false; }
         if (!flag) return;
