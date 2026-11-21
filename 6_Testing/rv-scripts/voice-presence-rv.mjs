@@ -100,8 +100,8 @@ try {
   // ── 3. STAFF: login tenant owner qua Razor Login page (sub=GUID — bắt buộc
   //    cho voice/chat; platform login có sub=email → random participant id) ──
   await staffPage.goto(`${APP2}/Login`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await staffPage.fill('input[name="Username"], input[name="username"]', STAFF_USER);
-  await staffPage.fill('input[name="Password"], input[name="password"]', STAFF_PASS);
+  await staffPage.fill('#username', STAFF_USER);
+  await staffPage.fill('#password', STAFF_PASS);
   await Promise.all([
     staffPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
     staffPage.click('button[type="submit"], input[type="submit"]')

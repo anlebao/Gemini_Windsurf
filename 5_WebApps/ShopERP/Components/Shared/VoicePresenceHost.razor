@@ -14,6 +14,7 @@
 @inject IShopFeatureSettingsService FeatureSettings
 @inject IConfiguration Config
 @inject IJSRuntime JSRuntime
+@inject ILogger<VoicePresenceHost> Logger
 
 @if (_visible)
 {
@@ -101,7 +102,11 @@
         var tenantClaim = user.FindFirst("tenant_id")?.Value ?? user.FindFirst("TenantId")?.Value;
         if (user.Identity?.IsAuthenticated != true
             || !Guid.TryParse(tenantClaim, out var tenantId) || tenantId == Guid.Empty)
+        {
+            Logger.LogWarning("VoicePresenceHost: gate fail auth/tenant — auth={Auth} tenantClaim={Claim}",
+                user.Identity?.IsAuthenticated, tenantClaim ?? "null");
             return;
+        }
 
         bool flag;
         try
@@ -109,8 +114,16 @@
             flag = await FeatureSettings.IsEnabledAsync(
                 tenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
         }
-        catch { flag = false; }
-        if (!flag) return;
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "VoicePresenceHost: feature flag check threw for tenant {TenantId}", tenantId);
+            flag = false;
+        }
+        if (!flag)
+        {
+            Logger.LogWarning("VoicePresenceHost: Voice_Call_Enabled OFF for tenant {TenantId} — toggle hidden", tenantId);
+            return;
+        }
 
         // localStorage chỉ tồn tại trên interactive render — static SSR page
         // (không @rendermode) → JS interop throw → giữ toggle ẩn.
@@ -120,8 +133,9 @@
             _jsOk = true;
             _presenceOn = saved == "1";
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "VoicePresenceHost: localStorage read failed — toggle hidden");
             _jsOk = false;
             _presenceOn = false;
         }
