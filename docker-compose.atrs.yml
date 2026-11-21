@@ -17,6 +17,13 @@ services:
       Atrs__WebAuthn__Origins__1: ${ATRS_WEBAUTHN_ORIGIN_1:-https://commienphi.timlathay.com}
       Atrs__WebAuthn__Origins__2: ${ATRS_WEBAUTHN_ORIGIN_2:-https://diemthuong2.khachvip.online}
       Atrs__WebAuthn__Origins__3: ${ATRS_WEBAUTHN_ORIGIN_3:-https://hoptacxa.timlathay.com}
+      # 2026-11-21: shopai.timlathay.com = default KhachLink storefront domain (mọi tenant
+      # không có instance riêng) — thiếu origin này → mọi passkey flow trên shopai 400.
+      Atrs__WebAuthn__Origins__4: ${ATRS_WEBAUTHN_ORIGIN_4:-https://shopai.timlathay.com}
+      # diemthuong.khachvip.online = KhachLink domain cũ (diemthuong2 mới là bản trong list).
+      Atrs__WebAuthn__Origins__5: ${ATRS_WEBAUTHN_ORIGIN_5:-https://diemthuong.khachvip.online}
+      # localhost:5002 dev — env index 4/5 override appsettings[4], nên giữ lại tường minh.
+      Atrs__WebAuthn__Origins__6: ${ATRS_WEBAUTHN_ORIGIN_6:-http://localhost:5002}
       InternalLoyalty__ApiKey: ${INTERNAL_API_KEY}
       # ATRS-17 (FR-001): Gateway→atrs internal account-status sync key.
       Atrs__InternalApiKey: ${ATRS_INTERNAL_API_KEY:-}
