@@ -1,6 +1,6 @@
 # Task Card: Voice Presence — "login = sẵn sàng nhận cuộc gọi"
 
-> **Status:** 📋 DRAFT — chờ approve
+> **Status:** 🟡 Phase A+B IMPLEMENTED — commit `b9eae8e5`, CD `44913784981` SUCCESS, static-asset RV pass. Full call-flow RV chờ session login (xem §8). Phase C (R9-R12) chưa làm.
 > **Depends on:** chat_ui_unification P0-P2 (DONE), VOICE SERVICE P4/S-series (DONE)
 > **Scope:** `UI.Platform/Components/Realtime/VoiceCallPanel.*` · `UI.Platform/wwwroot/js/voice-chat.js` · `5_WebApps/ShopERP/Components/Layout/*` · `5_WebApps/KhachLink` layout · `10_Voice` PermissionService (nhỏ) · E2E spec mới
 
@@ -31,17 +31,17 @@ Mục tiêu: **presence = phiên đăng nhập**, không phải màn hình chat.
 
 ### P0 — Presence foundation (lớn nhất)
 
-- [ ] **R1. `VoicePresencePanel`** (component mới, UI.Platform): param `PresenceOnly=true`-style — init `vananVoiceChat` với token, KHÔNG render call button, KHÔNG cần SubjectType/SubjectId. Nhận `OnVoiceIncoming` → đẩy call info lên host qua EventCallback. Reuse voice-sdk/voice-chat.js nguyên vẹn.
-- [ ] **R2. JS singleton guard** — `voice-chat.js` expose `isInitialized()`/owner-tag; `VoiceCallPanel.OnInitializedAsync` skip init khi presence đã init (tránh steal callbacks). Chat panel `startCall` vẫn gọi `vananVoiceChat.startCall` bình thường (JS function độc lập với component nào init).
-- [ ] **R3. State bridge** — scoped C# service `VoiceCallCoordinator` (per-circuit): presence panel đăng ký làm owner; chat `VoiceCallPanel` forward `OnVoiceStateChange`/`OnVoiceIncoming` tới coordinator → chat panel header button + call card vẫn hoạt động khi call start từ chat. Ngược lại presence panel ẩn incoming UI khi chat đang active call (tránh double overlay).
-- [ ] **R4. ShopERP NavMenu toggle** "Sẵn sàng nhận cuộc gọi" (icon `bi-telephone` + chấm xanh khi ON): persist `localStorage vanan_voice_presence=1`; ON → mount/keep `VoicePresencePanel` (StaffToken); OFF → dispose (voice connection drop → customer thấy OFFLINE trung thực). Mount trong `MainLayout` khi authenticated + `Voice_Call_Enabled`.
-- [ ] **R5. KhachLink auto-presence** — mount `VoicePresencePanel` ở storefront layout khi `CustomerToken` tồn tại + flag ON. Không toggle (customer là phía gọi chính).
+- [x] **R1. `VoicePresencePanel`** (component mới, UI.Platform) — implement qua `VoiceCallCoordinator` thay EventCallback (bus pattern, cover cả 2 chiều). Init `vananVoiceChat` khi chưa có owner, ngược lại observer. KHÔNG render call button.
+- [x] **R2. JS singleton guard** — `voice-chat.js` expose `isInitialized()` + `_initInFlight` guard (chặn race init đồng thời); `VoiceCallPanel` delegated mode: skip init/dispose JS, replay coordinator state, vẫn fetch missed calls.
+- [x] **R3. State bridge** — `VoiceCallCoordinator` scoped per-circuit: owner publish hub/call/incoming; chat panel delegated mirror + `ChatSurfaceActive` suppress global UI (tránh double overlay).
+- [x] **R4. ShopERP toggle** "Sẵn sàng nhận cuộc gọi" — `VoicePresenceHost` mount trong `UserHeader` (cover cả 4 layouts, thay NavMenu — cùng hiệu quả, ít file đụng hơn). Icon `bi-telephone` + chấm xanh; persist `localStorage vanan_voice_presence`; ON → mount `VoicePresencePanel` (staff JWT qua `MintOwnerTokenAsync`); OFF → dispose → connection drop → customer thấy OFFLINE. Tự ẩn khi flag `Voice_Call_Enabled` OFF hoặc static-SSR page.
+- [x] **R5. KhachLink auto-presence** — `VoicePresencePanel` mount trong `Store.razor` khi `_customerToken` + `_customerId` + `_features.Voice_Call_Enabled`; mount TRƯỚC `AiChatWidget` để làm JS owner → chat panel delegated. Không toggle (đúng design).
 
 ### P1 — Incoming call UX toàn cục
 
-- [ ] **R6. Global incoming-call overlay** — component dùng chung (UI.Platform): toast/card góc phải-dưới hoặc top banner: avatar + "{CallerDisplayName} gọi đến" + context label (tên shop/khách) + accept/reject ≥48px + ring animation; auto-dismiss theo ring timeout; `prefers-reduced-motion` safe. Hiện trên MỌI trang khi có `IncomingCall`.
-- [ ] **R7. In-call mini bar toàn cục** — khi đang connected và user navigate trang khác → thanh call nhỏ (avatar + timer mm:ss + mute/end) fixed bottom — tái dùng pattern `ai-mini-callbar` P1 chat_ui. KHÔNG block navigation.
-- [ ] **R8. Chat↔presence handoff** — accept call từ global overlay khi chat panel không mở: call vẫn chạy (WebRTC theo callId, không cần context phía callee); nếu user mở chat giữa call → chat panel mirror state qua coordinator.
+- [x] **R6. Global incoming-call overlay** — `voice-presence-incoming` trong `VoicePresencePanel`: icon + `IncomingCallerName` + `IncomingContextLabel` + accept/reject (`voice-presence-accept`/`-reject`); hiện khi `CallState==ringing` && `!ChatSurfaceActive`.
+- [x] **R7. In-call mini bar toàn cục** — `voice-presence-callbar`: state label + timer mm:ss (PeriodicTimer) + mute/end; hiện khi call active && `!ChatSurfaceActive`.
+- [x] **R8. Chat↔presence handoff** — delegated mode: chat `VoiceCallPanel` mirror coordinator → card trong chat vẫn render + `CallStateChanged`/`HubStateChanged` events vẫn bắn cho header button; global UI tự ẩn khi `ChatSurfaceActive`.
 
 ### P2 — Multi-customer routing + edge cases
 
@@ -80,7 +80,15 @@ Mỗi phase 1 commit; E2E spec `voice-presence.spec.ts` flag-gated (cần tenant
 | Metering: presence không gọi → không tốn phí (gate chỉ chạy khi StartCall) | Verified `CallService` — không đổi |
 | Blazor Server circuit: layout component sống suốt session — dispose khi logout | `IAsyncDisposable` + check auth state change |
 
-## 7. Explicit non-goals
+## 7. Verification log
+
+- Build KhachLink + ShopERP: 0 errors · `VanAn.Core.Tests` Realtime/AiChatWidget/ChatDateFormatter filter: **128/128** · `VoiceCallCoordinatorTests` 6/6 + `VoicePresencePanelTests` 6/6 (bUnit: overlay caller name, ChatSurfaceActive suppression, callbar, idle).
+- Guard-check v7.3: ALL PASSED (4927 warnings pre-existing).
+- Commit `b9eae8e5` → CD `44913784981` **SUCCESS**.
+- RV static: `voice-chat.js` deployed chứa `isInitialized`/`_initInFlight`; store page 200. Spec `voice-presence.spec.ts` + config `playwright-rv-voice-presence.config.ts` self-gating — **full overlay RV cần customer session login thật** (guest → panel không mount → skip); ShopERP toggle RV cần staff login.
+- Review fixes trước commit: JS `_initInFlight` race guard; delegated panel vẫn `LoadMissedCallsAsync`; `VoiceCallPanel` catch fallback delegated khi thua race init.
+
+## 8. Explicit non-goals
 
 - Không đổi VoiceHub protocol/CallStateMachine/metering gate
 - Không call queue/waiting room (defer — cần state machine mới)
