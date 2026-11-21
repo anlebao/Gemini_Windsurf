@@ -16,26 +16,98 @@
 
     position: fixed;
     right: 16px;
-    bottom: 16px;
+    /* P1: safe-area cho iPhone home indicator */
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     z-index: 1050;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
 }
 
+/* P1 (2026-11-21): bubble 60px gradient + hover lift + press feedback. */
 .vanan-ai-bubble-btn {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     border: none;
-    background: var(--bs-primary, #0d6efd);
+    background: linear-gradient(135deg, var(--bs-primary, #0d6efd) 0%, #6366f1 100%);
     color: #fff;
-    font-size: 1.5rem;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    font-size: 1.6rem;
+    box-shadow: 0 6px 18px rgba(13, 110, 253, 0.35);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vanan-ai-bubble-btn:hover {
+    transform: scale(1.06);
+    box-shadow: 0 8px 24px rgba(13, 110, 253, 0.45);
+}
+
+.vanan-ai-bubble-btn:active {
+    transform: scale(0.95);
+}
+
+/* P1: unread badge pulse — attention khi có tin từ chủ quán. */
+.vanan-ai-unread {
+    animation: vanan-ai-unread-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes vanan-ai-unread-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vanan-ai-bubble-btn { transition: none; }
+    .vanan-ai-bubble-btn:hover { transform: none; }
+    .vanan-ai-unread { animation: none; }
+}
+
+/* ── P1 R10: mini call-bar — hiện khi bubble đóng mà có cuộc gọi active ── */
+.vanan-ai-callbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(13, 110, 253, 0.35);
+    max-width: min(280px, calc(100vw - 32px));
+}
+
+.vanan-ai-callbar i {
+    font-size: 1rem;
+}
+
+.vanan-ai-callbar-state {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vanan-ai-callbar-btn {
+    border: none;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.vanan-ai-callbar-btn:hover {
+    background: rgba(255, 255, 255, 0.32);
 }
 
 .vanan-ai-panel {

@@ -428,6 +428,7 @@ else
             <AiChatWidget TenantId="_store.Id"
                           OnAddToCart="AddAiProductToCartAsync"
                           VoiceEnabled="_features.Voice_Note_Enabled"
+                          ExternalCallState="@_humanCallState"
                           HumanChatAvailable="@ChatIdentity.HasValue"
                           OnDraftRequest="OnAiEscalateDraft"
                           @bind-PendingQuestion="_pendingQuestion"
@@ -445,6 +446,7 @@ else
                                        ScrollContainerId="ai-widget-human-scroll"
                                        ShowHeader="false"
                                        HeaderTitle="Chủ quán"
+                                       VoiceCallStateChanged="OnHumanCallStateChanged"
                                        VoiceEnabled="_features.Voice_Note_Enabled"
                                        VoiceCallEnabled="_features.Voice_Call_Enabled"
                                        VoiceServiceUrl="@_voiceServiceUrl"
@@ -996,6 +998,9 @@ else
     private void OpenHumanChat() => _openHumanPanel = true;
     /// <summary>W3-1: deep-link ?chat=ai (không ask) → mở AI bubble không auto-send.</summary>
     private bool _openAiPanel;
+    /// <summary>P1 R10: voice call state từ human chat → AiChatWidget mini call-bar.</summary>
+    private string? _humanCallState;
+    private void OnHumanCallStateChanged(string state) => _humanCallState = state;
     private System.Threading.Timer? _unreadTimer;
     private bool _productsLoading = true;
 

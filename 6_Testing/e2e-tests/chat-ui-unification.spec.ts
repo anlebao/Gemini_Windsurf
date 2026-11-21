@@ -113,6 +113,39 @@ test.describe('Chat UI Unification P0 (chat_ui_unification)', () => {
     expect(Math.abs(inputBox!.y - sendBox!.y)).toBeLessThan(30);
   });
 
+  // ── P1: bubble polish + mode-aware icon + mini call-bar ──────────────
+
+  test('P1 — bubble 60px + icon đổi theo mode (robot → person)', async ({ page }) => {
+    await page.goto(STORE_URL);
+    await page.waitForLoadState('networkidle');
+
+    const bubble = page.locator('button.vanan-ai-bubble-btn');
+    await expect(bubble).toBeVisible({ timeout: 20000 });
+
+    // P1: bubble to hơn — 60px.
+    const box = await bubble.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.round(box!.width)).toBeGreaterThanOrEqual(58);
+
+    // AI mode (default) → robot icon.
+    await expect(bubble.locator('i.bi-robot')).toBeVisible();
+
+    // Không có cuộc gọi → mini call-bar KHÔNG hiện.
+    await expect(page.locator('[data-testid="ai-mini-callbar"]')).toHaveCount(0);
+
+    // Switch sang human mode rồi đóng → icon đổi person.
+    await bubble.click();
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 10000 });
+    const humanTab = page.locator('.vanan-ai-tab-human');
+    if (await humanTab.count() === 0) {
+      reporter.log('Human tab không render — skip icon check');
+      test.skip();
+    }
+    await humanTab.click();
+    await page.locator('button[aria-label="Đóng trợ lý AI"]').click();
+    await expect(bubble.locator('i.bi-person-fill')).toBeVisible({ timeout: 10000 });
+  });
+
   test('Human mode: gửi tin → bubble unified (.chat-bubble--own)', async ({ page }) => {
     await page.goto(STORE_URL);
     await page.waitForLoadState('networkidle');

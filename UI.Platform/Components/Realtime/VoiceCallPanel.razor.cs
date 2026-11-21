@@ -68,6 +68,15 @@ public partial class VoiceCallPanel : IAsyncDisposable
     private bool _errorIsMeteringDenied;
     private string _incomingCaller = "";
 
+    // P1 (2026-11-21): call duration timer — hiển thị mm:ss khi connected
+    // (metering relevance: user thấy phút gọi = thấy phí nền tảng).
+    private System.Threading.PeriodicTimer? _callTimer;
+    private DateTime _callStartedAt;
+    private TimeSpan _callDuration = TimeSpan.Zero;
+
+    private string CallDurationText =>
+        _callDuration > TimeSpan.Zero ? _callDuration.ToString(@"mm\:ss") : "";
+
     private bool _idleLike => _state is "idle" or "ended" or "rejected" or "cancelled" or "missed"
         or "busy" or "offline" or "collision" or "failed";
 
@@ -98,7 +107,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         "accepted" => "Đang kết nối...",
         "negotiating" => "Đang kết nối...",
         "reconnecting" => "Đang nối lại...",
-        "connected" => "Đang gọi",
+        "connected" => string.IsNullOrEmpty(CallDurationText) ? "Đang gọi" : $"Đang gọi · {CallDurationText}",
         _ => _state
     };
 
@@ -230,6 +239,14 @@ public partial class VoiceCallPanel : IAsyncDisposable
         // RING_TIMEOUT — KHÔNG cho các lần start thất bại (denied/disabled/busy/offline).
         if (state == "missed" || (state == "ended" && reason == "RING_TIMEOUT"))
             _missed = true;
+
+        // P1: call timer — start khi connected, chạy tiếp qua reconnecting,
+        // dừng ở mọi state khác (terminal/ringing/new call).
+        if (state == "connected" && _callTimer is null)
+            StartCallTimer();
+        else if (state is not ("connected" or "reconnecting" or "negotiating"))
+            StopCallTimer();
+
         _ = CallStateChanged.InvokeAsync(state);
         StateHasChanged();
     }
@@ -245,6 +262,34 @@ public partial class VoiceCallPanel : IAsyncDisposable
             _error ??= "Mất kết nối máy chủ cuộc gọi — tải lại trang để thử lại.";
         _ = HubStateChanged.InvokeAsync(_hubState);
         StateHasChanged();
+    }
+
+    private void StartCallTimer()
+    {
+        _callStartedAt = DateTime.UtcNow;
+        _callDuration = TimeSpan.Zero;
+        _callTimer?.Dispose();
+        _callTimer = new System.Threading.PeriodicTimer(TimeSpan.FromSeconds(1));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await _callTimer.WaitForNextTickAsync())
+                {
+                    if (_state is not ("connected" or "reconnecting" or "negotiating")) break;
+                    _callDuration = DateTime.UtcNow - _callStartedAt;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch { /* timer disposed / circuit closed */ }
+        });
+    }
+
+    private void StopCallTimer()
+    {
+        _callTimer?.Dispose();
+        _callTimer = null;
+        _callDuration = TimeSpan.Zero;
     }
 
     private static string ParseReason(string infoJson)
@@ -281,6 +326,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        StopCallTimer();
         if (_ref is not null)
         {
             try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.dispose"); }

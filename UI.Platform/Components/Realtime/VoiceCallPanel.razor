@@ -14,8 +14,8 @@
     <div class="voice-call-panel" data-testid="voice-call-panel">
         @if (!_idleLike)
         {
-            <div class="voice-call-card" data-testid="voice-call-card">
-                <span class="voice-call-avatar @( _state == "ringing" ? "voice-call-avatar--ringing" : "")">
+            <div class="voice-call-card @(_state == "ringing" ? "voice-call-card--ringing" : "") @(_active ? "voice-call-card--active" : "")" data-testid="voice-call-card">
+                <span class="voice-call-avatar @( _state == "ringing" ? "voice-call-avatar--ringing" : "") @(_active ? "voice-call-avatar--active" : "")">
                     <i class="bi @(_state == "ringing" ? "bi-telephone-inbound" : "bi-telephone")"></i>
                 </span>
                 <div class="voice-call-info">

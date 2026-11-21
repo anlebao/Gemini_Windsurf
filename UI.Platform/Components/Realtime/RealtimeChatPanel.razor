@@ -270,6 +270,12 @@
     /// </summary>
     [Parameter] public bool ShowHeader { get; set; } = true;
 
+    /// <summary>
+    /// P1 R10 (2026-11-21): forward voice call state lên host (AiChatWidget mini
+    /// call-bar khi bubble đóng). Null-safe — host nào không cần thì bỏ trống.
+    /// </summary>
+    [Parameter] public EventCallback<string> VoiceCallStateChanged { get; set; }
+
     /// <summary>AI-P11 payload — conversation + message ids for SourceRef dedupe, texts verbatim.</summary>
     public sealed record KnowledgeSuggestion(
         Guid ConversationId, Guid MessageId, string Question, string Answer);
@@ -342,6 +348,7 @@
     private void OnVoiceCallStateChanged(string state)
     {
         _voiceCallState = state;
+        _ = VoiceCallStateChanged.InvokeAsync(state);
         // UX refresh (2026-11-13): khi có cuộc gọi (ringing → connected), panel chat
         // bung ra chiếm toàn bộ khung chat (Zalo/Messenger style) — ẩn message list +
         // ô nhập, call card mở rộng. Terminal/idle → trở lại chat bình thường.

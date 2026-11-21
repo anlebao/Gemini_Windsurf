@@ -205,8 +205,20 @@
         }
         else
         {
+            @* P1 R10: mini call-bar — bubble đóng mà có cuộc gọi active/ringing
+               (từ human chat) → thanh call nhỏ, tap "Mở" quay lại human mode. *@
+            @if (ShowMiniCallBar)
+            {
+                <div class="vanan-ai-callbar" data-testid="ai-mini-callbar">
+                    <i class="bi @(_mode == WidgetMode.Human || ExternalCallState == "ringing" ? "bi-telephone-inbound" : "bi-telephone")"></i>
+                    <span class="vanan-ai-callbar-state">@MiniCallBarLabel</span>
+                    <button type="button" class="vanan-ai-callbar-btn" @onclick="OpenHumanForCall"
+                            data-testid="ai-mini-callbar-open">Mở</button>
+                </div>
+            }
             <button type="button" class="vanan-ai-bubble-btn" @onclick="ToggleOpen" aria-label="Mở trợ lý AI">
-                <i class="bi bi-robot"></i>
+                @* P1: icon theo mode gần nhất — robot (AI) / person (chủ quán). *@
+                <i class="bi @(_mode == WidgetMode.Human ? "bi-person-fill" : "bi-robot")"></i>
                 @if (HumanUnreadCount > 0)
                 {
                     <span class="vanan-ai-unread">@(HumanUnreadCount > 9 ? "9+" : HumanUnreadCount.ToString())</span>
@@ -256,6 +268,13 @@
     /// feature settings; false → mic hidden regardless of browser support.</summary>
     [Parameter] public bool VoiceEnabled { get; set; }
 
+    /// <summary>
+    /// P1 R10 (2026-11-21): call state từ human chat (RealtimeChatPanel →
+    /// VoiceCallStateChanged). Bubble đóng + state active → mini call-bar.
+    /// Null/idle → không hiện.
+    /// </summary>
+    [Parameter] public string? ExternalCallState { get; set; }
+
     private enum WidgetMode { Ai, Human }
     private const int MaxDraftChars = 500;
 
@@ -280,6 +299,32 @@
 
     /// <summary>Human handoff needs both the host opt-in and a mounted fragment.</summary>
     private bool HumanHandoffAvailable => HumanChatAvailable && HumanContent is not null;
+
+    // ── P1 R10: mini call-bar state ──────────────────────────────────────
+    private static readonly HashSet<string> ActiveCallStates = new()
+    {
+        "ringing", "calling", "accepted", "negotiating", "connected", "reconnecting"
+    };
+
+    private bool ShowMiniCallBar => !_open && ExternalCallState is not null
+        && ActiveCallStates.Contains(ExternalCallState);
+
+    private string MiniCallBarLabel => ExternalCallState switch
+    {
+        "ringing" => "Cuộc gọi đến...",
+        "calling" => "Đang gọi...",
+        "connected" => "Đang gọi",
+        "reconnecting" => "Đang nối lại...",
+        _ => "Cuộc gọi"
+    };
+
+    /// <summary>Mở bubble thẳng vào human mode — cuộc gọi tiếp tục trong chat.</summary>
+    private async Task OpenHumanForCall()
+    {
+        _open = true;
+        if (HumanHandoffAvailable) _mode = WidgetMode.Human;
+        await NotifyHumanOpenedAsync();
+    }
 
     /// <summary>
     /// Task AI-P8: visible when AI is enabled OR when only the human channel remains
