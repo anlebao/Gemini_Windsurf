@@ -140,32 +140,28 @@ public partial class VoicePresencePanel : IAsyncDisposable
 
     private async Task AcceptCallAsync()
     {
-        Logger.LogWarning("[RV-DIAG] AcceptCallAsync invoked — owner={Owner} callState={State}", _owner, Coordinator?.CallState);
-        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.acceptCall"); Logger.LogWarning("[RV-DIAG] acceptCall JS ok"); }
-        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] acceptCall JS threw"); }
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.acceptCall"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel acceptCall failed"); }
     }
     private async Task RejectCallAsync()
     {
-        Logger.LogWarning("[RV-DIAG] RejectCallAsync invoked");
         try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.rejectCall"); }
-        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] rejectCall JS threw"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel rejectCall failed"); }
     }
     private async Task EndCallAsync()
     {
-        Logger.LogWarning("[RV-DIAG] EndCallAsync invoked — callState={State}", Coordinator?.CallState);
-        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.endCall"); Logger.LogWarning("[RV-DIAG] endCall JS ok"); }
-        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] endCall JS threw"); }
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.endCall"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel endCall failed"); }
     }
     private async Task ToggleMuteAsync()
     {
-        Logger.LogWarning("[RV-DIAG] ToggleMuteAsync invoked");
         try
         {
             if (_muted) await JSRuntime.InvokeVoidAsync("vananVoiceChat.unmute");
             else await JSRuntime.InvokeVoidAsync("vananVoiceChat.mute");
             _muted = !_muted;
         }
-        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] mute JS threw"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel mute toggle failed"); }
     }
 
     // ---- JSInvokable callbacks (chỉ fire khi component là JS owner) ----

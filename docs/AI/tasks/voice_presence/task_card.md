@@ -88,6 +88,15 @@ Mỗi phase 1 commit; E2E spec `voice-presence.spec.ts` flag-gated (cần tenant
 - RV static: `voice-chat.js` deployed chứa `isInitialized`/`_initInFlight`; store page 200. Spec `voice-presence.spec.ts` + config `playwright-rv-voice-presence.config.ts` self-gating — **full overlay RV cần customer session login thật** (guest → panel không mount → skip); ShopERP toggle RV cần staff login.
 - Review fixes trước commit: JS `_initInFlight` race guard; delegated panel vẫn `LoadMissedCallsAsync`; `VoiceCallPanel` catch fallback delegated khi thua race init.
 
+### Full call-flow RV (2026-11-21/22) — 16/16 PASS ✅
+
+Sweep-first: `voice-presence-preflight.mjs` **5/5** → `voice-presence-rv.mjs` **16/16** trên production (An Tâm `e2d91cdf`, 2 browser contexts: customer auto-presence + staff toggle ON, call THẬT qua voice.khachvip.online — GUM/TURN/RTCPeerConnection đều chạy, callbar hiện cả 2 phía, end → dọn UI, toggle OFF → `isInitialized=false`).
+
+Fixes trong RV loop:
+- **S9 caller name**: `CallService.CallerDisplayName` stub trả GUID → `DisplayNameResolver` query Gateway PG (`Customers.FullName` → fallback GUID, fail-open) + `Voice:DisplayNameSql` config + staff token kèm DisplayName. Overlay hiện "RV Test Customer".
+- **S10/S11 accept/end không chạy**: root cause = raw `<button @onclick>` do `VoicePresencePanel` render trực tiếp **không được Blazor dispatch** trong island `InteractiveServerRenderMode(prerender:false)` — chứng minh bằng jsCalls counter=0 qua cả Playwright click lẫn DOM `.click()`, `[RV-DIAG]` server log xác nhận handler không fire, trong khi toggle parent cùng island hoạt động. Fix: swap sang `<VanAnButton OnClick>` (button do child component render — cùng pattern `VoiceCallPanel` đã verify prod) → dispatch OK, `[RV-DIAG]` confirm `AcceptCallAsync invoked owner=True ringing → JS ok`, `EndCallAsync connected → JS ok`. Kèm exception logging thay `catch{}` nuốt lỗi.
+- **Script**: đóng customer widget trước call (global UI path), check C5 sớm (tránh ring timeout), staff hub retry, tiered fallback probes (hit-test/jsCalls/state log) giữ lại làm diagnostic.
+
 ## 8. Explicit non-goals
 
 - Không đổi VoiceHub protocol/CallStateMachine/metering gate
