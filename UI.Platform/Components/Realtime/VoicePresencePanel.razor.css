@@ -1,0 +1,156 @@
+/* VOICE PRESENCE (2026-11-21): global incoming-call overlay + in-call mini bar.
+   Hiện trên MỌI trang khi chat surface không handle call. z-index trên chat
+   widget (1050) và dưới modal backdrop nặng. */
+
+.voice-presence-incoming {
+    position: fixed;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 260px;
+    max-width: min(92vw, 380px);
+    padding: 14px 16px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    animation: voice-presence-slide-up 200ms ease-out;
+}
+
+.voice-presence-avatar {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+.voice-presence-avatar--ringing {
+    background: linear-gradient(135deg, #198754, #20c997);
+    animation: voice-presence-ring 1.4s ease-in-out infinite;
+}
+
+.voice-presence-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.voice-presence-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.voice-presence-sub {
+    font-size: 0.78rem;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.voice-presence-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.voice-presence-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 120ms ease-out;
+}
+
+.voice-presence-btn:hover { transform: scale(1.06); }
+.voice-presence-btn:active { transform: scale(0.96); }
+
+.voice-presence-btn--accept { background: #198754; }
+.voice-presence-btn--reject { background: #dc3545; }
+
+/* ── In-call mini bar ── */
+.voice-presence-callbar {
+    position: fixed;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #212529;
+    color: #fff;
+    border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+    font-size: 0.85rem;
+    animation: voice-presence-slide-up 200ms ease-out;
+}
+
+.voice-presence-callbar-state { font-weight: 600; white-space: nowrap; }
+.voice-presence-callbar-timer {
+    font-variant-numeric: tabular-nums;
+    color: #adb5bd;
+    min-width: 40px;
+}
+
+.voice-presence-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.voice-presence-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
+.voice-presence-icon-btn--end { background: #dc3545; }
+.voice-presence-icon-btn--end:hover { background: #bb2d3b; }
+
+@keyframes voice-presence-slide-up {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes voice-presence-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(25, 135, 84, 0); }
+}
+
+@media (max-width: 480px) {
+    .voice-presence-incoming {
+        bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+        gap: 10px;
+        padding: 12px;
+    }
+    .voice-presence-btn { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .voice-presence-incoming,
+    .voice-presence-callbar { animation: none; }
+    .voice-presence-avatar--ringing { animation: none; }
+    .voice-presence-btn { transition: none; }
+}

@@ -14,25 +14,40 @@
 
 window.vananVoiceChat = (function () {
     let voice = null;
+    let _initialized = false;
+    let _initInFlight = false;
 
     async function initialize(dotNetRef, options) {
         voice = window.vananVoice;
         if (!voice) throw new Error('voice-sdk.js chưa được load trước voice-chat.js.');
-
-        const serviceUrl = (options.serviceUrl || '').replace(/\/+$/, '');
-        await voice.initialize({
-            hubUrl: options.hubUrl,
-            token: options.token || null,
-            turnCredentialsUrl: serviceUrl ? serviceUrl + '/v1/turn/credentials' : null,
-            onStateChange: (s, info) => dotNetRef.invokeMethodAsync('OnVoiceStateChange', s, JSON.stringify(info || {})),
-            // S3 (2026-11-12): hub transport state — host disables the call button until Connected.
-            onConnectionStateChange: (s) => dotNetRef.invokeMethodAsync('OnVoiceConnectionState', s || ''),
-            onIncoming: (call) => dotNetRef.invokeMethodAsync('OnVoiceIncoming', JSON.stringify(call || {})),
-            onLocalStream: () => dotNetRef.invokeMethodAsync('OnVoiceLocalStream'),
-            onRemoteStream: () => dotNetRef.invokeMethodAsync('OnVoiceRemoteStream'),
-            onError: (msg) => dotNetRef.invokeMethodAsync('OnVoiceError', msg || '')
-        });
+        // In-flight guard: presence panel + chat panel có thể init gần như đồng thời —
+        // isInitialized() phải trả true ngay cả khi initialize đang await, nếu không
+        // caller thứ 2 cũng init → ghi đè callbacks của owner.
+        if (_initInFlight) throw new Error('voice-chat đang khởi tạo.');
+        _initInFlight = true;
+        try {
+            const serviceUrl = (options.serviceUrl || '').replace(/\/+$/, '');
+            await voice.initialize({
+                hubUrl: options.hubUrl,
+                token: options.token || null,
+                turnCredentialsUrl: serviceUrl ? serviceUrl + '/v1/turn/credentials' : null,
+                onStateChange: (s, info) => dotNetRef.invokeMethodAsync('OnVoiceStateChange', s, JSON.stringify(info || {})),
+                // S3 (2026-11-12): hub transport state — host disables the call button until Connected.
+                onConnectionStateChange: (s) => dotNetRef.invokeMethodAsync('OnVoiceConnectionState', s || ''),
+                onIncoming: (call) => dotNetRef.invokeMethodAsync('OnVoiceIncoming', JSON.stringify(call || {})),
+                onLocalStream: () => dotNetRef.invokeMethodAsync('OnVoiceLocalStream'),
+                onRemoteStream: () => dotNetRef.invokeMethodAsync('OnVoiceRemoteStream'),
+                onError: (msg) => dotNetRef.invokeMethodAsync('OnVoiceError', msg || '')
+            });
+            _initialized = true;
+        } finally {
+            _initInFlight = false;
+        }
     }
+
+    // VOICE PRESENCE (2026-11-21): singleton guard — layout presence panel và chat
+    // VoiceCallPanel không được initialize chồng nhau (initialize ghi đè callbacks).
+    function isInitialized() { return (_initialized || _initInFlight) && voice !== null; }
 
     // targetUserId may be empty — the server resolves the conversation counterpart (P4).
     // peerId (2026-11-13): shop threads are per-customer — staff pass the customer id so the
@@ -75,10 +90,14 @@ window.vananVoiceChat = (function () {
         }
     }
 
-    async function dispose() { if (voice) await voice.dispose(); }
+    async function dispose() {
+        if (voice) { try { await voice.dispose(); } catch (_) { /* best effort */ } voice = null; }
+        _initialized = false;
+    }
 
     return {
         initialize, startCall, acceptCall, rejectCall, endCall,
-        mute, unmute, getState, getConnectionState, fetchMissedCalls, dispose
+        mute, unmute, getState, getConnectionState, fetchMissedCalls, dispose,
+        isInitialized
     };
 })();

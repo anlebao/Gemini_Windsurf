@@ -13,6 +13,12 @@ public partial class VoiceCallPanel : IAsyncDisposable
 {
     [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
+    /// <summary>
+    /// VOICE PRESENCE (2026-11-21): state bus với VoicePresencePanel/global call UI.
+    /// Null khi host chưa đăng ký (test/legacy) → panel chạy owner mode như cũ.
+    /// </summary>
+    [Inject] private VoiceCallCoordinator? Coordinator { get; set; }
+
     /// <summary>Host opts in (tenant feature flag Voice_Call_Enabled).</summary>
     [Parameter] public bool Enabled { get; set; }
 
@@ -62,6 +68,12 @@ public partial class VoiceCallPanel : IAsyncDisposable
     private DotNetObjectReference<VoiceCallPanel>? _ref;
     private string _state = "idle";
     private string _hubState = "connecting";
+
+    // VOICE PRESENCE: delegated mode — JS singleton đã được component khác init
+    // (layout presence mount trước). Panel KHÔNG init/dispose JS, mirror state
+    // từ VoiceCallCoordinator; card UI vẫn render bình thường trong chat.
+    private bool _delegated;
+    private Action? _coordinatorHandler;
     private bool _muted;
     private bool _missed;
     private string? _error;
@@ -115,6 +127,27 @@ public partial class VoiceCallPanel : IAsyncDisposable
     {
         if (!Enabled) return;
         _hubState = "connecting";
+
+        // VOICE PRESENCE: JS singleton đã có owner (presence panel ở layout) →
+        // delegated: subscribe coordinator + replay state hiện tại, không init JS.
+        if (Coordinator is not null)
+        {
+            var alreadyInit = false;
+            try { alreadyInit = await JSRuntime.InvokeAsync<bool>("vananVoiceChat.isInitialized"); }
+            catch { /* bridge cũ chưa có isInitialized → owner path như cũ */ }
+            if (alreadyInit)
+            {
+                _delegated = true;
+                _coordinatorHandler = OnCoordinatorChanged;
+                Coordinator.Changed += _coordinatorHandler;
+                ReplayCoordinatorState();
+                // Missed-call hint vẫn cần fetch kể cả delegated — JS singleton
+                // thuộc presence owner nhưng fetchMissedCalls chỉ là HTTP GET.
+                await LoadMissedCallsAsync();
+                return;
+            }
+        }
+
         try
         {
             _ref = DotNetObjectReference.Create(this);
@@ -128,6 +161,23 @@ public partial class VoiceCallPanel : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            // Race với presence owner: initialize throw "đang khởi tạo" nhưng JS đã
+            // có owner thật → chuyển delegated thay vì báo lỗi giả.
+            if (Coordinator is not null)
+            {
+                var owned = false;
+                try { owned = await JSRuntime.InvokeAsync<bool>("vananVoiceChat.isInitialized"); }
+                catch { /* giữ nguyên lỗi gốc */ }
+                if (owned)
+                {
+                    _delegated = true;
+                    _coordinatorHandler = OnCoordinatorChanged;
+                    Coordinator.Changed += _coordinatorHandler;
+                    ReplayCoordinatorState();
+                    await LoadMissedCallsAsync();
+                    return;
+                }
+            }
             _hubState = "disconnected";
             _error = "Không khởi tạo được gọi thoại: " + ex.Message;
         }
@@ -247,8 +297,37 @@ public partial class VoiceCallPanel : IAsyncDisposable
         else if (state is not ("connected" or "reconnecting" or "negotiating"))
             StopCallTimer();
 
+        // VOICE PRESENCE: owner publish state lên bus; chat surface flag điều
+        // khiển global overlay/mini-bar (ẩn khi chat đang hiển thị call UI).
+        if (!_delegated) Coordinator?.PublishCallState(state, infoJson);
+        Coordinator?.SetChatSurfaceActive(CallUiRelevant(state));
+
         _ = CallStateChanged.InvokeAsync(state);
         StateHasChanged();
+    }
+
+    private static bool CallUiRelevant(string state) =>
+        state is "ringing" or "calling" or "accepted" or "negotiating" or "connected" or "reconnecting";
+
+    // ── VOICE PRESENCE: delegated-mode coordinator plumbing ──────────────
+
+    private void ReplayCoordinatorState()
+    {
+        var c = Coordinator;
+        if (c is null) return;
+        OnVoiceConnectionState(c.HubState);
+        OnVoiceStateChange(c.CallState, c.CallInfoJson);
+    }
+
+    private void OnCoordinatorChanged()
+    {
+        var c = Coordinator;
+        if (c is null) return;
+        _ = InvokeAsync(() =>
+        {
+            OnVoiceConnectionState(c.HubState);
+            OnVoiceStateChange(c.CallState, c.CallInfoJson);
+        });
     }
 
     /// <summary>S3: hub transport state from voice-sdk.js via voice-chat.js.</summary>
@@ -260,6 +339,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         // connection drops mid-session while idle.
         if (_hubState == "disconnected" && _state == "idle")
             _error ??= "Mất kết nối máy chủ cuộc gọi — tải lại trang để thử lại.";
+        if (!_delegated) Coordinator?.PublishHubState(_hubState);
         _ = HubStateChanged.InvokeAsync(_hubState);
         StateHasChanged();
     }
@@ -309,7 +389,16 @@ public partial class VoiceCallPanel : IAsyncDisposable
     }
 
     [JSInvokable]
-    public void OnVoiceIncoming(string callJson) => StateHasChanged();
+    public void OnVoiceIncoming(string callJson)
+    {
+        // VOICE PRESENCE: đẩy thông tin người gọi lên bus cho global overlay.
+        if (!_delegated && Coordinator is not null)
+        {
+            var (name, label) = VoiceCallCoordinator.ParseIncomingInfo(callJson);
+            Coordinator.PublishIncomingInfo(name, label);
+        }
+        StateHasChanged();
+    }
 
     [JSInvokable]
     public void OnVoiceLocalStream() => StateHasChanged();
@@ -327,7 +416,14 @@ public partial class VoiceCallPanel : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         StopCallTimer();
-        if (_ref is not null)
+        Coordinator?.SetChatSurfaceActive(false);
+        if (_coordinatorHandler is not null && Coordinator is not null)
+        {
+            Coordinator.Changed -= _coordinatorHandler;
+            _coordinatorHandler = null;
+        }
+        // Delegated mode: KHÔNG dispose JS — singleton thuộc owner (presence).
+        if (!_delegated && _ref is not null)
         {
             try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.dispose"); }
             catch { /* best effort */ }

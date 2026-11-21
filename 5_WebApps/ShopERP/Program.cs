@@ -953,6 +953,9 @@ namespace VanAn.ShopERP
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IApiKeyManagementService, CoreHub.Services.ApiKeyManagementService>();
+            // VOICE PRESENCE (2026-11-21): state bus giữa VoicePresencePanel (UserHeader)
+            // và VoiceCallPanel (chat) — scoped per circuit.
+            _ = builder.Services.AddScoped<UI.Platform.Components.Realtime.VoiceCallCoordinator>();
 
             // ✅ FIXED: Enterprise authentication configuration
             // DefaultChallengeScheme = Cookie so [Authorize] redirects to LoginPath (/Login)

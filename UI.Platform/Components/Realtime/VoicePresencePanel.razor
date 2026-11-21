@@ -1,0 +1,55 @@
+@* VOICE PRESENCE (2026-11-21, task voice_presence): presence-only voice connection
+   mount ở layout (staff toggle / customer auto). KHÔNG render call button — chỉ
+   giữ SignalR /hubs/voice connection sống để nhận IncomingCall ở mọi trang.
+
+   Global call UI: incoming overlay + in-call mini bar — CHỈ hiện khi chat
+   surface không active (VoiceCallPanel trong chat tự handle khi đang mở). *@
+@using Microsoft.JSInterop
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+
+@if (Coordinator is not null && ShowGlobalCallUi)
+{
+    var c = Coordinator;
+    @if (c.IncomingActive)
+    {
+        <div class="voice-presence-incoming" data-testid="voice-presence-incoming">
+            <span class="voice-presence-avatar voice-presence-avatar--ringing">
+                <i class="bi bi-telephone-inbound"></i>
+            </span>
+            <div class="voice-presence-info">
+                <div class="voice-presence-title">@(c.IncomingCallerName ?? "Cuộc gọi đến")</div>
+                @if (!string.IsNullOrWhiteSpace(c.IncomingContextLabel))
+                {
+                    <div class="voice-presence-sub">@c.IncomingContextLabel</div>
+                }
+            </div>
+            <div class="voice-presence-actions">
+                <button type="button" class="voice-presence-btn voice-presence-btn--accept"
+                        @onclick="AcceptCallAsync" data-testid="voice-presence-accept" aria-label="Nghe">
+                    <i class="bi bi-telephone"></i>
+                </button>
+                <button type="button" class="voice-presence-btn voice-presence-btn--reject"
+                        @onclick="RejectCallAsync" data-testid="voice-presence-reject" aria-label="Từ chối">
+                    <i class="bi bi-telephone-x"></i>
+                </button>
+            </div>
+        </div>
+    }
+    else if (CallActive(c.CallState))
+    {
+        <div class="voice-presence-callbar" data-testid="voice-presence-callbar">
+            <i class="bi bi-telephone"></i>
+            <span class="voice-presence-callbar-state">@CallBarLabel(c.CallState)</span>
+            <span class="voice-presence-callbar-timer">@CallDurationText</span>
+            <button type="button" class="voice-presence-icon-btn" @onclick="ToggleMuteAsync"
+                    data-testid="voice-presence-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">
+                <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i>
+            </button>
+            <button type="button" class="voice-presence-icon-btn voice-presence-icon-btn--end"
+                    @onclick="EndCallAsync" data-testid="voice-presence-end" aria-label="Kết thúc cuộc gọi">
+                <i class="bi bi-telephone-x"></i>
+            </button>
+        </div>
+    }
+}

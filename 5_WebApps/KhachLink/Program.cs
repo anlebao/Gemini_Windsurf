@@ -132,6 +132,9 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.LastInteractionService>();
             // W2-5 (FR-V6/V7): tenant-context resolution + render rule cho flagship features
             _ = builder.Services.AddScoped<Services.FeatureContextService>();
+            // VOICE PRESENCE (2026-11-21): state bus giữa VoicePresencePanel (layout)
+            // và VoiceCallPanel (chat) — scoped per circuit.
+            _ = builder.Services.AddScoped<UI.Platform.Components.Realtime.VoiceCallCoordinator>();
 
             // Add Logging
             _ = builder.Services.AddLogging();

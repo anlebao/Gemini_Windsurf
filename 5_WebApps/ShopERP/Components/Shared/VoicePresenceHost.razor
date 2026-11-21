@@ -1,0 +1,165 @@
+@* VOICE PRESENCE (2026-11-21, task voice_presence): toggle "Sẵn sàng nhận cuộc gọi"
+   global trên header + VoicePresencePanel mount khi ON. Mount 1 lần trong UserHeader
+   → cover mọi layout (Admin/Accounting/EInvoice/Main). Persist localStorage
+   vanan_voice_presence; OFF → dispose panel → voice connection drop → customer
+   thấy OFFLINE trung thực. *@
+@using VanAn.UI.Platform.Components.Realtime
+@using VanAn.ShopERP.Services
+@using VanAn.Shared.Services
+@using VanAn.Shared.Domain.Common
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ShopInboxApiClient ApiClient
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject IConfiguration Config
+@inject IJSRuntime JSRuntime
+
+@if (_visible)
+{
+    <button type="button" class="voice-presence-toggle @(_presenceOn ? "is-on" : "")"
+            @onclick="ToggleAsync" disabled="@_busy"
+            data-testid="voice-presence-toggle"
+            title="@(_presenceOn ? "Đang sẵn sàng nhận cuộc gọi — bấm để tắt" : "Bật để sẵn sàng nhận cuộc gọi thoại")"
+            aria-label="@(_presenceOn ? "Tắt sẵn sàng nhận cuộc gọi" : "Bật sẵn sàng nhận cuộc gọi")">
+        <i class="bi @(_presenceOn ? "bi-telephone-fill" : "bi-telephone")"></i>
+        @if (_presenceOn)
+        {
+            <span class="voice-presence-toggle__dot" data-testid="voice-presence-dot"></span>
+        }
+    </button>
+}
+
+@if (_presenceOn && !string.IsNullOrEmpty(_staffToken))
+{
+    <VoicePresencePanel Enabled="true"
+                        Token="@_staffToken"
+                        CurrentUserId="@_staffUserId"
+                        VoiceHubUrl="@_voiceHubUrl"
+                        VoiceServiceUrl="@_voiceServiceUrl" />
+}
+
+<style>
+    .voice-presence-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid var(--vanan-primary, #007bff);
+        background: transparent;
+        color: var(--vanan-primary, #007bff);
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        text-decoration: none;
+        padding: 0;
+    }
+    .voice-presence-toggle:hover { background: rgba(0, 123, 255, 0.1); }
+    .voice-presence-toggle.is-on {
+        background: #198754;
+        border-color: #198754;
+        color: #fff;
+    }
+    .voice-presence-toggle__dot {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #20c997;
+        border: 2px solid #fff;
+    }
+    .voice-presence-toggle:disabled { opacity: 0.6; cursor: default; }
+</style>
+
+@code {
+    private const string StorageKey = "vanan_voice_presence";
+
+    private bool _visible;
+    private bool _presenceOn;
+    private bool _busy;
+    private bool _jsOk = true;
+    private Guid _staffUserId;
+    private string? _staffToken;
+    private string _voiceServiceUrl = "";
+    private string _voiceHubUrl = "/hubs/voice";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _voiceServiceUrl = Config["Voice:ServiceUrl"] ?? "https://voice.khachvip.online";
+        _voiceHubUrl = Config["Voice:HubUrl"] ?? "https://voice.khachvip.online/hubs/voice";
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true || !TenantProvider.HasTenant)
+            return;
+
+        bool flag;
+        try
+        {
+            flag = await FeatureSettings.IsEnabledAsync(
+                TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.Voice_Call_Enabled));
+        }
+        catch { flag = false; }
+        if (!flag) return;
+
+        // localStorage chỉ tồn tại trên interactive render — static SSR page
+        // (không @rendermode) → JS interop throw → giữ toggle ẩn.
+        try
+        {
+            var saved = await JSRuntime.InvokeAsync<string>("localStorage.getItem", StorageKey);
+            _jsOk = true;
+            _presenceOn = saved == "1";
+        }
+        catch
+        {
+            _jsOk = false;
+            _presenceOn = false;
+        }
+        _visible = _jsOk;
+
+        if (_presenceOn) await ActivateAsync();
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            _presenceOn = !_presenceOn;
+            try { await JSRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, _presenceOn ? "1" : "0"); }
+            catch { /* persistence best-effort */ }
+
+            if (_presenceOn) await ActivateAsync();
+            else
+            {
+                _staffToken = null;
+                _staffUserId = Guid.Empty;
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ActivateAsync()
+    {
+        try
+        {
+            _staffUserId = await ApiClient.GetCurrentUserIdAsync();
+            _staffToken = await ApiClient.MintOwnerTokenAsync();
+        }
+        catch
+        {
+            // Mint token fail (role không phải owner / gateway lỗi) → tắt toggle,
+            // không để nút "ảo" sáng mà không có connection.
+            _presenceOn = false;
+            _staffToken = null;
+            _staffUserId = Guid.Empty;
+            try { await JSRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, "0"); } catch { }
+        }
+    }
+}

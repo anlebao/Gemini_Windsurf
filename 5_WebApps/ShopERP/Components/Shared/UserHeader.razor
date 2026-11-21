@@ -36,6 +36,9 @@
     <a href="/account/mfa" class="user-header__mfa" aria-label="Bảo mật tài khoản" title="Bảo mật tài khoản (MFA)">
             <i class="bi bi-shield-lock"></i>
         </a>
+        @* VOICE PRESENCE (2026-11-21): toggle "sẵn sàng nhận cuộc gọi" + presence
+           connection — mount 1 lần ở header cover mọi layout. Tự ẩn khi flag off. *@
+        <VoicePresenceHost />
         <a href="/Logout" class="user-header__logout" aria-label="Đăng xuất">
         <i class="bi bi-box-arrow-right"></i>
         <span>Đăng xuất</span>

@@ -423,6 +423,19 @@ else
              itself hides when widget-config returns aiEnabled=false AND no human
              identity exists (service down / metering deny → human mode bubble).
         ════════════════════════════════════════════════════════════════ -->
+        @* VOICE PRESENCE (2026-11-21): customer auto-presence — mount TRƯỚC
+           AiChatWidget để init JS trước (owner) → chat VoiceCallPanel chạy
+           delegated mode. Chỉ khi đã login (token) + flag ON; guest không gọi
+           được nên không cần presence. *@
+        @if (_customerToken is not null && _customerId.HasValue && _features.Voice_Call_Enabled)
+        {
+            <VoicePresencePanel Enabled="true"
+                                Token="@_customerToken"
+                                CurrentUserId="@_customerId.Value"
+                                VoiceHubUrl="@_voiceHubUrl"
+                                VoiceServiceUrl="@_voiceServiceUrl" />
+        }
+
         @if (AiFeaturesVisible)
         {
             <AiChatWidget TenantId="_store.Id"
