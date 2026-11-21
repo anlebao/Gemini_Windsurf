@@ -1,6 +1,6 @@
 # Task Card: KhachLink AI/Chat UI Unification — P0 + P1 + P2
 
-> **Status:** ✅ **P0 DONE + RV 3/3** (`ece7e0e5`, CD `44895953223`) · ✅ **P1 DONE + DEPLOYED `efecb6b6` + CD `44901852483` SUCCESS + RV prod PASS 4/4** (2026-11-21, `playwright-rv-chatui.config.ts` trên An Tâm `e2d91cdf`) — P2 pending
+> **Status:** ✅ **P0+P1+P2 DONE + DEPLOYED** — P0 `ece7e0e5`/CD `44895953223` · P1 `efecb6b6`/CD `44901852483` · P2 `c8c8d974`/CD `44905127520` — RV prod PASS 4/4 mỗi phase (2026-11-21, An Tâm `e2d91cdf`). **R12 deferred**: không có typing infra trong SignalR hub/client (verified zero matches).
 > **Depends on:** Review 2026-11-21 (xem dưới) — user approved direction
 > **Scope:** `UI.Platform/Components/Ai/AiChatWidget.razor(.css)` · `UI.Platform/Components/Realtime/RealtimeChatPanel.razor(.css)` · `UI.Platform/Components/Realtime/VoiceCallPanel.razor(.cs/.css)` · `5_WebApps/KhachLink/Pages/Store.razor` (mount params only)
 
@@ -44,10 +44,10 @@ Mục tiêu: **1 design system chat duy nhất** — user switch mode không c�
 
 ### P2 — Polish (sau khi P0/P1 ổn định)
 
-- [ ] **R11.** Date separator "Hôm nay/Hôm qua" cả 2 mode.
-- [ ] **R12.** "Đang nhập..." typing indicator chiều customer→shop (infra SignalR `ReceiveTyping` cần check tồn tại — nếu chưa có backend thì defer).
-- [ ] **R13.** Message entrance animation (fade+slide 150ms), skeleton loading thay spinner trần.
-- [ ] **R14.** AI mode: product card polish (ảnh lớn hơn, giá bold, nút "Thêm" full-width mobile).
+- [x] **R11.** Date separator "Hôm nay/Hôm qua/dd-MM-yyyy" cả 2 mode — `ChatDateFormatter` shared (Utc→local, Unspecified=local), pill `.chat-date-sep`; unit 6/6 + E2E assert
+- [~] **R12.** "Đang nhập..." typing indicator chiều customer→shop — **DEFERRED**: không có `SendTyping`/`ReceiveTyping` trong SignalR hub lẫn client (verified). Cần backend work nếu muốn — task riêng.
+- [x] **R13.** Message entrance animation fade+slide 150ms trên `.vanan-ai-msg`/`.chat-msg`, `prefers-reduced-motion` tắt
+- [x] **R14.** AI product card: img 40→56px, giá 700, hover shadow, ≤480px nút Thêm full-width
 
 ## 4. Execution strategy — đủ yêu cầu, nhanh
 
