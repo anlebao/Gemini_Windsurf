@@ -27,6 +27,25 @@
     align-items: flex-start;
     gap: 6px;
     margin-bottom: 8px;
+    /* P2 R13: entrance fade+slide 150ms — chỉ chạy khi node mới mount. */
+    animation: chat-msg-in 150ms ease-out;
+}
+
+/* P2 R11: date separator pill — đồng bộ với .vanan-ai-widget version. */
+.chat-date-sep {
+    width: fit-content;
+    margin: 10px auto 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--chat-meta-fg, #6c757d);
+    font-size: var(--chat-font-meta, 0.75rem);
+    font-weight: 500;
+}
+
+@keyframes chat-msg-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .chat-msg--own {
@@ -114,6 +133,8 @@
 
 @media (prefers-reduced-motion: reduce) {
     .chat-input-row ::deep .chat-mic-btn.listening { animation: none; }
+    /* P2 R13: tắt entrance animation cho user giảm chuyển động. */
+    .chat-msg { animation: none; }
 }
 
 /* P0 unify: input row luôn horizontal mọi viewport — media query cũ (column→row

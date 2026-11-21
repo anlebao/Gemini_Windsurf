@@ -174,5 +174,9 @@ test.describe('Chat UI Unification P0 (chat_ui_unification)', () => {
     // Own bubble phải dùng class unified mới.
     await expect(chatPanel.locator('.chat-bubble--own').first())
       .toContainText('Xin chào từ E2E', { timeout: 15000 });
+
+    // P2 R11: date separator "Hôm nay" hiện trên message mới.
+    await expect(chatPanel.locator('.chat-date-sep').first())
+      .toContainText('Hôm nay', { timeout: 10000 });
   });
 });

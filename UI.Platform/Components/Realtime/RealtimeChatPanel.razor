@@ -110,8 +110,15 @@
                     // reads _messages.Count after the loop ends (ArgumentOutOfRange on click).
                     // A body-local copy is captured per-iteration instead.
                     var msgIndex = i;
+                    // P2 R11: date separator khi message mở đầu ngày mới.
+                    var dateSep = ChatDateFormatter.SeparatorLabel(
+                        i > 0 ? (DateTime?)_messages[i - 1].SentAt : null, msg.SentAt);
                     // P0 unify (2026-11-21): bubble + avatar giống AI mode —
                     // own = phải primary, peer = trái avatar + white bubble.
+                    @if (dateSep is not null)
+                    {
+                        <div class="chat-date-sep">@dateSep</div>
+                    }
                     <div class="chat-msg @(isOwn ? "chat-msg--own" : "")">
                         @if (!isOwn)
                         {

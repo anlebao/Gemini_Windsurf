@@ -116,6 +116,13 @@
                             var msg = _messages[i];
                             var isUser = msg.Role == "user";
                             var turnDraft = drafts[i];
+                            // P2 R11: date separator khi message mở đầu ngày mới.
+                            var dateSep = ChatDateFormatter.SeparatorLabel(
+                                i > 0 ? (DateTime?)_messages[i - 1].CreatedAtUtc : null, msg.CreatedAtUtc);
+                            @if (dateSep is not null)
+                            {
+                                <div class="chat-date-sep">@dateSep</div>
+                            }
                             <div class="vanan-ai-msg @(isUser ? "vanan-ai-msg-user" : "vanan-ai-msg-assistant")" @key="msg">
                                 @if (!isUser)
                                 {
