@@ -21,6 +21,7 @@ public sealed class CallService(
     ICallEventPublisher publisher,
     IServiceScopeFactory scopeFactory,
     IConfiguration configuration,
+    IVoiceDisplayNameResolver displayNames,
     ILogger<CallService> logger)
 {
     private const int MaxSdpBytes = 64 * 1024;
@@ -179,7 +180,7 @@ public sealed class CallService(
         await publisher.SendToAsync(callerConnectionId, "CallCreated",
             new CallCreatedDto(req.CallId, call.Status.ToString().ToUpperInvariant(), TimeoutConfig));
         await publisher.SendToConnectionsAsync(receiverConnections, "IncomingCall",
-            new IncomingCallDto(req.CallId, caller.UserId, CallerDisplayName(caller), VerifiedContextLabel(call), TimeoutConfig));
+            new IncomingCallDto(req.CallId, caller.UserId, await ResolveCallerDisplayNameAsync(caller.UserId, ct), VerifiedContextLabel(call), TimeoutConfig));
         logger.LogInformation("StartCall {CallId} RINGING: caller={Caller} target={Target} receiverConns={Count}",
             req.CallId, caller.UserId, targetUserId, receiverConnections.Count);
         Schedule(active, TimeSpan.FromSeconds(RingTimeoutSeconds), svc => svc.RingTimeoutAsync(req.CallId));
@@ -592,7 +593,8 @@ public sealed class CallService(
     private static string? OtherSideConnection(VoiceStateStore.ActiveCall active, Guid userId)
         => active.Call.CallerUserId == userId ? active.ReceiverConnectionId : active.CallerConnectionId;
 
-    private static string CallerDisplayName(VoiceIdentity caller) => caller.UserId.ToString();
+    private async Task<string> ResolveCallerDisplayNameAsync(Guid userId, CancellationToken ct)
+        => await displayNames.ResolveAsync(userId, ct) ?? userId.ToString();
 
     private static string? VerifiedContextLabel(VoiceCall call)
         => call.ContextType == null ? null : $"{call.ContextType}:{call.ContextReferenceId}";

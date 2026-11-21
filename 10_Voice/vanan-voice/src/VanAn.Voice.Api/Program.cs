@@ -44,9 +44,15 @@ builder.Services.AddScoped<VoiceIdentityResolver>();
 
 // Context verification (O6): PostgreSQL read-only when configured, otherwise fail closed.
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Voice:GatewayDb"]))
+{
     builder.Services.AddScoped<IContextVerifier, PostgresContextVerifier>();
+    builder.Services.AddScoped<IVoiceDisplayNameResolver, PostgresDisplayNameResolver>();
+}
 else
+{
     builder.Services.AddScoped<IContextVerifier, NullContextVerifier>();
+    builder.Services.AddScoped<IVoiceDisplayNameResolver, NullDisplayNameResolver>();
+}
 
 // Metering client — thin, fail-open (SRS §14, metering convention G9).
 builder.Services.AddHttpClient<MeteringClient>(client =>

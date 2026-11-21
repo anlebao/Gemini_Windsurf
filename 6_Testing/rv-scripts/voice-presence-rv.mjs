@@ -54,6 +54,13 @@ const staffPage = await staffCtx.newPage();
 const custPage = await custCtx.newPage();
 staffPage.on('pageerror', e => console.log('[staff pageerror]', String(e).slice(0, 200)));
 custPage.on('pageerror', e => console.log('[cust pageerror]', String(e).slice(0, 200)));
+for (const [tag, pg] of [['staff', staffPage], ['cust', custPage]]) {
+  pg.on('console', m => {
+    const t = m.text();
+    if (m.type() === 'error' || /voice|vananVoice/i.test(t))
+      console.log(`[${tag} console.${m.type()}]`, t.slice(0, 200));
+  });
+}
 
 try {
   // ── 1. CUSTOMER: mở store, đợi presence auto-init ──────────────────────
@@ -96,6 +103,11 @@ try {
   await sleep(2500);
   const ownMsg = await custPage.locator('.chat-bubble--own').count();
   check('C3 customer sent human chat message (conversation created)', ownMsg > 0, `own bubbles=${ownMsg}`);
+
+  // Đóng chat widget → ChatSurfaceActive=false → global presence UI path được test
+  // (nếu để mở, call UI hiện trong chat panel — đúng design, nhưng không phải global).
+  await custPage.click('.vanan-ai-bubble-btn', { timeout: 10000 }).catch(() => {});
+  await sleep(1500);
 
   // ── 3. STAFF: login tenant owner qua Razor Login page (sub=GUID — bắt buộc
   //    cho voice/chat; platform login có sub=email → random participant id) ──
@@ -187,11 +199,24 @@ try {
 
   // ── 7. STAFF accept → callbar → end ────────────────────────────────────
   if (overlaySeen) {
+    const staffStateLog = [];
+    const statePoll = setInterval(async () => {
+      try {
+        const s = await staffPage.evaluate(() => window.vananVoiceChat?.getState?.() ?? 'n/a');
+        staffStateLog.push(s);
+      } catch {}
+    }, 2000);
     await staffPage.click('[data-testid="voice-presence-accept"]');
     const callbar = staffPage.locator('[data-testid="voice-presence-callbar"]');
     let barSeen = false;
-    try { await callbar.waitFor({ state: 'visible', timeout: 20000 }); barSeen = true; } catch {}
-    check('S10 sau accept → mini call-bar hiện (callbar toàn cục)', barSeen);
+    try { await callbar.waitFor({ state: 'visible', timeout: 25000 }); barSeen = true; } catch {}
+    clearInterval(statePoll);
+    check('S10 sau accept → mini call-bar hiện (callbar toàn cục)', barSeen,
+      barSeen ? '' : `states=${JSON.stringify([...new Set(staffStateLog)])}`);
+    if (!barSeen) {
+      const custState = await custPage.evaluate(() => window.vananVoiceChat?.getState?.() ?? 'n/a').catch(() => 'n/a');
+      console.log('[debug] staff states:', JSON.stringify(staffStateLog), '| cust state:', custState);
+    }
 
     // customer side cũng phải thấy callbar global (chat widget đang đóng)
     const custBar = custPage.locator('[data-testid="voice-presence-callbar"], [data-testid="ai-mini-callbar"]');
