@@ -68,6 +68,10 @@
     try { stored = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]'); } catch (err) {}
     return { state: diagState(), events: stored };
   };
+  // Header install button (DirectoryLayout) calls this — same flow as the
+  // floating button tap, plus iOS/installed guards the floating button
+  // never reaches (it is hidden in those states).
+  window.vananDirInstall = function () { triggerInstall(); };
   // --------------------------------------------------------------------------
 
   diag('init', diagState());
@@ -191,44 +195,62 @@
       'cursor:pointer;display:flex;align-items:center;gap:8px;';
     button.innerHTML =
       '<i class="bi bi-download" style="font-size:16px;"></i> Cài đặt ứng dụng';
-    button.onclick = function () {
-      if (deferredPrompt) {
-        diag('install-tap', { hasPrompt: true });
-        tryInstall();
-        return;
-      }
-      // D3 (2026-10-24): embedded WebView (Zalo/Messenger/Facebook...) can NEVER
-      // install a PWA — explicit "open in Chrome" message instead of guidance loop.
-      if (isInAppBrowser()) {
-        diag('install-tap', { inapp: true });
-        showStatusToast(
-          'Không thể cài app từ trình duyệt nhúng',
-          'Bạn đang mở link bên trong app khác (Zalo/Messenger...). Hãy mở bằng trình duyệt <b>Chrome</b> rồi bấm cài lại.',
-          'rgba(120,60,20,0.97)', 20000);
-        return;
-      }
-      // D2 (2026-10-24): WebAPK already installed? (clearing site data does NOT
-      // uninstall a WebAPK — beforeinstallprompt never fires in that state and
-      // the user would otherwise loop the guidance toasts forever.)
-      if (navigator.getInstalledRelatedApps) {
-        navigator.getInstalledRelatedApps().then(function (apps) {
-          if (apps && apps.length > 0) {
-            diag('install-tap', { alreadyInstalled: true });
-            isInstalled = true;
-            hideInstallButton();
-            showStatusToast(
-              'App đã được cài đặt',
-              'Mở app từ màn hình chính hoặc danh sách ứng dụng. Muốn cài lại từ đầu: <b>Cài đặt → Ứng dụng</b> → gỡ app này trước (xóa icon/dữ liệu web không gỡ được app).',
-              'rgba(34,139,34,0.95)', 12000);
-            return;
-          }
-          handleNoPromptTap();
-        }).catch(function () { handleNoPromptTap(); });
-      } else {
-        handleNoPromptTap();
-      }
-    };
+    button.onclick = triggerInstall;
     document.body.appendChild(button);
+  }
+
+  // Shared install-tap entry point — used by the floating button AND the
+  // header install icon (window.vananDirInstall). Handles every terminal
+  // state: ready prompt, already installed, iOS, in-app browser, no prompt.
+  function triggerInstall() {
+    if (isInstalled) {
+      diag('install-tap', { alreadyInstalled: true });
+      showStatusToast(
+        'App đã được cài đặt',
+        'Mở app từ màn hình chính hoặc danh sách ứng dụng.',
+        'rgba(34,139,34,0.95)', 8000);
+      return;
+    }
+    if (isIOS) {
+      diag('install-tap', { ios: true });
+      showIosHint();
+      return;
+    }
+    if (deferredPrompt) {
+      diag('install-tap', { hasPrompt: true });
+      tryInstall();
+      return;
+    }
+    // D3 (2026-10-24): embedded WebView (Zalo/Messenger/Facebook...) can NEVER
+    // install a PWA — explicit "open in Chrome" message instead of guidance loop.
+    if (isInAppBrowser()) {
+      diag('install-tap', { inapp: true });
+      showStatusToast(
+        'Không thể cài app từ trình duyệt nhúng',
+        'Bạn đang mở link bên trong app khác (Zalo/Messenger...). Hãy mở bằng trình duyệt <b>Chrome</b> rồi bấm cài lại.',
+        'rgba(120,60,20,0.97)', 20000);
+      return;
+    }
+    // D2 (2026-10-24): WebAPK already installed? (clearing site data does NOT
+    // uninstall a WebAPK — beforeinstallprompt never fires in that state and
+    // the user would otherwise loop the guidance toasts forever.)
+    if (navigator.getInstalledRelatedApps) {
+      navigator.getInstalledRelatedApps().then(function (apps) {
+        if (apps && apps.length > 0) {
+          diag('install-tap', { alreadyInstalled: true });
+          isInstalled = true;
+          hideInstallButton();
+          showStatusToast(
+            'App đã được cài đặt',
+            'Mở app từ màn hình chính hoặc danh sách ứng dụng. Muốn cài lại từ đầu: <b>Cài đặt → Ứng dụng</b> → gỡ app này trước (xóa icon/dữ liệu web không gỡ được app).',
+            'rgba(34,139,34,0.95)', 12000);
+          return;
+        }
+        handleNoPromptTap();
+      }).catch(function () { handleNoPromptTap(); });
+    } else {
+      handleNoPromptTap();
+    }
   }
 
   // Tap without a ready prompt — existing frictionless flow: persist the

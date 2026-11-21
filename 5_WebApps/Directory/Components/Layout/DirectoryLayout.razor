@@ -5,6 +5,7 @@
 @inject InstanceConfigService InstanceService
 @inject ShopConfigService ShopConfigService
 @inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JSRuntime
 @inherits LayoutComponentBase
 
 <HeadContent>
@@ -59,6 +60,11 @@ else
                 <a href="/stores" class="header-icon-btn" aria-label="Tìm cửa hàng" title="Tìm cửa hàng">
                     <i class="bi bi-geo-alt text-white"></i>
                 </a>
+                <!-- PWA install — always-visible entry point (iOS has no floating button) -->
+                <button type="button" class="header-icon-btn" aria-label="Cài đặt ứng dụng" title="Cài đặt ứng dụng"
+                        @onclick="InstallAppAsync">
+                    <i class="bi bi-download text-white"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -245,6 +251,14 @@ else
             ThemeType.Modern  => "modern",
             _                 => "classic"
         };
+    }
+
+    /// <summary>PWA install — delegates to window.vananDirInstall (directory-pwa.js)
+    /// which owns the whole flow: native prompt, iOS hint, in-app browser toast.</summary>
+    private async Task InstallAppAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananDirInstall"); }
+        catch { /* JS not loaded yet (SSR first paint) — harmless no-op */ }
     }
 
     /// <summary>

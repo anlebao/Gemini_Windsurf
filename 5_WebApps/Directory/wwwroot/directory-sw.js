@@ -66,9 +66,14 @@
 // v10 (2026-11-08):
 //   - JS/CSS → stale-while-revalidate (cùng fix "old JS after deploy" như
 //     KhachLink v33 — cache-first giữ script cũ trên thiết bị đã cài app).
+//
+// v11 (2026-11-20):
+//   - directory-pwa.js: expose window.vananDirInstall — header install icon
+//     (DirectoryLayout) shares the floating-button tap flow + iOS/installed
+//     guards. Bump so installed apps re-fetch the script.
 // ============================================================================
 
-const CACHE_NAME = 'vanan-directory-v10';
+const CACHE_NAME = 'vanan-directory-v11';
 const SHELL_URLS = ['/'];
 
 self.addEventListener('install', event => {
