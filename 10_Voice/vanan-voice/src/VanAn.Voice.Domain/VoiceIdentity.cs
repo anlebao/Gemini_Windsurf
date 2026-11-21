@@ -11,7 +11,7 @@ public enum VoiceIdentityKind
     Customer = 1
 }
 
-public sealed record VoiceIdentity(Guid UserId, VoiceIdentityKind Kind, Guid? TenantId = null)
+public sealed record VoiceIdentity(Guid UserId, VoiceIdentityKind Kind, Guid? TenantId = null, string? DisplayName = null)
 {
     public bool IsStaff => Kind == VoiceIdentityKind.Staff;
 }

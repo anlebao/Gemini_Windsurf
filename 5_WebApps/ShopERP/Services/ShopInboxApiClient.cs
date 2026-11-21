@@ -83,11 +83,18 @@ public sealed class ShopInboxApiClient
             ?? user.FindFirst("TenantId")?.Value;
         Guid tenantId = Guid.TryParse(tenantIdStr, out Guid tid) ? tid : Guid.Empty;
 
+        // DisplayName claim → voice IncomingCall caller identity (voice_presence).
+        string? displayName = user.FindFirst("DisplayName")?.Value;
+        var extraClaims = string.IsNullOrWhiteSpace(displayName)
+            ? null
+            : new[] { new Claim("DisplayName", displayName) };
+
         return _jwtTokenService.GenerateToken(
             userGuid,
             email,
             "Owner",
-            tenantId);
+            tenantId,
+            extraClaims);
     }
 
     /// <summary>The current user's id ("sub" claim) — the chat panel aligns bubbles by it.</summary>

@@ -342,7 +342,7 @@ window.vananVoice = (function () {
             const token = options.accessTokenProvider ? await options.accessTokenProvider() : (options.token || null);
             const headers = { Accept: 'application/json' };
             if (token) headers.Authorization = 'Bearer ' + token;
-            const resp = await fetch(options.turnCredentialsUrl, { headers });
+            const resp = await fetch(options.turnCredentialsUrl, { headers, signal: AbortSignal.timeout(5000) });
             if (!resp.ok) return options.iceServers || [];
             const data = await resp.json();
             if (!data || !Array.isArray(data.urls) || !data.username || !data.credential) return options.iceServers || [];
@@ -477,6 +477,7 @@ window.vananVoice = (function () {
             // onCallAccepted (acceptedLocally=true) will move us to Accepted.
             return true;
         } catch (ex) {
+            console.warn('[vananVoice] acceptCall failed:', ex && ex.message ? ex.message : ex);
             emitError('Không thể nghe máy: ' + (ex && ex.message ? ex.message : ex));
             return false;
         }

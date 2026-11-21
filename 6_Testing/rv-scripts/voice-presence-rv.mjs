@@ -197,6 +197,13 @@ try {
     check('S9 overlay hiển thị tên người gọi', /RV Test|Khách|khách/i.test(txt), txt.slice(0, 120));
   }
 
+  // C5 check SỚM — customer state 'calling' đã hiện global call UI; nếu để sau
+  // accept+wait, ring timeout (30s) có thể giết call trước khi assert.
+  const custBarEarly = custPage.locator('[data-testid="voice-presence-callbar"], [data-testid="ai-mini-callbar"]');
+  let custBarEarlySeen = false;
+  try { await custBarEarly.first().waitFor({ state: 'visible', timeout: 10000 }); custBarEarlySeen = true; } catch {}
+  check('C5 customer thấy call UI global trong khi gọi', custBarEarlySeen);
+
   // ── 7. STAFF accept → callbar → end ────────────────────────────────────
   if (overlaySeen) {
     const staffStateLog = [];
@@ -217,12 +224,6 @@ try {
       const custState = await custPage.evaluate(() => window.vananVoiceChat?.getState?.() ?? 'n/a').catch(() => 'n/a');
       console.log('[debug] staff states:', JSON.stringify(staffStateLog), '| cust state:', custState);
     }
-
-    // customer side cũng phải thấy callbar global (chat widget đang đóng)
-    const custBar = custPage.locator('[data-testid="voice-presence-callbar"], [data-testid="ai-mini-callbar"]');
-    let custBarSeen = false;
-    try { await custBar.first().waitFor({ state: 'visible', timeout: 15000 }); custBarSeen = true; } catch {}
-    check('C5 customer thấy call UI global trong khi gọi', custBarSeen);
 
     await sleep(CALL_SECONDS * 1000);
     await staffPage.click('[data-testid="voice-presence-end"]').catch(() => {});

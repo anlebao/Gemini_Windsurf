@@ -180,7 +180,7 @@ public sealed class CallService(
         await publisher.SendToAsync(callerConnectionId, "CallCreated",
             new CallCreatedDto(req.CallId, call.Status.ToString().ToUpperInvariant(), TimeoutConfig));
         await publisher.SendToConnectionsAsync(receiverConnections, "IncomingCall",
-            new IncomingCallDto(req.CallId, caller.UserId, await ResolveCallerDisplayNameAsync(caller.UserId, ct), VerifiedContextLabel(call), TimeoutConfig));
+            new IncomingCallDto(req.CallId, caller.UserId, await ResolveCallerDisplayNameAsync(caller, ct), VerifiedContextLabel(call), TimeoutConfig));
         logger.LogInformation("StartCall {CallId} RINGING: caller={Caller} target={Target} receiverConns={Count}",
             req.CallId, caller.UserId, targetUserId, receiverConnections.Count);
         Schedule(active, TimeSpan.FromSeconds(RingTimeoutSeconds), svc => svc.RingTimeoutAsync(req.CallId));
@@ -593,8 +593,13 @@ public sealed class CallService(
     private static string? OtherSideConnection(VoiceStateStore.ActiveCall active, Guid userId)
         => active.Call.CallerUserId == userId ? active.ReceiverConnectionId : active.CallerConnectionId;
 
-    private async Task<string> ResolveCallerDisplayNameAsync(Guid userId, CancellationToken ct)
-        => await displayNames.ResolveAsync(userId, ct) ?? userId.ToString();
+    private async Task<string> ResolveCallerDisplayNameAsync(VoiceIdentity caller, CancellationToken ct)
+    {
+        // Token-bound name first (customer /me fullName, staff JWT DisplayName claim) —
+        // authoritative for the authenticated caller; DB lookup is the fallback.
+        if (!string.IsNullOrWhiteSpace(caller.DisplayName)) return caller.DisplayName.Trim();
+        return await displayNames.ResolveAsync(caller.UserId, ct) ?? caller.UserId.ToString();
+    }
 
     private static string? VerifiedContextLabel(VoiceCall call)
         => call.ContextType == null ? null : $"{call.ContextType}:{call.ContextReferenceId}";

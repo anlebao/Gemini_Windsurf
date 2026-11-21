@@ -68,7 +68,11 @@ window.vananVoiceChat = (function () {
         }
     }
 
-    async function acceptCall() { return voice.acceptCall(); }
+    async function acceptCall() {
+        const result = await voice.acceptCall();
+        console.info('[voice-chat] acceptCall →', result);
+        return result;
+    }
     async function rejectCall() { return voice.rejectCall(); }
     async function endCall() { return voice.endCall(); }
     function mute() { return voice.mute(); }

@@ -43,7 +43,7 @@ public sealed class CustomerTokenValidator(
 
             var me = await resp.Content.ReadFromJsonAsync<MeResponse>(ct);
             if (me?.CustomerId == null || me.CustomerId == Guid.Empty) return null;
-            return new VoiceIdentity(me.CustomerId.Value, VoiceIdentityKind.Customer);
+            return new VoiceIdentity(me.CustomerId.Value, VoiceIdentityKind.Customer, DisplayName: me.FullName);
         }
         catch (Exception ex)
         {
@@ -75,5 +75,6 @@ public sealed class CustomerTokenValidator(
     public sealed class MeResponse
     {
         public Guid? CustomerId { get; set; }
+        public string? FullName { get; set; }
     }
 }

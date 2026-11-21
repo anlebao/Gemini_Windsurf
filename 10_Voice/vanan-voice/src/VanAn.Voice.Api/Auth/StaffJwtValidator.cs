@@ -57,7 +57,10 @@ public sealed class StaffJwtValidator(IConfiguration configuration, ILogger<Staf
             if (Guid.TryParse(tenantClaim, out var tenant))
                 tenantId = tenant;
 
-            return new VoiceIdentity(userId, VoiceIdentityKind.Staff, tenantId);
+            // DisplayName claim (MintOwnerTokenAsync) → caller identity on IncomingCall.
+            var displayName = result.Claims.FirstOrDefault(c => c.Key == "DisplayName").Value?.ToString();
+
+            return new VoiceIdentity(userId, VoiceIdentityKind.Staff, tenantId, displayName);
         }
         catch (Exception ex)
         {
