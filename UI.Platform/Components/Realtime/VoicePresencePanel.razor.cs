@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 namespace VanAn.UI.Platform.Components.Realtime;
@@ -17,6 +18,7 @@ public partial class VoicePresencePanel : IAsyncDisposable
 {
     [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
     [Inject] private VoiceCallCoordinator? Coordinator { get; set; }
+    [Inject] private ILogger<VoicePresencePanel> Logger { get; set; } = null!;
 
     /// <summary>Host opts in (tenant flag Voice_Call_Enabled).</summary>
     [Parameter] public bool Enabled { get; set; }
@@ -138,28 +140,32 @@ public partial class VoicePresencePanel : IAsyncDisposable
 
     private async Task AcceptCallAsync()
     {
-        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.acceptCall"); }
-        catch { /* best effort */ }
+        Logger.LogWarning("[RV-DIAG] AcceptCallAsync invoked — owner={Owner} callState={State}", _owner, Coordinator?.CallState);
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.acceptCall"); Logger.LogWarning("[RV-DIAG] acceptCall JS ok"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] acceptCall JS threw"); }
     }
     private async Task RejectCallAsync()
     {
+        Logger.LogWarning("[RV-DIAG] RejectCallAsync invoked");
         try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.rejectCall"); }
-        catch { /* best effort */ }
+        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] rejectCall JS threw"); }
     }
     private async Task EndCallAsync()
     {
-        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.endCall"); }
-        catch { /* best effort */ }
+        Logger.LogWarning("[RV-DIAG] EndCallAsync invoked — callState={State}", Coordinator?.CallState);
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.endCall"); Logger.LogWarning("[RV-DIAG] endCall JS ok"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] endCall JS threw"); }
     }
     private async Task ToggleMuteAsync()
     {
+        Logger.LogWarning("[RV-DIAG] ToggleMuteAsync invoked");
         try
         {
             if (_muted) await JSRuntime.InvokeVoidAsync("vananVoiceChat.unmute");
             else await JSRuntime.InvokeVoidAsync("vananVoiceChat.mute");
             _muted = !_muted;
         }
-        catch { /* best effort */ }
+        catch (Exception ex) { Logger.LogWarning(ex, "[RV-DIAG] mute JS threw"); }
     }
 
     // ---- JSInvokable callbacks (chỉ fire khi component là JS owner) ----

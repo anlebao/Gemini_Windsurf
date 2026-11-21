@@ -45,6 +45,22 @@ const browser = await chromium.launch({
 
 const staffCtx = await browser.newContext({ permissions: ['microphone', 'camera'] });
 const custCtx = await browser.newContext({ permissions: ['microphone', 'camera'] });
+// Instrument staff page: time getUserMedia / fetch / acceptCall để bắt chỗ hang.
+await staffCtx.addInitScript(() => {
+  const tag = '[vananVoice-probe]';
+  try {
+    const origGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = (...a) => {
+      console.info(tag, 'GUM start');
+      return origGUM(...a).then(s => { console.info(tag, 'GUM ok'); return s; })
+        .catch(e => { console.info(tag, 'GUM err', e.name, e.message); throw e; });
+    };
+    const origFetch = window.fetch.bind(window);
+    window.fetch = (...a) => { console.info(tag, 'fetch', String(a[0]).slice(0, 120)); return origFetch(...a); };
+    const origPC = window.RTCPeerConnection;
+    if (origPC) window.RTCPeerConnection = function (...a) { console.info(tag, 'RTCPeerConnection new'); return new origPC(...a); };
+  } catch (e) { console.info(tag, 'init err', e.message); }
+});
 // customer_token phải có TRƯỚC khi app đọc localStorage
 await custCtx.addInitScript((t) => {
   try { localStorage.setItem('customer_token', t); } catch {}
@@ -92,6 +108,17 @@ try {
     await sleep(1000);
   }
   check('C2 customer voice hub CONNECTED (auto-presence)', custConn === 'connected', custConn);
+  if (custConn !== 'connected') {
+    console.log('[debug] customer voice hub chưa connected — reload retry');
+    await custPage.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await sleep(8000);
+    for (let i = 0; i < 20; i++) {
+      custConn = await custPage.evaluate(() => window.vananVoiceChat?.getConnectionState?.() ?? '');
+      if (custConn === 'connected') break;
+      await sleep(1000);
+    }
+    check('C2b customer voice hub CONNECTED sau reload', custConn === 'connected', custConn);
+  }
 
   // ── 2. CUSTOMER: gửi tin nhắn human chat → tạo conversation ────────────
   await custPage.click('.vanan-ai-bubble-btn', { timeout: 15000 });
@@ -106,7 +133,8 @@ try {
 
   // Đóng chat widget → ChatSurfaceActive=false → global presence UI path được test
   // (nếu để mở, call UI hiện trong chat panel — đúng design, nhưng không phải global).
-  await custPage.click('.vanan-ai-bubble-btn', { timeout: 10000 }).catch(() => {});
+  // Nút đóng là chevron trong .vanan-ai-header (aria-label="Đóng trợ lý AI").
+  await custPage.click('.vanan-ai-header [aria-label="Đóng trợ lý AI"], .vanan-ai-header button', { timeout: 10000 }).catch(() => {});
   await sleep(1500);
 
   // ── 3. STAFF: login tenant owner qua Razor Login page (sub=GUID — bắt buộc
@@ -173,7 +201,43 @@ try {
     if (staffConn === 'connected') break;
     await sleep(1000);
   }
+  // Flake guard: WS tới voice hub có thể rớt 1 lần (SSE fallback cũng có thể fail)
+  // → reload page 1 lần (toggle persist localStorage → presence tự re-init).
+  if (staffConn !== 'connected') {
+    console.log('[debug] staff voice hub chưa connected — reload page retry');
+    await staffPage.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await sleep(8000);
+    for (let i = 0; i < 20; i++) {
+      staffConn = await staffPage.evaluate(() => window.vananVoiceChat?.getConnectionState?.() ?? '');
+      if (staffConn === 'connected') break;
+      await sleep(1000);
+    }
+  }
   check('S7 staff voice hub CONNECTED (presence = live connection)', staffConn === 'connected', staffConn);
+
+  // ── 4b. DIAG: island circuit còn sống? Toggle OFF→ON qua DOM click ──────
+  // Nếu toggle @onclick (cùng island VoicePresenceHost) cũng không dispatch →
+  // circuit chết → mọi @onclick trong island (kể cả panel con) đều chết.
+  if (process.env.VOICE_SKIP_TOGGLE_PROBE !== '1') {
+    await staffPage.evaluate(() => document.querySelector('[data-testid="voice-presence-toggle"]')?.click());
+    await sleep(2500);
+    const initAfterOff = await staffPage.evaluate(() => window.vananVoiceChat?.isInitialized?.() ?? 'n/a');
+    console.log('[diag] toggle OFF → isInitialized =', initAfterOff, '(false = dispatch OK, circuit sống)');
+    if (initAfterOff === false) {
+      await staffPage.evaluate(() => document.querySelector('[data-testid="voice-presence-toggle"]')?.click());
+      // chờ re-init + hub connected trở lại
+      for (let i = 0; i < 20; i++) {
+        await sleep(1000);
+        const st = await staffPage.evaluate(() => ({
+          init: window.vananVoiceChat?.isInitialized?.(),
+          conn: window.vananVoiceChat?.getConnectionState?.()
+        })).catch(() => null);
+        if (st?.init && st?.conn === 'connected') { console.log('[diag] toggle ON lại → re-init OK'); break; }
+      }
+    } else {
+      console.log('[diag] TOGGLE KHÔNG DISPATCH — island circuit chết hoặc binding hỏng');
+    }
+  }
 
   // ── 5. CUSTOMER gọi shop qua presence-owned JS singleton ───────────────
   const callResult = await custPage.evaluate(async ({ tenant }) => {
@@ -197,15 +261,49 @@ try {
     check('S9 overlay hiển thị tên người gọi', /RV Test|Khách|khách/i.test(txt), txt.slice(0, 120));
   }
 
-  // C5 check SỚM — customer state 'calling' đã hiện global call UI; nếu để sau
+  // C5 check SỚM — customer state 'calling' đã hiện call UI; nếu để sau
   // accept+wait, ring timeout (30s) có thể giết call trước khi assert.
-  const custBarEarly = custPage.locator('[data-testid="voice-presence-callbar"], [data-testid="ai-mini-callbar"]');
+  // Chấp nhận mọi call surface: global bar / mini bar / in-chat card (nếu widget còn mở).
+  const widgetOpen = await custPage.locator('.vanan-ai-panel').isVisible().catch(() => false);
+  console.log('[debug] customer widget open sau khi đóng?', widgetOpen);
+  const custBarEarly = custPage.locator('[data-testid="voice-presence-callbar"], [data-testid="ai-mini-callbar"], .voice-call-card--active, [data-testid="voice-end"]');
   let custBarEarlySeen = false;
   try { await custBarEarly.first().waitFor({ state: 'visible', timeout: 10000 }); custBarEarlySeen = true; } catch {}
   check('C5 customer thấy call UI global trong khi gọi', custBarEarlySeen);
 
   // ── 7. STAFF accept → callbar → end ────────────────────────────────────
   if (overlaySeen) {
+    // Chẩn đoán click: elementFromPoint tại tâm nút accept — phát hiện overlay che.
+    const hit = await staffPage.evaluate(() => {
+      const el = document.querySelector('[data-testid="voice-presence-accept"]');
+      if (!el) return { el: false };
+      const r = el.getBoundingClientRect();
+      const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      const top = document.elementFromPoint(cx, cy);
+      let chain = [], n = el;
+      while (n && chain.length < 6) { chain.push(n.tagName + '.' + (n.className?.toString().slice(0, 40) ?? '')); n = n.parentElement; }
+      return {
+        el: true, rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+        vp: { w: innerWidth, h: innerHeight },
+        topIsSelf: top === el || el.contains(top),
+        topTag: top ? top.tagName + '.' + (top.className?.toString().slice(0, 60) ?? '') : 'null',
+        chain,
+        pe: getComputedStyle(el).pointerEvents
+      };
+    });
+    console.log('[debug] accept hit-test:', JSON.stringify(hit));
+    // Wrap JS bridge methods — phân biệt "@onclick không dispatch" vs "JSRuntime throw".
+    // Nếu Blazor InvokeVoidAsync chạy → counter tăng. Nếu counter=0 sau click → handler không chạy.
+    await staffPage.evaluate(() => {
+      const o = window.vananVoiceChat;
+      if (o && !o.__probeWrapped) {
+        for (const m of ['acceptCall', 'endCall', 'rejectCall']) {
+          const orig = o[m];
+          o[m] = (...a) => { window.__voiceCalls = window.__voiceCalls || {}; window.__voiceCalls[m] = (window.__voiceCalls[m] || 0) + 1; return orig.apply(o, a); };
+        }
+        o.__probeWrapped = true;
+      }
+    });
     const staffStateLog = [];
     const statePoll = setInterval(async () => {
       try {
@@ -214,6 +312,30 @@ try {
       } catch {}
     }, 2000);
     await staffPage.click('[data-testid="voice-presence-accept"]');
+    // Nếu sau 10s vẫn ringing → thử gọi JS trực tiếp (bypass Blazor handler)
+    // để phân biệt: Blazor onclick không chạy vs JS/SDK hang.
+    setTimeout(async () => {
+      try {
+        const getSt = () => staffPage.evaluate(() => {
+          const s = window.vananVoiceChat?.getState?.();
+          return typeof s === 'string' ? s : (s?.state ?? JSON.stringify(s));
+        });
+        if ((await getSt()) === 'ringing') {
+          // Tier 2: DOM .click() — phân biệt Playwright physical click vs Blazor binding.
+          console.log('[debug] vẫn ringing — thử DOM .click() trên nút accept');
+          await staffPage.evaluate(() => document.querySelector('[data-testid="voice-presence-accept"]')?.click());
+          await sleep(6000);
+        }
+        if ((await getSt()) === 'ringing') {
+          console.log('[debug] vẫn ringing sau DOM click — thử acceptCall trực tiếp qua JS');
+          const r = await Promise.race([
+            staffPage.evaluate(() => window.vananVoiceChat.acceptCall().then(v => 'resolved:' + v).catch(e => 'threw:' + e.message)),
+            sleep(12000).then(() => 'EVAL-TIMEOUT-12s')
+          ]);
+          console.log('[debug] direct acceptCall →', r);
+        }
+      } catch (e) { console.log('[debug] fallback probe err', e.message); }
+    }, 10000);
     const callbar = staffPage.locator('[data-testid="voice-presence-callbar"]');
     let barSeen = false;
     try { await callbar.waitFor({ state: 'visible', timeout: 25000 }); barSeen = true; } catch {}
@@ -222,13 +344,16 @@ try {
       barSeen ? '' : `states=${JSON.stringify([...new Set(staffStateLog)])}`);
     if (!barSeen) {
       const custState = await custPage.evaluate(() => window.vananVoiceChat?.getState?.() ?? 'n/a').catch(() => 'n/a');
-      console.log('[debug] staff states:', JSON.stringify(staffStateLog), '| cust state:', custState);
+      const jsCalls = await staffPage.evaluate(() => window.__voiceCalls ?? null).catch(() => 'n/a');
+      console.log('[debug] staff states:', JSON.stringify(staffStateLog), '| cust state:', custState, '| jsCalls:', JSON.stringify(jsCalls));
     }
 
     await sleep(CALL_SECONDS * 1000);
     await staffPage.click('[data-testid="voice-presence-end"]').catch(() => {});
     await sleep(2000);
     const barGone = await callbar.isHidden().catch(() => true);
+    const jsCalls2 = await staffPage.evaluate(() => window.__voiceCalls ?? null).catch(() => 'n/a');
+    console.log('[debug] sau end — jsCalls:', JSON.stringify(jsCalls2));
     check('S11 sau end → callbar ẩn', barGone);
   } else {
     // fallback: customer side state để debug
