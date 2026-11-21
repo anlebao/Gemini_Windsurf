@@ -1,6 +1,19 @@
-/* Task AI-P4 — storefront AI chat widget (floating bubble + panel). */
+/* Task AI-P4 — storefront AI chat widget (floating bubble + panel).
+   P0 unify (2026-11-21): --chat-* tokens — GIỮ ĐỒNG BỘ với RealtimeChatPanel.razor.css
+   (scoped CSS không share :root; định nghĩa giống nhau trên 2 component root). */
 
 .vanan-ai-widget {
+    /* Chat design tokens — đồng bộ RealtimeChatPanel */
+    --chat-font-base: 0.95rem;
+    --chat-font-meta: 0.75rem;
+    --chat-bubble-radius: 14px;
+    --chat-bubble-tail: 4px;
+    --chat-peer-bg: #ffffff;
+    --chat-peer-border: rgba(0, 0, 0, 0.08);
+    --chat-own-bg: var(--bs-primary, #0d6efd);
+    --chat-own-fg: #ffffff;
+    --chat-meta-fg: #6c757d;
+
     position: fixed;
     right: 16px;
     bottom: 16px;
@@ -70,8 +83,8 @@
 .vanan-ai-bubble {
     max-width: 85%;
     padding: 8px 12px;
-    border-radius: 14px;
-    font-size: 0.9rem;
+    border-radius: var(--chat-bubble-radius, 14px);
+    font-size: var(--chat-font-base, 0.95rem);
     white-space: pre-wrap;
     word-break: break-word;
 }

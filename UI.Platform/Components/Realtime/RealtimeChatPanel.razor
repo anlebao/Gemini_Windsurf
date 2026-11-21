@@ -20,8 +20,19 @@
 
 <div class="chat-panel @(_voiceCallActive ? "chat-panel--in-call" : "")" data-in-call="@_voiceCallActive">
     <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
-        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-            <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> @(HeaderTitle ?? "Chat với khách hàng")</h6>
+        @* P0 unify (2026-11-21): ShowHeader=false → slim toolbar (chỉ actions:
+           call + refresh + conn badge), KHÔNG title — dùng khi nhúng trong
+           AiChatWidget (widget header đã hiển thị tên mode). Default true →
+           không đổi behavior cho ShopERP OrderTracking/ShopInbox. *@
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom @(!ShowHeader ? "chat-header--slim" : "")">
+            @if (ShowHeader)
+            {
+                <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> @(HeaderTitle ?? "Chat với khách hàng")</h6>
+            }
+            else
+            {
+                <span></span>
+            }
             <div class="d-flex align-items-center gap-2">
                 @* VOICE SERVICE S4 (2026-11-12): icon gọi nổi bật ngay chat header —
                    chỉ enable khi hub Connected + đã đăng nhập + đang idle (S3/S5). *@
@@ -99,9 +110,15 @@
                     // reads _messages.Count after the loop ends (ArgumentOutOfRange on click).
                     // A body-local copy is captured per-iteration instead.
                     var msgIndex = i;
-                    <div class="d-flex @(isOwn ? "justify-content-end" : "justify-content-start") mb-2">
-                        <div style="max-width: 75%;">
-                            <div class="px-3 py-2 rounded @(isOwn ? "bg-primary text-white" : "bg-white border")">
+                    // P0 unify (2026-11-21): bubble + avatar giống AI mode —
+                    // own = phải primary, peer = trái avatar + white bubble.
+                    <div class="chat-msg @(isOwn ? "chat-msg--own" : "")">
+                        @if (!isOwn)
+                        {
+                            <span class="chat-avatar" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+                        }
+                        <div class="chat-msg-col">
+                            <div class="chat-bubble @(isOwn ? "chat-bubble--own" : "chat-bubble--peer")">
                                 @msg.Content
                             </div>
                             @* AI-P11: owner-side messages get a "Đề xuất AI" action when the host
@@ -118,7 +135,7 @@
                                         OnClick="() => SuggestKnowledgeAsync(msgIndex)" />
                                 </div>
                             }
-                            <div class="small text-muted mt-1 @(isOwn ? "text-end" : "text-start")">
+                            <div class="chat-meta @(isOwn ? "text-end" : "")">
                                 @msg.SentAt.ToString("HH:mm")
                             </div>
                         </div>
@@ -174,9 +191,10 @@
                         <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
                     </VanAnButton>
                 }
+                @* P0 unify: send icon-only giống AI mode (bỏ label "Gửi"). *@
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage" Disabled="(_tokenExpired || _accessDenied)"
-                             CssClass="chat-send-btn">
-                    <i class="bi bi-send"></i> Gửi
+                             CssClass="chat-send-btn" aria-label="Gửi tin nhắn">
+                    <i class="bi bi-send"></i>
                 </VanAnButton>
             </div>
         </div>
@@ -244,6 +262,13 @@
     [Parameter] public bool KnowledgeSuggestEnabled { get; set; }
     /// <summary>AI-P11: fired with the paired customer question + owner answer (verbatim).</summary>
     [Parameter] public EventCallback<KnowledgeSuggestion> OnKnowledgeSuggest { get; set; }
+
+    /// <summary>
+    /// P0 unify (2026-11-21): false → slim toolbar (không title), dùng khi panel
+    /// nhúng trong AiChatWidget human mode (widget header đã show tên mode).
+    /// Default true → không đổi behavior các host hiện có.
+    /// </summary>
+    [Parameter] public bool ShowHeader { get; set; } = true;
 
     /// <summary>AI-P11 payload — conversation + message ids for SourceRef dedupe, texts verbatim.</summary>
     public sealed record KnowledgeSuggestion(

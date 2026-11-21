@@ -528,7 +528,7 @@ public class AiChatWidgetTests : TestContext
     }
 
     [Fact]
-    public void Messages_Render_NewestFirst()
+    public void Messages_Render_OldestFirst()
     {
         var client = new FakeAiChatClient
         {
@@ -550,8 +550,8 @@ public class AiChatWidgetTests : TestContext
             var markup = cut.Markup;
             markup.Should().Contain("câu hai");
             markup.IndexOf("câu hai", StringComparison.Ordinal)
-                .Should().BeLessThan(markup.IndexOf("câu một", StringComparison.Ordinal),
-                    "newest-first: tin mới nhất render trên cùng");
+                .Should().BeGreaterThan(markup.IndexOf("câu một", StringComparison.Ordinal),
+                    "oldest-first (P0 unify 2026-11-21): tin mới nhất render cuối danh sách");
         });
     }
 

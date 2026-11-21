@@ -1,20 +1,103 @@
 /* Realtime Platform P6 (2026-09-18) — chat input layout.
-   Mobile (mặc định): input + nút "Gửi" xếp dọc, nút full-width — không tràn màn hình.
-   Desktop (>=576px): input + nút cùng hàng.
-   ::deep pierces vào VanAInput/VanAnButton (component con) để áp class. */
+   P0 unify (2026-11-21): input row LUÔN horizontal (giống AI mode) — pill input
+   + icon buttons; --chat-* tokens đồng bộ với AiChatWidget.razor.css (GIỮ ĐỒNG BỘ). */
+
+.chat-panel {
+    /* Chat design tokens — đồng bộ AiChatWidget */
+    --chat-font-base: 0.95rem;
+    --chat-font-meta: 0.75rem;
+    --chat-bubble-radius: 14px;
+    --chat-bubble-tail: 4px;
+    --chat-peer-bg: #ffffff;
+    --chat-peer-border: rgba(0, 0, 0, 0.08);
+    --chat-own-bg: var(--bs-primary, #0d6efd);
+    --chat-own-fg: #ffffff;
+    --chat-meta-fg: #6c757d;
+}
+
+/* ── P0: slim toolbar khi ShowHeader=false (nhúng trong AiChatWidget) ── */
+.chat-header--slim {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+}
+
+/* ── P0: unified message bubbles (đồng bộ AI mode) ── */
+.chat-msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.chat-msg--own {
+    justify-content: flex-end;
+}
+
+.chat-msg-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 85%;
+}
+
+.chat-msg--own .chat-msg-col {
+    align-items: flex-end;
+}
+
+.chat-bubble {
+    padding: 8px 12px;
+    border-radius: var(--chat-bubble-radius, 14px);
+    font-size: var(--chat-font-base, 0.95rem);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.chat-bubble--own {
+    background: var(--chat-own-bg);
+    color: var(--chat-own-fg);
+    border-bottom-right-radius: var(--chat-bubble-tail, 4px);
+}
+
+.chat-bubble--peer {
+    background: var(--chat-peer-bg);
+    border: 1px solid var(--chat-peer-border);
+    border-bottom-left-radius: var(--chat-bubble-tail, 4px);
+}
+
+.chat-avatar {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--chat-own-bg);
+    color: var(--chat-own-fg);
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.chat-meta {
+    font-size: var(--chat-font-meta, 0.75rem);
+    color: var(--chat-meta-fg);
+    margin-top: 2px;
+}
 
 .chat-input-row {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 0.5rem;
 }
 
 .chat-input-row ::deep .vanan-input-field {
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .chat-input-row ::deep .chat-send-btn {
-    width: 100%;
+    flex-shrink: 0;
 }
 
 /* SF-W3 (2026-11-08): voice mic button — pulse while listening. */
@@ -33,21 +116,8 @@
     .chat-input-row ::deep .chat-mic-btn.listening { animation: none; }
 }
 
-@media (min-width: 576px) {
-    .chat-input-row {
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .chat-input-row ::deep .vanan-input-field {
-        flex: 1 1 auto;
-        width: auto;
-    }
-
-    .chat-input-row ::deep .chat-send-btn {
-        width: auto;
-    }
-}
+/* P0 unify: input row luôn horizontal mọi viewport — media query cũ (column→row
+   ở ≥576px) không còn cần thiết. */
 
 /* ── UX refresh (2026-11-13): header call icon call-state visuals ── */
 .chat-panel ::deep .voice-hdr-btn--ringing {

@@ -82,17 +82,24 @@
                     }
                     else
                     {
-                        @* SF-W3: newest-first — tin mới nhất ở trên, đẩy hội thoại cũ xuống.
-                           Typing indicator = tin "mới nhất" đang tới → nằm đầu danh sách. *@
-                        @if (_sending)
+                        @* P0 unify (2026-11-21): oldest-first — cùng convention với human
+                           chat (RealtimeChatPanel); tin mới nhất ở cuối + auto-scroll bottom. *@
+                        @if (!string.IsNullOrWhiteSpace(_config?.Greeting) && _messages.Count == 0)
                         {
                             <div class="vanan-ai-msg vanan-ai-msg-assistant">
                                 <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
                                 <div class="vanan-ai-msg-body">
-                                    <div class="vanan-ai-bubble vanan-ai-typing">
-                                        <span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span>
-                                    </div>
+                                    <div class="vanan-ai-bubble">@_config.Greeting</div>
                                 </div>
+                            </div>
+                        }
+                        @if (_config?.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)
+                        {
+                            <div class="vanan-ai-suggestions">
+                                @foreach (var s in _config.Suggestions)
+                                {
+                                    <button type="button" class="vanan-ai-chip" @onclick="() => SuggestAsync(s)">@s</button>
+                                }
                             </div>
                         }
                         @* drafts[i] = newest user question before assistant message i
@@ -104,7 +111,7 @@
                             if (_messages[k].Role == "user") lastUserText = _messages[k].Content;
                             else drafts[k] = lastUserText;
                         }
-                        @for (var i = _messages.Count - 1; i >= 0; i--)
+                        @for (var i = 0; i < _messages.Count; i++)
                         {
                             var msg = _messages[i];
                             var isUser = msg.Role == "user";
@@ -149,22 +156,16 @@
                                 </div>
                             </div>
                         }
-                        @if (!string.IsNullOrWhiteSpace(_config?.Greeting) && _messages.Count == 0)
+                        @* Typing indicator = tin "mới nhất" đang tới → cuối danh sách (oldest-first). *@
+                        @if (_sending)
                         {
                             <div class="vanan-ai-msg vanan-ai-msg-assistant">
                                 <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
                                 <div class="vanan-ai-msg-body">
-                                    <div class="vanan-ai-bubble">@_config.Greeting</div>
+                                    <div class="vanan-ai-bubble vanan-ai-typing">
+                                        <span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span><span class="vanan-ai-dot"></span>
+                                    </div>
                                 </div>
-                            </div>
-                        }
-                        @if (_config?.Suggestions?.Count > 0 && _messages.Count == 0 && !_sending)
-                        {
-                            <div class="vanan-ai-suggestions">
-                                @foreach (var s in _config.Suggestions)
-                                {
-                                    <button type="button" class="vanan-ai-chip" @onclick="() => SuggestAsync(s)">@s</button>
-                                }
                             </div>
                         }
                     }
@@ -420,7 +421,7 @@
         _addedNotice = null;
         _sending = true;
         _messages.Add(new AiSessionMessage("user", text, [], DateTime.UtcNow));
-        await ScrollToNewestAsync();
+        await ScrollToBottomAsync();
 
         AiChatResult? result = null;
         try
@@ -441,7 +442,7 @@
             _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products,
                 DateTime.UtcNow, result.Refused));
         }
-        await ScrollToNewestAsync();
+        await ScrollToBottomAsync();
     }
 
     /// <summary>Task AI-P8: switch to the host's human chat surface (lazy mount).</summary>
@@ -554,13 +555,14 @@
         _voiceRef?.Dispose();
     }
 
-    /// <summary>SF-W3: newest-first layout — "latest" lives at the top of the list.</summary>
-    private async Task ScrollToNewestAsync()
+    /// <summary>P0 unify (2026-11-21): oldest-first layout — "latest" lives at the
+    /// bottom of the list (same convention as RealtimeChatPanel human chat).</summary>
+    private async Task ScrollToBottomAsync()
     {
         await InvokeAsync(StateHasChanged);
         try
         {
-            await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToTop", ScrollContainerId);
+            await JSRuntime.InvokeVoidAsync("vananRealtime.scrollToBottom", ScrollContainerId);
         }
         catch { /* JS interop not available during prerender */ }
     }
