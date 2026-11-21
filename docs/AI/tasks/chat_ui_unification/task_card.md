@@ -1,6 +1,6 @@
 # Task Card: KhachLink AI/Chat UI Unification — P0 + P1 + P2
 
-> **Status:** ⏳ DRAFT (awaiting IMPLEMENT per phase)
+> **Status:** ✅ **P0 DONE + DEPLOYED `ece7e0e5` + CD `44895953223` SUCCESS + RV prod PASS 3/3** (2026-11-21, `playwright-rv-chatui.config.ts` trên An Tâm `e2d91cdf`) — P1/P2 pending
 > **Depends on:** Review 2026-11-21 (xem dưới) — user approved direction
 > **Scope:** `UI.Platform/Components/Ai/AiChatWidget.razor(.css)` · `UI.Platform/Components/Realtime/RealtimeChatPanel.razor(.css)` · `UI.Platform/Components/Realtime/VoiceCallPanel.razor(.cs/.css)` · `5_WebApps/KhachLink/Pages/Store.razor` (mount params only)
 
@@ -28,11 +28,11 @@ Mục tiêu: **1 design system chat duy nhất** — user switch mode không c�
 
 ### P0 — Design system unification (impact lớn nhất, risk thấp)
 
-- [ ] **R1. CSS vars chung** — định nghĩa `--chat-font-base: 0.95rem`, `--chat-font-meta: 0.75rem`, `--chat-bubble-radius: 16px`, `--chat-own-bg` (primary gradient nhẹ), `--chat-peer-bg` (white+border), `--chat-accent`. Đặt trong `VanAnLayout`/tokens layer hoặc `:root` của UI.Platform; cả 2 component consume.
-- [ ] **R2. Single header** — thêm `[Parameter] public bool ShowHeader { get; set; } = true` vào `RealtimeChatPanel`; khi `false` ẩn block header (call btn + refresh + badge vẫn cần thiết → **di chuyển call btn + conn badge lên widget header** hoặc giữ 1 slim action row). Widget header: avatar + tên **đổi theo `_mode`** (robot/"Trợ lý AI" ↔ person/"Chủ quán"), status dot nhỏ.
-- [ ] **R3. Unified bubbles** — cùng radius/tail, own = primary tint, peer = white + avatar initial (customer/shop/robot); timestamp meta 0.75rem dưới bubble; giữ `KnowledgeSuggestButton` position.
-- [ ] **R4. Unified input bar** — human mode dùng cùng pattern AI: pill input + circular icon buttons (mic khi `VoiceEnabled`, send icon-only). Bỏ nút "Gửi" text.
-- [ ] **R5. Scroll convention** — **chọn oldest-first cho cả 2 mode** (chuẩn chat app): sửa AI render loop `i=0..count-1`, auto-scroll bottom khi có tin mới (check JS scroll hiện tại — `ScrollContainerId`).
+- [x] **R1. CSS vars chung** — `--chat-*` tokens trên `.vanan-ai-widget` + `.chat-panel` root (scoped CSS không share :root → duplicate có chủ đích)
+- [x] **R2. Single header** — `ShowHeader` param (default `true`); `false` → slim toolbar giữ call+refresh+conn badge, không title. Store.razor truyền `false`
+- [x] **R3. Unified bubbles** — `.chat-msg`/`.chat-bubble--own|--peer` + `.chat-avatar` + `.chat-meta` thay markup ad-hoc; `KnowledgeSuggestButton` giữ nguyên vị trí
+- [x] **R4. Unified input bar** — send icon-only cả 2 mode; input row luôn horizontal mọi viewport (bỏ column mobile + media query)
+- [x] **R5. Scroll convention** — oldest-first cả 2 mode; AI loop đảo `i=0..count-1`, typing indicator xuống cuối, `scrollToTop`→`scrollToBottom`
 
 ### P1 — Floating bubble + call UX
 
