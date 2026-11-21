@@ -63,6 +63,7 @@
 
     @* Tiered Auth Phase 3: Upgrade modal — shown when redeem returns 403 *@
     <IdentityUpgradeModal ShowModal="_showUpgradeModal"
+                          CustomerToken="@_customerToken"
                           OnDismiss="OnUpgradeModalDismiss"
                           OnUpgradeComplete="OnUpgradeComplete" />
   </ProfileGuard>
@@ -88,6 +89,7 @@
     private string? _redeemSuccess;
     private bool _redeeming;
     private bool _showUpgradeModal;
+    private string? _customerToken;
 
     private static readonly List<TierInfo> _tiers = new()
     {
@@ -117,6 +119,7 @@
             catch { _isAllianceMode = false; }
 
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            _customerToken = token;
             if (string.IsNullOrEmpty(token)) { _isLoggedIn = false; return; }
 
             var client = HttpClientFactory.CreateClient("gateway");

@@ -782,6 +782,11 @@ namespace VanAn.ShopERP
             {
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
+            // Customer OTP email-first (2026-11-21): reuse CoreHub channel abstraction
+            // (BrevoEmailOtpChannel primary 0đ → FallbackOtpChannel; SMS slot khi eSMS keys có).
+            _ = builder.Services.AddScoped<CoreHub.Services.Otp.BrevoEmailOtpChannel>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Otp.IIdentityOtpChannel, CoreHub.Services.Otp.FallbackOtpChannel>();
+            _ = builder.Services.AddScoped<Services.ICustomerOtpDelivery, Services.CustomerOtpDeliveryService>();
             _ = builder.Services.AddHttpClient("GatewayClient", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(30);

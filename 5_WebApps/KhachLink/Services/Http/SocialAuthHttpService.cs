@@ -7,8 +7,9 @@ namespace VanAn.KhachLink.Services.Http;
 /// Tiered Auth Phase 3: HTTP client for loyalty redeem endpoints.
 /// KhachLink calls Gateway → ShopERP via YARP.
 /// All methods require X-Customer-Token header (authenticated customer).
-/// CC-S1-T0c (v1.5): OTP upgrade methods removed — IdentityUpgradeModal now uses 3 buttons (Google + Facebook + Guest).
-/// OTP endpoints on server kept for Sprint 6 collaborator verification toggle.
+/// CC-S1-T0c (v1.5): OTP upgrade methods were removed — modal used 3 buttons only.
+/// 2026-11-21: re-added — backend now delivers real OTP via IIdentityOtpChannel (email-first, Brevo;
+/// phone → SMS eSMS fallback). Methods below call /api/customer-identity/upgrade/*.
 /// </summary>
 public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger<SocialAuthHttpService> logger)
 {
@@ -64,6 +65,65 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
         }
     }
 
+    /// <summary>
+    /// POST /api/customer-identity/upgrade/send-otp — server chọn kênh email-first
+    /// (email đã đăng ký → Brevo; fallback SĐT → SMS). Trả channel + contactSuffix đã mask.
+    /// </summary>
+    public async Task<OtpSendResult> SendUpgradeOtpAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/customer-identity/upgrade/send-otp");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+                return new OtpSendResult { Success = false, Message = ExtractErrorMessage(body) };
+            var data = System.Text.Json.JsonSerializer.Deserialize<UpgradeSendOtpResponseDto>(body);
+            return new OtpSendResult
+            {
+                Success = true,
+                Channel = data?.Channel ?? "email",
+                ContactSuffix = data?.ContactSuffix ?? data?.PhoneNumberSuffix ?? "",
+                Message = data?.Message ?? "Mã xác minh đã được gửi."
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception during SendUpgradeOtpAsync");
+            return new OtpSendResult { Success = false, Message = "Lỗi kết nối. Vui lòng thử lại." };
+        }
+    }
+
+    /// <summary>POST /api/customer-identity/upgrade/verify-otp — verify → IdentityLevel=Verified.</summary>
+    public async Task<OtpVerifyResult> VerifyUpgradeOtpAsync(string customerToken, string otp, string? channel)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/customer-identity/upgrade/verify-otp");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new { Otp = otp, Channel = channel });
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+                return new OtpVerifyResult { Success = false, Message = ExtractErrorMessage(body) };
+            return new OtpVerifyResult { Success = true, Message = "Nâng cấp xác thực thành công!" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception during VerifyUpgradeOtpAsync");
+            return new OtpVerifyResult { Success = false, Message = "Lỗi kết nối. Vui lòng thử lại." };
+        }
+    }
+
+    private class UpgradeSendOtpResponseDto
+    {
+        public string Message { get; set; } = "";
+        public string PhoneNumberSuffix { get; set; } = "";
+        public string Channel { get; set; } = "email";
+        public string ContactSuffix { get; set; } = "";
+    }
+
     private static string ExtractErrorMessage(string body)
     {
         try
@@ -102,5 +162,20 @@ public class RedeemResult
     public string RequiredLevel { get; set; } = "";
     public int NewBalance { get; set; }
     public int PointsRedeemed { get; set; }
+    public string Message { get; set; } = "";
+}
+
+// OTP upgrade result types (2026-11-21 email-first)
+public class OtpSendResult
+{
+    public bool Success { get; set; }
+    public string Channel { get; set; } = "";
+    public string ContactSuffix { get; set; } = "";
+    public string Message { get; set; } = "";
+}
+
+public class OtpVerifyResult
+{
+    public bool Success { get; set; }
     public string Message { get; set; } = "";
 }

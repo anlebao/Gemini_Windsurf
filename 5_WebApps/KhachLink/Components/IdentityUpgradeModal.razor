@@ -2,6 +2,7 @@
 @using VanAn.UI.Platform.Components.Composite
 @inject NavigationManager Navigation
 @inject IHttpClientFactory HttpClientFactory
+@inject VanAn.KhachLink.Services.Http.SocialAuthHttpService SocialAuthHttp
 
 @* CC-S1-T0c (v1.5): IdentityUpgradeModal — REWRITE from OTP flow to 3 buttons (Google + Facebook + Guest=skip).
    Shows after checkout success (Checkout.razor _showLoyaltySignupModal=true).
@@ -47,6 +48,15 @@
                 Đăng nhập với Facebook
             </VanAnButton>
 
+            <VanAnButton Variant="ButtonVariant.Outline"
+                         FullWidth="true"
+                         OnClick="StartOtpUpgrade"
+                         Disabled="@(_otpBusy || string.IsNullOrEmpty(CustomerToken))"
+                         TestId="btn-upgrade-otp">
+                <i class="bi bi-envelope-check me-2"></i>
+                @(_otpBusy ? "Đang gửi mã..." : "Xác minh qua Email / SMS")
+            </VanAnButton>
+
             <VanAnButton Variant="ButtonVariant.Secondary"
                          FullWidth="true"
                          OnClick="OnDismiss"
@@ -55,6 +65,37 @@
                 Bỏ qua
             </VanAnButton>
         </div>
+
+        @* OTP step: hiện sau khi send-otp thành công *@
+        @if (_otpSent)
+        {
+            <div class="mt-4 p-3 border rounded text-start" data-testid="otp-step">
+                <p class="mb-2 small">
+                    <i class="bi bi-check-circle text-success me-1"></i>
+                    Mã xác minh đã gửi đến <strong>@_otpChannelLabel @_otpContactSuffix</strong>.
+                </p>
+                <input class="form-control form-control-lg text-center mb-2"
+                       type="text" inputmode="numeric" maxlength="6"
+                       placeholder="Nhập mã 6 số"
+                       @bind="_otpCode" data-testid="otp-code-input" />
+                @if (!string.IsNullOrEmpty(_otpError))
+                {
+                    <div class="alert alert-danger py-2 small mb-2">@_otpError</div>
+                }
+                <div class="d-grid gap-2">
+                    <VanAnButton Variant="ButtonVariant.Primary" FullWidth="true"
+                                 OnClick="VerifyOtp" Disabled="@(_otpBusy || _otpCode.Length != 6)"
+                                 TestId="btn-otp-verify">
+                        @(_otpBusy ? "Đang xác minh..." : "Xác nhận nâng cấp")
+                    </VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true"
+                                 OnClick="ResendOtp" Disabled="@_otpBusy"
+                                 TestId="btn-otp-resend">
+                        Gửi lại mã
+                    </VanAnButton>
+                </div>
+            </div>
+        }
     </div>
 </VanAnModal>
 
@@ -74,6 +115,56 @@
     /// <summary>Triggered when upgrade completes successfully (parent should refresh data).</summary>
     [Parameter]
     public EventCallback OnUpgradeComplete { get; set; }
+
+    /// <summary>Customer token (localStorage customer_token) — required for OTP upgrade endpoints.</summary>
+    [Parameter]
+    public string? CustomerToken { get; set; }
+
+    // OTP upgrade state (email-first, server picks channel)
+    private bool _otpSent;
+    private bool _otpBusy;
+    private string _otpCode = "";
+    private string? _otpError;
+    private string _otpChannel = "";
+    private string _otpContactSuffix = "";
+    private string _otpChannelLabel => _otpChannel == "email" ? "email" : "SĐT";
+
+    /// <summary>Gửi OTP nâng cấp — server tự chọn email-first rồi SMS.</summary>
+    private async Task StartOtpUpgrade()
+    {
+        if (string.IsNullOrEmpty(CustomerToken)) return;
+        _otpBusy = true; _otpError = null;
+        try
+        {
+            var result = await SocialAuthHttp.SendUpgradeOtpAsync(CustomerToken);
+            if (result.Success)
+            {
+                _otpSent = true;
+                _otpChannel = result.Channel;
+                _otpContactSuffix = result.ContactSuffix;
+                _otpCode = "";
+            }
+            else _otpError = result.Message;
+        }
+        finally { _otpBusy = false; }
+    }
+
+    private Task ResendOtp() => StartOtpUpgrade();
+
+    private async Task VerifyOtp()
+    {
+        if (string.IsNullOrEmpty(CustomerToken) || _otpCode.Length != 6) return;
+        _otpBusy = true; _otpError = null;
+        try
+        {
+            var result = await SocialAuthHttp.VerifyUpgradeOtpAsync(CustomerToken, _otpCode.Trim(), _otpChannel);
+            if (result.Success)
+                await OnUpgradeComplete.InvokeAsync();
+            else
+                _otpError = result.Message;
+        }
+        finally { _otpBusy = false; }
+    }
 
     /// <summary>CC-S1-T0c (v1.5): Redirect to Google OAuth login via Gateway.</summary>
     private void LoginWithGoogle()
