@@ -1,6 +1,6 @@
 # Task Card: KhachLink AI/Chat UI Unification — P0 + P1 + P2
 
-> **Status:** ✅ **P0 DONE + DEPLOYED `ece7e0e5` + CD `44895953223` SUCCESS + RV prod PASS 3/3** (2026-11-21, `playwright-rv-chatui.config.ts` trên An Tâm `e2d91cdf`) — P1/P2 pending
+> **Status:** ✅ **P0 DONE + RV 3/3** (`ece7e0e5`, CD `44895953223`) · ✅ **P1 DONE + DEPLOYED `efecb6b6` + CD `44901852483` SUCCESS + RV prod PASS 4/4** (2026-11-21, `playwright-rv-chatui.config.ts` trên An Tâm `e2d91cdf`) — P2 pending
 > **Depends on:** Review 2026-11-21 (xem dưới) — user approved direction
 > **Scope:** `UI.Platform/Components/Ai/AiChatWidget.razor(.css)` · `UI.Platform/Components/Realtime/RealtimeChatPanel.razor(.css)` · `UI.Platform/Components/Realtime/VoiceCallPanel.razor(.cs/.css)` · `5_WebApps/KhachLink/Pages/Store.razor` (mount params only)
 
@@ -36,11 +36,11 @@ Mục tiêu: **1 design system chat duy nhất** — user switch mode không c�
 
 ### P1 — Floating bubble + call UX
 
-- [ ] **R6. Bubble polish** — 60px, gradient primary, hover scale 1.05 + shadow deepen, unread badge pulse (CSS animation, `prefers-reduced-motion` tôn trọng), `bottom: calc(16px + env(safe-area-inset-bottom))`, icon đổi theo `_mode` gần nhất (`bi-robot`/`bi-person-fill`).
-- [ ] **R7. Call timer** — `VoiceCallPanel`: khi `_state=="connected"` chạy `PeriodicTimer` 1s → `_callDuration` mm:ss hiển thị thay "Đang gọi"; dừng khi terminal state. (Metering relevance: user thấy phút gọi = thấy phí.)
-- [ ] **R8. Speaking/active visual** — pulse mạnh hơn khi `connected` (ring animation quanh avatar), optional WebAudio level sau (P2 nếu phức tạp).
-- [ ] **R9. Incoming call nổi bật** — ringing: card full-width trong panel + avatar pulse + 2 nút accept/reject ≥48px + label "Cuộc gọi đến".
-- [ ] **R10. Floating mini call-bar** — widget-level: khi `_open==false` và có call active/ringing → thanh nhỏ fixed bottom (avatar + state + timer + end/reject). Cần lift call state lên `AiChatWidget` hoặc bridge event — `VoiceCallPanel` đã có `CallStateChanged` callback, tái dùng.
+- [x] **R6. Bubble polish** — 60px, gradient primary, hover scale + shadow deepen, unread badge pulse (`prefers-reduced-motion` tôn trọng), `bottom: calc(16px + env(safe-area-inset-bottom))`, icon đổi theo mode gần nhất (`bi-robot`/`bi-person-fill`) — RV verified 60px + icon switch
+- [x] **R7. Call timer** — `VoiceCallPanel`: `PeriodicTimer` 1s khi `connected` → mm:ss hiển thị "Đang gọi · mm:ss"; survives reconnecting; stop/reset trên terminal state + `DisposeAsync`. Unit tests 39/39
+- [x] **R8. Speaking/active visual** — pulse-ring avatar khi `connected` (ring animation, reduced-motion safe); WebAudio level deferred → P2
+- [x] **R9. Incoming call nổi bật** — ringing: emphasized card + avatar pulse + accept/reject ≥48px + "Cuộc gọi đến" label
+- [x] **R10. Floating mini call-bar** — `RealtimeChatPanel.VoiceCallStateChanged` → `Store.razor` → `AiChatWidget.ExternalCallState`; bubble đóng + call active/ringing → `[data-testid="ai-mini-callbar"]` (state + Mở → human mode). RV verified hidden khi không có call
 
 ### P2 — Polish (sau khi P0/P1 ổn định)
 
