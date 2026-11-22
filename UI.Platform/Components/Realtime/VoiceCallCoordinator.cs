@@ -33,6 +33,17 @@ public sealed class VoiceCallCoordinator
     /// <summary>VIDEO MVP: remote đang gửi video track.</summary>
     public bool VideoRemoteOn { get; private set; }
 
+    /// <summary>User ẩn self-view PiP (local pref — KHÔNG reset theo call; KHÔNG
+    /// ảnh hưởng camera track — chỉ ẩn khung hiển thị).</summary>
+    public bool VideoSelfHidden { get; private set; }
+
+    public void SetVideoSelfHidden(bool hidden)
+    {
+        if (VideoSelfHidden == hidden) return;
+        VideoSelfHidden = hidden;
+        Notify();
+    }
+
     /// <summary>Tên hiển thị người gọi đến (từ IncomingCall payload).</summary>
     public string? IncomingCallerName { get; private set; }
 

@@ -84,6 +84,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
     // camera/remote-video flags từ OnVoiceVideoChange (owner) hoặc coordinator (delegated).
     private string _callType = "audio";
     private bool _cameraOn;
+    private bool _selfViewHidden;
     private bool _remoteVideoOn;
     private bool _pendingVideoAttach;
 
@@ -262,6 +263,16 @@ public partial class VoiceCallPanel : IAsyncDisposable
         catch (Exception ex) { _error = "Không đổi được camera: " + ex.Message; }
     }
 
+    // Đổi camera trước/sau — replaceTrack phía media, không renegotiation.
+    private async Task SwitchCameraAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.switchCamera"); }
+        catch (Exception ex) { _error = "Không đổi được camera: " + ex.Message; }
+    }
+
+    // Ẩn/hiện self-view PiP — pure UI pref qua coordinator (camera track không đổi).
+    private void ToggleSelfView() => Coordinator?.SetVideoSelfHidden(!Coordinator.VideoSelfHidden);
+
     // ---- JSInvokable callbacks from the voice-chat.js bridge ----
 
     [JSInvokable]
@@ -370,8 +381,10 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     private void SyncVideoFromCoordinator(VoiceCallCoordinator c)
     {
-        if (_cameraOn == c.VideoLocalOn && _remoteVideoOn == c.VideoRemoteOn) return;
+        if (_cameraOn == c.VideoLocalOn && _remoteVideoOn == c.VideoRemoteOn
+            && _selfViewHidden == c.VideoSelfHidden) return;
         _cameraOn = c.VideoLocalOn;
+        _selfViewHidden = c.VideoSelfHidden;
         _remoteVideoOn = c.VideoRemoteOn;
         _pendingVideoAttach = true;
     }

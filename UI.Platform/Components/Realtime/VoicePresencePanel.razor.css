@@ -112,8 +112,8 @@
 }
 
 .voice-presence-icon-btn {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     border: none;
     background: rgba(255, 255, 255, 0.14);
@@ -121,7 +121,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     cursor: pointer;
 }
 
@@ -183,6 +183,30 @@
 }
 
 .voice-presence-video-local:empty { display: none; }
+
+/* Self-view PiP ẩn theo user pref — chỉ ẩn khung, camera track vẫn gửi. */
+.voice-presence-video-local--hidden { display: none; }
+
+/* Toggle ẩn/hiện self-view — overlay góc phải trên video overlay. */
+.voice-selfview-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    border-color: transparent;
+    color: #fff;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-selfview-toggle:hover { background: rgba(0, 0, 0, 0.65); color: #fff; }
 
 .voice-presence-video-local video {
     width: 100%;

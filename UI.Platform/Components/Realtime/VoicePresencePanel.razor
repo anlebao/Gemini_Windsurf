@@ -54,7 +54,14 @@
                         </div>
                     }
                 </div>
-                <div id="voice-local-video-host" class="voice-presence-video-local" data-testid="voice-presence-video-local"></div>
+                <div id="voice-local-video-host" class="voice-presence-video-local @(c.VideoSelfHidden ? "voice-presence-video-local--hidden" : "")" data-testid="voice-presence-video-local"></div>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleSelfView"
+                             CssClass="voice-selfview-toggle"
+                             data-testid="voice-presence-selfview-toggle"
+                             aria-label="@(c.VideoSelfHidden ? "Hiện khung camera của mình" : "Ẩn khung camera của mình")"
+                             title="@(c.VideoSelfHidden ? "Hiện camera của mình" : "Ẩn camera của mình")">
+                    <i class="bi @(c.VideoSelfHidden ? "bi-eye-slash" : "bi-eye")"></i>
+                </VanAnButton>
             </div>
         }
         <div class="voice-presence-callbar" data-testid="voice-presence-callbar">
@@ -66,6 +73,14 @@
                          data-testid="voice-presence-camera" aria-label="@(c.VideoLocalOn ? "Tắt camera" : "Bật camera")">
                 <i class="bi @(c.VideoLocalOn ? "bi-camera-video" : "bi-camera-video-off")"></i>
             </VanAnButton>
+            @if (c.VideoLocalOn)
+            {
+                <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
+                             OnClick="SwitchCameraAsync" CssClass="voice-presence-icon-btn"
+                             data-testid="voice-presence-camera-switch" aria-label="Đổi camera trước/sau">
+                    <i class="bi bi-camera-reverse"></i>
+                </VanAnButton>
+            }
             <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
                          OnClick="ToggleMuteAsync" CssClass="voice-presence-icon-btn"
                          data-testid="voice-presence-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">

@@ -83,6 +83,7 @@ window.vananVoiceChat = (function () {
     function unmute() { return voice.unmute(); }
     // VIDEO MVP passthroughs — optional-chained so older SDK builds degrade cleanly.
     function toggleCamera() { return voice.toggleCamera ? voice.toggleCamera() : Promise.resolve(false); }
+    function switchCamera() { return voice.switchCamera ? voice.switchCamera() : Promise.resolve(null); }
     function getCallType() { return voice.getCallType ? voice.getCallType() : 'audio'; }
     function isCameraOn() { return voice.isCameraOn ? voice.isCameraOn() : false; }
     function attachVideoElements() { if (voice.attachVideoElements) voice.attachVideoElements(); }
@@ -111,7 +112,7 @@ window.vananVoiceChat = (function () {
     return {
         initialize, startCall, acceptCall, rejectCall, endCall,
         mute, unmute, getState, getConnectionState, fetchMissedCalls, dispose,
-        toggleCamera, getCallType, isCameraOn, attachVideoElements,
+        toggleCamera, switchCamera, getCallType, isCameraOn, attachVideoElements,
         isInitialized
     };
 })();

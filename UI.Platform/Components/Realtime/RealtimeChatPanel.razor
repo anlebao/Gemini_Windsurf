@@ -38,7 +38,9 @@
                    chỉ enable khi hub Connected + đã đăng nhập + đang idle (S3/S5). *@
                 @if (VoiceCallEnabled)
                 {
-                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                    @* Mobile touch target: Medium (default) thay Small — icon command
+                       trong header dễ thao tác hơn trên điện thoại. *@
+                    <VanAnButton Variant="ButtonVariant.Outline"
                                  OnClick="StartVoiceCallAsync" Disabled="!VoiceCallReady"
                                  title="@VoiceCallTitle" aria-label="Gọi thoại"
                                  CssClass="@VoiceCallButtonClass"
@@ -47,7 +49,7 @@
                     </VanAnButton>
                     @* VIDEO MVP (2026-11-22): nút gọi video cạnh nút gọi thoại —
                        cùng readiness gate, callType="video" đi vào StartCall. *@
-                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                    <VanAnButton Variant="ButtonVariant.Outline"
                                  OnClick="StartVideoCallAsync" Disabled="!VoiceCallReady"
                                  title="@VideoCallTitle" aria-label="Gọi video"
                                  CssClass="voice-hdr-btn"
@@ -58,7 +60,7 @@
                 @* P6 manual-test: nút làm mới nội dung chat thủ công.
                    Dùng param Disabled (PascalCase) — lowercase `disabled` qua unmatched
                    attributes va chạm với disabled nội bộ của VanAnButton → render crash. *@
-                <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                <VanAnButton Variant="ButtonVariant.Outline"
                              OnClick="LoadHistoryAsync" Disabled="_loadingHistory"
                              aria-label="Làm mới tin nhắn">
                     <i class="bi bi-arrow-clockwise"></i>

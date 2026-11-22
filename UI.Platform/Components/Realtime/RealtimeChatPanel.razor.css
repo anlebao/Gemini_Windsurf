@@ -69,6 +69,17 @@
     font-size: var(--chat-font-base, 0.95rem);
     white-space: pre-wrap;
     word-break: break-word;
+    /* Mobile: URL/chuỗi không khoảng trắng không được đẩy panel tràn viền trái. */
+    overflow-wrap: anywhere;
+}
+
+/* Message list — chặn overflow ngang (bubble/bi-element rộng không đẩy khung). */
+.chat-messages {
+    overflow-x: hidden;
+}
+
+.chat-panel {
+    min-width: 0;
 }
 
 .chat-bubble--own {

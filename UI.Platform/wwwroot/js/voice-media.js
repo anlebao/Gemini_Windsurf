@@ -21,6 +21,12 @@ window.vananVoiceMedia = (function () {
     const VIDEO_CONSTRAINTS = {
         width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 }
     };
+    // Camera trước/sau — 'user' = selfie (default), 'environment' = camera sau.
+    // 'ideal' để desktop (không có facing) không fail — chỉ mobile thật sự đổi lens.
+    let preferredFacing = 'user';
+    function videoConstraints() {
+        return Object.assign({}, VIDEO_CONSTRAINTS, { facingMode: { ideal: preferredFacing } });
+    }
     const OPUS_MAX_BITRATE = 128 * 1000; // bits/s — SRS §9.5 hard cap
 
     let localStream = null;
@@ -48,7 +54,7 @@ window.vananVoiceMedia = (function () {
     async function requestMedia(video) {
         if (localStream) return localStream;
         const stream = await navigator.mediaDevices.getUserMedia(
-            video ? { audio: MIC_CONSTRAINTS.audio, video: VIDEO_CONSTRAINTS } : MIC_CONSTRAINTS);
+            video ? { audio: MIC_CONSTRAINTS.audio, video: videoConstraints() } : MIC_CONSTRAINTS);
         stream.getAudioTracks().forEach(track => {
             try { track.applyConstraints({ maxBitrate: OPUS_MAX_BITRATE }); } catch (_) { /* unsupported */ }
         });
@@ -80,7 +86,7 @@ window.vananVoiceMedia = (function () {
     async function setCameraEnabled(on) {
         if (on) {
             if (hasVideoTrack()) return;
-            const vs = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS });
+            const vs = await navigator.mediaDevices.getUserMedia({ video: videoConstraints() });
             const track = vs.getVideoTracks()[0];
             if (!localStream) localStream = vs;
             else localStream.addTrack(track);
@@ -96,6 +102,24 @@ window.vananVoiceMedia = (function () {
             });
             if (videoSender) { try { await videoSender.replaceTrack(null); } catch (_) { /* sender dead */ } }
         }
+    }
+
+    // Đổi camera trước/sau: flip preference (áp dụng cho getUserMedia lần sau nếu
+    // camera đang tắt) — khi camera đang bật thì acquire lens mới + replaceTrack,
+    // remote thấy đổi ngay, không renegotiation.
+    async function switchCamera() {
+        preferredFacing = preferredFacing === 'user' ? 'environment' : 'user';
+        if (!hasVideoTrack()) return preferredFacing;
+        const vs = await navigator.mediaDevices.getUserMedia({ video: videoConstraints() });
+        const track = vs.getVideoTracks()[0];
+        const old = localStream.getVideoTracks()[0];
+        localStream.addTrack(track);
+        if (videoSender) { try { await videoSender.replaceTrack(track); } catch (_) { /* sender dead */ } }
+        if (old) {
+            try { old.stop(); } catch (_) { /* already stopped */ }
+            localStream.removeTrack(old);
+        }
+        return preferredFacing;
     }
 
     // Real selected candidate-pair type for server metrics — "TURN" when either end
@@ -219,6 +243,7 @@ window.vananVoiceMedia = (function () {
         getLocalStream,
         hasVideoTrack,
         setCameraEnabled,
+        switchCamera,
         getConnectionType,
         getSignalingState,
         createPeer,

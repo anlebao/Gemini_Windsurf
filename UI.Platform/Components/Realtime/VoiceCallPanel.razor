@@ -30,7 +30,16 @@
                             </div>
                         }
                     </div>
-                    <div id="voice-local-video-host" class="voice-video-local" data-testid="voice-video-local"></div>
+                    <div id="voice-local-video-host" class="voice-video-local @(_selfViewHidden ? "voice-video-local--hidden" : "")" data-testid="voice-video-local"></div>
+                    @* Ẩn/hiện khung self-view PiP — chỉ ẩn hiển thị, camera vẫn gửi bình thường.
+                       VanAnButton bắt buộc — raw <button @onclick> không dispatch trong island. *@
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleSelfView"
+                                 CssClass="voice-selfview-toggle"
+                                 data-testid="voice-selfview-toggle"
+                                 aria-label="@(_selfViewHidden ? "Hiện khung camera của mình" : "Ẩn khung camera của mình")"
+                                 title="@(_selfViewHidden ? "Hiện camera của mình" : "Ẩn camera của mình")">
+                        <i class="bi @(_selfViewHidden ? "bi-eye-slash" : "bi-eye")"></i>
+                    </VanAnButton>
                 </div>
             }
             <div class="voice-call-card @(_state == "ringing" ? "voice-call-card--ringing" : "") @(_active ? "voice-call-card--active" : "")" data-testid="voice-call-card">
@@ -67,17 +76,25 @@
                     }
                     else
                     {
-                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                        <VanAnButton Variant="ButtonVariant.Outline"
                                      OnClick="ToggleCameraAsync" CssClass="@CameraButtonClass"
                                      data-testid="voice-camera" aria-label="@(_cameraOn ? "Tắt camera" : "Bật camera")">
                             <i class="bi @(_cameraOn ? "bi-camera-video" : "bi-camera-video-off")"></i>
                         </VanAnButton>
-                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                        @if (_cameraOn)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline"
+                                         OnClick="SwitchCameraAsync" CssClass="voice-call-btn"
+                                         data-testid="voice-camera-switch" aria-label="Đổi camera trước/sau">
+                                <i class="bi bi-camera-reverse"></i>
+                            </VanAnButton>
+                        }
+                        <VanAnButton Variant="ButtonVariant.Outline"
                                      OnClick="ToggleMuteAsync" CssClass="@MuteButtonClass"
                                      data-testid="voice-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">
                             <i class="bi @(_muted ? "bi-mic-mute" : "bi-mic")"></i>
                         </VanAnButton>
-                        <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small"
+                        <VanAnButton Variant="ButtonVariant.Error"
                                      OnClick="EndCallAsync" CssClass="voice-call-btn voice-call-btn--reject"
                                      data-testid="voice-end" aria-label="Kết thúc cuộc gọi">
                             <i class="bi bi-telephone-x"></i>

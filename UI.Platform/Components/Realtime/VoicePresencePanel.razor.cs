@@ -184,6 +184,16 @@ public partial class VoicePresencePanel : IAsyncDisposable
         catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel camera toggle failed"); }
     }
 
+    // Đổi camera trước/sau — replaceTrack phía media, không renegotiation.
+    private async Task SwitchCameraAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.switchCamera"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel camera switch failed"); }
+    }
+
+    // Ẩn/hiện self-view PiP — pure UI pref qua coordinator (camera track không đổi).
+    private void ToggleSelfView() => Coordinator?.SetVideoSelfHidden(!Coordinator.VideoSelfHidden);
+
     // ---- JSInvokable callbacks (chỉ fire khi component là JS owner) ----
 
     [JSInvokable]

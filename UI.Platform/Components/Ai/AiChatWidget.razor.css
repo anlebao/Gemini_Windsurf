@@ -99,8 +99,9 @@
     background: rgba(255, 255, 255, 0.22);
     color: #fff;
     border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.78rem;
+    padding: 8px 16px;
+    min-height: 38px;
+    font-size: 0.85rem;
     font-weight: 700;
     cursor: pointer;
     flex-shrink: 0;
@@ -115,6 +116,24 @@
     max-height: min(520px, calc(100vh - 96px));
     display: flex;
     flex-direction: column;
+    min-width: 0;
+}
+
+/* Mobile (≤480px): widget span gần hết bề ngang — trước đây 100vw tính cả scrollbar
+   / dynamic viewport nên mép trái panel bị tràn khỏi màn hình. */
+@media (max-width: 480px) {
+    .vanan-ai-widget {
+        left: 8px;
+        right: 8px;
+    }
+
+    .vanan-ai-panel {
+        width: 100%;
+    }
+
+    .vanan-ai-callbar {
+        max-width: 100%;
+    }
 }
 
 .vanan-ai-panel .card-body {
@@ -179,6 +198,7 @@
     font-size: var(--chat-font-base, 0.95rem);
     white-space: pre-wrap;
     word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .vanan-ai-msg-user .vanan-ai-bubble {
@@ -408,8 +428,9 @@
     background: #fff;
     color: #6c757d;
     border-radius: 8px 8px 0 0;
-    padding: 6px 4px;
-    font-size: 0.8rem;
+    padding: 9px 4px;
+    min-height: 40px;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;

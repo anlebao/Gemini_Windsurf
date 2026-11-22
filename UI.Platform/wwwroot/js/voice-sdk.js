@@ -683,6 +683,14 @@ window.vananVoice = (function () {
         return cameraOn;
     }
 
+    // Đổi camera trước/sau — replaceTrack phía media, không renegotiation,
+    // local video element tự update vì cùng localStream object.
+    async function switchCamera() {
+        if (!media || !media.switchCamera) return null;
+        try { return await media.switchCamera(); }
+        catch (ex) { emitError('Không đổi được camera: ' + (ex && ex.message ? ex.message : ex)); return null; }
+    }
+
     function getCallType() { return callType; }
     function isCameraOn() { return cameraOn; }
 
@@ -705,7 +713,7 @@ window.vananVoice = (function () {
     return {
         initialize, startCall, acceptCall, rejectCall, cancelCall, endCall,
         mute, unmute, getCallState, getConnectionState, dispose,
-        toggleCamera, getCallType, isCameraOn, attachVideoElements,
+        toggleCamera, switchCamera, getCallType, isCameraOn, attachVideoElements,
         // test hooks
         _states: STATES
     };
