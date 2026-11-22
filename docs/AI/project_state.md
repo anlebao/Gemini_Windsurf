@@ -105,9 +105,9 @@
 **▶ VIDEO CALL MVP — ✅ A+B+C+D CODE DONE (session 2026-11-22) → NEXT: push + deploy + RV:**
 - [x] Master plan `docs/AI/plans/voice-video-call-master-plan.md` + task card `docs/AI/tasks/voice_video/task_v1_video_mvp.md` — scope chốt: 1:1 video trong chat panel · camera toggle anytime (re-offer + glare) · `CallType`+metering keys riêng · STUN + ConnectionType thật gộp · guest giữ gate.
 - [x] Phase A voice service — 98/98 tests · Phase B client JS (media/sdk/chat) · Phase C Blazor (panel + presence overlay + header button + coordinator) · Phase D demo SDK sync + `voice-video-rv.mjs` (18 checks).
-- [ ] **Push + CD deploy voice** — sau push: `deploy-voice` job chạy service mới (CallType schema ALTER idempotent trên voice.db prod — đã test pattern PRAGMA).
-- [ ] **RV `6_Testing/rv-scripts/voice-video-rv.mjs`** — cần `VOICE_CUSTOMER_TOKEN` (dev-token window) + `VOICE_STAFF_USER/PASS`; kế thừa sweep presence: customer fake-camera → staff overlay → accept → video tiles live → camera toggle ↔ remote on/off → end → metrics videoCalls +1 → audio regression call.
-- [ ] Deferred tracking (ghi card riêng khi cần): coturn `--max-bps=1M` raise cho video · `turns:` TLS 5349 verify+enable · `video.*` rate cards seed.
+- [x] **Push + CD deploy** `9c47c47c`..`a0514941` — voice + khachlink + shoperp deployed; CallType ALTER idempotent chay tren voice.db prod.
+- [x] **RV `voice-video-rv.mjs` prod: 25/25 PASS** — 2 bug bat duoc + fixed: V10 `removeTrack`→`replaceTrack` (remote track khong re-fire ontrack) · V9 remote `mute` chi fire sau RTP timeout → generic `CallEvent` relay (`SendCallEvent`, opaque name/value — camera state tuc thi, additive server). `getCallState` expose `remoteCameraOn`/`videoRemoteOn`.
+- [ ] Deferred tracking (ghi card rieng khi can): coturn `--max-bps=1M` raise cho video · `turns:` TLS 5349 verify+enable · `video.*` rate cards seed · AC5 `turnRelayed` verify khi co call TURN that · AC7 guest gate RV.
 
 
 **▶ VẠN AN ZERO-COST IDENTITY (L0-L3) — 🔵 SESSION 2026-11-10 — ✅ 4/4 đề xuất DUYỆT + cards sẵn sàng (implement theo thứ tự):**
