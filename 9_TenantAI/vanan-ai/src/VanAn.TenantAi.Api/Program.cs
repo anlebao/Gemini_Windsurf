@@ -21,6 +21,7 @@ builder.Services.AddHttpClient<VanAn.TenantAi.Ai.IEmbeddingProvider, VanAn.Tenan
     c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantAiLlm:TimeoutSeconds", 30));
 });
 builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeIngestService>();
+builder.Services.AddScoped<VanAn.TenantAi.Api.Services.KnowledgeExtractor>();
 
 // task_ai_p3 — chat pipeline services (SRS §5).
 builder.Services.AddHttpClient<VanAn.TenantAi.Ai.ILlmChatClient, VanAn.TenantAi.Ai.GeminiChatClient>(c =>
@@ -390,6 +391,21 @@ app.MapPost("/v1/admin/knowledge/{id:guid}/reject", async (
                 _ => Error(StatusCodes.Status409Conflict, result.ErrorCode ?? "conflict", "Document is not pending review.")
             }
             : Results.Ok(result.Value);
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+// W3a Auto-Builder — extract structured candidates from raw pasted text.
+// Preview only: nothing is ingested here; owner confirms in ShopERP then pushes
+// via /v1/knowledge/documents (approval gate unchanged).
+app.MapPost("/v1/admin/knowledge/extract", async (
+        VanAn.TenantAi.Api.Services.KnowledgeExtractor extractor,
+        VanAn.TenantAi.Contracts.KnowledgeExtractRequest body, CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(body.Text) || body.Text.Length > 20000)
+            return Error(StatusCodes.Status400BadRequest, "invalid_text",
+                "Text is required and must be <= 20000 chars.");
+        return Results.Ok(await extractor.ExtractAsync(body, ct));
     })
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();

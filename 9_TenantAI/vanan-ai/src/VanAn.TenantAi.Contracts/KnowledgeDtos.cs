@@ -70,6 +70,17 @@ public sealed record RejectDocumentRequest(string Reason);
 /// <summary>AI-P11 — approve body: owner chọn classification lúc duyệt. Null/absent = giữ nguyên.</summary>
 public sealed record ApproveDocumentRequest(string? Classification);
 
+/// <summary>W3a — owner-triggered extraction: raw text (menu/bảng giá/FAQ) →
+/// structured candidates for review. NEVER auto-ingested; ShopERP shows preview,
+/// owner confirms, then pushes via /v1/knowledge/documents (approval gate intact).</summary>
+public sealed record KnowledgeExtractRequest(string Text, string? Hint = null);
+
+public sealed record KnowledgeExtractItem(string Kind, string Title, string Content);
+
+public sealed record KnowledgeExtractResponse(
+    string Summary,
+    IReadOnlyList<KnowledgeExtractItem> Items);
+
 public sealed record KnowledgeStatusResponse(
     int PendingDocs,
     int ApprovedDocs,

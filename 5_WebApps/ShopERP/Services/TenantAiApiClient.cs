@@ -107,7 +107,14 @@ public interface ITenantAiClient
     Task<bool> DeleteDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default);
     /// <summary>Per-day usage aggregate (messages/refused/degraded/tokens). Null on failure.</summary>
     Task<TenantAiUsageResponse?> GetUsageAsync(Guid tenantId, int days, CancellationToken ct = default);
+
+    /// <summary>W3a — extract structured knowledge candidates from raw pasted text
+    /// (menu/bảng giá/FAQ). Preview only; owner confirms before ingest.</summary>
+    Task<TenantAiExtractResponse?> ExtractKnowledgeAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default);
 }
+
+public sealed record TenantAiExtractItem(string Kind, string Title, string Content);
+public sealed record TenantAiExtractResponse(string Summary, IReadOnlyList<TenantAiExtractItem> Items);
 
 /// <summary>
 /// task_ai_p2 — HTTP client for vanan-ai ingest/admin APIs. Self-disables when
@@ -220,6 +227,10 @@ public sealed class TenantAiApiClient : ITenantAiClient
 
     public Task<TenantAiUsageResponse?> GetUsageAsync(Guid tenantId, int days, CancellationToken ct = default)
         => Send<TenantAiUsageResponse>(tenantId, HttpMethod.Get, $"v1/admin/tenants/{tenantId}/usage?days={days}", null, AdminTimeout, ct);
+
+    public Task<TenantAiExtractResponse?> ExtractKnowledgeAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default)
+        => Send<TenantAiExtractResponse>(tenantId, HttpMethod.Post, "v1/admin/knowledge/extract",
+            new { text, hint }, TimeSpan.FromSeconds(30), ct);
 
     // ---------- plumbing ----------
 

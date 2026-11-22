@@ -127,6 +127,74 @@
         }
         else
         {
+            @* W3a Auto-Builder: dán text thô (menu/bảng giá/FAQ copy từ Zalo/web)
+               → AI trích xuất candidates → owner xem/sửa → đẩy vào hàng chờ duyệt.
+               Không auto-publish: vẫn qua approval gate như upload thường. *@
+            <VanACard Header="Trích xuất tự động từ văn bản" data-testid="card-extract">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="extract-input">Văn bản nguồn <span class="text-danger">*</span></label>
+                        <textarea id="extract-input" class="form-control" rows="5" @bind="_extractInput"
+                                  placeholder="Dán menu, bảng giá, FAQ, chính sách… copy từ Zalo/web/menu giấy chụp lại."
+                                  data-testid="input-extract-source" maxlength="20000"></textarea>
+                        <small class="text-muted">Tối đa 20.000 ký tự. AI chỉ trích xuất — bạn duyệt trước khi dùng.</small>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="extract-hint">Gợi ý thêm (tuỳ chọn)</label>
+                        <input id="extract-hint" class="form-control" @bind="_extractHint"
+                               placeholder="VD: đây là menu spa, chú ý phần giá" data-testid="input-extract-hint" />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <VanAButton Variant="outline" OnClick="ExtractAsync" Loading="@_extracting"
+                                    Disabled="@(_extracting || string.IsNullOrWhiteSpace(_extractInput))"
+                                    data-testid="btn-extract">
+                            <i class="bi bi-magic me-1"></i> Trích xuất
+                        </VanAButton>
+                    </div>
+                </div>
+
+                @if (_extractResult is not null)
+                {
+                    <div class="mt-3">
+                        @if (_extractResult.Items.Count == 0)
+                        {
+                            <VanAAlert Variant="warning"
+                                       Message="@($"Không trích xuất được mục nào. {_extractResult.Summary}")" />
+                        }
+                        else
+                        {
+                            <p class="mb-2"><strong>@_extractResult.Items.Count mục</strong> — @_extractResult.Summary</p>
+                            <div class="extract-preview mb-2" style="max-height: 220px; overflow-y: auto;">
+                                @foreach (var item in _extractResult.Items)
+                                {
+                                    <div class="border rounded p-2 mb-1 small">
+                                        <span class="badge bg-secondary me-1">@KindLabel(item.Kind)</span>
+                                        <strong>@item.Title</strong>
+                                        <div class="text-muted">@item.Content</div>
+                                    </div>
+                                }
+                            </div>
+
+                            <label class="form-label">Nội dung sẽ đưa vào knowledge (có thể sửa)</label>
+                            <textarea class="form-control font-monospace" rows="6" @bind="_extractDocContent"
+                                      data-testid="input-extract-content"></textarea>
+                            <div class="d-flex gap-2 mt-2 align-items-center flex-wrap">
+                                <select class="form-select" style="max-width: 200px;" @bind="_extractDocType" data-testid="select-extract-type">
+                                    <option value="menu-note">Menu/dịch vụ</option>
+                                    <option value="faq">FAQ — hỏi đáp</option>
+                                    <option value="policy">Chính sách</option>
+                                </select>
+                                <VanAButton Variant="primary" Size="small" OnClick="ConfirmExtractAsync" Loading="@_busy"
+                                            Disabled="@(_busy || string.IsNullOrWhiteSpace(_extractDocContent))"
+                                            data-testid="btn-confirm-extract">
+                                    <i class="bi bi-check2 me-1"></i> Đưa vào hàng chờ duyệt
+                                </VanAButton>
+                            </div>
+                        }
+                    </div>
+                }
+            </VanACard>
+
             <VanACard Header="Upload tài liệu" data-testid="card-upload">
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -294,6 +362,24 @@
     private string _uploadContent = string.Empty;
     private string _uploadClassification = "public";
 
+    // W3a Auto-Builder state
+    private string _extractInput = string.Empty;
+    private string? _extractHint;
+    private bool _extracting;
+    private TenantAiExtractResponse? _extractResult;
+    private string _extractDocType = "menu-note";
+    private string _extractDocContent = string.Empty;
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "product" => "Sản phẩm",
+        "service" => "Dịch vụ",
+        "faq" => "Hỏi đáp",
+        "policy" => "Chính sách",
+        "hours" => "Giờ giấc",
+        _ => "Khác",
+    };
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -380,6 +466,66 @@
     private void ToggleExpand(Guid id)
     {
         if (!_expanded.Remove(id)) _expanded.Add(id);
+    }
+
+    // ---------- W3a Auto-Builder ----------
+
+    private async Task ExtractAsync()
+    {
+        _extracting = true;
+        try
+        {
+            var result = await AiClient.ExtractKnowledgeAsync(
+                TenantProvider.TenantId, _extractInput.Trim(), _extractHint);
+            if (result is null)
+            {
+                SetAlert("Trích xuất thất bại — dịch vụ AI đang tạm nghỉ, thử lại sau.", "error");
+                _extractResult = null;
+                return;
+            }
+            _extractResult = result;
+            _extractDocContent = BuildExtractDocContent(result);
+        }
+        finally
+        {
+            _extracting = false;
+        }
+    }
+
+    private static string BuildExtractDocContent(TenantAiExtractResponse r)
+    {
+        var sb = new System.Text.StringBuilder();
+        if (!string.IsNullOrWhiteSpace(r.Summary)) sb.AppendLine(r.Summary).AppendLine();
+        foreach (var i in r.Items)
+            sb.AppendLine($"[{KindLabel(i.Kind)}] {i.Title}: {i.Content}");
+        return sb.ToString().Trim();
+    }
+
+    private async Task ConfirmExtractAsync()
+    {
+        if (_extractResult is null) return;
+        _busy = true;
+        try
+        {
+            var title = $"Trích xuất tự động — {DateTime.Now:dd/MM/yyyy HH:mm}";
+            var ok = await AiClient.IngestDocumentAsync(TenantProvider.TenantId,
+                _extractDocType, title, _extractDocContent.Trim(), "public",
+                sourceRef: $"extract:{Guid.NewGuid():N}");
+            if (!ok)
+            {
+                SetAlert("Đưa vào hàng chờ thất bại — thử lại sau.", "error");
+                return;
+            }
+            SetAlert($"Đã đưa tài liệu trích xuất ({_extractResult.Items.Count} mục) vào hàng chờ duyệt.", "success");
+            _extractResult = null;
+            _extractInput = string.Empty;
+            _extractDocContent = string.Empty;
+            await ReloadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task UploadAsync()
