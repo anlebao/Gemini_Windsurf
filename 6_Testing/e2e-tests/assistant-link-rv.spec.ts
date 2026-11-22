@@ -80,3 +80,38 @@ test.describe('W1 AI Link RV', () => {
     expect(body.aiEnabled).toBe(true);
   });
 });
+
+// QR/link public giờ trỏ storefront deep-link (user directive 2026-11-22):
+// tenant luôn có storefront → {base}/store/{slug}?chat=ai, KHÔNG tạo /a/ mới.
+test.describe('W1 AI Link — storefront deep-link (?chat=ai)', () => {
+  const STORE_URL = 'https://shopai.timlathay.com/store/an-tam?chat=ai';
+
+  test('?chat=ai opens AI widget + send message → AI answer', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', e => errors.push(String(e)));
+
+    await page.goto(STORE_URL, { waitUntil: 'domcontentloaded' });
+
+    // Store page render + widget mở sẵn nhờ ?chat=ai (OpenPanel consume-once)
+    await expect(page.locator('.vanan-ai-widget')).toBeVisible({ timeout: 60000 });
+
+    const input = page.locator('.vanan-ai-widget input[type="text"], .vanan-ai-widget textarea, .vanan-ai-widget input:not([type])').first();
+    await expect(input).toBeVisible({ timeout: 15000 });
+    await input.fill('Quán có những dịch vụ gì?');
+
+    const sendBtn = page.locator('.vanan-ai-widget button[aria-label*="Gửi"], .vanan-ai-widget .vanan-ai-send, .vanan-ai-widget button:has(i.bi-send)').first();
+    if (await sendBtn.isVisible().catch(() => false)) {
+      await sendBtn.click();
+    } else {
+      await input.press('Enter');
+    }
+
+    await expect(input).toBeEnabled({ timeout: 90000 });
+    const bubbles = page.locator('.vanan-ai-msg-assistant .vanan-ai-bubble');
+    await expect.poll(async () => (await bubbles.last().innerText()).trim().length, { timeout: 30000 })
+      .toBeGreaterThan(10);
+    console.log('Store AI answer:', (await bubbles.last().innerText()).slice(0, 120));
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
