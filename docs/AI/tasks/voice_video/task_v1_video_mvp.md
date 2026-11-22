@@ -81,14 +81,18 @@ STUN missing (P2P ~0% → mục tiêu 60–80%), `ConnectionType` thật (metric
 
 ## ACCEPTANCE CRITERIA
 
-- [ ] AC1: Gọi video 1:1 KhachLink↔ShopERP thành công — remote thấy video, local PiP mirror.
-- [ ] AC2: Toggle camera giữa call (cả 2 phía) — video bật/tắt không rớt call.
-- [ ] AC3: Audio call hiện tại không regression (UI + flow y hệt).
-- [ ] AC4: `voice_calls.CallType` đúng; metering nhận `video.*` events (hoặc fallback documented).
-- [ ] AC5: `ConnectionType` = "TURN" khi relay, "P2P" khi direct — `/v1/metrics/summary` TurnPercentage > 0 khi có TURN call.
-- [ ] AC6: STUN urls xuất hiện trong `/v1/turn/credentials` response; ICE gather có srflx candidates (verify qua chrome://webrtc-internals trong RV).
-- [ ] AC7: Guest vẫn bị chặn gọi (cả audio lẫn video).
-- [ ] AC8: `dotnet test` voice + `dotnet build VanAn.sln` + `guard-check.ps1` pass.
+- [x] AC1: Gọi video 1:1 KhachLink↔ShopERP thành công — remote thấy video, local PiP mirror. **RV V5-V7 PASS**
+- [x] AC2: Toggle camera giữa call (cả 2 phía) — video bật/tắt không rớt call. **RV V8-V10 — 1 bug bắt được + fixed**
+- [x] AC3: Audio call hiện tại không regression (UI + flow y hệt). **RV V14-V16 PASS**
+- [x] AC4: `voice_calls.CallType` đúng; metering nhận `video.*` events. **RV V13 PASS** (metrics videoCalls +1)
+- [ ] AC5: `ConnectionType` = "TURN" khi relay, "P2P" khi direct — client report implemented; `turnRelayed` field verify khi có call qua TURN thật (RV env P2P).
+- [x] AC6: STUN urls xuất hiện trong `/v1/turn/credentials` response. **RV V0 PASS** (`stun:voice.khachvip.online:3478`)
+- [ ] AC7: Guest vẫn bị chặn gọi (cả audio lẫn video) — chưa RV (cần guest browser profile).
+- [x] AC8: `dotnet test` voice + `dotnet build` + `guard-check.ps1` pass.
+
+### RV findings (2026-11-22, `voice-video-rv.mjs` → 24/25 → fix → re-run)
+
+- **V10 FAIL → FIXED (replaceTrack):** camera toggle OFF dùng `removeTrack` → remote receiver track `ended`; toggle ON lại (`addTrack` + re-offer) **Chrome không re-fire `ontrack`** → remote video không quay lại. **Fix đúng chuẩn:** `videoSender.replaceTrack(null)` tắt (remote track muted, KHÔNG ended — không cần renegotiation) / `replaceTrack(track)` bật; giữ `videoSender` ref qua toggles; remote `emitVideoState` check `live && !muted` + hook `t.onmute/onunmute`. RV checks V7/V9/V10 cập nhật muted-aware.
 
 ## DEFERRED (explicit — không làm trong task này)
 

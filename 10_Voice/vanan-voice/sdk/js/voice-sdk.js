@@ -77,7 +77,10 @@ window.vananVoice = (function () {
     }
 
     function emitVideoState() {
-        const remoteOn = !!(remoteStream && remoteStream.getVideoTracks().some(t => t.readyState === 'live'));
+        // replaceTrack(null) keeps the remote track 'live' but muted — camera-off
+        // phía xa = live && muted, không phải ended (RV V10: đừng check readyState đơn).
+        const remoteOn = !!(remoteStream && remoteStream.getVideoTracks()
+            .some(t => t.readyState === 'live' && !t.muted));
         if (options && options.onVideoChange) options.onVideoChange(cameraOn, remoteOn);
     }
 
@@ -376,6 +379,9 @@ window.vananVoice = (function () {
                 // Same autoplay pattern as audio — retry on the next user gesture.
                 bindAudioGestureUnlock();
             });
+            // replaceTrack toggle: remote camera off/on fires mute/unmute on the
+            // SAME track — UI phải update placeholder/video ngay (không chờ ontrack mới).
+            stream.getVideoTracks().forEach(t => { t.onmute = t.onunmute = () => emitVideoState(); });
         }
         emitVideoState();
         if (options && options.onRemoteStream) options.onRemoteStream(stream);

@@ -19,14 +19,22 @@
 //   VOICE_BASE            — voice service base (metrics + turn creds), default https://voice.khachvip.online
 // ─────────────────────────────────────────────────────────────────────────────
 import { chromium } from 'playwright';
+import fs from 'fs';
+
+// Creds fallback: reuse files minted for the voice-presence RV (An Tâm e2d91cdf).
+//   .devin/rv_cust_token.json      — { customerToken } dev-token customer (365d)
+//   .devin/rv_presence_creds.json  — { owner_user, owner_pass } staff owner login
+const loadJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return {}; } };
+const credsFile = loadJson('.devin/rv_presence_creds.json');
+const custFile = loadJson('.devin/rv_cust_token.json');
 
 const TENANT = process.env.VOICE_TENANT ?? 'e2d91cdf-d3c4-4399-b96e-e772a7a41630';
 const STORE = process.env.VOICE_STORE_URL ?? `https://diemthuong2.khachvip.online/store/by-id/${TENANT}`;
 const APP2 = process.env.VOICE_APP2 ?? 'https://app2.khachvip.online';
 const VOICE_BASE = (process.env.VOICE_BASE ?? 'https://voice.khachvip.online').replace(/\/+$/, '');
-const CUST_TOKEN = process.env.VOICE_CUSTOMER_TOKEN ?? '';
-const STAFF_USER = process.env.VOICE_STAFF_USER ?? '';
-const STAFF_PASS = process.env.VOICE_STAFF_PASS ?? '';
+const CUST_TOKEN = process.env.VOICE_CUSTOMER_TOKEN ?? custFile.customerToken ?? '';
+const STAFF_USER = process.env.VOICE_STAFF_USER ?? credsFile.owner_user ?? '';
+const STAFF_PASS = process.env.VOICE_STAFF_PASS ?? credsFile.owner_pass ?? '';
 const CALL_SECONDS = Number(process.env.VOICE_CALL_SECONDS ?? 6);
 
 if (!CUST_TOKEN || !STAFF_USER || !STAFF_PASS) {
@@ -222,7 +230,8 @@ try {
     remoteVid = await staffPage.evaluate(() => {
       const host = document.getElementById('voice-remote-video-host');
       const v = host?.querySelector('video');
-      return !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live'));
+      // replaceTrack toggle: remote track live+unmuted = camera đang bật thật.
+      return !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live' && !t.muted));
     });
     if (!remoteVid) await sleep(1000);
   }
@@ -242,7 +251,9 @@ try {
       staffRemoteGone = await staffPage.evaluate(() => {
         const host = document.getElementById('voice-remote-video-host');
         const v = host?.querySelector('video');
-        return !v || !v.srcObject || v.srcObject.getVideoTracks().every(t => t.readyState !== 'live');
+        // OFF = không còn track nào live VÀ unmuted (ended hoặc muted đều tính tắt).
+        return !v || !v.srcObject
+          || v.srcObject.getVideoTracks().every(t => t.readyState !== 'live' || t.muted);
       });
       if (!staffRemoteGone) await sleep(1000);
     }
@@ -254,7 +265,7 @@ try {
     for (let i = 0; i < 20 && !staffRemoteBack; i++) {
       staffRemoteBack = await staffPage.evaluate(() => {
         const v = document.getElementById('voice-remote-video-host')?.querySelector('video');
-        return !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live'));
+        return !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live' && !t.muted));
       });
       if (!staffRemoteBack) await sleep(1000);
     }

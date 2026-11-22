@@ -26,6 +26,10 @@ window.vananVoiceMedia = (function () {
     let localStream = null;
     let peer = null;
     let handlers = null;
+    // VIDEO MVP: sender của video track — giữ reference qua mọi toggle. replaceTrack
+    // (không removeTrack) tránh end remote receiver track → camera bật lại khỏi cần
+    // renegotiation và không rơi vào case Chrome không re-fire ontrack (RV V10 bug).
+    let videoSender = null;
     // Remote candidates that arrive before setRemoteDescription completes are
     // queued — addIceCandidate throws in that window and would silently drop them.
     let remoteDescSet = false;
@@ -69,8 +73,10 @@ window.vananVoiceMedia = (function () {
         return !!(localStream && localStream.getVideoTracks().some(t => t.readyState === 'live'));
     }
 
-    // VIDEO MVP: camera toggle — addTrack/removeTrack marks transceivers dirty; the SDK
-    // follows with a re-offer (SendOffer) so the remote side sees the change.
+    // VIDEO MVP: camera toggle — replaceTrack(null) tắt video mà KHÔNG end remote
+    // track (muted thay vì ended) → bật lại chỉ cần replaceTrack(track), không cần
+    // re-offer và không đụng glare. First-time camera trên audio call → addTrack
+    // (negotiation-needed, SDK vẫn gửi re-offer — harmless khi không cần).
     async function setCameraEnabled(on) {
         if (on) {
             if (hasVideoTrack()) return;
@@ -78,16 +84,17 @@ window.vananVoiceMedia = (function () {
             const track = vs.getVideoTracks()[0];
             if (!localStream) localStream = vs;
             else localStream.addTrack(track);
-            if (peer) peer.addTrack(track, localStream);
+            if (peer) {
+                if (videoSender) { try { await videoSender.replaceTrack(track); } catch (_) { /* sender dead */ } }
+                else videoSender = peer.addTrack(track, localStream);
+            }
         } else {
             if (!localStream) return;
             localStream.getVideoTracks().forEach(t => {
-                if (peer) peer.getSenders()
-                    .filter(s => s.track === t)
-                    .forEach(s => { try { peer.removeTrack(s); } catch (_) { /* transceiver already clean */ } });
                 try { t.stop(); } catch (_) { /* already stopped */ }
                 localStream.removeTrack(t);
             });
+            if (videoSender) { try { await videoSender.replaceTrack(null); } catch (_) { /* sender dead */ } }
         }
     }
 
@@ -121,7 +128,10 @@ window.vananVoiceMedia = (function () {
         remoteDescSet = false;
         pendingIce = [];
         peer = new RTCPeerConnection({ iceServers: iceServers || [] });
-        if (localStream) localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+        if (localStream) localStream.getTracks().forEach(track => {
+            const sender = peer.addTrack(track, localStream);
+            if (track.kind === 'video') videoSender = sender;
+        });
         peer.onicecandidate = e => {
             // e.candidate === null marks end-of-candidates — relay it so the remote
             // side can finish trickle ICE promptly.
@@ -137,6 +147,7 @@ window.vananVoiceMedia = (function () {
     }
 
     function closePeer() {
+        videoSender = null;
         if (peer) { peer.close(); peer = null; }
     }
 
