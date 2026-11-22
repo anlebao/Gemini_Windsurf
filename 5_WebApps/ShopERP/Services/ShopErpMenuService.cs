@@ -407,6 +407,8 @@ public sealed class ShopErpMenuService : IShopErpMenuService
                 new() { Title = "Cấu hình tính năng Shop", Icon = "toggles", Url = "/settings/shop-features" },
                 // Task AI-P10: tenant tự quản trợ lý AI (SRS P2) — flag-gated bên trong trang.
                 new() { Title = "Trợ lý AI (Tenant AI)", Icon = "robot", Url = "/admin/tenant-ai" },
+                // UNIVERSAL AI ASSISTANT W1: link/QR phân phối trợ lý ra kênh ngoài.
+                new() { Title = "AI Link & QR", Icon = "qr-code", Url = "/settings/ai-assistant" },
             };
             if (isSystemAdmin)
             {
