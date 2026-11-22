@@ -3,10 +3,10 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 
-const creds = JSON.parse(fs.readFileSync('../.devin/rv_presence_creds.json','utf8'));
+const creds = JSON.parse(fs.readFileSync( '../../.devin/rv_presence_creds.json','utf8'));
 const TENANT = 'e2d91cdf-d3c4-4399-b96e-e772a7a41630';
 const APP2 = 'https://app2.khachvip.online';
-const CUST = JSON.parse(fs.readFileSync('../.devin/rv_cust_token.json','utf8'));
+const CUST = JSON.parse(fs.readFileSync( '../../.devin/rv_cust_token.json','utf8'));
 
 const results = [];
 const check = (n,p,d='') => { results.push(p); console.log(`[${p?'PASS':'FAIL'}] ${n}${d?' — '+String(d).slice(0,200):''}`); };

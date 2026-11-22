@@ -1,6 +1,6 @@
 # Task Card: Voice Presence — "login = sẵn sàng nhận cuộc gọi"
 
-> **Status:** 🟡 Phase A+B DONE — 16/16 full RV (`67088f40`). Phase C IMPLEMENTED — R9 round-robin routing (server) + R10 busy/offline chat-suggestion UX + R12 presence badge đỏ/xanh/xám; R11 verify-only (đã có sẵn). Đang chờ guard → deploy → RV.
+> **Status:** ✅ DONE — Phase A+B 16/16 RV (`67088f40`); Phase C deploy `fbc9a694`, CD SUCCESS, **full RV 19/19 PASS** trên production (2026-11-22). R9 round-robin + R10 busy/offline UX + R11 verify-only + R12 badge đỏ/xanh/xám.
 > **Depends on:** chat_ui_unification P0-P2 (DONE), VOICE SERVICE P4/S-series (DONE)
 > **Scope:** `UI.Platform/Components/Realtime/VoiceCallPanel.*` · `UI.Platform/wwwroot/js/voice-chat.js` · `5_WebApps/ShopERP/Components/Layout/*` · `5_WebApps/KhachLink` layout · `10_Voice` PermissionService (nhỏ) · E2E spec mới
 

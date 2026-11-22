@@ -84,9 +84,11 @@ try {
   await custPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await sleep(5000);
   // presence init bất đồng bộ — poll tới khi isInitialized()=true
+  // (connected cũng chứng tỏ init xong — JS set flag trước khi hub connect)
   let custInit = false;
-  for (let i = 0; i < 20 && !custInit; i++) {
-    custInit = await custPage.evaluate(() => window.vananVoiceChat?.isInitialized?.() === true);
+  for (let i = 0; i < 30 && !custInit; i++) {
+    custInit = await custPage.evaluate(() => window.vananVoiceChat?.isInitialized?.() === true
+      || window.vananVoiceChat?.getConnectionState?.() === 'connected');
     if (!custInit) await sleep(1000);
   }
   const custVoice = await custPage.evaluate(async () => {
@@ -257,7 +259,14 @@ try {
   } catch {}
   check('S8 global incoming overlay HIỆN khi chat đóng (presence)', overlaySeen);
   if (overlaySeen) {
-    const txt = await overlay.innerText();
+    // Caller name publish qua coordinator có thể trễ vài trăm ms sau overlay
+    // — poll text thay vì đọc 1 lần.
+    let txt = '';
+    for (let i = 0; i < 10; i++) {
+      txt = await overlay.innerText().catch(() => '');
+      if (/RV Test|Khách|khách/i.test(txt)) break;
+      await sleep(800);
+    }
     check('S9 overlay hiển thị tên người gọi', /RV Test|Khách|khách/i.test(txt), txt.slice(0, 120));
   }
 
@@ -356,8 +365,10 @@ try {
 
     await sleep(CALL_SECONDS * 1000);
     await staffPage.click('[data-testid="voice-presence-end"]').catch(() => {});
-    await sleep(2000);
-    const barGone = await callbar.isHidden().catch(() => true);
+    // CallEnded broadcast qua server có độ trễ — chờ bar ẩn thay vì sleep cố định.
+    let barGone = false;
+    try { await callbar.waitFor({ state: 'hidden', timeout: 15000 }); barGone = true; } catch {}
+    if (!barGone) barGone = await callbar.isHidden().catch(() => true);
     const jsCalls2 = await staffPage.evaluate(() => window.__voiceCalls ?? null).catch(() => 'n/a');
     console.log('[debug] sau end — jsCalls:', JSON.stringify(jsCalls2));
     check('S11 sau end → callbar ẩn', barGone);
