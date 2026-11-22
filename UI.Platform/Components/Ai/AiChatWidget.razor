@@ -18,6 +18,9 @@
     <div class="vanan-ai-widget">
         @if (_open)
         {
+            @* Backdrop khóa layer bên dưới khi widget mở — chặn click/scroll vào
+               storefront; bấm backdrop = đóng widget (mới thao tác tiếp được). *@
+            <div class="vanan-ai-backdrop" @onclick="ToggleOpen" aria-hidden="true"></div>
             <VanAnCard Shadow="true" CssClass="vanan-ai-panel p-0 overflow-hidden">
                 <div class="d-flex justify-content-between align-items-center p-3 border-bottom vanan-ai-header">
                     <div class="d-flex align-items-center gap-2">
@@ -291,6 +294,9 @@
     private string _input = string.Empty;
     private string? _addedNotice;
     private bool _open;
+    // Body scroll lock — theo dõi _open để gọi vananRealtime.lockBodyScroll đúng
+    // một lần mỗi lần đổi trạng thái (OnAfterRender chạy mọi render).
+    private bool _bodyLockApplied;
     private bool _sending;
     private bool _loadingHistory;
     private bool _historyLoaded;
@@ -357,6 +363,14 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Body scroll lock theo _open — chỉ gọi JS khi trạng thái đổi.
+        if (_open != _bodyLockApplied)
+        {
+            _bodyLockApplied = _open;
+            try { await JSRuntime.InvokeVoidAsync("vananRealtime.lockBodyScroll", _open); }
+            catch { /* prerender / circuit gone — backdrop CSS vẫn chặn touch */ }
+        }
+
         // firstRender may fire BEFORE OnInitializedAsync completes (WASM renders the
         // initial frame while the config fetch is still in-flight) — create the
         // session on the first render where aiEnabled is known, not just firstRender.
@@ -604,6 +618,12 @@
     public async ValueTask DisposeAsync()
     {
         await StopVoiceAsync();
+        if (_bodyLockApplied)
+        {
+            _bodyLockApplied = false;
+            try { await JSRuntime.InvokeVoidAsync("vananRealtime.lockBodyScroll", false); }
+            catch { /* circuit gone */ }
+        }
         _voiceRef?.Dispose();
     }
 

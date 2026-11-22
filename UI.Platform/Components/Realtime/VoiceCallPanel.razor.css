@@ -71,6 +71,9 @@
     display: flex;
     gap: 8px;
     flex-shrink: 0;
+    /* Mobile hẹp: camera+switch+mute+end có thể wrap xuống hàng thay vì đẩy khung. */
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 /* Circular action buttons — VanAnButton base + scoped overrides. */
@@ -194,6 +197,8 @@
     bottom: 8px;
     width: 88px;
     aspect-ratio: 4 / 3;
+    /* JS set aspect-ratio inline theo track thật (portrait cam) — cap chiều cao. */
+    max-height: 150px;
     border-radius: 8px;
     overflow: hidden;
     border: 1.5px solid rgba(255, 255, 255, 0.5);

@@ -50,6 +50,18 @@
     transform: scale(0.95);
 }
 
+/* Backdrop khóa layer bên dưới khi widget mở — z-index âm trong stacking
+   context của widget (1050) nên nằm dưới panel/bubble nhưng TRÊN storefront. */
+.vanan-ai-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.12);
+    /* Chặn touch scroll chaining + wheel xuống page bên dưới. */
+    touch-action: none;
+    overscroll-behavior: contain;
+}
+
 /* P1: unread badge pulse — attention khi có tin từ chủ quán. */
 .vanan-ai-unread {
     animation: vanan-ai-unread-pulse 1.6s ease-in-out infinite;

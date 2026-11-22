@@ -7,7 +7,16 @@
 //
 // Leaflet itself is vendored at _content/VanAn.UI.Platform/lib/leaflet/ and must load first.
 
+// Ref-counted body scroll lock — widget chat mở rộng trên mobile khóa scroll
+// layer storefront bên dưới (UX 2026-11-22). Ref-count để nhiều consumer
+// (widget + overlay khác) không giẫm nhau.
+let _bodyScrollLocks = 0;
+
 window.vananRealtime = {
+    lockBodyScroll(locked) {
+        _bodyScrollLocks = Math.max(0, _bodyScrollLocks + (locked ? 1 : -1));
+        document.body.style.overflow = _bodyScrollLocks > 0 ? 'hidden' : '';
+    },
     // W17-T5: Get current GPS position.
     // Rejects with a proper Error carrying a user-friendly message based on
     // GeolocationPositionError.code. Rejecting with the raw error object makes

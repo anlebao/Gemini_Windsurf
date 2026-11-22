@@ -96,6 +96,10 @@
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
+    /* Connected state thêm camera/switch/mute/end → bar "phình to" — cap viewport
+       để mép trái không bị đẩy ra ngoài màn hình trên mobile hẹp. */
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
     background: #212529;
     color: #fff;
     border-radius: 999px;
@@ -104,7 +108,15 @@
     animation: voice-presence-slide-up 200ms ease-out;
 }
 
-.voice-presence-callbar-state { font-weight: 600; white-space: nowrap; }
+.voice-presence-callbar-state {
+    font-weight: 600;
+    white-space: nowrap;
+    /* Cho phép co/ellipsis thay vì đẩy bar vượt viewport. */
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .voice-presence-callbar-timer {
     font-variant-numeric: tabular-nums;
     color: #adb5bd;
@@ -174,6 +186,8 @@
     bottom: 8px;
     width: 88px;
     aspect-ratio: 4 / 3;
+    /* JS set aspect-ratio inline theo track thật (portrait cam) — cap chiều cao. */
+    max-height: 150px;
     border-radius: 8px;
     overflow: hidden;
     border: 1.5px solid rgba(255, 255, 255, 0.5);

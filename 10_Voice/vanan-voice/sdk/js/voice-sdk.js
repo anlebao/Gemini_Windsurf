@@ -163,6 +163,13 @@ window.vananVoice = (function () {
             if (localVideoEl.srcObject !== stream) localVideoEl.srcObject = stream;
             var host = document.getElementById('voice-local-video-host');
             if (host && localVideoEl.parentElement !== host) host.appendChild(localVideoEl);
+            // Portrait camera (điện thoại) → track aspect != 4/3 → host cứng 4:3 crop
+            // lệch góc nhìn. Đọc aspect thật của track, host theo đó (CSS cap max-height).
+            if (host) {
+                var vt = stream && stream.getVideoTracks()[0];
+                var s = vt && vt.getSettings ? vt.getSettings() : null;
+                if (s && s.width && s.height) host.style.aspectRatio = s.width + ' / ' + s.height;
+            }
         } else if (localVideoEl) {
             try { localVideoEl.srcObject = null; localVideoEl.remove(); } catch (_) { /* best effort */ }
             localVideoEl = null;

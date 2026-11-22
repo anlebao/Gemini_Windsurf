@@ -34,8 +34,9 @@ public sealed class VoiceCallCoordinator
     public bool VideoRemoteOn { get; private set; }
 
     /// <summary>User ẩn self-view PiP (local pref — KHÔNG reset theo call; KHÔNG
-    /// ảnh hưởng camera track — chỉ ẩn khung hiển thị).</summary>
-    public bool VideoSelfHidden { get; private set; }
+    /// ảnh hưởng camera track — chỉ ẩn khung hiển thị). Default ẩn theo yêu cầu
+    /// mobile UX (2026-11-22) — user bật lại qua nút eye trên video area.</summary>
+    public bool VideoSelfHidden { get; private set; } = true;
 
     public void SetVideoSelfHidden(bool hidden)
     {
