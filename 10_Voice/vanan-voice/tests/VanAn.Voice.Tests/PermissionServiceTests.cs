@@ -120,4 +120,59 @@ public class PermissionServiceTests
         allowed.Allowed.Should().BeTrue();
         allowed.TenantId.Should().Be(VoiceIdentities.Tenant);
     }
+
+    // ---- R9 (voice_presence Phase C): round-robin counterpart pick ----
+
+    private static async Task<PermissionResult> CallWithCandidatesAsync(
+        PermissionService permission, CallServiceHarness harness, params Guid[] candidates)
+    {
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.ContextVerifier.ResolvedCounterparts = candidates;
+        return await permission.CheckStartCallAsync(
+            VoiceIdentities.Customer(VoiceIdentities.UserA), Guid.Empty, "chat", "conv-rr", DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task Reachable_candidates_rotate_round_robin()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        harness.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        harness.Store.AddConnection(VoiceIdentities.UserC, "conn-c");
+
+        var first = await CallWithCandidatesAsync(permission, harness, VoiceIdentities.UserB, VoiceIdentities.UserC);
+        var second = await CallWithCandidatesAsync(permission, harness, VoiceIdentities.UserB, VoiceIdentities.UserC);
+        var third = await CallWithCandidatesAsync(permission, harness, VoiceIdentities.UserB, VoiceIdentities.UserC);
+
+        first.TargetUserId.Should().Be(VoiceIdentities.UserB);
+        second.TargetUserId.Should().Be(VoiceIdentities.UserC);
+        third.TargetUserId.Should().Be(VoiceIdentities.UserB);
+    }
+
+    [Fact]
+    public async Task Busy_candidate_is_skipped_for_reachable_one()
+    {
+        var (permission, harness) = Create();
+        using var keep = harness;
+        harness.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        harness.Store.AddConnection(VoiceIdentities.UserC, "conn-c");
+        // UserB đang trong call → chỉ UserC reachable.
+        var call = VoiceCall.Create(Guid.NewGuid(), VoiceIdentities.Tenant, VoiceIdentities.UserB, VoiceIdentities.UserA, "test", null, null, DateTime.UtcNow);
+        harness.Store.TryAddActive(new VoiceStateStore.ActiveCall { Call = call, CallerConnectionId = "conn-x", RingStartedAt = DateTime.UtcNow }, out _);
+
+        var result = await CallWithCandidatesAsync(permission, harness, VoiceIdentities.UserB, VoiceIdentities.UserC);
+
+        result.TargetUserId.Should().Be(VoiceIdentities.UserC);
+    }
+
+    [Fact]
+    public async Task No_reachable_falls_back_to_first_candidate()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        // Không ai có connection → fallback candidates[0] (sẽ nhận OFFLINE trung thực).
+        var result = await CallWithCandidatesAsync(permission, harness, VoiceIdentities.UserB, VoiceIdentities.UserC);
+
+        result.TargetUserId.Should().Be(VoiceIdentities.UserB);
+    }
 }

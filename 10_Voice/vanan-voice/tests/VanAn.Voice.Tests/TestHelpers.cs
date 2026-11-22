@@ -36,12 +36,19 @@ public static class TestJwt
     }
 }
 
+/// <summary>Stub display-name resolver — null → CallService fallback về GUID.</summary>
+public sealed class StubDisplayNameResolver : IVoiceDisplayNameResolver
+{
+    public Task<string?> ResolveAsync(Guid userId, CancellationToken ct = default) => Task.FromResult<string?>(null);
+}
+
 /// <summary>Fake context verifier — tests control whether the context verifies and which tenant it yields.</summary>
 public sealed class FakeContextVerifier : IContextVerifier
 {
     public Guid? VerifiedTenantId { get; set; }
     public bool Fail { get; set; }
     public Guid? ResolvedCounterpart { get; set; }
+    public IReadOnlyList<Guid>? ResolvedCounterparts { get; set; }
 
     public Task<ContextVerification?> VerifyAsync(string contextType, string contextReferenceId, Guid callerUserId, Guid targetUserId, CancellationToken ct = default)
         => Task.FromResult<ContextVerification?>(
@@ -49,7 +56,10 @@ public sealed class FakeContextVerifier : IContextVerifier
                  : new ContextVerification(VerifiedTenantId != null, VerifiedTenantId, "verified"));
 
     public Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<Guid>>(ResolvedCounterpart is { } id ? new[] { id } : Array.Empty<Guid>());
+    {
+        if (ResolvedCounterparts is { } list) return Task.FromResult(list);
+        return Task.FromResult<IReadOnlyList<Guid>>(ResolvedCounterpart is { } id ? new[] { id } : Array.Empty<Guid>());
+    }
 }
 
 /// <summary>Thread-safe recording publisher — captures (connectionId, method, arg) for assertions.</summary>
@@ -119,6 +129,8 @@ public sealed class CallServiceHarness : IDisposable
         services.AddSingleton<RateLimiter>();
         services.AddSingleton<ICallEventPublisher, RecordingPublisher>();
         services.AddScoped<IContextVerifier>(_ => ContextVerifier);
+        // Display name resolver: stub trả null → CallService fallback GUID (giữ behavior test cũ).
+        services.AddSingleton<IVoiceDisplayNameResolver, StubDisplayNameResolver>();
         // Metering not configured → disabled client → fail-open (CheckAsync null = allow).
         services.AddHttpClient<MeteringClient>(client => client.Timeout = TimeSpan.FromSeconds(3));
         services.AddScoped<PermissionService>();

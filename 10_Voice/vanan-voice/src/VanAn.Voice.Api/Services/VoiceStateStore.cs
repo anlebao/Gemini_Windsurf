@@ -26,6 +26,7 @@ public sealed class VoiceStateStore
     private readonly ConcurrentDictionary<Guid, Guid> _activeCallByUser = new();   // userId -> callId
     private readonly ConcurrentDictionary<Guid, HashSet<string>> _connectionsByUser = new();
     private readonly ConcurrentDictionary<string, Guid> _callByConnection = new(); // connectionId -> callId
+    private readonly ConcurrentDictionary<string, int> _rotation = new();          // scopeKey -> round-robin counter
 
     public bool TryAddActive(ActiveCall active, out Guid collidedUserId)
     {
@@ -88,4 +89,9 @@ public sealed class VoiceStateStore
     public void MapConnectionToCall(string connectionId, Guid callId) => _callByConnection[connectionId] = callId;
 
     public Guid? CallIdOfConnection(string connectionId) => _callByConnection.TryGetValue(connectionId, out var id) ? id : null;
+
+    /// <summary>R9 (voice_presence Phase C): per-scope round-robin counter — distributes
+    /// incoming calls across reachable staff instead of always picking the first candidate.</summary>
+    public int NextRotationIndex(string scopeKey)
+        => _rotation.AddOrUpdate(scopeKey, 1, (_, v) => v + 1);
 }

@@ -348,6 +348,12 @@ try {
       console.log('[debug] staff states:', JSON.stringify(staffStateLog), '| cust state:', custState, '| jsCalls:', JSON.stringify(jsCalls));
     }
 
+    // ── R12 (Phase C): presence badge đỏ nhấp khi đang trong call ──
+    const badgeDuring = await staffPage.evaluate(
+      () => document.querySelector('[data-testid="voice-presence-toggle"]')?.className ?? '');
+    check('S13 presence badge is-calling (đỏ nhấp) khi đang gọi — R12',
+      badgeDuring.includes('is-calling'), badgeDuring);
+
     await sleep(CALL_SECONDS * 1000);
     await staffPage.click('[data-testid="voice-presence-end"]').catch(() => {});
     await sleep(2000);
@@ -355,6 +361,10 @@ try {
     const jsCalls2 = await staffPage.evaluate(() => window.__voiceCalls ?? null).catch(() => 'n/a');
     console.log('[debug] sau end — jsCalls:', JSON.stringify(jsCalls2));
     check('S11 sau end → callbar ẩn', barGone);
+    const badgeAfter = await staffPage.evaluate(
+      () => document.querySelector('[data-testid="voice-presence-toggle"]')?.className ?? '');
+    check('S14 badge hết đỏ sau khi end call — R12',
+      !badgeAfter.includes('is-calling'), badgeAfter);
   } else {
     // fallback: customer side state để debug
     const custState = await custPage.evaluate(() => window.vananVoiceChat?.getState?.() ?? 'n/a');
@@ -370,6 +380,28 @@ try {
     await sleep(3000);
     const stillInit = await staffPage.evaluate(() => window.vananVoiceChat?.isInitialized?.() ?? null);
     check('S12 toggle OFF → voice bridge disposed', stillInit === false, `isInitialized=${stillInit}`);
+  }
+
+  // ── R10 (Phase C): staff presence OFF → customer gọi lại phải nhận OFFLINE
+  //    và VoiceCallPanel (chat surface) hiện message gợi ý để lại tin nhắn.
+  const staffInitNow = await staffPage.evaluate(() => window.vananVoiceChat?.isInitialized?.() ?? null).catch(() => null);
+  if (staffInitNow === false) {
+    await sleep(3000); // chờ voice connection drop phía server
+    await custPage.click('.vanan-ai-bubble-btn', { timeout: 15000 }).catch(() => {});
+    await sleep(1500);
+    await custPage.click('.vanan-ai-tab-human', { timeout: 10000 }).catch(() => {});
+    await sleep(1500);
+    await custPage.evaluate(async ({ tenant }) => {
+      try { await window.vananVoiceChat.startCall(null, 'Shop', tenant, null); } catch {}
+    }, { tenant: TENANT }).catch(() => {});
+    const offlineErr = custPage.locator('[data-testid="voice-error"]');
+    let offlineSeen = false;
+    try { await offlineErr.waitFor({ state: 'visible', timeout: 20000 }); offlineSeen = true; } catch {}
+    const offlineTxt = offlineSeen ? await offlineErr.innerText().catch(() => '') : '';
+    check('S15 OFFLINE → message gợi ý để lại tin nhắn (R10)',
+      /không trực tuyến|để lại tin nhắn/i.test(offlineTxt), offlineTxt.slice(0, 160) || 'no voice-error element');
+  } else {
+    console.log('[skip] S15 — staff presence vẫn ON (isInitialized=' + staffInitNow + '), không test được OFFLINE');
   }
 } catch (err) {
   check('RV script completed without exception', false, err?.message ?? String(err));

@@ -3,6 +3,7 @@
    → cover mọi layout (Admin/Accounting/EInvoice/Main). Persist localStorage
    vanan_voice_presence; OFF → dispose panel → voice connection drop → customer
    thấy OFFLINE trung thực. *@
+@implements IDisposable
 @using VanAn.UI.Platform.Components.Realtime
 @using VanAn.ShopERP.Services
 @using VanAn.Shared.Services
@@ -15,13 +16,14 @@
 @inject IConfiguration Config
 @inject IJSRuntime JSRuntime
 @inject ILogger<VoicePresenceHost> Logger
+@inject VoiceCallCoordinator Coordinator
 
 @if (_visible)
 {
-    <button type="button" class="voice-presence-toggle @(_presenceOn ? "is-on" : "")"
+    <button type="button" class="voice-presence-toggle @(_presenceOn ? "is-on" : "") @(_callActive ? "is-calling" : "")"
             @onclick="ToggleAsync" disabled="@_busy"
             data-testid="voice-presence-toggle"
-            title="@(_presenceOn ? "Đang sẵn sàng nhận cuộc gọi — bấm để tắt" : "Bật để sẵn sàng nhận cuộc gọi thoại")"
+            title="@(_callActive ? "Đang trong cuộc gọi" : _presenceOn ? "Đang sẵn sàng nhận cuộc gọi — bấm để tắt" : "Bật để sẵn sàng nhận cuộc gọi thoại")"
             aria-label="@(_presenceOn ? "Tắt sẵn sàng nhận cuộc gọi" : "Bật sẵn sàng nhận cuộc gọi")">
         <i class="bi @(_presenceOn ? "bi-telephone-fill" : "bi-telephone")"></i>
         @if (_presenceOn)
@@ -74,6 +76,25 @@
         background: #20c997;
         border: 2px solid #fff;
     }
+    /* R12: đỏ nhấp khi đang trong cuộc gọi */
+    .voice-presence-toggle.is-calling {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: #fff;
+        animation: voice-presence-pulse 1.2s ease-in-out infinite;
+    }
+    .voice-presence-toggle.is-calling .voice-presence-toggle__dot {
+        background: #fff;
+        animation: voice-presence-dot-blink 0.8s ease-in-out infinite;
+    }
+    @@keyframes voice-presence-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.5); }
+        50% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+    }
+    @@keyframes voice-presence-dot-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+    }
     .voice-presence-toggle:disabled { opacity: 0.6; cursor: default; }
 </style>
 
@@ -84,6 +105,7 @@
     private bool _presenceOn;
     private bool _busy;
     private bool _jsOk = true;
+    private bool _callActive;
     private Guid _staffUserId;
     private string? _staffToken;
     private string _voiceServiceUrl = "";
@@ -141,8 +163,20 @@
         }
         _visible = _jsOk;
 
+        // R12: subscribe call-state để badge đỏ nhấp khi đang gọi (xám=tắt, xanh=sẵn sàng).
+        Coordinator.Changed += OnCoordinatorChanged;
+        _callActive = VoiceCallCoordinator.IsCallActive(Coordinator.CallState);
+
         if (_presenceOn) await ActivateAsync();
     }
+
+    private void OnCoordinatorChanged()
+    {
+        _callActive = VoiceCallCoordinator.IsCallActive(Coordinator.CallState);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Coordinator.Changed -= OnCoordinatorChanged;
 
     private async Task ToggleAsync()
     {

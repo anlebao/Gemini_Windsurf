@@ -29,9 +29,16 @@ public sealed class PermissionService(
             && !string.IsNullOrEmpty(contextType) && !string.IsNullOrEmpty(contextReferenceId))
         {
             var candidates = await contextVerifier.ResolveCounterpartCandidatesAsync(contextType!, contextReferenceId!, caller.UserId, ct);
-            var reachable = candidates.FirstOrDefault(c => store.ConnectionsOf(c).Count > 0 && !store.HasActiveCall(c));
-            targetUserId = reachable != Guid.Empty ? reachable
-                : candidates.Count > 0 ? candidates[0] : Guid.Empty;
+            // R9 (voice_presence Phase C): FR-007 caps 1 call/user nên "load" = phân phối
+            // đều — round-robin theo contextReferenceId trong nhóm reachable+idle,
+            // tránh luôn dồn cuộc gọi vào staff đầu danh sách.
+            var reachable = candidates.Where(c => store.ConnectionsOf(c).Count > 0 && !store.HasActiveCall(c)).ToList();
+            targetUserId = reachable.Count switch
+            {
+                0 => candidates.Count > 0 ? candidates[0] : Guid.Empty,
+                1 => reachable[0],
+                _ => reachable[(store.NextRotationIndex(contextReferenceId!) - 1) % reachable.Count]
+            };
             if (targetUserId == Guid.Empty)
                 return new PermissionResult(false, CallStatus.Failed, CallEndReason.InvalidContext, caller.TenantId);
         }

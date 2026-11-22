@@ -30,6 +30,10 @@ public sealed class VoiceCallCoordinator
     /// <summary>Đang đổ chuông phía callee.</summary>
     public bool IncomingActive => CallState == "ringing";
 
+    /// <summary>R12 (voice_presence Phase C): call đang sống — dùng cho presence badge đỏ.</summary>
+    public static bool IsCallActive(string state) =>
+        state is "calling" or "accepted" or "negotiating" or "connected" or "reconnecting";
+
     /// <summary>
     /// Chat surface (VoiceCallPanel trong RealtimeChatPanel) đang hiển thị call UI —
     /// global overlay/mini-bar ẩn để tránh double UI. Set bởi chat panel khi mounted

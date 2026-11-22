@@ -1,6 +1,6 @@
 # Task Card: Voice Presence — "login = sẵn sàng nhận cuộc gọi"
 
-> **Status:** 🟡 Phase A+B IMPLEMENTED — commit `b9eae8e5`, CD `44913784981` SUCCESS, static-asset RV pass. Full call-flow RV chờ session login (xem §8). Phase C (R9-R12) chưa làm.
+> **Status:** 🟡 Phase A+B DONE — 16/16 full RV (`67088f40`). Phase C IMPLEMENTED — R9 round-robin routing (server) + R10 busy/offline chat-suggestion UX + R12 presence badge đỏ/xanh/xám; R11 verify-only (đã có sẵn). Đang chờ guard → deploy → RV.
 > **Depends on:** chat_ui_unification P0-P2 (DONE), VOICE SERVICE P4/S-series (DONE)
 > **Scope:** `UI.Platform/Components/Realtime/VoiceCallPanel.*` · `UI.Platform/wwwroot/js/voice-chat.js` · `5_WebApps/ShopERP/Components/Layout/*` · `5_WebApps/KhachLink` layout · `10_Voice` PermissionService (nhỏ) · E2E spec mới
 
@@ -45,10 +45,11 @@ Mục tiêu: **presence = phiên đăng nhập**, không phải màn hình chat.
 
 ### P2 — Multi-customer routing + edge cases
 
-- [ ] **R9. Load-aware counterpart pick** — `PermissionService`: trong candidates reachable+not-busy, ưu tiên staff có ít active call nhất (hoặc round-robin); hiện tại pick đầu tiên theo SQL order. Server change nhỏ, cần unit test.
-- [ ] **R10. Busy UX** — caller nhận `BUSY`/`OFFLINE` → message rõ + gợi ý "Để lại tin nhắn cho chủ quán" (deep-link `?chat=human` hoặc mở chat widget sẵn). Phân biệt: OFFLINE = không ai sẵn sàng → gợi ý chat; BUSY = có người nhưng đang gọi → tương tự.
-- [ ] **R11. Multi-device dedupe** — cùng staff login 2 máy: `IncomingCall` tới cả 2 (đã vậy); accept first-wins đã có (`CallService.cs:197`). UI: máy thua nhận `CallAccepted` → auto-dismiss overlay. Verify + test.
-- [ ] **R12. Presence-aware badge** — NavMenu icon hiện trạng thái: xám (chưa bật/tắt), xanh (sẵn sàng), đỏ nhấp (đang gọi). Customer side: optional "Đang online" dot trên store header (nice-to-have).
+- [x] **R9. Load-aware counterpart pick** — `PermissionService` + `VoiceStateStore.NextRotationIndex`: round-robin theo `contextReferenceId` trong nhóm reachable+idle (FR-007 = 1 call/user nên "load" = phân phối đều, không phải least-loaded). 3 unit test mới: rotate B→C→B, busy candidate bị skip, 0 reachable → fallback candidates[0].
+- [x] **R9b. Test harness fix** — `CallServiceHarness` thiếu `IVoiceDisplayNameResolver` (regression từ Phase A+B, 28 test fail) → thêm `StubDisplayNameResolver` → 88/88 voice tests pass.
+- [x] **R10. Busy UX** — `VoiceCallPanel` terminal messages: OFFLINE → "…không trực tuyến — bạn có thể để lại tin nhắn, chúng tôi sẽ chuyển ngay khi họ online."; BUSY → "…đang bận — bạn có thể để lại tin nhắn." Caller đã ở trong chat thread nên không cần deep-link.
+- [x] **R11. Multi-device dedupe** — VERIFY-ONLY: server `AcceptCall` broadcast `CallAccepted` tới mọi connection (`CallService.AcceptCallAsync`), first-accept-wins `CallServiceIntegrationTests.First_accept_wins_other_devices_get_cleanup_event` PASS, SDK `answeredElsewhere → Idle` cleanup. Không cần code mới.
+- [x] **R12. Presence-aware badge** — `VoicePresenceHost` subscribe `VoiceCallCoordinator.Changed` → toggle button `is-calling` (đỏ nhấp + pulse ring) khi `IsCallActive(CallState)`; xám=tắt / xanh=sẵn sàng / đỏ nhấp=đang gọi. `VoiceCallCoordinator.IsCallActive` = single source (panel delegate). Customer online-dot: defer (nice-to-have).
 
 ## 4. Trả lời câu hỏi multi-customer (design decision đã chốt)
 

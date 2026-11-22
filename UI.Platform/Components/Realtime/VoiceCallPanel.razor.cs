@@ -277,11 +277,13 @@ public partial class VoiceCallPanel : IAsyncDisposable
         // silently returned to idle and looked like "button does nothing" (2026-11-12 RV).
         if (state is "offline" or "busy" or "collision")
         {
+            // R10 (voice_presence Phase C): terminal no-call phải rõ ràng + gợi ý
+            // để lại tin nhắn — caller đang ở trong chat thread sẵn.
             _error = state switch
             {
-                "offline" => "Đối phương hiện không trực tuyến.",
-                "busy" => "Đối phương đang bận.",
-                _ => "Đang có cuộc gọi khác, vui lòng thử lại."
+                "offline" => "Đối phương hiện không trực tuyến — bạn có thể để lại tin nhắn, chúng tôi sẽ chuyển ngay khi họ online.",
+                "busy" => "Đối phương đang bận — bạn có thể để lại tin nhắn.",
+                _ => "Đang có cuộc gọi khác — vui lòng thử lại sau."
             };
         }
 

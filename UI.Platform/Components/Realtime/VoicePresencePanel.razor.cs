@@ -49,8 +49,7 @@ public partial class VoicePresencePanel : IAsyncDisposable
     /// <summary>Global UI chỉ hiện khi chat surface KHÔNG đang handle call.</summary>
     private bool ShowGlobalCallUi => Coordinator is { ChatSurfaceActive: false };
 
-    internal static bool CallActive(string state) =>
-        state is "calling" or "accepted" or "negotiating" or "connected" or "reconnecting";
+    internal static bool CallActive(string state) => VoiceCallCoordinator.IsCallActive(state);
 
     private string CallBarLabel(string state) => state switch
     {
