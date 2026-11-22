@@ -35,6 +35,7 @@ public class AiChatWidgetTests : TestContext
         public string? LastSessionId { get; private set; }
         public string? LastMessageId { get; private set; }
         public string? LastText { get; private set; }
+        public string? LastChannel { get; private set; }
 
         public Task<AiWidgetConfig?> GetWidgetConfigAsync(Guid tenantId, CancellationToken ct = default)
             => Task.FromResult(Config);
@@ -44,12 +45,13 @@ public class AiChatWidgetTests : TestContext
             => Task.FromResult<IReadOnlyList<AiSessionMessage>?>([]);
 
         public Task<AiChatResult?> SendChatAsync(Guid tenantId, string sessionId, string messageId,
-            string text, string? locale = null, CancellationToken ct = default)
+            string text, string? locale = null, string? channel = null, CancellationToken ct = default)
         {
             SendCalls++;
             LastSessionId = sessionId;
             LastMessageId = messageId;
             LastText = text;
+            LastChannel = channel;
             return Task.FromResult(ChatResult);
         }
 
@@ -57,11 +59,13 @@ public class AiChatWidgetTests : TestContext
             => Task.FromResult<AiChatResult?>(null);
     }
 
-    private IRenderedComponent<AiChatWidget> Render(FakeAiChatClient client, Action<AiProductCardItem>? onAddToCart = null)
+    private IRenderedComponent<AiChatWidget> Render(FakeAiChatClient client,
+        Action<AiProductCardItem>? onAddToCart = null, string? channel = null)
     {
         Services.AddSingleton<IAiChatClient>(client);
         return RenderComponent<AiChatWidget>(p => p
             .Add(w => w.TenantId, TenantId)
+            .Add(w => w.Channel, channel)
             .Add(w => w.OnAddToCart, onAddToCart ?? (_ => { })));
     }
 
@@ -125,6 +129,23 @@ public class AiChatWidgetTests : TestContext
         client.LastText.Should().Be("Quán có phở chay không?");
         client.LastSessionId.Should().NotBeNullOrEmpty();
         client.LastMessageId.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void Send_ForwardsChannelParameter_ForAttribution()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("ok", [], [], 0.9, false, null, false, false)
+        };
+        var cut = Render(client, channel: "ai_link");
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("Xin chào");
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() => client.LastChannel.Should().Be("ai_link"));
     }
 
     [Fact]

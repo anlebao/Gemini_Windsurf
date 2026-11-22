@@ -245,6 +245,10 @@
     [Parameter] public Guid TenantId { get; set; }
     /// <summary>Optional BCP-47 locale forwarded to the AI service.</summary>
     [Parameter] public string? Locale { get; set; }
+
+    /// <summary>Surface attribution (ai_link, khachlink_storefront, website_widget, extension, android).
+    /// Forwarded to Gateway → TenantAI → Metering usage metadata.</summary>
+    [Parameter] public string? Channel { get; set; }
     /// <summary>Product card "Thêm vào giỏ" — host maps the snapshot to its own cart service.</summary>
     [Parameter] public EventCallback<AiProductCardItem> OnAddToCart { get; set; }
     [Parameter] public string ScrollContainerId { get; set; } = "vanan-ai-scroll";
@@ -492,7 +496,7 @@
         AiChatResult? result = null;
         try
         {
-            result = await AiClient.SendChatAsync(TenantId, _sessionId, messageId, text, Locale);
+            result = await AiClient.SendChatAsync(TenantId, _sessionId, messageId, text, Locale, Channel);
         }
         catch { /* handled below — fallback message */ }
         _sending = false;

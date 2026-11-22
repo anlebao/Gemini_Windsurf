@@ -20,7 +20,7 @@
 
 <PageTitle>Trợ lý AI</PageTitle>
 
-<div class="assistant-page">
+<div class="assistant-page @(_embed ? "embed" : null)">
     @if (_loading)
     {
         <div class="assistant-status">
@@ -38,19 +38,25 @@
     }
     else if (_tenantId.HasValue)
     {
-        <div class="assistant-header">
-            <i class="bi bi-robot"></i>
-            <div>
-                <h1>Trợ lý AI</h1>
-                <p>Hỏi đáp nhanh về sản phẩm, giá cả và cửa hàng</p>
+        @* W2a embed mode (?embed=1): ẩn header để trang chỉ còn widget chat —
+           nhúng iframe vào website ngoài của shop. *@
+        @if (!_embed)
+        {
+            <div class="assistant-header">
+                <i class="bi bi-robot"></i>
+                <div>
+                    <h1>Trợ lý AI</h1>
+                    <p>Hỏi đáp nhanh về sản phẩm, giá cả và cửa hàng</p>
+                </div>
             </div>
-        </div>
+        }
 
         @* OpenPanel consume-once: field reset về false sau lần đầu → user đóng
            được. SessionStorageKey per-slug: nhiều shop cùng domain KhachLink
            không share session id. *@
         <AiChatWidget TenantId="_tenantId.Value"
                       Locale="vi"
+                      Channel="ai_link"
                       OpenPanel="_openPanel"
                       OpenPanelChanged="v => _openPanel = v"
                       SessionStorageKey="@($"vanan_ai_session_{Slug}")"
@@ -105,12 +111,22 @@
         border-bottom: 1px solid var(--vanan-color-border, #e9ecef);
     }
     .assistant-header i { font-size: 1.75rem; color: var(--vanan-color-primary, #0d6efd); }
+    .assistant-page.embed {
+        min-height: 0;
+        height: 100%;
+    }
     .assistant-header h1 { font-size: 1.15rem; margin: 0; }
     .assistant-header p { margin: 0; font-size: .8rem; color: var(--vanan-color-text-muted, #6c757d); }
 </style>
 
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
+
+    /// <summary>W2a iframe embed mode — ?embed=1 hides page chrome (header),
+    /// leaving only the floating AiChatWidget for embedding on external sites.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "embed")]
+    public string? EmbedParam { get; set; }
+    private bool _embed => EmbedParam is "1" or "true";
 
     private bool _loading = true;
     private bool _resolveFailed;

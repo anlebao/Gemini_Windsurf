@@ -78,7 +78,7 @@ public class AssistantLinkController(
             .ToListAsync(ct);
 
         var storeSlug = await StorefrontSlugAsync(ct);
-        return Ok(links.Select(l => ToDto(l, PublicUrl(l.Slug, storeSlug))).ToList());
+        return Ok(links.Select(l => ToDto(l, PublicUrl(l.Slug, storeSlug), EmbedUrl(l.Slug))).ToList());
     }
 
     /// <summary>POST — tạo link mới. Slug do server sinh (10 ký tự base62 ≈ 59 bits entropy).</summary>
@@ -94,7 +94,7 @@ public class AssistantLinkController(
             return StatusCode(500, new { error = "Không tạo được link, vui lòng thử lại." });
 
         _logger.LogInformation("AssistantLink created tenant={Tenant} slug={Slug}", TenantId, link.Slug);
-        return Ok(ToDto(link, await PublicUrlAsync(link, ct)));
+        return Ok(ToDto(link, await PublicUrlAsync(link, ct), EmbedUrl(link.Slug)));
     }
 
     /// <summary>POST {id}/revoke — thu hồi link (public resolution trả 404 ngay).</summary>
@@ -126,7 +126,7 @@ public class AssistantLinkController(
         await _dbContext.SaveChangesAsync(ct);
         _logger.LogInformation("AssistantLink regenerated tenant={Tenant} old={Old} new={New}",
             TenantId, link.Slug, fresh.Slug);
-        return Ok(ToDto(fresh, await PublicUrlAsync(fresh, ct)));
+        return Ok(ToDto(fresh, await PublicUrlAsync(fresh, ct), EmbedUrl(fresh.Slug)));
     }
 
     /// <summary>GET {id}/qr.png — QR PNG encode public URL (in dán/quầy, Zalo share).</summary>
@@ -185,12 +185,15 @@ public class AssistantLinkController(
     private async Task<string> PublicUrlAsync(AssistantLink link, CancellationToken ct)
         => PublicUrl(link.Slug, await StorefrontSlugAsync(ct));
 
-    private static AssistantLinkDto ToDto(AssistantLink l, string publicUrl) => new(
-        l.Id, l.Slug, l.Label, l.IsActive, l.CreatedAt, publicUrl);
+    /// <summary>W2a iframe embed URL — hosted assistant page in minimal chrome.</summary>
+    private string EmbedUrl(string slug) => $"{PublicBaseUrl}/a/{slug}?embed=1";
+
+    private AssistantLinkDto ToDto(AssistantLink l, string publicUrl, string embedUrl) => new(
+        l.Id, l.Slug, l.Label, l.IsActive, l.CreatedAt, publicUrl, embedUrl);
 }
 
 public sealed record CreateAssistantLinkRequest(string? Label);
 
 public sealed record AssistantLinkDto(
     Guid Id, string Slug, string? Label, bool IsActive,
-    DateTime CreatedAt, string PublicUrl);
+    DateTime CreatedAt, string PublicUrl, string EmbedUrl);

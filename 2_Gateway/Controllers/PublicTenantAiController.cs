@@ -81,7 +81,7 @@ public class PublicTenantAiController(
 
         var result = await _forwarder.ChatAsync(
             tenantId.Value, request.SessionId.Trim(), request.MessageId.Trim(),
-            request.Text, request.Locale, ct);
+            request.Text, request.Locale, AiChatChannels.Normalize(request.Channel), ct);
 
         if (result is null)
             return AiUnavailable();
@@ -159,7 +159,8 @@ public class PublicTenantAiController(
                 new { aiEnabled = false, message = "Bạn đã tìm kiếm quá nhiều lần. Vui lòng thử lại sau." });
 
         var result = await _forwarder.ChatAsync(
-            tenant.Value, sessionId, $"search-{hash}", query.Trim(), locale: null, ct);
+            tenant.Value, sessionId, $"search-{hash}", query.Trim(), locale: null,
+            channel: "khachlink_storefront", ct);
 
         if (result is null)
             return AiUnavailable();
@@ -283,4 +284,14 @@ public class PublicAiChatRequest
     public string? MessageId { get; set; }
     public string? Text { get; set; }
     public string? Locale { get; set; }
+    public string? Channel { get; set; }
+}
+
+/// <summary>Surface attribution allowlist (W2a): unknown/missing → null (default upstream).</summary>
+internal static class AiChatChannels
+{
+    private static readonly HashSet<string> Allowed = new(StringComparer.Ordinal)
+        { "ai_link", "khachlink_storefront", "website_widget", "extension", "android" };
+    public static string? Normalize(string? channel)
+        => channel is not null && Allowed.Contains(channel) ? channel : null;
 }

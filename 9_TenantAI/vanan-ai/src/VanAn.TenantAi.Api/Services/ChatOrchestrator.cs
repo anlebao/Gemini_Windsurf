@@ -218,7 +218,7 @@ public sealed class ChatOrchestrator(
             await PersistTurnAsync(tenantId, sessionId, messageId, text, finalAnswer,
                 finalIntent, refs, sources, conf, refused, refuseReason, degraded,
                 promptTokens, completionTokens, ct);
-            EnqueueUsage(tenantId, messageId, meterOnly: refused || degraded);
+            EnqueueUsage(tenantId, messageId, meterOnly: refused || degraded, channel, sessionId);
             logger.LogInformation(
                 "chat tenant={Tenant} intent={Intent} sources={Src} refused={Ref} degraded={Deg} dropped={Drop} ms={Ms}",
                 tenantId, finalIntent ?? "-", flags, refused, degraded, dropped, sw.ElapsedMilliseconds);
@@ -232,14 +232,22 @@ public sealed class ChatOrchestrator(
     /// PO-2: chỉ câu trả lời LLM thật tính `ai.chat.message` (Deny-enforced);
     /// refused/degraded/zero-LLM → `ai.chat.degraded` MeterOnly (đo được, không charge).
     /// </summary>
-    private void EnqueueUsage(Guid tenantId, string messageId, bool meterOnly)
+    private void EnqueueUsage(Guid tenantId, string messageId, bool meterOnly, string channel, string sessionId)
     {
         try
         {
+            // W2a attribution: channel + hashed session ref (no raw sessionId in metering).
+            var metadata = JsonSerializer.Serialize(new
+            {
+                channel,
+                sessionRef = Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sessionId)))[..16]
+            });
             ingest.Enqueue(new MeteringUsageRecord(tenantId,
                 meterOnly ? MeteringServiceCodes.ChatDegraded : MeteringServiceCodes.ChatMessage,
                 Quantity: 1m, Unit: "message", OccurredAtUtc: DateTime.UtcNow,
-                IdempotencyKey: $"chat:{tenantId}:{messageId}", TaskRef: messageId));
+                IdempotencyKey: $"chat:{tenantId}:{messageId}", TaskRef: messageId,
+                MetadataJson: metadata));
         }
         catch (Exception ex)
         {

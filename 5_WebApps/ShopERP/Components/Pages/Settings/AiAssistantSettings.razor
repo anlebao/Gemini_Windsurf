@@ -93,6 +93,29 @@
                             <div class="small text-muted mt-1">Tải ảnh để in: <a href="@_qrDataUri" download="ai-link-qr.png">ai-link-qr.png</a></div>
                         </div>
                     }
+
+                    @* W2a: iframe embed cho website ngoài KhachLink — dán snippet này
+                       vào HTML site của shop (WordPress/Shopify/custom). *@
+                    @if (link.IsActive)
+                    {
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleEmbedAsync(link)">
+                                <i class="bi bi-code-slash me-1"></i> @( _embedFor == link.Id ? "Ẩn mã nhúng" : "Nhúng vào website")
+                            </button>
+                            @if (_embedFor == link.Id)
+                            {
+                                <div class="mt-2">
+                                    <textarea class="form-control font-monospace small" rows="4" readonly
+                                              value="@_embedSnippet"></textarea>
+                                    <div class="mt-2">
+                                        <VanAButton Variant="outline" Size="small" OnClick="CopyEmbedAsync">
+                                            <i class="bi bi-clipboard me-1"></i> Copy mã nhúng
+                                        </VanAButton>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
                 </VanACard>
             }
         }
@@ -114,6 +137,8 @@
     private string _messageVariant = "info";
     private Guid _qrFor = Guid.Empty;
     private string? _qrDataUri;
+    private Guid _embedFor = Guid.Empty;
+    private string? _embedSnippet;
 
     protected override async Task OnInitializedAsync()
     {
@@ -184,6 +209,30 @@
             _qrDataUri = resp.Data;
         }
         else ShowMessage(resp.Error ?? "Không tải được QR.", "error");
+    }
+
+    private void ToggleEmbedAsync(AssistantLinkDto link)
+    {
+        if (_embedFor == link.Id) { _embedFor = Guid.Empty; _embedSnippet = null; return; }
+        _embedFor = link.Id;
+        _embedSnippet =
+            $"<iframe src='{link.EmbedUrl}' width='360' height='560' " +
+            $"style='position:fixed;bottom:16px;right:16px;border:0;z-index:9999;' " +
+            $"title='Trợ lý AI' loading='lazy'></iframe>";
+    }
+
+    private async Task CopyEmbedAsync()
+    {
+        if (string.IsNullOrEmpty(_embedSnippet)) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _embedSnippet);
+            ShowMessage("Đã copy mã nhúng.", "success");
+        }
+        catch
+        {
+            ShowMessage(_embedSnippet, "info");
+        }
     }
 
     private async Task CopyUrlAsync(AssistantLinkDto link)

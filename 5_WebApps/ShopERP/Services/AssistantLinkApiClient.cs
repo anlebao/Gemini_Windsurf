@@ -8,7 +8,7 @@ namespace VanAn.ShopERP.Services;
 
 public record AssistantLinkDto(
     Guid Id, string Slug, string? Label, bool IsActive,
-    DateTime CreatedAt, string PublicUrl);
+    DateTime CreatedAt, string PublicUrl, string EmbedUrl);
 
 /// <summary>
 /// UNIVERSAL AI ASSISTANT W1 (2026-11-22): ShopERP HTTP proxy cho Gateway

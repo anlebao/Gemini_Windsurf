@@ -157,6 +157,14 @@ static bool ValidChatBody(VanAn.TenantAi.Contracts.ChatRequest b)
         && !string.IsNullOrWhiteSpace(b.MessageId) && b.MessageId.Length <= 56
         && !string.IsNullOrWhiteSpace(b.Text) && b.Text.Length <= 2000;
 
+// W2a surface attribution — allowlist mirror of Gateway AiChatChannels.
+// Unknown/missing → "public" (legacy default); stored on ConversationSession.Channel.
+static string SanitizeChannel(string? channel) => channel switch
+{
+    "ai_link" or "khachlink_storefront" or "website_widget" or "extension" or "android" => channel,
+    _ => "public",
+};
+
 static VanAn.TenantAi.Contracts.ChatResponse ToResponse(VanAn.TenantAi.Api.Services.ChatResult r)
     => new(r.Answer, r.Products, r.SourceIds, r.Confidence, r.Refused, r.RefuseReason, r.StaleData, r.Degraded);
 
@@ -166,7 +174,7 @@ app.MapPost("/v1/chat", async (
     {
         if (!ValidChatBody(body)) return BadChatRequest();
         var result = await orch.ChatAsync(TenantOf(ctx), body.SessionId.Trim(), body.MessageId.Trim(),
-            body.Text, channel: "public", useDraftConfig: false, ct);
+            body.Text, channel: SanitizeChannel(body.Channel), useDraftConfig: false, ct);
         return Results.Ok(ToResponse(result));
     })
     .RequireScope(ScopeNames.PublicChat)

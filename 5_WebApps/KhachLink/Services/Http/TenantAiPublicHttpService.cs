@@ -36,12 +36,12 @@ public class TenantAiPublicHttpService : IAiChatClient
     }
 
     public async Task<AiChatResult?> SendChatAsync(Guid tenantId, string sessionId, string messageId,
-        string text, string? locale = null, CancellationToken ct = default)
+        string text, string? locale = null, string? channel = null, CancellationToken ct = default)
     {
         try
         {
             var resp = await _httpClient.PostAsJsonAsync("api/public/tenant-ai/chat",
-                new PublicAiChatRequestDto(tenantId, sessionId, messageId, text, locale), ct);
+                new PublicAiChatRequestDto(tenantId, sessionId, messageId, text, locale, channel), ct);
             if (resp.StatusCode == HttpStatusCode.TooManyRequests)
                 return new AiChatResult(
                     "Bạn đã gửi quá nhiều tin nhắn trong giờ này. Vui lòng thử lại sau.",
@@ -96,7 +96,7 @@ public class TenantAiPublicHttpService : IAiChatClient
     }
 
     private sealed record PublicAiChatRequestDto(
-        Guid? TenantId, string SessionId, string MessageId, string Text, string? Locale);
+        Guid? TenantId, string SessionId, string MessageId, string Text, string? Locale, string? Channel);
 
     private sealed record SessionMessagesDto(string SessionId, IReadOnlyList<AiSessionMessage> Messages);
 }

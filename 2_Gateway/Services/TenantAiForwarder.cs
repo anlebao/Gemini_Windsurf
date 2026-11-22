@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace VanAn.Gateway.Services;
 
 /// <summary>Wire DTOs for the gateway → vanan-ai forward (SRS v1.1 §6.1, camelCase on the wire).</summary>
-public sealed record TenantAiChatForwardRequest(string SessionId, string MessageId, string Text, string? Locale);
+public sealed record TenantAiChatForwardRequest(
+    string SessionId, string MessageId, string Text, string? Locale, string? Channel);
 
 public sealed record TenantAiForwardResult(int StatusCode, string? Body);
 
@@ -44,9 +45,10 @@ public sealed class TenantAiForwarder
 
     /// <summary>POST /v1/chat with a signed tenant ctx (requestId = messageId — dedupe key end-to-end).</summary>
     public Task<TenantAiForwardResult?> ChatAsync(
-        Guid tenantId, string sessionId, string messageId, string text, string? locale, CancellationToken ct)
+        Guid tenantId, string sessionId, string messageId, string text, string? locale,
+        string? channel, CancellationToken ct)
         => SendAsync(HttpMethod.Post, "v1/chat", tenantId, messageId,
-            JsonContent.Create(new TenantAiChatForwardRequest(sessionId, messageId, text, locale), options: Json), ct);
+            JsonContent.Create(new TenantAiChatForwardRequest(sessionId, messageId, text, locale, channel), options: Json), ct);
 
     /// <summary>GET /v1/config/widget — widget enable gate + aiName/greeting/suggestions.</summary>
     public Task<TenantAiForwardResult?> GetWidgetConfigAsync(Guid tenantId, string requestId, CancellationToken ct)

@@ -29,7 +29,7 @@ public class StoreSearchBarTests : TestContext
             => Task.FromResult<IReadOnlyList<AiSessionMessage>?>([]);
 
         public Task<AiChatResult?> SendChatAsync(Guid tenantId, string sessionId, string messageId,
-            string text, string? locale = null, CancellationToken ct = default)
+            string text, string? locale = null, string? channel = null, CancellationToken ct = default)
             => Task.FromResult<AiChatResult?>(null);
 
         public Task<AiChatResult?> SearchAiAsync(Guid tenantId, string query, CancellationToken ct = default)

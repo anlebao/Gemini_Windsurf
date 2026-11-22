@@ -5,7 +5,11 @@ public sealed record ChatRequest(
     string SessionId,
     string MessageId,
     string Text,
-    string? Locale = null);
+    string? Locale = null,
+    /// <summary>Surface attribution (ai_link | khachlink_storefront | website_widget |
+    /// extension | android). Sanitized server-side; lands on ConversationSession.Channel
+    /// and Metering usage MetadataJson.</summary>
+    string? Channel = null);
 
 public sealed record ChatProductDto(
     Guid ProductId,

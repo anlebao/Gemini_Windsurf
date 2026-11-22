@@ -11,9 +11,11 @@ public interface IAiChatClient
     /// <summary>Widget config — aiEnabled=false hides the widget completely.</summary>
     Task<AiWidgetConfig?> GetWidgetConfigAsync(Guid tenantId, CancellationToken ct = default);
 
-    /// <summary>Send one message; messageId is the end-to-end idempotency key.</summary>
+    /// <summary>Send one message; messageId is the end-to-end idempotency key.
+    /// channel = surface attribution hint (ai_link | khachlink_storefront | website_widget |
+    /// extension | android); Gateway validates against an allowlist, null → default.</summary>
     Task<AiChatResult?> SendChatAsync(Guid tenantId, string sessionId, string messageId,
-        string text, string? locale = null, CancellationToken ct = default);
+        string text, string? locale = null, string? channel = null, CancellationToken ct = default);
 
     /// <summary>Session history for resume — newest last, may be empty.</summary>
     Task<IReadOnlyList<AiSessionMessage>?> GetSessionMessagesAsync(Guid tenantId,

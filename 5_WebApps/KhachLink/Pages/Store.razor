@@ -439,6 +439,7 @@ else
         @if (AiFeaturesVisible)
         {
             <AiChatWidget TenantId="_store.Id"
+                          Channel="khachlink_storefront"
                           OnAddToCart="AddAiProductToCartAsync"
                           VoiceEnabled="_features.Voice_Note_Enabled"
                           ExternalCallState="@_humanCallState"
