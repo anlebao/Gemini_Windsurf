@@ -1,15 +1,22 @@
 @page "/a/{Slug}"
+@using VanAn.KhachLink.Services.Http
 @using VanAn.UI.Platform.Components.Ai
+@using VanAn.UI.Platform.Components.Realtime
 @using System.Net.Http.Json
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@inject CommunityHttpService CommunityHttp
 
 @* UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link page — /a/{slug}.
    Khách quét QR/dán link → trang chat full với assistant của shop.
    Flow: resolve slug → tenantId (server-side, slug là capability duy nhất)
    → tái dùng IAiChatClient + public tenant-ai endpoints (cùng code path
    storefront — không duplicate chat logic).
-   Human handoff chưa có trên link page (W4) → HumanChatAvailable=false. *@
+   Human handoff: guest device id (localStorage customer_device_id — cùng
+   cơ chế Store.razor F8) → anonymous visitor chat được với chủ quán.
+   Product card "Thêm vào giỏ" → deep-link về storefront /store/by-id/{tid}
+   (giỏ hàng sống ở storefront context, không phải trang link). *@
 
 <PageTitle>Trợ lý AI</PageTitle>
 
@@ -47,7 +54,27 @@
                       OpenPanel="_openPanel"
                       OpenPanelChanged="v => _openPanel = v"
                       SessionStorageKey="@($"vanan_ai_session_{Slug}")"
-                      HumanChatAvailable="false" />
+                      HumanChatAvailable="_handoffAvailable"
+                      OnAddToCart="OnAddToCartAsync"
+                      OnDraftRequest="OnAiEscalateDraft"
+                      @bind-OpenHumanPanel="_openHumanPanel"
+                      ExternalCallState="_humanCallState">
+            <HumanContent>
+                @if (ChatIdentity.HasValue)
+                {
+                    <RealtimeChatPanel SubjectType="Shop"
+                                       SubjectId="_tenantId.Value"
+                                       CurrentUserId="ChatIdentity.Value"
+                                       CustomerToken="@_customerToken"
+                                       CustomerDeviceId="@_customerDeviceId"
+                                       ScrollContainerId="ai-widget-human-scroll"
+                                       ShowHeader="false"
+                                       HeaderTitle="Chủ quán"
+                                       InitialDraft="@_humanDraft"
+                                       VoiceCallStateChanged="OnHumanCallStateChanged" />
+                }
+            </HumanContent>
+        </AiChatWidget>
     }
 </div>
 
@@ -90,8 +117,41 @@
     private bool _openPanel = true;
     private Guid? _tenantId;
 
+    // ── Human handoff (guest device id — pattern Store.razor F8) ──────────
+    private string? _customerToken;
+    private Guid? _customerId;
+    private Guid? _customerDeviceId;
+    private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
+    private bool _handoffAvailable;
+    private string? _humanDraft;
+    private string? _humanCallState;
+    private bool _openHumanPanel;
+
     protected override async Task OnInitializedAsync()
     {
+        // Guest/customer identity cho human chat — localStorage keys giống Store/Checkout.
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        var deviceIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        if (string.IsNullOrEmpty(deviceIdStr))
+        {
+            deviceIdStr = Guid.NewGuid().ToString();
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceIdStr);
+        }
+        if (Guid.TryParse(deviceIdStr, out var deviceId) && deviceId != Guid.Empty)
+            _customerDeviceId = deviceId;
+
+        if (!string.IsNullOrEmpty(_customerToken))
+        {
+            try
+            {
+                _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
+            }
+            catch { /* token invalid — fall back to guest chat */ }
+            if (_customerId == null)
+                _customerToken = null;
+        }
+        _handoffAvailable = ChatIdentity.HasValue;
+
         try
         {
             var http = HttpClientFactory.CreateClient("gateway");
@@ -119,6 +179,18 @@
             _loading = false;
         }
     }
+
+    /// <summary>AI refuse → "Hỏi chủ quán" draft → human panel (pattern Store.razor).</summary>
+    private void OnAiEscalateDraft(string? draft) => _humanDraft = draft;
+
+    private void OnHumanCallStateChanged(string state) => _humanCallState = state;
+
+    /// <summary>Product card trên trang link không có cart context → đưa khách về
+    /// storefront của shop để thêm giỏ (route /store/by-id/{tenantId} đã có sẵn).</summary>
+    private Task OnAddToCartAsync(AiProductCardItem product)
+        => _tenantId.HasValue
+            ? Task.Run(() => Nav.NavigateTo($"/store/by-id/{_tenantId.Value}"))
+            : Task.CompletedTask;
 
     private sealed class ResolveDto
     {
