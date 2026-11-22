@@ -214,6 +214,11 @@ public class AuthorizationEnforcementTests
             // 60 req/min/IP + 20 msg/session/giờ cap) + server-side tenant resolution (T6).
             // Same pattern as PublicBookingController.
             "PublicTenantAiController",
+            // UNIVERSAL AI ASSISTANT W1 (2026-11-22): PublicAssistantLinkController is the
+            // anonymous hosted-AI-Link surface (/a/{slug}) — [AllowAnonymous] + rate-limited
+            // ("tenant-ai-public" policy) + server-side slug→tenant resolution (client never
+            // sends tenantId). Same pattern as PublicTenantAiController.
+            "PublicAssistantLinkController",
             // Task P13 (2026-11-20): PublicTopupController — anonymous storefront top-up
             // surface (suspended KhachLink page) — [AllowAnonymous] + "public-metering"
             // rate-limit (60 req/min/IP) + low-wallet guard + metering-side pending/hourly
