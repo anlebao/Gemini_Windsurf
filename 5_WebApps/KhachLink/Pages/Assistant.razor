@@ -1,0 +1,129 @@
+@page "/a/{Slug}"
+@using VanAn.UI.Platform.Components.Ai
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Nav
+
+@* UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link page — /a/{slug}.
+   Khách quét QR/dán link → trang chat full với assistant của shop.
+   Flow: resolve slug → tenantId (server-side, slug là capability duy nhất)
+   → tái dùng IAiChatClient + public tenant-ai endpoints (cùng code path
+   storefront — không duplicate chat logic).
+   Human handoff chưa có trên link page (W4) → HumanChatAvailable=false. *@
+
+<PageTitle>Trợ lý AI</PageTitle>
+
+<div class="assistant-page">
+    @if (_loading)
+    {
+        <div class="assistant-status">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>Đang kết nối trợ lý…</p>
+        </div>
+    }
+    else if (_resolveFailed)
+    {
+        <div class="assistant-status">
+            <i class="bi bi-emoji-frown fs-1"></i>
+            <h5>Trợ lý không khả dụng</h5>
+            <p>Link này không tồn tại hoặc shop đã tắt trợ lý AI.</p>
+        </div>
+    }
+    else if (_tenantId.HasValue)
+    {
+        <div class="assistant-header">
+            <i class="bi bi-robot"></i>
+            <div>
+                <h1>Trợ lý AI</h1>
+                <p>Hỏi đáp nhanh về sản phẩm, giá cả và cửa hàng</p>
+            </div>
+        </div>
+
+        @* OpenPanel consume-once: field reset về false sau lần đầu → user đóng
+           được. SessionStorageKey per-slug: nhiều shop cùng domain KhachLink
+           không share session id. *@
+        <AiChatWidget TenantId="_tenantId.Value"
+                      Locale="vi"
+                      OpenPanel="_openPanel"
+                      OpenPanelChanged="v => _openPanel = v"
+                      SessionStorageKey="@($"vanan_ai_session_{Slug}")"
+                      HumanChatAvailable="false" />
+    }
+</div>
+
+<style>
+    .assistant-page {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: var(--vanan-color-bg, #f6f7f9);
+    }
+    .assistant-status {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .75rem;
+        color: var(--vanan-color-text-muted, #6c757d);
+        padding: 2rem;
+        text-align: center;
+    }
+    .assistant-header {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        padding: 1rem 1.25rem;
+        background: var(--vanan-color-surface, #fff);
+        border-bottom: 1px solid var(--vanan-color-border, #e9ecef);
+    }
+    .assistant-header i { font-size: 1.75rem; color: var(--vanan-color-primary, #0d6efd); }
+    .assistant-header h1 { font-size: 1.15rem; margin: 0; }
+    .assistant-header p { margin: 0; font-size: .8rem; color: var(--vanan-color-text-muted, #6c757d); }
+</style>
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private bool _resolveFailed;
+    private bool _openPanel = true;
+    private Guid? _tenantId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var http = HttpClientFactory.CreateClient("gateway");
+            var resp = await http.GetAsync(
+                $"api/public/assistant-link/{Uri.EscapeDataString(Slug)}/resolve");
+            if (!resp.IsSuccessStatusCode)
+            {
+                _resolveFailed = true;
+                return;
+            }
+            var dto = await resp.Content.ReadFromJsonAsync<ResolveDto>();
+            // aiEnabled=false (flag off / forwarder chưa cấu hình) → trang unavailable,
+            // không render widget rỗng.
+            if (dto?.TenantId is Guid tid && tid != Guid.Empty && dto.AiEnabled)
+                _tenantId = tid;
+            else
+                _resolveFailed = true;
+        }
+        catch
+        {
+            _resolveFailed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed class ResolveDto
+    {
+        public Guid? TenantId { get; set; }
+        public string? Slug { get; set; }
+        public bool AiEnabled { get; set; }
+    }
+}

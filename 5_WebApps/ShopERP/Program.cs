@@ -931,6 +931,8 @@ namespace VanAn.ShopERP
             // Booking P5.8 (2026-10-06, SRS v1.1 MVP): tenant booking ops — HTTP proxy to Gateway
             // (booking data sống ở Gateway PG — D1; ShopERP KHÔNG query booking tables trực tiếp).
             _ = builder.Services.AddScoped<Services.IBookingTenantApiClient, Services.BookingTenantApiClient>();
+            // UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link management.
+            _ = builder.Services.AddScoped<Services.IAssistantLinkApiClient, Services.AssistantLinkApiClient>();
             // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
             _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // #100: KhachLink home settings admin API client (Gateway PG — global, not per-tenant)

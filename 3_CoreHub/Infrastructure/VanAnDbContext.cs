@@ -283,6 +283,10 @@ namespace VanAn.CoreHub.Infrastructure
         // Infra entity (KHÔNG domain entity — pattern ProcessedWebhookKey). PG-only.
         public DbSet<BookingIdempotencyRecord> BookingIdempotencyRecords { get; set; }
 
+        // UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link per tenant. PG-only
+        // (Gateway source of truth — public slug resolution + owner management).
+        public DbSet<AssistantLink> AssistantLinks { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

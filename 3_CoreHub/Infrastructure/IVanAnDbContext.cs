@@ -184,6 +184,10 @@ namespace VanAn.CoreHub.Infrastructure
         // PG-only (Gateway source of truth — voice service đọc read-only).
         DbSet<VoiceTenantConfig> VoiceTenantConfigs { get; }
 
+        // UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link per tenant (slug → tenant
+        // resolution cho public assistant page). PG-only (Gateway source of truth).
+        DbSet<AssistantLink> AssistantLinks { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

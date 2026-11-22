@@ -7210,6 +7210,50 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    /// <summary>
+    /// UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link per tenant — slug unguessable
+    /// resolve → tenant cho public assistant page (/a/{slug}). Link là KÊNH PHÂN PHỐI,
+    /// không chứa config — persona/knowledge/publish-state sống ở TenantAI TenantAiConfig
+    /// + ShopFeatureSettings.AIChat_Enabled (pause = tắt flag, ảnh hưởng mọi surface).
+    /// PG-only (Gateway VanAnDbContext). Revoke = IsActive=false; regenerate = revoke +
+    /// tạo link mới (không đổi slug tại chỗ — audit trail rõ).
+    /// </summary>
+    public class AssistantLink : BaseEntity
+    {
+        /// <summary>Public slug — high-entropy, unique toàn hệ, không chứa PII/tenant.</summary>
+        public string Slug { get; protected set; } = string.Empty;
+        /// <summary>Label nội bộ cho owner (vd "Link Zalo", "QR quầy") — không public.</summary>
+        public string? Label { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public DateTime? RevokedAtUtc { get; protected set; }
+        public string? RevokedBy { get; protected set; }
+
+        protected AssistantLink() { }
+
+        public AssistantLink(TenantId tenantId, string slug, string? label)
+            : base(tenantId)
+        {
+            Slug = slug;
+            Label = label;
+            IsActive = true;
+        }
+
+        public void Revoke(string? revokedBy)
+        {
+            if (!IsActive) return;
+            IsActive = false;
+            RevokedAtUtc = DateTime.UtcNow;
+            RevokedBy = revokedBy;
+            UpdateAudit();
+        }
+
+        public void Relabel(string? label)
+        {
+            Label = label;
+            UpdateAudit();
+        }
+    }
+
     // --- Value Objects (Single-Identity: constructor sync Id = XxxId.Value) ---
 
     public record BookingTenantConfigId(Guid Value);

@@ -1,0 +1,209 @@
+@page "/settings/ai-assistant"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using VanAn.UI.Platform.Components
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services
+@inject IAssistantLinkApiClient LinkApi
+@inject ITenantProvider TenantProvider
+@inject ILogger<AiAssistantSettings> Logger
+
+@* UNIVERSAL AI ASSISTANT W1 (2026-11-22): owner quản lý hosted AI Link —
+   tạo link public /a/{slug} + QR in dán/quầy. Link là KÊNH phân phối;
+   persona/knowledge/publish sống ở TenantAI (trang Cấu hình TenantAI riêng).
+   Pause toàn cục = tắt AIChat_Enabled trong /settings/shop-features. *@
+
+<PageTitle>Trợ lý AI — AI Link</PageTitle>
+
+<div class="ai-assistant-page" data-testid="ai-assistant-page">
+    <header class="page-header">
+        <h1>Trợ lý AI — AI Link &amp; QR</h1>
+        <p class="text-muted">
+            Chia sẻ link hoặc in QR để khách chat với trợ lý AI của shop — không cần cài app.
+        </p>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAAlert Variant="warning" Message="Vui lòng chọn cửa hàng để quản lý trợ lý AI." />
+    }
+    else
+    {
+        <VanACard Header="Tạo link mới">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <input class="form-control" style="max-width: 320px" placeholder="Nhãn nội bộ (vd: QR quầy, Link Zalo)"
+                       @bind="_newLabel" />
+                <VanAButton Variant="primary" OnClick="CreateAsync" Loading="@_creating" Disabled="@_creating">
+                    <i class="bi bi-plus-lg me-1"></i> Tạo link
+                </VanAButton>
+            </div>
+        </VanACard>
+
+        @if (_loading)
+        {
+            <VanACard><p class="text-muted mb-0">Đang tải…</p></VanACard>
+        }
+        else if (_links.Count == 0)
+        {
+            <VanACard><p class="text-muted mb-0">Chưa có link nào. Tạo link đầu tiên ở trên.</p></VanACard>
+        }
+        else
+        {
+            @foreach (var link in _links)
+            {
+                <VanACard>
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                        <div>
+                            <div class="fw-semibold">
+                                @(string.IsNullOrWhiteSpace(link.Label) ? "AI Link" : link.Label)
+                                @if (!link.IsActive)
+                                {
+                                    <span class="badge bg-secondary ms-2">Đã thu hồi</span>
+                                }
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <code>@link.PublicUrl</code>
+                            </div>
+                            <div class="small text-muted">Tạo lúc @link.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @if (link.IsActive)
+                            {
+                                <VanAButton Variant="outline" Size="small" OnClick="() => CopyUrlAsync(link)">
+                                    <i class="bi bi-clipboard me-1"></i> Copy link
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => ToggleQrAsync(link)">
+                                    <i class="bi bi-qr-code me-1"></i> QR
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => RegenerateAsync(link)" Loading="@_busyId.Equals(link.Id)">
+                                    <i class="bi bi-arrow-repeat me-1"></i> Tạo lại
+                                </VanAButton>
+                                <VanAButton Variant="error" Size="small" OnClick="() => RevokeAsync(link)" Disabled="@_busyId.Equals(link.Id)">
+                                    <i class="bi bi-x-circle me-1"></i> Thu hồi
+                                </VanAButton>
+                            }
+                        </div>
+                    </div>
+
+                    @if (_qrFor == link.Id && !string.IsNullOrEmpty(_qrDataUri))
+                    {
+                        <div class="mt-3 text-center">
+                            <img src="@_qrDataUri" alt="QR code AI Link" style="max-width: 220px; width: 100%" />
+                            <div class="small text-muted mt-1">Tải ảnh để in: <a href="@_qrDataUri" download="ai-link-qr.png">ai-link-qr.png</a></div>
+                        </div>
+                    }
+                </VanACard>
+            }
+        }
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <VanAAlert Variant="@_messageVariant" Message="@_message" />
+        }
+    }
+</div>
+
+@code {
+    private List<AssistantLinkDto> _links = new();
+    private bool _loading = true;
+    private bool _creating;
+    private Guid _busyId = Guid.Empty;
+    private string? _newLabel;
+    private string? _message;
+    private string _messageVariant = "info";
+    private Guid _qrFor = Guid.Empty;
+    private string? _qrDataUri;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var resp = await LinkApi.ListAsync();
+        if (resp.Ok && resp.Data is not null)
+            _links = resp.Data;
+        else
+            ShowMessage(resp.Error ?? "Không tải được danh sách link.", "error");
+        _loading = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        _creating = true;
+        var resp = await LinkApi.CreateAsync(_newLabel);
+        _creating = false;
+        if (resp.Ok && resp.Data is not null)
+        {
+            _newLabel = null;
+            ShowMessage("Đã tạo link mới.", "success");
+            await LoadAsync();
+        }
+        else
+        {
+            ShowMessage(resp.Error ?? "Tạo link thất bại.", "error");
+        }
+    }
+
+    private async Task RevokeAsync(AssistantLinkDto link)
+    {
+        _busyId = link.Id;
+        var resp = await LinkApi.RevokeAsync(link.Id);
+        _busyId = Guid.Empty;
+        if (resp.Ok)
+        {
+            ShowMessage("Đã thu hồi link — khách không truy cập được nữa.", "success");
+            await LoadAsync();
+        }
+        else ShowMessage(resp.Error ?? "Thu hồi thất bại.", "error");
+    }
+
+    private async Task RegenerateAsync(AssistantLinkDto link)
+    {
+        _busyId = link.Id;
+        var resp = await LinkApi.RegenerateAsync(link.Id);
+        _busyId = Guid.Empty;
+        if (resp.Ok && resp.Data is not null)
+        {
+            ShowMessage("Đã tạo link mới — link & QR cũ không còn hoạt động.", "success");
+            await LoadAsync();
+        }
+        else ShowMessage(resp.Error ?? "Tạo lại thất bại.", "error");
+    }
+
+    private async Task ToggleQrAsync(AssistantLinkDto link)
+    {
+        if (_qrFor == link.Id) { _qrFor = Guid.Empty; _qrDataUri = null; return; }
+        var resp = await LinkApi.GetQrPngBase64Async(link.Id);
+        if (resp.Ok && resp.Data is not null)
+        {
+            _qrFor = link.Id;
+            _qrDataUri = resp.Data;
+        }
+        else ShowMessage(resp.Error ?? "Không tải được QR.", "error");
+    }
+
+    private async Task CopyUrlAsync(AssistantLinkDto link)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", link.PublicUrl);
+            ShowMessage("Đã copy link.", "success");
+        }
+        catch
+        {
+            ShowMessage(link.PublicUrl, "info");
+        }
+    }
+
+    private void ShowMessage(string message, string variant)
+    {
+        _message = message;
+        _messageVariant = variant;
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+}

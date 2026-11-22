@@ -35,6 +35,12 @@ namespace VanAn.CoreHub.Services
             decimal unitPrice, decimal vatRate, string? productName, Guid tenantId);
 
         /// <summary>
+        /// UNIVERSAL AI ASSISTANT W1 (2026-11-22): generic QR for arbitrary content (vd AI Link URL).
+        /// Same QRCoder ECC-Q quality as product QR.
+        /// </summary>
+        byte[] GenerateQRCode(string content);
+
+        /// <summary>
         /// Phase 5+: Full QR code with TenantId + ImageUrl — lets Scan.razor display product image
         /// in fast-path mode (no API call). Use this overload when the product has an image URL.
         /// </summary>
@@ -113,6 +119,22 @@ namespace VanAn.CoreHub.Services
             using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
             {
                 QRCoder.QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
+                using (PngByteQRCode qrCode = new PngByteQRCode(qrCodeData))
+                {
+                    return qrCode.GetGraphic(20);
+                }
+            }
+        }
+
+        /// <summary>
+        /// UNIVERSAL AI ASSISTANT W1: QR cho arbitrary content (AI Link public URL).
+        /// ECC-Q giống product QR — quét được bằng camera thường/Zalo.
+        /// </summary>
+        public byte[] GenerateQRCode(string content)
+        {
+            using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
+            {
+                QRCoder.QRCodeData qrCodeData = qrGenerator.CreateQrCode(content, QRCodeGenerator.ECCLevel.Q);
                 using (PngByteQRCode qrCode = new PngByteQRCode(qrCodeData))
                 {
                     return qrCode.GetGraphic(20);
