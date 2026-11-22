@@ -1248,6 +1248,9 @@ namespace VanAn.Gateway
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IChatService, VanAn.CoreHub.Services.ChatService>();
 
+            // UNIVERSAL AI ASSISTANT W1 (2026-11-22): QR PNG cho AssistantLink qr.png.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IQrCodeService, VanAn.CoreHub.Services.QrCodeService>();
+
 
 
             // Realtime Platform P2 (2026-09-17): subject-agnostic messaging + live location.
