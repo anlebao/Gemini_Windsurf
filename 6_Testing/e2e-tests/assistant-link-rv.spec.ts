@@ -81,6 +81,20 @@ test.describe('W1 AI Link RV', () => {
   });
 });
 
+// W2a — iframe embed mode: /a/{slug}?embed=1 hides page chrome (header),
+// leaving only the floating AiChatWidget for embedding on external sites.
+test.describe('W2a AI embed mode', () => {
+  test('?embed=1 renders widget without page header', async ({ page }) => {
+    await page.goto(`${LINK_URL}?embed=1`, { waitUntil: 'domcontentloaded' });
+
+    // Embed mode: KHÔNG có .assistant-header
+    await expect(page.locator('.assistant-header')).toHaveCount(0, { timeout: 30000 });
+    // Widget vẫn render + mở panel
+    await expect(page.locator('.vanan-ai-widget')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 30000 });
+  });
+});
+
 // QR/link public giờ trỏ storefront deep-link (user directive 2026-11-22):
 // tenant luôn có storefront → {base}/store/{slug}?chat=ai, KHÔNG tạo /a/ mới.
 test.describe('W1 AI Link — storefront deep-link (?chat=ai)', () => {
