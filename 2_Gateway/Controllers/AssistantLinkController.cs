@@ -46,7 +46,23 @@ public class AssistantLinkController(
 
     private Guid TenantId => _tenantProvider.TenantId;
 
-    private string PublicUrl(string slug) => $"{PublicBaseUrl}/a/{slug}";
+    /// <summary>
+    /// Public URL = storefront deep-link có sẵn: {base}/store/{storeSlug}?chat=ai
+    /// (?chat=ai → AiChatWidget.OpenPanel consume-once trên Store.razor).
+    /// Fallback /a/{slug} chỉ khi tenant chưa có storefront slug.
+    /// </summary>
+    private string PublicUrl(string assistantSlug, string? storeSlug)
+        => !string.IsNullOrWhiteSpace(storeSlug)
+            ? $"{PublicBaseUrl}/store/{storeSlug.Trim()}?chat=ai"
+            : $"{PublicBaseUrl}/a/{assistantSlug}";
+
+    /// <summary>Storefront slug của tenant (Tenant.Settings.Slug → route /store/{slug}).</summary>
+    private async Task<string?> StorefrontSlugAsync(CancellationToken ct)
+        => await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(t => t.Id == new TenantId(TenantId))
+            .Select(t => t.Settings != null ? t.Settings.Slug : null)
+            .FirstOrDefaultAsync(ct);
 
     private static readonly char[] SlugAlphabet =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".ToCharArray();
@@ -61,7 +77,8 @@ public class AssistantLinkController(
             .ThenByDescending(l => l.CreatedAt)
             .ToListAsync(ct);
 
-        return Ok(links.Select(ToDto).ToList());
+        var storeSlug = await StorefrontSlugAsync(ct);
+        return Ok(links.Select(l => ToDto(l, PublicUrl(l.Slug, storeSlug))).ToList());
     }
 
     /// <summary>POST — tạo link mới. Slug do server sinh (10 ký tự base62 ≈ 59 bits entropy).</summary>
@@ -77,7 +94,7 @@ public class AssistantLinkController(
             return StatusCode(500, new { error = "Không tạo được link, vui lòng thử lại." });
 
         _logger.LogInformation("AssistantLink created tenant={Tenant} slug={Slug}", TenantId, link.Slug);
-        return Ok(ToDto(link));
+        return Ok(ToDto(link, await PublicUrlAsync(link, ct)));
     }
 
     /// <summary>POST {id}/revoke — thu hồi link (public resolution trả 404 ngay).</summary>
@@ -109,7 +126,7 @@ public class AssistantLinkController(
         await _dbContext.SaveChangesAsync(ct);
         _logger.LogInformation("AssistantLink regenerated tenant={Tenant} old={Old} new={New}",
             TenantId, link.Slug, fresh.Slug);
-        return Ok(ToDto(fresh));
+        return Ok(ToDto(fresh, await PublicUrlAsync(fresh, ct)));
     }
 
     /// <summary>GET {id}/qr.png — QR PNG encode public URL (in dán/quầy, Zalo share).</summary>
@@ -119,7 +136,7 @@ public class AssistantLinkController(
         var link = await FindOwnedAsync(id, ct);
         if (link is null || !link.IsActive) return NotFound(new { error = "Link không tồn tại." });
 
-        var png = _qrCodeService.GenerateQRCode(PublicUrl(link.Slug));
+        var png = _qrCodeService.GenerateQRCode(await PublicUrlAsync(link, ct));
         return File(png, "image/png");
     }
 
@@ -165,8 +182,11 @@ public class AssistantLinkController(
         return new string(chars);
     }
 
-    private AssistantLinkDto ToDto(AssistantLink l) => new(
-        l.Id, l.Slug, l.Label, l.IsActive, l.CreatedAt, PublicUrl(l.Slug));
+    private async Task<string> PublicUrlAsync(AssistantLink link, CancellationToken ct)
+        => PublicUrl(link.Slug, await StorefrontSlugAsync(ct));
+
+    private static AssistantLinkDto ToDto(AssistantLink l, string publicUrl) => new(
+        l.Id, l.Slug, l.Label, l.IsActive, l.CreatedAt, publicUrl);
 }
 
 public sealed record CreateAssistantLinkRequest(string? Label);
