@@ -106,6 +106,16 @@ public class VoiceHub(
         await callService.SendIceCandidateAsync(identity, candidate);
     }
 
+    public async Task SendCallEvent(CallEventDto evt)
+    {
+        var identity = RequireIdentity();
+        if (evt == null || string.IsNullOrWhiteSpace(evt.Name) || evt.Name.Length > 64 || (evt.Value?.Length ?? 0) > 128)
+            throw new HubException("Invalid call event payload.");
+        if (!rateLimiter.TryAcquire($"callevt:{identity.UserId}", max: 10, window: TimeSpan.FromSeconds(1)))
+            throw new HubException("Rate limit exceeded for call events.");
+        await callService.SendCallEventAsync(identity, evt);
+    }
+
     public async Task EndCall(Guid callId)
     {
         var identity = RequireIdentity();

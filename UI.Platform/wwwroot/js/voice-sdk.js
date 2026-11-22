@@ -47,6 +47,10 @@ window.vananVoice = (function () {
     // re-offer through the existing SendOffer/ReceiveOffer path.
     let callType = 'audio';
     let cameraOn = false;
+    // Remote peer camera state — signaled explicitly via CallEvent because a
+    // remote track 'mute' only fires after an RTP inactivity timeout (tens of
+    // seconds), far too slow for camera-off UX (RV V9).
+    let remoteCameraOn = true;
     let remoteVideoEl = null;
     let localVideoEl = null;
     // S3 (2026-11-12): hub transport state — the call button stays disabled until the
@@ -76,12 +80,16 @@ window.vananVoice = (function () {
         if (options && options.onStateChange) options.onStateChange(next, Object.assign({ callType }, info || {}));
     }
 
-    function emitVideoState() {
-        // replaceTrack(null) keeps the remote track 'live' but muted — camera-off
-        // phía xa = live && muted, không phải ended (RV V10: đừng check readyState đơn).
-        const remoteOn = !!(remoteStream && remoteStream.getVideoTracks()
+    function remoteVideoOn() {
+        // Signaled camera state is authoritative for UX; track liveness confirms
+        // media is actually flowing (replaceTrack(null) leaves a live-but-muted
+        // track until the receiver's RTP timeout eventually mutes it).
+        return remoteCameraOn !== false && !!(remoteStream && remoteStream.getVideoTracks()
             .some(t => t.readyState === 'live' && !t.muted));
-        if (options && options.onVideoChange) options.onVideoChange(cameraOn, remoteOn);
+    }
+
+    function emitVideoState() {
+        if (options && options.onVideoChange) options.onVideoChange(cameraOn, remoteVideoOn());
     }
 
     function isActive() { return ACTIVE.has(state); }
@@ -114,6 +122,7 @@ window.vananVoice = (function () {
         stopRemoteAudio();
         removeVideoElements();
         cameraOn = false;
+        remoteCameraOn = true;
         callType = 'audio';
         acceptedLocally = false;
         iceRestartCount = 0;
@@ -509,6 +518,10 @@ window.vananVoice = (function () {
         connection.on('CallReconnected', () => setState(STATES.Connected));
         connection.on('CallEnded', d => finishTerminal(STATES.Ended, d));
         connection.on('CallFailed', d => finishTerminal(STATES.Failed, d));
+        connection.on('CallEvent', d => {
+            if (!d || d.callId !== callId) return;
+            if (d.name === 'camera') { remoteCameraOn = d.value !== 'false'; emitVideoState(); }
+        });
 
         // Transport state → host UI. Injected/mock connections may lack these.
         if (typeof connection.onreconnecting === 'function') connection.onreconnecting(() => emitHubState('reconnecting'));
@@ -659,6 +672,11 @@ window.vananVoice = (function () {
                 const offer = await media.createOffer(false);
                 await connection.invoke('SendOffer', { callId, sdp: offer.sdp });
             }
+            // Explicit camera-state signal — the peer cannot rely on remote track
+            // 'mute' (RTP inactivity timeout is far too slow, RV V9).
+            if (connection && callId) {
+                await connection.invoke('SendCallEvent', { callId, name: 'camera', value: String(target) }).catch(() => { });
+            }
         } catch (ex) {
             emitError('Không đổi được camera: ' + (ex && ex.message ? ex.message : ex));
         }
@@ -669,7 +687,7 @@ window.vananVoice = (function () {
     function isCameraOn() { return cameraOn; }
 
     function getCallState() {
-        return { state, callId, muted, iceRestartCount, isCaller, connectionState: hubState, callType, cameraOn };
+        return { state, callId, muted, iceRestartCount, isCaller, connectionState: hubState, callType, cameraOn, remoteCameraOn, videoRemoteOn: remoteVideoOn() };
     }
 
     function getConnectionState() {

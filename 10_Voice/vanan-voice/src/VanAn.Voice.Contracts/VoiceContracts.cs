@@ -35,3 +35,10 @@ public sealed record CallOfflineDto(Guid CallId, bool MissedCallAllowed);
 public sealed record ReceiveSdpDto(Guid CallId, string Sdp);
 
 public sealed record ReceiveIceCandidateDto(Guid CallId, string Candidate, string? SdpMid = null, int? SdpMLineIndex = null);
+
+// Generic call-scoped UI event relay (e.g. name="camera", value="true"/"false").
+// Opaque to the server — same philosophy as SDP/ICE: validate bounds + relay to
+// the peer's connection, never inspect semantics.
+public sealed record CallEventDto(Guid CallId, string Name, string? Value);
+
+public sealed record ReceiveCallEventDto(Guid CallId, string Name, string? Value);

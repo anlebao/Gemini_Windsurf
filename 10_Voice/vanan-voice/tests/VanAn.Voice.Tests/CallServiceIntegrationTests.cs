@@ -458,4 +458,53 @@ public class CallServiceIntegrationTests
         var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
         row.ConnectionType.Should().Be("P2P");
     }
+
+    // ---- CallEvent relay (camera-state signaling, video MVP V9 fix) ----
+
+    [Fact]
+    public async Task SendCallEvent_relays_to_peer_both_directions()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null, "video"), "conn-a");
+        await h.Service.AcceptCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), callId, "conn-b");
+
+        (await h.Service.SendCallEventAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new CallEventDto(callId, "camera", "false"))).Should().BeTrue();
+        (await h.Service.SendCallEventAsync(VoiceIdentities.Staff(VoiceIdentities.UserB),
+            new CallEventDto(callId, "camera", "true"))).Should().BeTrue();
+
+        var toB = h.Publisher.SentTo("conn-b").Single(x => x.Method == "CallEvent").Arg as ReceiveCallEventDto;
+        toB.Should().NotBeNull();
+        toB!.CallId.Should().Be(callId);
+        toB.Name.Should().Be("camera");
+        toB.Value.Should().Be("false");
+        var toA = h.Publisher.SentTo("conn-a").Single(x => x.Method == "CallEvent").Arg as ReceiveCallEventDto;
+        toA.Should().NotBeNull();
+        toA!.Value.Should().Be("true");
+    }
+
+    [Fact]
+    public async Task SendCallEvent_rejects_non_participant_and_ended_call()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        h.Store.AddConnection(VoiceIdentities.UserC, "conn-c");
+        var callId = Guid.NewGuid();
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null), "conn-a");
+        await h.Service.AcceptCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), callId, "conn-b");
+
+        (await h.Service.SendCallEventAsync(VoiceIdentities.Staff(VoiceIdentities.UserC),
+            new CallEventDto(callId, "camera", "false"))).Should().BeFalse();
+
+        await h.Service.EndCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), callId);
+        (await h.Service.SendCallEventAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new CallEventDto(callId, "camera", "true"))).Should().BeFalse();
+
+        h.Publisher.SentTo("conn-c").Should().BeEmpty();
+        h.Publisher.Sent.Where(x => x.Method == "CallEvent").Should().BeEmpty();
+    }
 }

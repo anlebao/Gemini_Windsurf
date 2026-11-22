@@ -249,11 +249,10 @@ try {
     let staffRemoteGone = false;
     for (let i = 0; i < 20 && !staffRemoteGone; i++) {
       staffRemoteGone = await staffPage.evaluate(() => {
-        const host = document.getElementById('voice-remote-video-host');
-        const v = host?.querySelector('video');
-        // OFF = không còn track nào live VÀ unmuted (ended hoặc muted đều tính tắt).
-        return !v || !v.srcObject
-          || v.srcObject.getVideoTracks().every(t => t.readyState !== 'live' || t.muted);
+        // Camera-off được signal tường minh qua CallEvent — remote track chỉ mute
+        // sau RTP inactivity timeout (hàng chục giây), không dùng làm check được.
+        const s = window.vananVoiceChat?.getState?.();
+        return s && (s.remoteCameraOn === false || s.videoRemoteOn === false);
       });
       if (!staffRemoteGone) await sleep(1000);
     }
@@ -264,8 +263,10 @@ try {
     let staffRemoteBack = false;
     for (let i = 0; i < 20 && !staffRemoteBack; i++) {
       staffRemoteBack = await staffPage.evaluate(() => {
+        const s = window.vananVoiceChat?.getState?.();
         const v = document.getElementById('voice-remote-video-host')?.querySelector('video');
-        return !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live' && !t.muted));
+        const live = !!(v && v.srcObject && v.srcObject.getVideoTracks().some(t => t.readyState === 'live' && !t.muted));
+        return !!(s && s.remoteCameraOn !== false && (s.videoRemoteOn === true || live));
       });
       if (!staffRemoteBack) await sleep(1000);
     }

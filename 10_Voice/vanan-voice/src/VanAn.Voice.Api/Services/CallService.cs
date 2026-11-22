@@ -314,6 +314,21 @@ public sealed class CallService(
         return true;
     }
 
+    // Generic call-scoped event relay (camera on/off, screen share, ...). Needed
+    // because WebRTC remote-track 'mute' only fires after an RTP inactivity
+    // timeout (tens of seconds) — too slow for camera-off UX (RV V9).
+    public async Task<bool> SendCallEventAsync(VoiceIdentity user, CallEventDto evt, CancellationToken ct = default)
+    {
+        var active = store.Get(evt.CallId);
+        if (active == null || !IsParticipant(active, user.UserId)) return false;
+        if (active.Call.Status is not (CallStatus.Accepted or CallStatus.Negotiating or CallStatus.Connected or CallStatus.Reconnecting)) return false;
+
+        var target = active.Call.CallerUserId == user.UserId ? active.ReceiverConnectionId : active.CallerConnectionId;
+        if (target == null) return false;
+        await publisher.SendToAsync(target, "CallEvent", new ReceiveCallEventDto(evt.CallId, evt.Name, evt.Value));
+        return true;
+    }
+
     // ---- Media state (P2 SDK calls these) ----
 
     public async Task<bool> NotifyConnectedAsync(VoiceIdentity user, Guid callId, string? connectionType = null, CancellationToken ct = default)
