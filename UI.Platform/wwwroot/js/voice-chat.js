@@ -37,6 +37,8 @@ window.vananVoiceChat = (function () {
                 onIncoming: (call) => dotNetRef.invokeMethodAsync('OnVoiceIncoming', JSON.stringify(call || {})),
                 onLocalStream: () => dotNetRef.invokeMethodAsync('OnVoiceLocalStream'),
                 onRemoteStream: () => dotNetRef.invokeMethodAsync('OnVoiceRemoteStream'),
+                // VIDEO MVP: camera/remote-video state → Blazor renders the host divs.
+                onVideoChange: (localOn, remoteOn) => dotNetRef.invokeMethodAsync('OnVoiceVideoChange', !!localOn, !!remoteOn),
                 onError: (msg) => dotNetRef.invokeMethodAsync('OnVoiceError', msg || '')
             });
             _initialized = true;
@@ -53,13 +55,15 @@ window.vananVoiceChat = (function () {
     // peerId (2026-11-13): shop threads are per-customer — staff pass the customer id so the
     // context verifier scopes verification/counterpart resolution to THAT thread, not every
     // customer conversation of the shop.
-    async function startCall(targetUserId, subjectType, subjectId, peerId) {
-        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, peerId, sdkState: voice ? voice.getCallState() : null });
+    // callType 'audio'|'video' (VIDEO MVP 2026-11-22) — default 'audio'.
+    async function startCall(targetUserId, subjectType, subjectId, peerId, callType) {
+        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, peerId, callType, sdkState: voice ? voice.getCallState() : null });
         try {
             const contextRef = subjectType + ':' + subjectId + (peerId ? ':' + peerId : '');
             await voice.startCall(targetUserId || null, {
                 contextType: 'chat',
-                contextReferenceId: contextRef
+                contextReferenceId: contextRef,
+                callType: callType === 'video' ? 'video' : 'audio'
             });
             console.info('[voice-chat] startCall returned');
         } catch (ex) {
@@ -77,6 +81,11 @@ window.vananVoiceChat = (function () {
     async function endCall() { return voice.endCall(); }
     function mute() { return voice.mute(); }
     function unmute() { return voice.unmute(); }
+    // VIDEO MVP passthroughs — optional-chained so older SDK builds degrade cleanly.
+    function toggleCamera() { return voice.toggleCamera ? voice.toggleCamera() : Promise.resolve(false); }
+    function getCallType() { return voice.getCallType ? voice.getCallType() : 'audio'; }
+    function isCameraOn() { return voice.isCameraOn ? voice.isCameraOn() : false; }
+    function attachVideoElements() { if (voice.attachVideoElements) voice.attachVideoElements(); }
     function getState() { return voice.getCallState(); }
     function getConnectionState() { return voice ? voice.getConnectionState() : 'disconnected'; }
 
@@ -102,6 +111,7 @@ window.vananVoiceChat = (function () {
     return {
         initialize, startCall, acceptCall, rejectCall, endCall,
         mute, unmute, getState, getConnectionState, fetchMissedCalls, dispose,
+        toggleCamera, getCallType, isCameraOn, attachVideoElements,
         isInitialized
     };
 })();

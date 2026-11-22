@@ -45,6 +45,15 @@
                                  data-testid="voice-call-header-btn">
                         <i class="bi @VoiceCallButtonIcon"></i>
                     </VanAnButton>
+                    @* VIDEO MVP (2026-11-22): nút gọi video cạnh nút gọi thoại —
+                       cùng readiness gate, callType="video" đi vào StartCall. *@
+                    <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                 OnClick="StartVideoCallAsync" Disabled="!VoiceCallReady"
+                                 title="@VideoCallTitle" aria-label="Gọi video"
+                                 CssClass="voice-hdr-btn"
+                                 data-testid="video-call-header-btn">
+                        <i class="bi bi-camera-video"></i>
+                    </VanAnButton>
                 }
                 @* P6 manual-test: nút làm mới nội dung chat thủ công.
                    Dùng param Disabled (PascalCase) — lowercase `disabled` qua unmatched
@@ -351,6 +360,13 @@
         : !VoiceCallIdleLike(_voiceCallState) ? "Đang trong cuộc gọi"
         : "Gọi thoại";
 
+    private string VideoCallTitle =>
+        !VoiceCallIdentity ? "Đăng nhập để gọi video"
+        : _voiceHubState == "connecting" ? "Đang kết nối máy chủ cuộc gọi..."
+        : _voiceHubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
+        : !VoiceCallIdleLike(_voiceCallState) ? "Đang trong cuộc gọi"
+        : "Gọi video";
+
     private void OnVoiceHubStateChanged(string state) => _voiceHubState = state;
     private void OnVoiceCallStateChanged(string state)
     {
@@ -369,6 +385,12 @@
     private async Task StartVoiceCallAsync()
     {
         if (_voicePanel is not null) await _voicePanel.StartCallAsync();
+    }
+
+    // VIDEO MVP (2026-11-22): nút camera trên header — cùng SDK singleton, callType="video".
+    private async Task StartVideoCallAsync()
+    {
+        if (_voicePanel is not null) await _voicePanel.StartCallAsync("video");
     }
 
     private string GroupName => $"msg_{SubjectType}_{SubjectId}";

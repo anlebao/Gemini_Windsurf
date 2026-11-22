@@ -38,6 +38,9 @@ public partial class VoicePresencePanel : IAsyncDisposable
     private string? _initError;
     private Action? _coordinatorHandler;
 
+    // VIDEO MVP (2026-11-22): host divs mount sau state change → attach lại sau render.
+    private bool _pendingVideoAttach;
+
     // Call timer cho mini bar (mirror VoiceCallPanel P1).
     private System.Threading.PeriodicTimer? _callTimer;
     private DateTime _callStartedAt;
@@ -97,8 +100,18 @@ public partial class VoicePresencePanel : IAsyncDisposable
     private void OnCoordinatorChanged() => _ = InvokeAsync(() =>
     {
         SyncTimerFromState(Coordinator?.CallState ?? "idle");
+        // Video flags thay đổi → overlay mới render → cần re-attach SDK <video> elements.
+        _pendingVideoAttach = true;
         StateHasChanged();
     });
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pendingVideoAttach) return;
+        _pendingVideoAttach = false;
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.attachVideoElements"); }
+        catch { /* bridge cũ / JS chưa sẵn sàng */ }
+    }
 
     private void SyncTimerFromState(string state)
     {
@@ -163,6 +176,14 @@ public partial class VoicePresencePanel : IAsyncDisposable
         catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel mute toggle failed"); }
     }
 
+    // VIDEO MVP: camera toggle — re-offer nằm trong SDK (glare-safe); UI mirror
+    // trạng thái qua Coordinator.VideoLocalOn (SDK emit onVideoChange).
+    private async Task ToggleCameraAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.toggleCamera"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "VoicePresencePanel camera toggle failed"); }
+    }
+
     // ---- JSInvokable callbacks (chỉ fire khi component là JS owner) ----
 
     [JSInvokable]
@@ -183,6 +204,11 @@ public partial class VoicePresencePanel : IAsyncDisposable
 
     [JSInvokable] public void OnVoiceLocalStream() { }
     [JSInvokable] public void OnVoiceRemoteStream() { }
+
+    /// <summary>VIDEO MVP: SDK onVideoChange — owner publish lên bus cho global/delegated UI.</summary>
+    [JSInvokable]
+    public void OnVoiceVideoChange(bool localOn, bool remoteOn)
+        => Coordinator?.PublishVideoState(localOn, remoteOn);
 
     [JSInvokable]
     public void OnVoiceError(string message) => _initError = message;

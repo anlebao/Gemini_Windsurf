@@ -42,6 +42,13 @@ window.vananVoice = (function () {
     let muted = false;
     let iceRestartCount = 0;
     let remoteStream = null;
+    // VIDEO MVP (2026-11-22): callType 'audio'|'video' comes from the server (StartCall
+    // request for the caller, IncomingCall dto for the callee); camera toggling is a
+    // re-offer through the existing SendOffer/ReceiveOffer path.
+    let callType = 'audio';
+    let cameraOn = false;
+    let remoteVideoEl = null;
+    let localVideoEl = null;
     // S3 (2026-11-12): hub transport state — the call button stays disabled until the
     // SignalR connection is actually Connected; invoking earlier throws
     // "Cannot send data if the connection is not in the 'Connected' State".
@@ -64,7 +71,14 @@ window.vananVoice = (function () {
     function setState(next, info) {
         if (state === next) return;
         state = next;
-        if (options && options.onStateChange) options.onStateChange(next, info || {});
+        // callType rides inside every state-info payload — Blazor hosts read it from
+        // the info JSON (also flows through VoiceCallCoordinator.CallInfoJson).
+        if (options && options.onStateChange) options.onStateChange(next, Object.assign({ callType }, info || {}));
+    }
+
+    function emitVideoState() {
+        const remoteOn = !!(remoteStream && remoteStream.getVideoTracks().some(t => t.readyState === 'live'));
+        if (options && options.onVideoChange) options.onVideoChange(cameraOn, remoteOn);
     }
 
     function isActive() { return ACTIVE.has(state); }
@@ -95,8 +109,70 @@ window.vananVoice = (function () {
         if (media) { media.closePeer(); media.stopLocal(); }
         remoteStream = null;
         stopRemoteAudio();
+        removeVideoElements();
+        cameraOn = false;
+        callType = 'audio';
         acceptedLocally = false;
         iceRestartCount = 0;
+        emitVideoState();
+    }
+
+    // Remote video renders on a real <video> element — JSInvokable cannot pass a
+    // MediaStream into .NET, so the SDK owns the elements and hosts them inside
+    // the Blazor-provided #voice-remote-video-host / #voice-local-video-host divs
+    // (same ownership pattern as the hidden remote <audio>).
+    function ensureRemoteVideoEl() {
+        if (!remoteVideoEl) {
+            remoteVideoEl = document.createElement('video');
+            remoteVideoEl.id = 'vanan-voice-remote-video';
+            remoteVideoEl.autoplay = true;
+            remoteVideoEl.playsInline = true;
+            // Audio already plays through the hidden <audio> element — mute to avoid echo.
+            remoteVideoEl.muted = true;
+        }
+        var host = document.getElementById('voice-remote-video-host');
+        if (host && remoteVideoEl.parentElement !== host) host.appendChild(remoteVideoEl);
+        else if (!host && !remoteVideoEl.parentElement) {
+            remoteVideoEl.style.display = 'none';
+            document.body.appendChild(remoteVideoEl);
+        }
+    }
+
+    function updateLocalVideoElement() {
+        if (cameraOn && media && media.hasVideoTrack()) {
+            if (!localVideoEl) {
+                localVideoEl = document.createElement('video');
+                localVideoEl.id = 'vanan-voice-local-video';
+                localVideoEl.autoplay = true;
+                localVideoEl.playsInline = true;
+                localVideoEl.muted = true;
+            }
+            var stream = media.getLocalStream();
+            if (localVideoEl.srcObject !== stream) localVideoEl.srcObject = stream;
+            var host = document.getElementById('voice-local-video-host');
+            if (host && localVideoEl.parentElement !== host) host.appendChild(localVideoEl);
+        } else if (localVideoEl) {
+            try { localVideoEl.srcObject = null; localVideoEl.remove(); } catch (_) { /* best effort */ }
+            localVideoEl = null;
+        }
+    }
+
+    function removeVideoElements() {
+        if (remoteVideoEl) { try { remoteVideoEl.srcObject = null; remoteVideoEl.remove(); } catch (_) { /* best effort */ } remoteVideoEl = null; }
+        if (localVideoEl) { try { localVideoEl.srcObject = null; localVideoEl.remove(); } catch (_) { /* best effort */ } localVideoEl = null; }
+    }
+
+    // Blazor hosts render the video host divs AFTER state changes — re-attach the
+    // SDK-owned elements when the panels mount them (idempotent).
+    function attachVideoElements() {
+        if (remoteVideoEl && remoteVideoEl.srcObject) {
+            var rh = document.getElementById('voice-remote-video-host');
+            if (rh && remoteVideoEl.parentElement !== rh) rh.appendChild(remoteVideoEl);
+        }
+        if (localVideoEl && localVideoEl.srcObject) {
+            var lh = document.getElementById('voice-local-video-host');
+            if (lh && localVideoEl.parentElement !== lh) lh.appendChild(localVideoEl);
+        }
     }
 
     function emitError(message) {
@@ -112,7 +188,10 @@ window.vananVoice = (function () {
 
     async function prepareMedia() {
         if (!media) return;
-        const stream = await media.requestMic();
+        const stream = await media.requestMedia(callType === 'video');
+        cameraOn = callType === 'video';
+        updateLocalVideoElement();
+        emitVideoState();
         if (options && options.onLocalStream && stream) options.onLocalStream(stream);
     }
 
@@ -126,6 +205,7 @@ window.vananVoice = (function () {
 
     function onIncoming(d) {
         callId = d.callId;
+        callType = d.callType === 'video' ? 'video' : 'audio';
         isCaller = false;
         acceptedLocally = false;
         if (d.timeoutConfig) timeoutConfig = d.timeoutConfig;
@@ -176,6 +256,13 @@ window.vananVoice = (function () {
 
     async function onReceiveOffer(d) {
         if (d.callId !== callId) return;
+        // VIDEO MVP glare: the impolite side (caller) IGNORES a remote offer while its
+        // own re-offer is outstanding; the polite side (callee) rolls back inside
+        // media.createAnswer and answers normally.
+        if (isCaller && media.getSignalingState && media.getSignalingState() !== 'stable') {
+            console.info('[vananVoice] glare: ignore remote offer while own offer outstanding');
+            return;
+        }
         try {
             const answer = await media.createAnswer(d.sdp);
             setState(STATES.Negotiating, { callId });
@@ -280,6 +367,17 @@ window.vananVoice = (function () {
     function onRemoteTrack(stream) {
         remoteStream = stream;
         playRemoteStream(stream);
+        // VIDEO MVP: video tracks may arrive with the first offer or after a
+        // re-offer (remote camera toggle) — surface the stream on a <video> element.
+        if (stream.getVideoTracks().length > 0) {
+            ensureRemoteVideoEl();
+            remoteVideoEl.srcObject = stream;
+            remoteVideoEl.play().catch(() => {
+                // Same autoplay pattern as audio — retry on the next user gesture.
+                bindAudioGestureUnlock();
+            });
+        }
+        emitVideoState();
         if (options && options.onRemoteStream) options.onRemoteStream(stream);
     }
 
@@ -307,7 +405,11 @@ window.vananVoice = (function () {
     // Initial connect: Negotiating → media 'connected' → notify server → CallConnected confirms.
     function onConnectionStateChange(mediaState) {
         if (state === STATES.Negotiating && mediaState === 'connected') {
-            connection.invoke('NotifyConnected', callId).catch(() => {});
+            // VIDEO MVP: report the real selected-pair type (getStats) — SignalR does
+            // not bind optional hub params, so the report rides a dedicated method.
+            Promise.resolve(media.getConnectionType ? media.getConnectionType() : null)
+                .then(t => connection.invoke('NotifyConnectedWithType', callId, t))
+                .catch(() => {});
         } else if (state === STATES.Reconnecting && mediaState === 'connected') {
             clearTimeout(timers.reconnect); timers.reconnect = null;
             connection.invoke('NotifyReconnected', callId).catch(() => {});
@@ -334,21 +436,34 @@ window.vananVoice = (function () {
         }, timeoutConfig.negotiationTimeoutSeconds * 1000);
     }
 
+    // STUN fallback list — used when TURN is not configured or the endpoint fails.
+    // Without STUN, srflx candidates are never gathered and ~all traffic relays
+    // through TURN (the pre-video-MVP behavior that put 100% of media on the Coturn VPS).
+    const FALLBACK_STUN = ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'];
+
     // Short-lived TURN credentials from the voice service (SRS §8.2): fetched fresh per call,
     // FAIL-OPEN — any error falls back to configured/STUN-only ICE (P2P keeps working).
+    // STUN entries go into a SEPARATE RTCIceServer — TURN username/credential only
+    // apply to the urls in their own server entry.
     async function resolveIceServers() {
-        if (!options.turnCredentialsUrl) return options.iceServers || [];
+        if (!options.turnCredentialsUrl) {
+            return [{ urls: (options.iceServers && options.iceServers.length ? options.iceServers : FALLBACK_STUN) }];
+        }
         try {
             const token = options.accessTokenProvider ? await options.accessTokenProvider() : (options.token || null);
             const headers = { Accept: 'application/json' };
             if (token) headers.Authorization = 'Bearer ' + token;
             const resp = await fetch(options.turnCredentialsUrl, { headers, signal: AbortSignal.timeout(5000) });
-            if (!resp.ok) return options.iceServers || [];
+            if (!resp.ok) return [{ urls: FALLBACK_STUN }];
             const data = await resp.json();
-            if (!data || !Array.isArray(data.urls) || !data.username || !data.credential) return options.iceServers || [];
-            return [{ urls: data.urls, username: data.username, credential: data.credential }];
+            if (!data || !Array.isArray(data.urls) || !data.username || !data.credential) return [{ urls: FALLBACK_STUN }];
+            const servers = [];
+            var stunUrls = Array.isArray(data.stunUrls) && data.stunUrls.length ? data.stunUrls : FALLBACK_STUN;
+            servers.push({ urls: stunUrls });
+            servers.push({ urls: data.urls, username: data.username, credential: data.credential });
+            return servers;
         } catch (_) {
-            return options.iceServers || [];
+            return [{ urls: FALLBACK_STUN }];
         }
     }
 
@@ -407,9 +522,10 @@ window.vananVoice = (function () {
         return this;
     }
 
-    // Outgoing call. contextType/contextReferenceId are optional verified business context.
+    // Outgoing call. contextType/contextReferenceId are optional verified business
+    // context; context.callType 'audio'|'video' selects the media mode (default audio).
     async function startCall(targetUserId, context) {
-        console.info('[vananVoice] startCall', { targetUserId, state, hubState });
+        console.info('[vananVoice] startCall', { targetUserId, state, hubState, callType: context && context.callType });
         // Terminal states don't block a retry — reset locally and let the server
         // decide (a pending idle-reset timer no-ops because state already moved on).
         if (state !== STATES.Idle) {
@@ -421,6 +537,7 @@ window.vananVoice = (function () {
         }
         if (hubState !== 'connected') throw new Error('Mất kết nối máy chủ cuộc gọi.');
         callId = newCallId();
+        callType = context && context.callType === 'video' ? 'video' : 'audio';
         isCaller = true;
         acceptedLocally = false;
         iceRestartCount = 0;
@@ -436,7 +553,8 @@ window.vananVoice = (function () {
                 // the hub accepts it when contextType/contextReferenceId are present.
                 targetUserId: targetUserId || '00000000-0000-0000-0000-000000000000',
                 contextType: context ? context.contextType : null,
-                contextReferenceId: context ? context.contextReferenceId : null
+                contextReferenceId: context ? context.contextReferenceId : null,
+                callType
             });
         } catch (ex) {
             // Hub-level rejection (validation/rate-limit/transport) — never park in
@@ -517,8 +635,35 @@ window.vananVoice = (function () {
         return muted;
     }
 
+    // VIDEO MVP: camera toggle — mutates local tracks, then re-offers through the
+    // existing SendOffer path. Allowed while the call is active (calling…connected);
+    // the glare rule in onReceiveOffer handles simultaneous toggles.
+    async function toggleCamera() {
+        if (!isActive() && state !== STATES.Ringing) return cameraOn;
+        if (!media || !media.setCameraEnabled) return cameraOn;
+        const target = !cameraOn;
+        try {
+            await media.setCameraEnabled(target);
+            cameraOn = target;
+            updateLocalVideoElement();
+            emitVideoState();
+            // Renegotiate only while a peer exists — pre-accept toggles ride the
+            // initial offer automatically.
+            if (connection && callId && media.getSignalingState && media.getSignalingState() !== 'closed') {
+                const offer = await media.createOffer(false);
+                await connection.invoke('SendOffer', { callId, sdp: offer.sdp });
+            }
+        } catch (ex) {
+            emitError('Không đổi được camera: ' + (ex && ex.message ? ex.message : ex));
+        }
+        return cameraOn;
+    }
+
+    function getCallType() { return callType; }
+    function isCameraOn() { return cameraOn; }
+
     function getCallState() {
-        return { state, callId, muted, iceRestartCount, isCaller, connectionState: hubState };
+        return { state, callId, muted, iceRestartCount, isCaller, connectionState: hubState, callType, cameraOn };
     }
 
     function getConnectionState() {
@@ -536,6 +681,7 @@ window.vananVoice = (function () {
     return {
         initialize, startCall, acceptCall, rejectCall, cancelCall, endCall,
         mute, unmute, getCallState, getConnectionState, dispose,
+        toggleCamera, getCallType, isCameraOn, attachVideoElements,
         // test hooks
         _states: STATES
     };

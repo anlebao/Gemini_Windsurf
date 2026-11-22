@@ -25,6 +25,7 @@ public static class VoiceSchema
                 AcceptedAt TEXT NULL,
                 EndedAt TEXT NULL,
                 DurationSeconds INTEGER NOT NULL,
+                CallType TEXT NULL,
                 ConnectionType TEXT NULL,
                 EndReason TEXT NULL,
                 CallerConnectionId TEXT NULL,
@@ -49,6 +50,13 @@ public static class VoiceSchema
         db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_voice_calls_receiver_started ON voice_calls (ReceiverUserId, StartedAt);");
         db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_voice_call_events_call ON voice_call_events (CallId, OccurredAt);");
 
+        // Additive column for DBs created before CallType existed (video MVP, 2026-11-22).
+        // SQLite has no ADD COLUMN IF NOT EXISTS — mirror metering's PRAGMA pattern.
+        if (!ColumnExists(db, "voice_calls", "CallType"))
+            db.Database.ExecuteSqlRaw("ALTER TABLE voice_calls ADD COLUMN CallType TEXT NULL;");
+        // Rows predating the column are audio calls — backfill once (idempotent).
+        db.Database.ExecuteSqlRaw("UPDATE voice_calls SET CallType = 'audio' WHERE CallType IS NULL;");
+
         // FR-007: one active call per user (caller side and receiver side).
         db.Database.ExecuteSqlRaw("""
             CREATE UNIQUE INDEX IF NOT EXISTS ux_voice_calls_active_caller
@@ -58,5 +66,20 @@ public static class VoiceSchema
             CREATE UNIQUE INDEX IF NOT EXISTS ux_voice_calls_active_receiver
             ON voice_calls (ReceiverUserId) WHERE Status IN (0,1,2,3,4,5);
             """);
+    }
+
+    private static bool ColumnExists(VoiceDbContext db, string table, string column)
+    {
+        var conn = db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open) conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info('{table}')";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 }

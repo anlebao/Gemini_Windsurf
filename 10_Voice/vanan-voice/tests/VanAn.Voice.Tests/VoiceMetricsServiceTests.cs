@@ -42,6 +42,23 @@ public class VoiceMetricsServiceTests
     }
 
     [Fact]
+    public async Task Summary_counts_video_calls_separately()
+    {
+        using var h = new CallServiceHarness();
+        var now = DateTime.UtcNow;
+        h.Db.VoiceCalls.Add(VoiceCall.Create(Guid.NewGuid(), VoiceIdentities.Tenant,
+            VoiceIdentities.UserA, VoiceIdentities.UserB, "test", null, null, now, CallTypes.Video));
+        h.Db.VoiceCalls.Add(VoiceCall.Create(Guid.NewGuid(), VoiceIdentities.Tenant,
+            VoiceIdentities.UserC, VoiceIdentities.UserA, "test", null, null, now, CallTypes.Audio));
+        await h.Db.SaveChangesAsync();
+
+        var metrics = await new VoiceMetricsService(h.Db).SummaryAsync(now);
+
+        metrics.VideoCalls.Should().Be(1);
+        metrics.TotalCalls.Should().Be(2);
+    }
+
+    [Fact]
     public async Task Empty_db_returns_zeroes()
     {
         using var h = new CallServiceHarness();

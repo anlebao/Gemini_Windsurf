@@ -19,6 +19,7 @@ public sealed class VoiceDbContext(DbContextOptions<VoiceDbContext> options) : D
         call.Property(e => e.SourceApplication).HasMaxLength(64);
         call.Property(e => e.ContextType).HasMaxLength(32);
         call.Property(e => e.ContextReferenceId).HasMaxLength(128);
+        call.Property(e => e.CallType).HasMaxLength(8);
         call.Property(e => e.ConnectionType).HasMaxLength(16);
         call.Property(e => e.EndReason).HasMaxLength(64);
         call.Property(e => e.CallerConnectionId).HasMaxLength(128);

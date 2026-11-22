@@ -21,6 +21,18 @@ public sealed class VoiceCallCoordinator
     /// <summary>infoJson từ OnVoiceStateChange (chứa reason khi failed) — replay nguyên cho delegated panel.</summary>
     public string CallInfoJson { get; private set; } = "{}";
 
+    /// <summary>
+    /// VIDEO MVP (2026-11-22): 'audio' | 'video' — SDK merge callType vào mọi
+    /// state-info payload; delegated panels đọc từ đây thay vì parse infoJson riêng.
+    /// </summary>
+    public string CallType { get; private set; } = "audio";
+
+    /// <summary>VIDEO MVP: local camera đang bật (onVideoChange của SDK owner publish lên).</summary>
+    public bool VideoLocalOn { get; private set; }
+
+    /// <summary>VIDEO MVP: remote đang gửi video track.</summary>
+    public bool VideoRemoteOn { get; private set; }
+
     /// <summary>Tên hiển thị người gọi đến (từ IncomingCall payload).</summary>
     public string? IncomingCallerName { get; private set; }
 
@@ -55,7 +67,30 @@ public sealed class VoiceCallCoordinator
     {
         CallState = state;
         CallInfoJson = string.IsNullOrEmpty(infoJson) ? "{}" : infoJson;
+        CallType = ParseCallType(CallInfoJson) ?? "audio";
         Notify();
+    }
+
+    /// <summary>VIDEO MVP: SDK owner nhận onVideoChange → publish cho delegated observers.</summary>
+    public void PublishVideoState(bool localOn, bool remoteOn)
+    {
+        VideoLocalOn = localOn;
+        VideoRemoteOn = remoteOn;
+        Notify();
+    }
+
+    /// <summary>Parse callType ('audio'|'video') từ infoJson — SDK merge vào mọi payload.</summary>
+    public static string? ParseCallType(string infoJson)
+    {
+        if (string.IsNullOrWhiteSpace(infoJson)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(infoJson);
+            return doc.RootElement.TryGetProperty("callType", out var t)
+                && t.ValueKind == System.Text.Json.JsonValueKind.String
+                ? t.GetString() : null;
+        }
+        catch { return null; }
     }
 
     public void PublishIncomingInfo(string? callerName, string? contextLabel)
@@ -78,6 +113,9 @@ public sealed class VoiceCallCoordinator
         HubState = "connecting";
         CallState = "idle";
         CallInfoJson = "{}";
+        CallType = "audio";
+        VideoLocalOn = false;
+        VideoRemoteOn = false;
         IncomingCallerName = null;
         IncomingContextLabel = null;
         ChatSurfaceActive = false;

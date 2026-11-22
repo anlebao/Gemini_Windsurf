@@ -1,5 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using RichardSzalay.MockHttp;
 using Xunit;
 using VanAn.Voice.Api.Services;
 using VanAn.Voice.Contracts;
@@ -306,5 +309,153 @@ public class CallServiceIntegrationTests
 
         result.Status.Should().Be("FAILED");
         result.Reason.Should().Be(CallEndReason.InvalidContext);
+    }
+
+    // ---- CallType (video MVP, 2026-11-22) ----
+
+    [Fact]
+    public async Task StartCall_video_persists_calltype_and_incoming_carries_it()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+
+        var result = await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null, "video"), "conn-a");
+
+        result.Status.Should().Be("RINGING");
+        var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
+        row.CallType.Should().Be(CallTypes.Video);
+        var incoming = h.Publisher.SentTo("conn-b").Single(x => x.Method == "IncomingCall").Arg as IncomingCallDto;
+        incoming.Should().NotBeNull();
+        incoming!.CallType.Should().Be("video");
+    }
+
+    [Fact]
+    public async Task StartCall_without_calltype_defaults_audio()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null), "conn-a");
+
+        var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
+        row.CallType.Should().Be(CallTypes.Audio);
+        var incoming = h.Publisher.SentTo("conn-b").Single(x => x.Method == "IncomingCall").Arg as IncomingCallDto;
+        incoming!.CallType.Should().Be("audio");
+    }
+
+    [Fact]
+    public async Task StartCall_invalid_calltype_fails_fast_without_row()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+
+        var result = await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null, "morse"), "conn-a");
+
+        result.Status.Should().Be("FAILED");
+        result.Reason.Should().Be("INVALID_CALLTYPE");
+        (await h.Db.VoiceCalls.CountAsync()).Should().Be(0);
+        h.Publisher.SentTo("conn-a").Select(x => x.Method).Should().Contain("CallFailed");
+    }
+
+    [Fact]
+    public async Task Video_call_usage_ingests_video_metering_keys()
+    {
+        // Metering mock: allow every check, capture the usage batch body.
+        var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
+        string? batchBody = null;
+        mock.When("*").Respond(req =>
+        {
+            if (req.Method == HttpMethod.Post)
+            {
+                try { batchBody = req.Content?.ReadAsStringAsync().GetAwaiter().GetResult(); }
+                catch { /* best effort */ }
+            }
+            return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(new { deny = false, balance = 100m })
+            };
+        });
+        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Metering:CallerId"] = "voice",
+                ["Metering:CallerKey"] = "key"
+            }).Build();
+        using var h = new CallServiceHarness(
+            configure: s => s.AddHttpClient<MeteringClient>(c => c.BaseAddress = new Uri("http://metering.test/"))
+                .ConfigurePrimaryHttpMessageHandler(() => mock),
+            configuration: configuration);
+        // Receiver has NO connections → OFFLINE → Finalize → IngestUsage posts the batch.
+        var callId = Guid.NewGuid();
+
+        var result = await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null, "video"), "conn-a");
+
+        result.Status.Should().Be("OFFLINE");
+        batchBody.Should().NotBeNull();
+        batchBody.Should().Contain("\"serviceCode\":\"video.call\"");
+        batchBody.Should().Contain("callType"); // metadataJson carries the call type
+    }
+
+    // ---- ConnectionType (client-reported, video MVP) ----
+
+    [Fact]
+    public async Task NotifyConnected_with_turn_report_persists_turn()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null), "conn-a");
+        await h.Service.AcceptCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), callId, "conn-b");
+        await h.Service.SendOfferAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), new SdpDto(callId, "offer"));
+        await h.Service.SendAnswerAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), new SdpDto(callId, "answer"));
+
+        (await h.Service.NotifyConnectedAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), callId, "TURN")).Should().BeTrue();
+
+        var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
+        row.ConnectionType.Should().Be("TURN");
+    }
+
+    [Fact]
+    public async Task NotifyConnected_without_report_defaults_p2p()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null), "conn-a");
+        await h.Service.AcceptCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), callId, "conn-b");
+        await h.Service.SendOfferAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), new SdpDto(callId, "offer"));
+        await h.Service.SendAnswerAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), new SdpDto(callId, "answer"));
+
+        (await h.Service.NotifyConnectedAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), callId)).Should().BeTrue();
+
+        var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
+        row.ConnectionType.Should().Be("P2P");
+    }
+
+    [Fact]
+    public async Task NotifyConnected_with_garbage_report_falls_back_to_p2p()
+    {
+        using var h = new CallServiceHarness();
+        h.Store.AddConnection(VoiceIdentities.UserB, "conn-b");
+        var callId = Guid.NewGuid();
+        await h.Service.StartCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserA),
+            new StartCallRequest(callId, VoiceIdentities.UserB, null, null), "conn-a");
+        await h.Service.AcceptCallAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), callId, "conn-b");
+        await h.Service.SendOfferAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), new SdpDto(callId, "offer"));
+        await h.Service.SendAnswerAsync(VoiceIdentities.Staff(VoiceIdentities.UserB), new SdpDto(callId, "answer"));
+
+        (await h.Service.NotifyConnectedAsync(VoiceIdentities.Staff(VoiceIdentities.UserA), callId, "carrier-pigeon")).Should().BeTrue();
+
+        var row = await h.Db.VoiceCalls.SingleAsync(c => c.Id == callId);
+        row.ConnectionType.Should().Be("P2P");
     }
 }

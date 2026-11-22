@@ -40,10 +40,32 @@
     }
     else if (CallActive(c.CallState))
     {
+        @* VIDEO MVP (2026-11-22): video overlay toàn cục khi chat surface không handle.
+           Host ids giống chat panel — 2 UI loại trừ nhau qua ChatSurfaceActive. *@
+        @if (c.CallType == "video" || c.VideoRemoteOn || c.VideoLocalOn)
+        {
+            <div class="voice-presence-video" data-testid="voice-presence-video">
+                <div class="voice-presence-video-remote">
+                    <div id="voice-remote-video-host" class="voice-presence-video-remote-host" data-testid="voice-presence-video-remote"></div>
+                    @if (!c.VideoRemoteOn)
+                    {
+                        <div class="voice-presence-video-placeholder">
+                            <i class="bi bi-camera-video-off"></i>
+                        </div>
+                    }
+                </div>
+                <div id="voice-local-video-host" class="voice-presence-video-local" data-testid="voice-presence-video-local"></div>
+            </div>
+        }
         <div class="voice-presence-callbar" data-testid="voice-presence-callbar">
-            <i class="bi bi-telephone"></i>
+            <i class="bi @(c.CallType == "video" ? "bi-camera-video" : "bi-telephone")"></i>
             <span class="voice-presence-callbar-state">@CallBarLabel(c.CallState)</span>
             <span class="voice-presence-callbar-timer">@CallDurationText</span>
+            <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
+                         OnClick="ToggleCameraAsync" CssClass="voice-presence-icon-btn"
+                         data-testid="voice-presence-camera" aria-label="@(c.VideoLocalOn ? "Tắt camera" : "Bật camera")">
+                <i class="bi @(c.VideoLocalOn ? "bi-camera-video" : "bi-camera-video-off")"></i>
+            </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
                          OnClick="ToggleMuteAsync" CssClass="voice-presence-icon-btn"
                          data-testid="voice-presence-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">

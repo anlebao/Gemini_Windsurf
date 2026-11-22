@@ -14,13 +14,32 @@
     <div class="voice-call-panel" data-testid="voice-call-panel">
         @if (!_idleLike)
         {
+            @* VIDEO MVP (2026-11-22): remote tile + local PiP. Host divs phải tồn tại
+               trong DOM trước khi SDK attach — JS tạo/sở hữu <video> elements bên trong
+               (#voice-remote-video-host / #voice-local-video-host). *@
+            @if (_showVideo)
+            {
+                <div class="voice-video-area" data-testid="voice-video-area">
+                    <div class="voice-video-remote">
+                        <div id="voice-remote-video-host" class="voice-video-remote-host" data-testid="voice-video-remote"></div>
+                        @if (!_remoteVideoOn)
+                        {
+                            <div class="voice-video-placeholder">
+                                <i class="bi bi-camera-video-off"></i>
+                                <span>Đang chờ video...</span>
+                            </div>
+                        }
+                    </div>
+                    <div id="voice-local-video-host" class="voice-video-local" data-testid="voice-video-local"></div>
+                </div>
+            }
             <div class="voice-call-card @(_state == "ringing" ? "voice-call-card--ringing" : "") @(_active ? "voice-call-card--active" : "")" data-testid="voice-call-card">
                 <span class="voice-call-avatar @( _state == "ringing" ? "voice-call-avatar--ringing" : "") @(_active ? "voice-call-avatar--active" : "")">
-                    <i class="bi @(_state == "ringing" ? "bi-telephone-inbound" : "bi-telephone")"></i>
+                    <i class="bi @(_state == "ringing" ? (_callType == "video" ? "bi-camera-video" : "bi-telephone-inbound") : (_callType == "video" ? "bi-camera-video" : "bi-telephone"))"></i>
                 </span>
                 <div class="voice-call-info">
                     <div class="voice-call-title">
-                        @(_state == "ringing" ? "Cuộc gọi đến..." : _state == "calling" ? "Đang gọi..." : "Cuộc gọi")
+                        @(_state == "ringing" ? (_callType == "video" ? "Cuộc gọi video đến..." : "Cuộc gọi đến...") : _state == "calling" ? "Đang gọi..." : (_callType == "video" ? "Cuộc gọi video" : "Cuộc gọi"))
                     </div>
                     <div class="voice-call-sub">@_displayState</div>
                 </div>
@@ -48,6 +67,11 @@
                     }
                     else
                     {
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="ToggleCameraAsync" CssClass="@CameraButtonClass"
+                                     data-testid="voice-camera" aria-label="@(_cameraOn ? "Tắt camera" : "Bật camera")">
+                            <i class="bi @(_cameraOn ? "bi-camera-video" : "bi-camera-video-off")"></i>
+                        </VanAnButton>
                         <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
                                      OnClick="ToggleMuteAsync" CssClass="@MuteButtonClass"
                                      data-testid="voice-mute" aria-label="@(_muted ? "Bật mic" : "Tắt mic")">

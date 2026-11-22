@@ -2,7 +2,7 @@ namespace VanAn.Voice.Contracts;
 
 // ---- Client → Server (invoked on /hubs/voice) ----
 
-public sealed record StartCallRequest(Guid CallId, Guid TargetUserId, string? ContextType, string? ContextReferenceId);
+public sealed record StartCallRequest(Guid CallId, Guid TargetUserId, string? ContextType, string? ContextReferenceId, string? CallType = null);
 
 public sealed record SdpDto(Guid CallId, string Sdp);
 
@@ -23,7 +23,8 @@ public sealed record IncomingCallDto(
     Guid CallerUserId,
     string CallerDisplayName,
     string? VerifiedContextLabel,
-    CallTimeoutConfig TimeoutConfig);
+    CallTimeoutConfig TimeoutConfig,
+    string? CallType = null);
 
 public sealed record CallIdDto(Guid CallId);
 

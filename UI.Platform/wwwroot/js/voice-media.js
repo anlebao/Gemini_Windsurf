@@ -17,6 +17,10 @@ window.vananVoiceMedia = (function () {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: false
     };
+    // VIDEO MVP (2026-11-22): modest defaults — 1:1 chat call, bandwidth-friendly.
+    const VIDEO_CONSTRAINTS = {
+        width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 }
+    };
     const OPUS_MAX_BITRATE = 128 * 1000; // bits/s — SRS §9.5 hard cap
 
     let localStream = null;
@@ -33,9 +37,14 @@ window.vananVoiceMedia = (function () {
     }
 
     // Request microphone access (explicit user action only — SDK guarantees the call site).
-    async function requestMic() {
+    async function requestMic() { return requestMedia(false); }
+
+    // VIDEO MVP: video=true requests camera alongside the mic (video calls start
+    // camera-on by default); audio-only calls keep the old mic-only prompt.
+    async function requestMedia(video) {
         if (localStream) return localStream;
-        const stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+        const stream = await navigator.mediaDevices.getUserMedia(
+            video ? { audio: MIC_CONSTRAINTS.audio, video: VIDEO_CONSTRAINTS } : MIC_CONSTRAINTS);
         stream.getAudioTracks().forEach(track => {
             try { track.applyConstraints({ maxBitrate: OPUS_MAX_BITRATE }); } catch (_) { /* unsupported */ }
         });
@@ -52,6 +61,57 @@ window.vananVoiceMedia = (function () {
 
     function setMuted(muted) {
         if (localStream) localStream.getAudioTracks().forEach(track => { track.enabled = !muted; });
+    }
+
+    function getLocalStream() { return localStream; }
+
+    function hasVideoTrack() {
+        return !!(localStream && localStream.getVideoTracks().some(t => t.readyState === 'live'));
+    }
+
+    // VIDEO MVP: camera toggle — addTrack/removeTrack marks transceivers dirty; the SDK
+    // follows with a re-offer (SendOffer) so the remote side sees the change.
+    async function setCameraEnabled(on) {
+        if (on) {
+            if (hasVideoTrack()) return;
+            const vs = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS });
+            const track = vs.getVideoTracks()[0];
+            if (!localStream) localStream = vs;
+            else localStream.addTrack(track);
+            if (peer) peer.addTrack(track, localStream);
+        } else {
+            if (!localStream) return;
+            localStream.getVideoTracks().forEach(t => {
+                if (peer) peer.getSenders()
+                    .filter(s => s.track === t)
+                    .forEach(s => { try { peer.removeTrack(s); } catch (_) { /* transceiver already clean */ } });
+                try { t.stop(); } catch (_) { /* already stopped */ }
+                localStream.removeTrack(t);
+            });
+        }
+    }
+
+    // Real selected candidate-pair type for server metrics — "TURN" when either end
+    // relays, else "P2P". Called once when the connection reaches 'connected'.
+    async function getConnectionType() {
+        try {
+            if (!peer) return null;
+            const stats = await peer.getStats();
+            let pair = null;
+            stats.forEach(r => { if (r.type === 'candidate-pair' && (r.selected || r.state === 'succeeded')) pair = r; });
+            if (!pair) return null;
+            let local = null, remote = null;
+            stats.forEach(r => {
+                if (r.id === pair.localCandidateId) local = r;
+                if (r.id === pair.remoteCandidateId) remote = r;
+            });
+            return (local && local.candidateType === 'relay') || (remote && remote.candidateType === 'relay')
+                ? 'TURN' : 'P2P';
+        } catch (_) { return null; }
+    }
+
+    function getSignalingState() {
+        return peer ? peer.signalingState : 'closed';
     }
 
     // Create an RTCPeerConnection; local tracks are attached immediately.
@@ -95,6 +155,11 @@ window.vananVoiceMedia = (function () {
     }
 
     async function createAnswer(offerSdp) {
+        // VIDEO MVP glare: polite side rolls back its own outstanding offer before
+        // applying the remote one (camera-toggle re-offer racing on both ends).
+        if (peer.signalingState !== 'stable') {
+            try { await peer.setLocalDescription({ type: 'rollback' }); } catch (_) { /* older browsers */ }
+        }
         await peer.setRemoteDescription({ type: 'offer', sdp: offerSdp });
         remoteDescSet = true;
         const answer = await peer.createAnswer();
@@ -137,8 +202,14 @@ window.vananVoiceMedia = (function () {
     return {
         isSupported,
         requestMic,
+        requestMedia,
         stopLocal,
         setMuted,
+        getLocalStream,
+        hasVideoTrack,
+        setCameraEnabled,
+        getConnectionType,
+        getSignalingState,
         createPeer,
         closePeer,
         createOffer,

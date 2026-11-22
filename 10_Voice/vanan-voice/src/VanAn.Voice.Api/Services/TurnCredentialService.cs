@@ -8,7 +8,16 @@ public sealed record TurnCredentials(
     string Username,
     string Credential,
     int TtlSeconds,
-    DateTime ExpiresAtUtc);
+    DateTime ExpiresAtUtc)
+{
+    /// <summary>
+    /// STUN URLs (video MVP, 2026-11-22). Separate from <see cref="Urls"/> — a single
+    /// RTCIceServer applies username/credential to every url, so STUN entries must be a
+    /// separate RTCIceServer or the TURN credentials would leak into STUN requests.
+    /// Additive JSON field; old SDK versions ignore it.
+    /// </summary>
+    public IReadOnlyList<string> StunUrls { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>
 /// Short-lived TURN credentials for the WebRTC client (SRS v1.1 §8.2, SEC-004).
@@ -57,7 +66,18 @@ public sealed class TurnCredentialService(IConfiguration configuration, ILogger<
         if (!string.IsNullOrWhiteSpace(configuration["TURN:Realm"]))
             logger.LogDebug("TURN realm configured: {Realm}", configuration["TURN:Realm"]);
 
-        return new TurnCredentials(urls, username, credential, TtlSeconds, nowUtc.AddSeconds(TtlSeconds));
+        // STUN urls (video MVP): Coturn serves STUN natively on the same UDP port —
+        // default is stun:{host}:3478, overridable via TURN:StunUrls (csv) for
+        // multi-node/geo or public STUN fallback.
+        var stunConfigured = configuration["TURN:StunUrls"];
+        var stunUrls = !string.IsNullOrWhiteSpace(stunConfigured)
+            ? stunConfigured.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            : new[] { $"stun:{host}:{udpPort}" };
+
+        return new TurnCredentials(urls, username, credential, TtlSeconds, nowUtc.AddSeconds(TtlSeconds))
+        {
+            StunUrls = stunUrls
+        };
     }
 
     private static byte[] HMACSHA1(string key, string message)

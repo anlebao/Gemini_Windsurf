@@ -45,6 +45,15 @@ public sealed class CallService(
     {
         var now = DateTime.UtcNow;
 
+        // Video MVP (2026-11-22): callType is a server-side whitelist — an unknown
+        // value fails fast instead of silently degrading to audio metering keys.
+        var callType = CallTypes.Normalize(req.CallType);
+        if (callType is null)
+        {
+            await publisher.SendToAsync(callerConnectionId, "CallFailed", new CallIdWithReasonDto(req.CallId, "INVALID_CALLTYPE"));
+            return new StartCallResult(req.CallId, true, "FAILED", "INVALID_CALLTYPE");
+        }
+
         // Idempotency: the client callId (UUIDv7) is the key — a duplicate never creates a second call.
         var existing = store.Get(req.CallId)?.Call
             ?? await db.VoiceCalls.AsNoTracking().FirstOrDefaultAsync(c => c.Id == req.CallId, ct);
@@ -71,7 +80,7 @@ public sealed class CallService(
             if (perm.TenantId is { } deniedTenant && deniedTarget != Guid.Empty && caller.UserId != deniedTarget)
             {
                 var denied = VoiceCall.Create(req.CallId, deniedTenant, caller.UserId, deniedTarget,
-                    SourceApplication, req.ContextType, req.ContextReferenceId, now);
+                    SourceApplication, req.ContextType, req.ContextReferenceId, now, callType);
                 denied.ForceTerminal(perm.TerminalStatus!.Value, perm.Reason!, now);
                 denied.StampConnectionIds(callerConnectionId, null);
                 db.VoiceCalls.Add(denied);
@@ -93,10 +102,10 @@ public sealed class CallService(
 
         // Metering gate (§14.2): deny BEFORE ringing when the wallet is below the estimate.
         var tenantId = perm.TenantId!.Value;
-        if (!await MeteringGateAllowsAsync(tenantId, caller.UserId, now, ct))
+        if (!await MeteringGateAllowsAsync(tenantId, caller.UserId, callType, now, ct))
         {
             var denied = VoiceCall.Create(req.CallId, tenantId, caller.UserId, targetUserId,
-                SourceApplication, req.ContextType, req.ContextReferenceId, now);
+                SourceApplication, req.ContextType, req.ContextReferenceId, now, callType);
             denied.ForceTerminal(CallStatus.Failed, CallEndReason.MeteringDenied, now);
             denied.StampConnectionIds(callerConnectionId, null);
             db.VoiceCalls.Add(denied);
@@ -118,7 +127,7 @@ public sealed class CallService(
         if (store.HasActiveCall(targetUserId))
         {
             var busy = VoiceCall.Create(req.CallId, tenantId, caller.UserId, targetUserId,
-                SourceApplication, req.ContextType, req.ContextReferenceId, now);
+                SourceApplication, req.ContextType, req.ContextReferenceId, now, callType);
             busy.ForceTerminal(CallStatus.Busy, CallEndReason.ReceiverBusy, now);
             busy.StampConnectionIds(callerConnectionId, null);
             db.VoiceCalls.Add(busy);
@@ -130,7 +139,7 @@ public sealed class CallService(
 
         // Create + persist + activate (FR-007 enforced in DB by the partial unique indexes).
         var call = VoiceCall.Create(req.CallId, tenantId, caller.UserId, targetUserId,
-            SourceApplication, req.ContextType, req.ContextReferenceId, now);
+            SourceApplication, req.ContextType, req.ContextReferenceId, now, callType);
         call.StampConnectionIds(callerConnectionId, null);
         db.VoiceCalls.Add(call);
         db.VoiceCallEvents.Add(new VoiceCallEvent(req.CallId, "call.created", caller.UserId, now));
@@ -180,7 +189,7 @@ public sealed class CallService(
         await publisher.SendToAsync(callerConnectionId, "CallCreated",
             new CallCreatedDto(req.CallId, call.Status.ToString().ToUpperInvariant(), TimeoutConfig));
         await publisher.SendToConnectionsAsync(receiverConnections, "IncomingCall",
-            new IncomingCallDto(req.CallId, caller.UserId, await ResolveCallerDisplayNameAsync(caller, ct), VerifiedContextLabel(call), TimeoutConfig));
+            new IncomingCallDto(req.CallId, caller.UserId, await ResolveCallerDisplayNameAsync(caller, ct), VerifiedContextLabel(call), TimeoutConfig, call.CallType));
         logger.LogInformation("StartCall {CallId} RINGING: caller={Caller} target={Target} receiverConns={Count}",
             req.CallId, caller.UserId, targetUserId, receiverConnections.Count);
         Schedule(active, TimeSpan.FromSeconds(RingTimeoutSeconds), svc => svc.RingTimeoutAsync(req.CallId));
@@ -307,7 +316,7 @@ public sealed class CallService(
 
     // ---- Media state (P2 SDK calls these) ----
 
-    public async Task<bool> NotifyConnectedAsync(VoiceIdentity user, Guid callId, CancellationToken ct = default)
+    public async Task<bool> NotifyConnectedAsync(VoiceIdentity user, Guid callId, string? connectionType = null, CancellationToken ct = default)
     {
         var active = store.Get(callId);
         if (active == null || !IsParticipant(active, user.UserId)) return false;
@@ -316,7 +325,9 @@ public sealed class CallService(
         var now = DateTime.UtcNow;
         active.Call.Transition(CallStatus.Connected, null, now);
         active.ConnectedAt = now;
-        active.Call.SetConnectionType("P2P");
+        // Client reports the real selected candidate-pair type (getStats) — before the
+        // video MVP every call was stamped "P2P" which made TurnPercentage always 0.
+        active.Call.SetConnectionType(connectionType is "P2P" or "TURN" ? connectionType : "P2P");
         db.VoiceCallEvents.Add(new VoiceCallEvent(callId, "call.connected", user.UserId, now));
         await db.SaveChangesAsync(ct);
         CancelTimer(active);
@@ -525,16 +536,20 @@ public sealed class CallService(
     {
         if (call.EndedAt == null || call.TenantId == Guid.Empty) return;
 
+        // Video MVP (2026-11-22): separate metering keys — "voice.*" for audio calls,
+        // "video.*" for video calls so a future rate card can price them differently.
+        // Unknown serviceCode resolves MeterOnly (deny=false, usage still recorded).
+        var meterPrefix = call.CallType == CallTypes.Video ? "video" : "voice";
         var events = new List<MeteringUsageEvent>
         {
-            new(call.Id.ToString(), call.TenantId, "voice.call", 1, "call", DateTime.UtcNow,
+            new(call.Id.ToString(), call.TenantId, $"{meterPrefix}.call", 1, "call", DateTime.UtcNow,
                 RequestedBy: call.CallerUserId.ToString(),
-                MetadataJson: $"{{\"callId\":\"{call.Id}\",\"contextType\":\"{call.ContextType}\",\"connectionType\":\"{call.ConnectionType}\"}}")
+                MetadataJson: $"{{\"callId\":\"{call.Id}\",\"contextType\":\"{call.ContextType}\",\"callType\":\"{call.CallType}\",\"connectionType\":\"{call.ConnectionType}\"}}")
         };
         if (call.DurationSeconds > 0)
         {
             events.Add(new MeteringUsageEvent(
-                call.Id + ":min", call.TenantId, "voice.minute", Math.Max(1, (call.DurationSeconds + 59) / 60), "minute", DateTime.UtcNow,
+                call.Id + ":min", call.TenantId, $"{meterPrefix}.minute", Math.Max(1, (call.DurationSeconds + 59) / 60), "minute", DateTime.UtcNow,
                 RequestedBy: call.CallerUserId.ToString()));
         }
 
@@ -542,11 +557,12 @@ public sealed class CallService(
         _ = metering.RecordUsageBatchAsync(events);
     }
 
-    private async Task<bool> MeteringGateAllowsAsync(Guid tenantId, Guid callerUserId, DateTime now, CancellationToken ct)
+    private async Task<bool> MeteringGateAllowsAsync(Guid tenantId, Guid callerUserId, string callType, DateTime now, CancellationToken ct)
     {
         // Fail-open (G9): a null result (metering down / not configured) means "allow".
-        if (await metering.CheckAsync(tenantId, "voice.call", 1, ct) is { Deny: true }) return false;
-        if (await metering.CheckAsync(tenantId, "voice.minute", EstimatedMinutesPerCall, ct) is { Deny: true }) return false;
+        var meterPrefix = callType == CallTypes.Video ? "video" : "voice";
+        if (await metering.CheckAsync(tenantId, $"{meterPrefix}.call", 1, ct) is { Deny: true }) return false;
+        if (await metering.CheckAsync(tenantId, $"{meterPrefix}.minute", EstimatedMinutesPerCall, ct) is { Deny: true }) return false;
         return true;
     }
 

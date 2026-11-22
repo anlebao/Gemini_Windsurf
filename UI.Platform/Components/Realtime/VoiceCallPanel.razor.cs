@@ -80,6 +80,13 @@ public partial class VoiceCallPanel : IAsyncDisposable
     private bool _errorIsMeteringDenied;
     private string _incomingCaller = "";
 
+    // VIDEO MVP (2026-11-22): callType từ infoJson (SDK merge vào mọi payload);
+    // camera/remote-video flags từ OnVoiceVideoChange (owner) hoặc coordinator (delegated).
+    private string _callType = "audio";
+    private bool _cameraOn;
+    private bool _remoteVideoOn;
+    private bool _pendingVideoAttach;
+
     // P1 (2026-11-21): call duration timer — hiển thị mm:ss khi connected
     // (metering relevance: user thấy phút gọi = thấy phí nền tảng).
     private System.Threading.PeriodicTimer? _callTimer;
@@ -109,6 +116,14 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     private string MuteButtonClass =>
         "voice-call-btn voice-call-btn--mute" + (_muted ? " is-muted" : "");
+
+    private string CameraButtonClass =>
+        "voice-call-btn voice-call-btn--mute" + (_cameraOn ? "" : " is-muted");
+
+    // VIDEO MVP: hiện video area cho video call, hoặc audio call vừa upgrade camera
+    // (camera toggle mid-call — callType local vẫn 'audio' nhưng track đã live).
+    private bool _showVideo => !_idleLike
+        && (_callType == "video" || _remoteVideoOn || _cameraOn);
 
     private bool _active => _state is "accepted" or "negotiating" or "connected" or "reconnecting";
 
@@ -193,7 +208,8 @@ public partial class VoiceCallPanel : IAsyncDisposable
     }
 
     // Public so the chat header button (S4) can trigger the same single SDK instance.
-    public async Task StartCallAsync()
+    // callType 'audio'|'video' (VIDEO MVP) — nút video header truyền "video".
+    public async Task StartCallAsync(string callType = "audio")
     {
         // S3: never invoke StartCall while the hub is not Connected — the server round-trip
         // would throw the raw SignalR error and mask the real connection problem.
@@ -219,7 +235,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         {
             // Chat-first (P4): pass NULL target — the server resolves the conversation
             // counterpart. Passing CurrentUserId made every call SELF_CALL-denied (S7).
-            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId, PeerId);
+            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId, PeerId, callType);
         }
         catch (Exception ex)
         {
@@ -239,6 +255,13 @@ public partial class VoiceCallPanel : IAsyncDisposable
         _muted = !_muted;
     }
 
+    // VIDEO MVP: bật/tắt camera — SDK mutate track + re-offer qua SendOffer sẵn có.
+    private async Task ToggleCameraAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.toggleCamera"); }
+        catch (Exception ex) { _error = "Không đổi được camera: " + ex.Message; }
+    }
+
     // ---- JSInvokable callbacks from the voice-chat.js bridge ----
 
     [JSInvokable]
@@ -246,6 +269,17 @@ public partial class VoiceCallPanel : IAsyncDisposable
     {
         _state = state;
         _errorIsMeteringDenied = false;
+
+        // VIDEO MVP: callType rides every info payload (SDK merge). Về idle → reset
+        // video flags (teardown cũng emit video-off nhưng delegated replay cần sạch).
+        var parsedCallType = VoiceCallCoordinator.ParseCallType(infoJson);
+        if (parsedCallType is not null) _callType = parsedCallType;
+        if (_idleLike)
+        {
+            _callType = "audio";
+            _cameraOn = false;
+            _remoteVideoOn = false;
+        }
 
         // SRS §14.6 UX contract (C4, 2026-11-11): deny/kill-switch → message rõ ràng.
         var reason = ParseReason(infoJson);
@@ -319,6 +353,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         if (c is null) return;
         OnVoiceConnectionState(c.HubState);
         OnVoiceStateChange(c.CallState, c.CallInfoJson);
+        SyncVideoFromCoordinator(c);
     }
 
     private void OnCoordinatorChanged()
@@ -329,7 +364,16 @@ public partial class VoiceCallPanel : IAsyncDisposable
         {
             OnVoiceConnectionState(c.HubState);
             OnVoiceStateChange(c.CallState, c.CallInfoJson);
+            SyncVideoFromCoordinator(c);
         });
+    }
+
+    private void SyncVideoFromCoordinator(VoiceCallCoordinator c)
+    {
+        if (_cameraOn == c.VideoLocalOn && _remoteVideoOn == c.VideoRemoteOn) return;
+        _cameraOn = c.VideoLocalOn;
+        _remoteVideoOn = c.VideoRemoteOn;
+        _pendingVideoAttach = true;
     }
 
     /// <summary>S3: hub transport state from voice-sdk.js via voice-chat.js.</summary>
@@ -407,6 +451,31 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     [JSInvokable]
     public void OnVoiceRemoteStream() => StateHasChanged();
+
+    /// <summary>
+    /// VIDEO MVP: SDK onVideoChange(localOn, remoteOn) — chỉ fire trên JS owner.
+    /// Owner publish lên coordinator để delegated/global UI render cùng trạng thái;
+    /// host divs mount sau state change → flag attach trong OnAfterRenderAsync.
+    /// </summary>
+    [JSInvokable]
+    public void OnVoiceVideoChange(bool localOn, bool remoteOn)
+    {
+        _cameraOn = localOn;
+        _remoteVideoOn = remoteOn;
+        _pendingVideoAttach = true;
+        if (!_delegated) Coordinator?.PublishVideoState(localOn, remoteOn);
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Video host divs render SAU state change — re-attach SDK-owned <video>
+        // elements vào host mới (idempotent; bridge optional-chained cho SDK cũ).
+        if (!_pendingVideoAttach) return;
+        _pendingVideoAttach = false;
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.attachVideoElements"); }
+        catch { /* bridge cũ / JS chưa sẵn sàng */ }
+    }
 
     [JSInvokable]
     public void OnVoiceError(string message)

@@ -118,6 +118,15 @@ public class VoiceHub(
         await callService.NotifyConnectedAsync(identity, callId);
     }
 
+    // Video MVP (2026-11-22): SignalR does NOT bind optional hub parameters — a 1-arg
+    // invoke against a (Guid, string?) signature fails at argument binding, so the
+    // real selected-pair type arrives on a separate method. Old clients keep working.
+    public async Task NotifyConnectedWithType(Guid callId, string? connectionType)
+    {
+        var identity = RequireIdentity();
+        await callService.NotifyConnectedAsync(identity, callId, connectionType);
+    }
+
     public async Task NotifyReconnecting(Guid callId)
     {
         var identity = RequireIdentity();

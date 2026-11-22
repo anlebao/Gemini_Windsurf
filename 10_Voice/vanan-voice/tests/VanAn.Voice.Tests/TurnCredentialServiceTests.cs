@@ -80,6 +80,33 @@ public class TurnCredentialServiceTests
     }
 
     [Fact]
+    public void Issues_stun_url_default_same_host_udp_port()
+    {
+        var service = Create();
+
+        var result = service.Issue(Guid.NewGuid(), DateTime.UtcNow);
+
+        result.Should().NotBeNull();
+        result!.StunUrls.Should().ContainSingle();
+        result.StunUrls.Should().Contain("stun:turn.example.com:3478");
+        // STUN must NOT leak into the TURN urls array — credentials only apply to TURN.
+        result.Urls.Should().NotContain(u => u.StartsWith("stun:"));
+    }
+
+    [Fact]
+    public void Stun_urls_configurable_via_csv()
+    {
+        var service = Create(new Dictionary<string, string?>
+        {
+            ["TURN:StunUrls"] = "stun:stun1.example.com:3478, stun:stun2.example.com:19302"
+        });
+
+        var result = service.Issue(Guid.NewGuid(), DateTime.UtcNow);
+
+        result!.StunUrls.Should().BeEquivalentTo("stun:stun1.example.com:3478", "stun:stun2.example.com:19302");
+    }
+
+    [Fact]
     public void No_tls_url_when_tls_port_disabled()
     {
         var service = Create(new Dictionary<string, string?> { ["TURN:TlsPort"] = "0" });

@@ -1,5 +1,22 @@
 namespace VanAn.Voice.Domain;
 
+/// <summary>Media mode of a call — server-side whitelist (client cannot invent types).</summary>
+public static class CallTypes
+{
+    public const string Audio = "audio";
+    public const string Video = "video";
+
+    /// <summary>null/empty → Audio (old clients); unknown → null (caller rejects).</summary>
+    public static string? Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return Audio;
+        var v = value.Trim();
+        return v.Equals(Audio, StringComparison.OrdinalIgnoreCase) ? Audio
+            : v.Equals(Video, StringComparison.OrdinalIgnoreCase) ? Video
+            : null;
+    }
+}
+
 /// <summary>
 /// A call record (SRS v1.1 §7 <c>voice_calls</c>). Single identity: <see cref="Id"/> is the PK
 /// and equals the client-supplied <c>callId</c> (UUIDv7) — idempotency key of StartCall.
@@ -21,6 +38,9 @@ public sealed class VoiceCall
     public DateTime? AcceptedAt { get; private set; }
     public DateTime? EndedAt { get; private set; }
     public int DurationSeconds { get; private set; }
+    /// <summary>"audio" | "video" — set at StartCall, immutable thereafter.</summary>
+    public string CallType { get; private set; } = CallTypes.Audio;
+
     public string? ConnectionType { get; private set; } // "P2P" | "TURN" | null
     public string? EndReason { get; private set; }
     public string? CallerConnectionId { get; private set; }
@@ -31,7 +51,8 @@ public sealed class VoiceCall
 
     public static VoiceCall Create(
         Guid callId, Guid tenantId, Guid callerUserId, Guid receiverUserId,
-        string sourceApplication, string? contextType, string? contextReferenceId, DateTime now)
+        string sourceApplication, string? contextType, string? contextReferenceId, DateTime now,
+        string callType = CallTypes.Audio)
     {
         if (callId == Guid.Empty) throw new ArgumentException("callId cannot be empty.", nameof(callId));
         if (tenantId == Guid.Empty) throw new ArgumentException("tenantId cannot be empty.", nameof(tenantId));
@@ -48,6 +69,7 @@ public sealed class VoiceCall
             SourceApplication = sourceApplication,
             ContextType = contextType,
             ContextReferenceId = contextReferenceId,
+            CallType = callType,
             Status = CallStatus.Created,
             StartedAt = now,
             CreatedAt = now

@@ -16,6 +16,7 @@ public sealed record VoiceMetricsSummary(
     int MeteringDenied,
     int FeatureDisabled,
     int TurnRelayed,
+    int VideoCalls,
     double AvgDurationSeconds,
     double TurnPercentage);
 
@@ -41,6 +42,7 @@ public sealed class VoiceMetricsService(VoiceDbContext db)
         var meteringDenied = await calls.CountAsync(c => c.EndReason == CallEndReason.MeteringDenied, ct);
         var featureDisabled = await calls.CountAsync(c => c.EndReason == CallEndReason.FeatureDisabled, ct);
         var turnRelayed = await calls.CountAsync(c => c.ConnectionType == "TURN", ct);
+        var videoCalls = await calls.CountAsync(c => c.CallType == CallTypes.Video, ct);
 
         var durations = await calls
             .Where(c => c.Status == CallStatus.Ended && c.DurationSeconds > 0)
@@ -54,7 +56,7 @@ public sealed class VoiceMetricsService(VoiceDbContext db)
 
         return new VoiceMetricsSummary(
             total, todayCalls, connected, rejected, missed, failed, busy, offline,
-            meteringDenied, featureDisabled, turnRelayed, avgDuration,
+            meteringDenied, featureDisabled, turnRelayed, videoCalls, avgDuration,
             terminalWithType > 0 ? turnRelayed * 100.0 / terminalWithType : 0);
     }
 }
