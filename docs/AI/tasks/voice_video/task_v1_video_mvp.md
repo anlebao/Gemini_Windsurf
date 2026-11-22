@@ -111,3 +111,14 @@ STUN missing (P2P ~0% → mục tiêu 60–80%), `ConnectionType` thật (metric
 
 - R5: video qua TURN bị cap 1Mbps → choppy; chấp nhận MVP, the STUN fix giảm tần suất.
 - R7: `turns:` URL có thể trỏ port chưa listen → browser thử udp/tcp trước nên không block; verify khi deploy.
+
+### Post-MVP UX batch (user requests 2026-11-22) — `4bb5606f` + `872e62a8`, RV 25/25 PASS sau mỗi deploy
+
+- `switchCamera()` — facingMode `user`↔`environment` (ideal, no-op an toàn desktop 1 cam) + `replaceTrack`; nút `bi-camera-reverse` hiện khi camera bật, cả `VoiceCallPanel` + `VoicePresencePanel` callbar. **Manual check trên phone 2 cam: user test OK, thêm fix aspect bên dưới.**
+- Self-view toggle + mặc định ẨN — `VideoSelfHidden=true` default qua coordinator (pure UI pref, camera vẫn gửi); nút eye overlay góc video area cả 2 surface.
+- Portrait crop fix — PiP host không còn `aspect-ratio:4/3` cứng; SDK đọc `track.getSettings()` → set aspect thật (fix "góc nhìn bị lệch" trên camera trước phone).
+- Connected callbar overflow — `.voice-presence-callbar` `max-width:calc(100vw - 16px)` + label `min-width:0` ellipsis + controls wrap (root cause "khung phình to tràn viền" sau khi connected thêm 4 nút).
+- Mobile widget overflow — ≤480px `left/right:8px`, `overflow-wrap:anywhere` bubble, `overflow-x:hidden` messages.
+- Widget lock layer — `.vanan-ai-backdrop` fixed (z dưới panel, trên storefront) + `touch-action:none`/`overscroll-behavior:contain` + `vananRealtime.lockBodyScroll` ref-counted + backdrop-click đóng widget + release ở `DisposeAsync`.
+- Icon sizes — header/call/in-call buttons Medium (bỏ Small), tab/callbar/presence icon 38–40px.
+- **Final verify `872e62a8`: CD ALL SUCCESS · assets live 2 phía · RV `voice-video-rv.mjs` 25/25 PASS (videoCalls 15→16).**
