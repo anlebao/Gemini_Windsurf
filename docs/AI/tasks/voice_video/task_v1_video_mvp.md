@@ -90,9 +90,18 @@ STUN missing (P2P ~0% → mục tiêu 60–80%), `ConnectionType` thật (metric
 - [ ] AC7: Guest vẫn bị chặn gọi (cả audio lẫn video) — chưa RV (cần guest browser profile).
 - [x] AC8: `dotnet test` voice + `dotnet build` + `guard-check.ps1` pass.
 
-### RV findings (2026-11-22, `voice-video-rv.mjs` → 24/25 → fix → re-run)
+### RV findings (2026-11-22, `voice-video-rv.mjs` → 24/25 → 24/25 → **25/25 PASS**)
 
-- **V10 FAIL → FIXED (replaceTrack):** camera toggle OFF dùng `removeTrack` → remote receiver track `ended`; toggle ON lại (`addTrack` + re-offer) **Chrome không re-fire `ontrack`** → remote video không quay lại. **Fix đúng chuẩn:** `videoSender.replaceTrack(null)` tắt (remote track muted, KHÔNG ended — không cần renegotiation) / `replaceTrack(track)` bật; giữ `videoSender` ref qua toggles; remote `emitVideoState` check `live && !muted` + hook `t.onmute/onunmute`. RV checks V7/V9/V10 cập nhật muted-aware.
+- **V10 FAIL → FIXED (replaceTrack):** camera toggle OFF dùng `removeTrack` → remote receiver track `ended`; toggle ON lại (`addTrack` + re-offer) **Chrome không re-fire `ontrack`** → remote video không quay lại. **Fix đúng chuẩn:** `videoSender.replaceTrack(null)` tắt (remote track muted, KHÔNG ended — không cần renegotiation) / `replaceTrack(track)` bật; giữ `videoSender` ref qua toggles.
+- **V9 FAIL → FIXED (CallEvent relay):** sau `replaceTrack(null)`, remote track chỉ `muted` sau **RTP inactivity timeout** (hàng chục giây) — quá chậm cho camera-off UX. **Fix:** generic `CallEvent` relay (`VoiceHub.SendCallEvent` → `CallService.SendCallEventAsync` → peer `CallEvent`) — opaque name/value relay cùng philosophy SDP/ICE; `toggleCamera` gửi `{name:"camera", value}`; `remoteCameraOn` là UX-authoritative, track `live && !muted` chỉ confirm media đang chạy. Server mở rộng additive, backward compatible.
+- **Final RV (commit `a0514941`, CD deploy xong): 25/25 PASS** — video call E2E, camera toggle 2 chiều, metrics `videoCalls` +1, audio regression V14-V16 clean.
+
+### Deferred risks (monitor, không block MVP)
+
+- Coturn `--max-bps=1048576` — TURN-relayed video cap ~1 Mbps; giảm nhờ STUN (P2P ratio ↑).
+- `turns:` TLS 5349 trả trong creds nhưng Coturn prod chưa listen — non-blocking (UDP/TCP fallback).
+- `video.*` rate cards chưa seed — MeterOnly record usage, không deny call.
+- Remote `mute` vẫn là backup signal — UX dựa vào CallEvent, không còn phụ thuộc RTP timeout.
 
 ## DEFERRED (explicit — không làm trong task này)
 
