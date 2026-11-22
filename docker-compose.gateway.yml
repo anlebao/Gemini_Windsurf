@@ -104,6 +104,8 @@ services:
       - TenantAi__CallerId=${TENANTAI_CALLER_ID:-gateway}
       - TenantAi__GatewayCallerKey=${TENANTAI_CALLER_KEY:-}
       - TenantAi__CtxSigningSecret=${TENANTAI_CTX_SIGNING_SECRET:-}
+      # UNIVERSAL AI ASSISTANT W1: public base cho AI Link/QR → {base}/store/{slug}?chat=ai.
+      - AssistantLink__PublicBaseUrl=${ASSISTANTLINK_PUBLIC_BASE_URL:-https://shopai.timlathay.com}
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       # W2 (2026-11-10): Brevo transactional email (OTP merchant signup + MFA fallback) — GH secret BREVO_API_KEY
