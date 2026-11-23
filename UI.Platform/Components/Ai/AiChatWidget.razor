@@ -22,18 +22,18 @@
                storefront; bấm backdrop = đóng widget (mới thao tác tiếp được). *@
             <div class="vanan-ai-backdrop" @onclick="ToggleOpen" aria-hidden="true"></div>
             <VanAnCard Shadow="true" CssClass="vanan-ai-panel p-0 overflow-hidden">
-                <div class="d-flex justify-content-between align-items-center p-3 border-bottom vanan-ai-header">
-                    <div class="d-flex align-items-center gap-2">
-                        @if (_mode == WidgetMode.Human)
-                        {
-                            <i class="bi bi-person-fill"></i>
-                            <h6 class="mb-0">Chủ quán</h6>
-                        }
-                        else
-                        {
-                            <i class="bi bi-robot"></i>
-                            <h6 class="mb-0">@(_aiName)</h6>
-                        }
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom vanan-ai-header">
+                    @* UX v1.0 M2: branded header — avatar + tên + trạng thái trực tuyến. *@
+                    <div class="d-flex align-items-center gap-2 vanan-ai-header-id">
+                        <span class="vanan-ai-header-avatar @(_mode == WidgetMode.Human ? "human" : "")" aria-hidden="true">
+                            <i class="bi @(_mode == WidgetMode.Human ? "bi-person-fill" : "bi-robot")"></i>
+                        </span>
+                        <div class="vanan-ai-header-text">
+                            <h6 class="mb-0">@(_mode == WidgetMode.Human ? "Chủ quán" : _aiName)</h6>
+                            <span class="vanan-ai-header-status">
+                                <span class="vanan-ai-status-dot"></span>@(_mode == WidgetMode.Human ? "Nhân viên quán" : "Trợ lý AI · trực tuyến")
+                            </span>
+                        </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <VanAnButton Variant="ButtonVariant.Outline"
@@ -87,12 +87,16 @@
                     {
                         @* P0 unify (2026-11-21): oldest-first — cùng convention với human
                            chat (RealtimeChatPanel); tin mới nhất ở cuối + auto-scroll bottom. *@
+                        @* UX v1.0 M4: welcome state — icon + greeting + gợi ý câu hỏi. *@
                         @if (!string.IsNullOrWhiteSpace(_config?.Greeting) && _messages.Count == 0)
                         {
-                            <div class="vanan-ai-msg vanan-ai-msg-assistant">
-                                <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
-                                <div class="vanan-ai-msg-body">
-                                    <div class="vanan-ai-bubble">@_config.Greeting</div>
+                            <div class="vanan-ai-welcome">
+                                <span class="vanan-ai-welcome-icon" aria-hidden="true"><i class="bi bi-robot"></i></span>
+                                <div class="vanan-ai-msg vanan-ai-msg-assistant">
+                                    <span class="vanan-ai-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
+                                    <div class="vanan-ai-msg-body">
+                                        <div class="vanan-ai-bubble">@_config.Greeting</div>
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -134,6 +138,11 @@
                                 }
                                 <div class="vanan-ai-msg-body">
                                 <div class="vanan-ai-bubble">@msg.Content</div>
+                                @* UX v1.0 M3: timestamp nhỏ dưới bubble (giờ local). *@
+                                @if (msg.CreatedAtUtc != default)
+                                {
+                                    <span class="vanan-ai-meta">@ChatDateFormatter.ToLocal(msg.CreatedAtUtc).ToString("HH:mm")</span>
+                                }
                                 @if (!isUser && msg.Refused && HumanHandoffAvailable)
                                 {
                                     <button type="button" class="vanan-ai-chip vanan-ai-escalate"

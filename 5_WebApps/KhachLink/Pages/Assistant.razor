@@ -1,5 +1,6 @@
 @page "/a/{Slug}"
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
 @using VanAn.UI.Platform.Components.Ai
 @using VanAn.UI.Platform.Components.Realtime
 @using System.Net.Http.Json
@@ -39,19 +40,27 @@
     }
     else if (_tenantId.HasValue)
     {
-        @* W2a embed mode (?embed=1): ẩn header để trang chỉ còn widget chat —
-           nhúng iframe vào website ngoài của shop. *@
+        @* UX v1.0 (M1/M5): branded sticky header — tên shop + logo + accent color
+           từ store-info (FR-077); workspace layout: cột giữa tối đa 520px. *@
         @if (!_embed)
         {
-            <div class="assistant-header">
-                <i class="bi bi-robot"></i>
+            <header class="assistant-header" style="@HeaderStyle">
+                @if (!string.IsNullOrWhiteSpace(_shop?.LogoUrl))
+                {
+                    <img class="assistant-logo" src="@_shop!.LogoUrl" alt="" />
+                }
+                else
+                {
+                    <i class="bi bi-robot"></i>
+                }
                 <div>
-                    <h1>Trợ lý AI</h1>
-                    <p>Hỏi đáp nhanh về sản phẩm, giá cả và cửa hàng</p>
+                    <h1>@(_shop?.Name ?? "Trợ lý AI")</h1>
+                    <p>Trợ lý AI — hỏi đáp nhanh về sản phẩm, giá cả và cửa hàng</p>
                 </div>
-            </div>
+            </header>
         }
 
+        <main class="assistant-main">
         @* OpenPanel consume-once: field reset về false sau lần đầu → user đóng
            được. SessionStorageKey per-slug: nhiều shop cùng domain KhachLink
            không share session id. *@
@@ -83,6 +92,7 @@
                 }
             </HumanContent>
         </AiChatWidget>
+        </main>
     }
 </div>
 
@@ -108,16 +118,38 @@
         display: flex;
         align-items: center;
         gap: .75rem;
-        padding: 1rem 1.25rem;
+        padding: .9rem 1.25rem;
         background: var(--vanan-color-surface, #fff);
         border-bottom: 1px solid var(--vanan-color-border, #e9ecef);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .05);
     }
-    .assistant-header i { font-size: 1.75rem; color: var(--vanan-color-primary, #0d6efd); }
+    .assistant-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+    .assistant-header i { font-size: 1.75rem; color: var(--assistant-accent, var(--vanan-color-primary, #0d6efd)); }
+    .assistant-main {
+        flex: 1;
+        width: 100%;
+        max-width: 520px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .assistant-page.embed .assistant-main {
+        max-width: none;
+    }
     .assistant-page.embed {
         min-height: 0;
         height: 100%;
     }
-    .assistant-header h1 { font-size: 1.15rem; margin: 0; }
+    .assistant-header h1 { font-size: 1.15rem; margin: 0; color: var(--assistant-accent, inherit); }
     .assistant-header p { margin: 0; font-size: .8rem; color: var(--vanan-color-text-muted, #6c757d); }
 </style>
 
@@ -134,6 +166,13 @@
     private bool _resolveFailed;
     private bool _openPanel = true;
     private Guid? _tenantId;
+    private ShopDto? _shop;
+
+    /// <summary>UX v1.0 M1: accent color từ store-info HeaderColor (null → default).</summary>
+    private string? HeaderStyle =>
+        !string.IsNullOrWhiteSpace(_shop?.HeaderColor) && _shop!.HeaderColor!.StartsWith('#')
+            ? $"--assistant-accent:{_shop.HeaderColor};"
+            : null;
 
     // ── Human handoff (guest device id — pattern Store.razor F8) ──────────
     private string? _customerToken;
@@ -190,6 +229,15 @@
                 // W3d: voice flag (Voice_Note_Enabled) — service trả defaults khi lỗi,
                 // nên mic/TTS degrade graceful, không break trang.
                 _features = await TenantProfileService.GetFeatureSettingsAsync(tid);
+
+                // UX v1.0 M1 (FR-077): branding shop cho header — fail → header generic.
+                try
+                {
+                    var shopResp = await http.GetAsync($"api/tenants/{tid}/store-info");
+                    if (shopResp.IsSuccessStatusCode)
+                        _shop = await shopResp.Content.ReadFromJsonAsync<ShopDto>();
+                }
+                catch { /* branding optional — never block the page */ }
             }
             else
             {

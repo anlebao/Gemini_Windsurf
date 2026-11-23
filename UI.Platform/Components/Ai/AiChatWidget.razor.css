@@ -13,6 +13,9 @@
     --chat-own-bg: var(--bs-primary, #0d6efd);
     --chat-own-fg: #ffffff;
     --chat-meta-fg: #6c757d;
+    /* UX v1.0 (A2): panel tokens — bo góc + shadow hiện đại. */
+    --chat-panel-radius: 18px;
+    --chat-panel-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
 
     position: fixed;
     right: 16px;
@@ -129,6 +132,10 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    /* UX v1.0 M6: bo góc + shadow theo token. */
+    border-radius: var(--chat-panel-radius, 18px) !important;
+    overflow: hidden;
+    box-shadow: var(--chat-panel-shadow, 0 12px 40px rgba(15, 23, 42, 0.18)) !important;
 }
 
 /* Mobile (≤480px): widget span gần hết bề ngang — trước đây 100vw tính cả scrollbar
@@ -158,6 +165,102 @@
 
 .vanan-ai-header i {
     font-size: 1.1rem;
+}
+
+/* ── UX v1.0 M2: branded header (avatar + name + status) ── */
+.vanan-ai-header-id {
+    min-width: 0;
+}
+
+.vanan-ai-header-avatar {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--bs-primary, #0d6efd) 0%, #6366f1 100%);
+    color: #fff;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vanan-ai-header-avatar.human {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.vanan-ai-header-text {
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.vanan-ai-header-text h6 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vanan-ai-header-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--chat-meta-fg, #6c757d);
+}
+
+.vanan-ai-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    flex-shrink: 0;
+}
+
+.vanan-ai-header-avatar.human + .vanan-ai-header-text .vanan-ai-status-dot,
+.vanan-ai-header-avatar.human ~ .vanan-ai-header-text .vanan-ai-status-dot {
+    background: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+/* ── UX v1.0 M3: timestamp dưới bubble ── */
+.vanan-ai-meta {
+    font-size: 0.68rem;
+    color: var(--chat-meta-fg, #6c757d);
+    margin-top: 2px;
+    padding: 0 4px;
+}
+
+/* ── UX v1.0 M4: welcome state ── */
+.vanan-ai-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 12px;
+}
+
+.vanan-ai-welcome-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--bs-primary, #0d6efd) 0%, #6366f1 100%);
+    color: #fff;
+    font-size: 1.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.vanan-ai-welcome .vanan-ai-msg {
+    width: 100%;
+}
+
+.vanan-ai-welcome .vanan-ai-bubble {
+    text-align: center;
 }
 
 .vanan-ai-messages {
@@ -326,10 +429,26 @@
 
 .vanan-ai-input {
     flex: 1;
+    min-width: 0;
+}
+
+/* UX v1.0 M6: input ≥16px tránh iOS auto-zoom khi focus. */
+.vanan-ai-input ::deep input,
+.vanan-ai-input ::deep textarea {
+    font-size: 16px;
 }
 
 .vanan-ai-send {
     flex-shrink: 0;
+}
+
+/* UX v1.0 M6: màn rất hẹp — nút icon nhỏ gọn hơn, giữ input usable. */
+@media (max-width: 380px) {
+    .vanan-ai-tts-toggle,
+    .vanan-ai-mic {
+        padding-left: 0.4rem;
+        padding-right: 0.4rem;
+    }
 }
 
 /* ── W3d: TTS read-aloud (loa trên tin AI + toggle auto-speak) ── */
