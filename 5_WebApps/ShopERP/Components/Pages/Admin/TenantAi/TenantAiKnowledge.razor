@@ -10,6 +10,7 @@
 @using VanAn.ShopERP.Services
 @inject ITenantAiClient AiClient
 @inject IMenuOcrService MenuOcr
+@inject IWebContentExtractor WebExtractor
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
 @inject ILogger<TenantAiKnowledge> Logger
@@ -151,6 +152,19 @@
                             <span class="text-muted small ms-2">⏳ Đang đọc ảnh menu…</span>
                         }
                         <div><small class="text-muted">Ảnh chụp menu/bảng giá rõ nét, tối đa ~6MB. Kết quả đổ vào ô văn bản phía trên để bạn kiểm tra.</small></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="extract-url">Hoặc URL website của quán</label>
+                        <div class="input-group" style="max-width: 560px;">
+                            <input id="extract-url" class="form-control" @bind="_websiteUrl"
+                                   placeholder="https://shopcuatoi.com" data-testid="input-extract-url" />
+                            <VanAButton Variant="outline" OnClick="FetchWebsiteAsync" Loading="@_webFetching"
+                                        Disabled="@(_webFetching || string.IsNullOrWhiteSpace(_websiteUrl))"
+                                        data-testid="btn-fetch-website">
+                                <i class="bi bi-globe me-1"></i> Lấy nội dung
+                            </VanAButton>
+                        </div>
+                        <div><small class="text-muted">Tải text từ website (tối đa ~20.000 ký tự) đổ vào ô văn bản để kiểm tra. Site render bằng JavaScript có thể không đọc được — khi đó copy text thủ công.</small></div>
                     </div>
                     <div class="col-md-8">
                         <label class="form-label" for="extract-hint">Gợi ý thêm (tuỳ chọn)</label>
@@ -383,6 +397,8 @@
     private string _extractDocType = "menu-note";
     private string _extractDocContent = string.Empty;
     private bool _menuOcrBusy;
+    private string _websiteUrl = string.Empty;
+    private bool _webFetching;
 
     private static string KindLabel(string kind) => kind switch
     {
@@ -521,6 +537,32 @@
         finally
         {
             _menuOcrBusy = false;
+        }
+    }
+
+    /// <summary>W3c — URL website → fetch text (SSRF-guarded) → đổ vào
+    /// _extractInput để owner kiểm tra rồi chạy Trích xuất như thường.</summary>
+    private async Task FetchWebsiteAsync()
+    {
+        _webFetching = true;
+        try
+        {
+            var result = await WebExtractor.ExtractAsync(_websiteUrl.Trim());
+            if (result is null || string.IsNullOrWhiteSpace(result.Text))
+            {
+                SetAlert(result?.Warning ?? "Không tải được nội dung — kiểm tra URL hoặc copy text thủ công.", "warning");
+                return;
+            }
+            _extractInput = string.IsNullOrWhiteSpace(_extractInput)
+                ? result.Text
+                : _extractInput.TrimEnd() + "\n\n" + result.Text;
+            SetAlert($"Đã lấy {result.Text.Length:N0} ký tự từ website — kiểm tra rồi bấm Trích xuất."
+                + (result.Warning is not null ? $" ⚠️ {result.Warning}" : string.Empty),
+                result.Warning is not null ? "warning" : "success");
+        }
+        finally
+        {
+            _webFetching = false;
         }
     }
 
