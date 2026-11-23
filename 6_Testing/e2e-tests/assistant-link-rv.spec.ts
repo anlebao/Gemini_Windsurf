@@ -13,8 +13,10 @@ test.describe('W1 AI Link RV', () => {
 
     await page.goto(LINK_URL, { waitUntil: 'domcontentloaded' });
 
-    // Header trang link
-    await expect(page.locator('.assistant-header h1')).toHaveText('Trợ lý AI', { timeout: 30000 });
+    // UX v1.0 M1: branded header — h1 ban đầu "Trợ lý AI", sau khi store-info
+    // resolve phải đổi thành tên shop ("An Tâm"). LogoUrl=null → fallback icon.
+    await expect(page.locator('.assistant-header h1')).toHaveText('An Tâm', { timeout: 30000 });
+    await expect(page.locator('.assistant-header .assistant-logo')).toHaveCount(0);
 
     // Widget panel mở sẵn (OpenPanel consume-once) — chờ greeting hoặc suggestions
     const widget = page.locator('.vanan-ai-widget');
@@ -25,6 +27,11 @@ test.describe('W1 AI Link RV', () => {
     const hasGreeting = await greeting.isVisible().catch(() => false);
     const hasSuggestions = await page.locator('.vanan-ai-chip').first().isVisible().catch(() => false);
     expect(hasGreeting || hasSuggestions).toBeTruthy();
+
+    // UX v1.0: branded widget header (avatar + status dot + "trực tuyến")
+    await expect(page.locator('.vanan-ai-header-avatar')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.vanan-ai-status-dot')).toBeVisible();
+    await expect(page.locator('.vanan-ai-header-status')).toContainText('trực tuyến');
 
     // Không có JS fatal
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
@@ -55,6 +62,10 @@ test.describe('W1 AI Link RV', () => {
       .toBeGreaterThan(10);
     const answerText = await bubbles.last().innerText();
     console.log('AI answer:', answerText.slice(0, 120));
+
+    // UX v1.0 M3: timestamp meta dưới bubble
+    await expect(bubbles.last().locator('xpath=../..').locator('.vanan-ai-meta').first())
+      .toBeVisible({ timeout: 10000 });
   });
 
   test('human handoff tab visible (guest device id)', async ({ page }) => {

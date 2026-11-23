@@ -4,6 +4,8 @@
 @using VanAn.UI.Platform.Components.Ai
 @using VanAn.UI.Platform.Components.Realtime
 @using System.Net.Http.Json
+@using System.Text.Json
+@using System.Text.Json.Serialization
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
@@ -235,7 +237,9 @@
                 {
                     var shopResp = await http.GetAsync($"api/tenants/{tid}/store-info");
                     if (shopResp.IsSuccessStatusCode)
-                        _shop = await shopResp.Content.ReadFromJsonAsync<ShopDto>();
+                        // ShopDto.Theme là enum serialize string → cần JsonStringEnumConverter
+                        // (giống GatewayJsonOptions trong TenantProfileHttpService).
+                        _shop = await shopResp.Content.ReadFromJsonAsync<ShopDto>(StoreInfoJsonOptions);
                 }
                 catch { /* branding optional — never block the page */ }
             }
@@ -265,6 +269,11 @@
         => _tenantId.HasValue
             ? Task.Run(() => Nav.NavigateTo($"/store/by-id/{_tenantId.Value}"))
             : Task.CompletedTask;
+
+    private static readonly JsonSerializerOptions StoreInfoJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     private sealed class ResolveDto
     {
