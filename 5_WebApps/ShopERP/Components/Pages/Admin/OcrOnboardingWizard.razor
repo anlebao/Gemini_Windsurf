@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IHttpClientFactory HttpFactory
+@inject VanAn.ShopERP.Services.IOcrMenuKnowledgeService OcrMenuKnowledge
 @inject IConfiguration Configuration
 @inject ILogger<OcrOnboardingWizard> Logger
 
@@ -943,6 +944,13 @@
                 {
                     _importResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
                     _importStatus = string.Empty;
+                    // W3b mode A: flag OcrMenuKnowledgeAuto ON → menu OCR → TenantAI
+                    // knowledge pending-review (mode B mặc định = owner tự upload).
+                    var menuNote = await OcrMenuKnowledge.IngestMenuIfEnabledAsync(
+                        _result.TenantId,
+                        _productRows.Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                            .Select(r => new VanAn.ShopERP.Services.MenuOcrLine(r.Name.Trim(), r.Price)).ToList());
+                    if (menuNote is not null) _importStatus = menuNote;
                 }
                 else
                 {

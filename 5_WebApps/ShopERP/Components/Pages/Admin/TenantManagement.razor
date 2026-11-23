@@ -21,6 +21,7 @@
 @inject TenantApiClient TenantApi
 @inject TenantClaimApiClient ClaimApi
 @inject OcrOnboardingApiClient OcrOnboardingApi
+@inject VanAn.ShopERP.Services.IOcrMenuKnowledgeService OcrMenuKnowledge
 @inject IHttpClientFactory HttpFactory
 @inject MembershipAdminApiClient MembershipAdminApi
 @inject IThemeProvider ThemeProvider
@@ -2186,6 +2187,13 @@
             else if (response.IsSuccessStatusCode)
             {
                 _signupImportResult = await response.Content.ReadFromJsonAsync<ProductImportResult>();
+                // W3b mode A: flag OcrMenuKnowledgeAuto ON → menu OCR → TenantAI
+                // knowledge pending-review (mode B mặc định = owner tự upload).
+                var menuNote = await OcrMenuKnowledge.IngestMenuIfEnabledAsync(
+                    _signupVerifyResult.TenantId,
+                    lines.Where(l => !string.IsNullOrWhiteSpace(l.Name))
+                        .Select(l => new VanAn.ShopERP.Services.MenuOcrLine(l.Name.Trim(), l.Price)).ToList());
+                if (menuNote is not null) _signupImportStatus = menuNote;
             }
             else
             {

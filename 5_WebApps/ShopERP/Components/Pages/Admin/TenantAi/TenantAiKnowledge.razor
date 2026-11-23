@@ -3,11 +3,13 @@
 @layout AdminLayout
 @attribute [Authorize(Policy = "StaffOrAbove")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using VanAn.UI.Platform.Components
 @using VanAn.Shared.Domain.Common
 @using VanAn.Shared.Services
 @using VanAn.ShopERP.Services
 @inject ITenantAiClient AiClient
+@inject IMenuOcrService MenuOcr
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
 @inject ILogger<TenantAiKnowledge> Logger
@@ -138,6 +140,17 @@
                                   placeholder="Dán menu, bảng giá, FAQ, chính sách… copy từ Zalo/web/menu giấy chụp lại."
                                   data-testid="input-extract-source" maxlength="20000"></textarea>
                         <small class="text-muted">Tối đa 20.000 ký tự. AI chỉ trích xuất — bạn duyệt trước khi dùng.</small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Hoặc tải ảnh menu (tuỳ chọn)</label>
+                        <InputFile OnChange="OnMenuImageSelected" accept="image/*"
+                                  class="form-control" style="max-width: 420px;"
+                                  data-testid="input-menu-image" />
+                        @if (_menuOcrBusy)
+                        {
+                            <span class="text-muted small ms-2">⏳ Đang đọc ảnh menu…</span>
+                        }
+                        <div><small class="text-muted">Ảnh chụp menu/bảng giá rõ nét, tối đa ~6MB. Kết quả đổ vào ô văn bản phía trên để bạn kiểm tra.</small></div>
                     </div>
                     <div class="col-md-8">
                         <label class="form-label" for="extract-hint">Gợi ý thêm (tuỳ chọn)</label>
@@ -369,6 +382,7 @@
     private TenantAiExtractResponse? _extractResult;
     private string _extractDocType = "menu-note";
     private string _extractDocContent = string.Empty;
+    private bool _menuOcrBusy;
 
     private static string KindLabel(string kind) => kind switch
     {
@@ -469,6 +483,46 @@
     }
 
     // ---------- W3a Auto-Builder ----------
+
+    /// <summary>W3b — ảnh menu → OCR (Gateway ocr-assist kind=menu) → text lines
+    /// đổ vào _extractInput để owner kiểm tra rồi chạy Trích xuất như thường.</summary>
+    private async Task OnMenuImageSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || file.Size == 0) return;
+        if (file.Size > 6 * 1024 * 1024)
+        {
+            SetAlert("Ảnh quá lớn — tối đa ~6MB.", "warning");
+            return;
+        }
+
+        _menuOcrBusy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(8 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var result = await MenuOcr.ExtractMenuAsync(
+                Convert.ToBase64String(ms.ToArray()), file.ContentType);
+
+            if (result is null || result.Items.Count == 0)
+            {
+                SetAlert("Không đọc được món nào từ ảnh — thử ảnh rõ hơn hoặc nhập tay.", "warning");
+                return;
+            }
+
+            var lines = string.Join('\n', result.Items.Select(i =>
+                i.Price.HasValue ? $"{i.Name} — {i.Price.Value:N0}đ" : i.Name));
+            _extractInput = string.IsNullOrWhiteSpace(_extractInput)
+                ? lines
+                : _extractInput.TrimEnd() + "\n" + lines;
+            SetAlert($"Đã đọc {result.Items.Count} món từ ảnh — kiểm tra rồi bấm Trích xuất.", "success");
+        }
+        finally
+        {
+            _menuOcrBusy = false;
+        }
+    }
 
     private async Task ExtractAsync()
     {

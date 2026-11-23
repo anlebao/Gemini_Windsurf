@@ -901,6 +901,8 @@ namespace VanAn.ShopERP
                 if (!string.IsNullOrEmpty(callerKey)) c.DefaultRequestHeaders.TryAddWithoutValidation("X-Ai-Key", callerKey);
             });
             _ = builder.Services.AddScoped<Services.ITenantAiKnowledgeSync, Services.TenantAiKnowledgeSyncService>();
+            _ = builder.Services.AddScoped<Services.IMenuOcrService, Services.MenuOcrService>();
+            _ = builder.Services.AddScoped<Services.IOcrMenuKnowledgeService, Services.OcrMenuKnowledgeService>();
             _ = builder.Services.AddHostedService<Services.TenantAiKnowledgeReconcileService>();
             _ = builder.Services.AddScoped<Services.FeatureUsageRecorder>();
             // Nav menu SSOT (2026-09-19): single menu definition per role used by all layouts

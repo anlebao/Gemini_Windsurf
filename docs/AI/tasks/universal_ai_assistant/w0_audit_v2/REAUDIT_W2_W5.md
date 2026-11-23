@@ -61,6 +61,15 @@
 
 **Khuyến nghị scope W3:** W3a = text-paste extraction + confirm (đã có 70% nền). W3b-d là increments riêng, không block.
 
+### W3 status update (2026-11-22)
+
+- **W3a DONE** — `KnowledgeExtractor` + `POST /v1/admin/knowledge/extract` + card "Trích xuất tự động" trên `TenantAiKnowledge` (commit `628eb0e3`).
+- **W3b DONE (A+B, sysadmin-configurable, default B)** — OCR infra đã production sẵn (`/api/v1/ocr-assist` kind=menu, Tesseract client-side, wizard ShopERP + KhachLink Onboard); chỉ wire vào TenantAI:
+  - Mode B (default): `MenuOcrService` + upload ảnh menu trong card Trích xuất → OCR → text → extract → pending-review.
+  - Mode A: `OcrMenuKnowledgeService` — sau import sản phẩm menu OCR thành công trong `OcrOnboardingWizard`/`TenantManagement` → `IngestDocumentAsync("menu-note", sourceRef="ocr-menu:{tenantId}")` pending-review. Flag `ShopFeature:{tenantId}:OcrMenuKnowledgeAuto` + toggle ở `/settings/shop-features`.
+  - Tests `OcrMenuKnowledgeServiceTests` 4/4 PASS.
+- **Còn lại:** W3c PDF/Excel/URL crawl — increments riêng.
+
 ## 3. W4 — Business Actions (re-audit)
 
 ### Đã có sẵn — W0 nói thiếu nhưng thực tế có
