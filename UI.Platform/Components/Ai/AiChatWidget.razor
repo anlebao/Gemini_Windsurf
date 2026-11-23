@@ -535,13 +535,17 @@
     {
         if (_historyLoaded || _loadingHistory || _sessionId is null) return;
         _loadingHistory = true;
-        var history = await AiClient.GetSessionMessagesAsync(TenantId, _sessionId);
-        _loadingHistory = false;
-        if (history is not null)
+        try
         {
-            _messages.AddRange(history);
-            foreach (var m in history) _seenMessageIds.Add(m.CreatedAtUtc.ToString("o"));
+            var history = await AiClient.GetSessionMessagesAsync(TenantId, _sessionId);
+            if (history is not null)
+            {
+                _messages.AddRange(history);
+                foreach (var m in history) _seenMessageIds.Add(m.CreatedAtUtc.ToString("o"));
+            }
         }
+        catch { /* history best-effort — never break the chat circuit */ }
+        finally { _loadingHistory = false; }
         _historyLoaded = true;
     }
 
