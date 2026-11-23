@@ -41,16 +41,26 @@ public sealed class GeminiChatClient : ILlmChatClient
         {
             try
             {
+                // schemaHint is a JSON-schema string — send it as responseSchema so the
+                // model is constrained server-side, not just asked nicely for JSON.
+                JsonElement? schema = null;
+                if (schemaHint != null)
+                {
+                    try { schema = JsonSerializer.Deserialize<JsonElement>(schemaHint); }
+                    catch (JsonException) { /* fall back to mime-type only */ }
+                }
+                var generationConfig = new Dictionary<string, object?>
+                {
+                    ["temperature"] = 0.2,
+                    ["responseMimeType"] = schema != null || schemaHint != null ? "application/json" : "text/plain"
+                };
+                if (schema != null) generationConfig["responseSchema"] = schema.Value;
                 using var req = new HttpRequestMessage(HttpMethod.Post, $"models/{_model}:generateContent");
                 req.Headers.TryAddWithoutValidation("x-goog-api-key", _apiKey);
                 req.Content = JsonContent.Create(new
                 {
                     contents = new[] { new { parts = new[] { new { text = prompt } } } },
-                    generationConfig = new
-                    {
-                        temperature = 0.2,
-                        responseMimeType = schemaHint != null ? "application/json" : "text/plain"
-                    }
+                    generationConfig
                 }, options: Json);
                 using var resp = await _http.SendAsync(req, ct);
                 if (!resp.IsSuccessStatusCode)

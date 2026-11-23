@@ -72,6 +72,51 @@ public class WebContentExtractorServiceTests
     public void IsPrivateOrReserved_Allows(string ip)
         => Assert.False(WebContentExtractorService.IsPrivateOrReserved(System.Net.IPAddress.Parse(ip)));
 
+    // ---------- ExtractLinks (deep crawl) ----------
+
+    [Fact]
+    public void ExtractLinks_KeepsSameOrigin_SkipsExternalAndAssets()
+    {
+        var html = """
+            <a href="/menu">Menu</a>
+            <a href="https://other.com/page">External</a>
+            <a href="/img/logo.png">Img</a>
+            <a href="/contact">Lien he</a>
+            <a href="mailto:shop@x.com">Mail</a>
+            <a href="#section">Anchor</a>
+            <a href="/menu">Menu dup</a>
+            """;
+        var links = WebContentExtractorService.ExtractLinks(html, new Uri("https://shop.com/"));
+        var strs = links.Select(l => l.ToString()).ToList();
+        Assert.Contains("https://shop.com/menu", strs);
+        Assert.Contains("https://shop.com/contact", strs);
+        Assert.DoesNotContain(strs, s => s.Contains("other.com"));
+        Assert.DoesNotContain(strs, s => s.EndsWith(".png"));
+        Assert.DoesNotContain(strs, s => s.StartsWith("mailto"));
+        Assert.Single(strs, s => s.EndsWith("/menu")); // dedupe
+    }
+
+    [Fact]
+    public void ExtractLinks_PrioritizesKeywordPages()
+    {
+        var html = """
+            <a href="/xyz-random-page">Random</a>
+            <a href="/bang-gia">Bang gia</a>
+            <a href="/gioi-thieu">Gioi thieu</a>
+            """;
+        var links = WebContentExtractorService.ExtractLinks(html, new Uri("https://shop.com/"));
+        Assert.Equal("https://shop.com/bang-gia", links[0].ToString());
+        Assert.Equal("https://shop.com/gioi-thieu", links[1].ToString());
+    }
+
+    [Fact]
+    public void ExtractLinks_ResolvesRelativeUrls()
+    {
+        var html = "<a href='dich-vu/nail'> dich vu </a>";
+        var links = WebContentExtractorService.ExtractLinks(html, new Uri("https://shop.com/"));
+        Assert.Equal("https://shop.com/dich-vu/nail", links[0].ToString());
+    }
+
     // ---------- HtmlToText ----------
 
     [Fact]

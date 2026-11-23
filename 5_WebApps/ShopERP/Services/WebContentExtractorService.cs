@@ -23,7 +23,10 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
     private const int MaxBytes = 512 * 1024;
     private const int MaxRedirects = 3;
     private const int MaxTextChars = 20_000; // mirror extract endpoint limit
+    private const int MaxPages = 6;          // start page + tối đa 5 link cùng site
+    private const int MaxExtraPages = MaxPages - 1;
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan PageTimeout = TimeSpan.FromSeconds(8);
 
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<WebContentExtractorService> _logger;
@@ -48,16 +51,44 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
             if (body is null) return null;
 
             var isHtml = contentType?.Contains("html", StringComparison.OrdinalIgnoreCase) == true;
-            var text = isHtml ? HtmlToText(body) : body;
+            var pages = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (isHtml)
+            {
+                pages.Add(HtmlToText(body));
+                // Deep crawl: cùng origin, ưu tiên link keyword, tối đa MaxExtraPages.
+                var links = ExtractLinks(body, finalUrl ?? uri!)
+                    .Where(l => seen.Add(l.ToString()))
+                    .Take(MaxExtraPages).ToList();
+                foreach (var link in links)
+                {
+                    var (sub, subType, _) = await FetchFollowingRedirectsAsync(link, ct, PageTimeout);
+                    if (sub is null) continue;
+                    var subText = subType?.Contains("html", StringComparison.OrdinalIgnoreCase) == true
+                        ? HtmlToText(sub) : sub;
+                    if (!string.IsNullOrWhiteSpace(subText))
+                        pages.Add($"--- {link} ---\n{subText}");
+                }
+            }
+            else
+            {
+                pages.Add(body);
+            }
+
+            var text = string.Join("\n\n", pages.Where(p => !string.IsNullOrWhiteSpace(p)));
             if (string.IsNullOrWhiteSpace(text))
                 return new WebExtractResult(string.Empty, "Không trích được nội dung text từ trang.");
 
             string? warning = null;
+            if (pages.Count > 1)
+                warning = $"Đã gộp nội dung {pages.Count} trang cùng website.";
             if (text.Length < 200)
                 warning = "Trang có rất ít nội dung text — site có thể render bằng JavaScript, hãy copy text thủ công.";
             if (text.Length > MaxTextChars) text = text[..MaxTextChars];
 
-            _logger.LogInformation("WebExtract ok {Url} → {Chars} chars (final {Final})", uri!.Host, text.Length, finalUrl?.Host);
+            _logger.LogInformation("WebExtract ok {Url} → {Chars} chars ({Pages} pages, final {Final})",
+                uri!.Host, text.Length, pages.Count, finalUrl?.Host);
             return new WebExtractResult(text, warning);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -69,8 +100,10 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
 
     // ---------- fetch ----------
 
-    private async Task<(string? Body, string? ContentType, Uri? FinalUrl)> FetchFollowingRedirectsAsync(Uri start, CancellationToken ct)
+    private async Task<(string? Body, string? ContentType, Uri? FinalUrl)> FetchFollowingRedirectsAsync(
+        Uri start, CancellationToken ct, TimeSpan? timeout = null)
     {
+        var limit = timeout ?? Timeout;
         var current = start;
         for (var hop = 0; hop <= MaxRedirects; hop++)
         {
@@ -78,9 +111,9 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
                 return (null, null, null);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(Timeout);
+            cts.CancelAfter(limit);
             var client = _httpFactory.CreateClient();
-            client.Timeout = Timeout;
+            client.Timeout = limit;
 
             using var req = new HttpRequestMessage(HttpMethod.Get, checkedUri);
             req.Headers.UserAgent.ParseAdd("VanAnKnowledgeBot/1.0 (+https://vanan.vn)");
@@ -171,6 +204,50 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
                 || (bytes[0] == 0xFE && (bytes[1] & 0xC0) == 0x80), // fe80::/10 link-local
             _ => true,
         };
+    }
+
+    // ---------- link discovery (same-origin deep crawl) ----------
+
+    private static readonly string[] SkipExtensions =
+        [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".zip", ".mp4", ".mp3", ".css", ".js", ".ico", ".woff", ".woff2"];
+
+    // Keyword trong path/anchor → trang nhiều khả năng chứa tri thức shop.
+    private static readonly string[] LinkKeywords =
+        ["menu", "dich-vu", "service", "about", "gioi-thieu", "lien-he", "contact",
+         "bang-gia", "price", "chinh-sach", "policy", "faq", "gio-mo-cua", "khuyen-mai"];
+
+    [GeneratedRegex("<a\\s[^>]*href=[\"']([^\"'#]+)[\"']", RegexOptions.IgnoreCase)]
+    private static partial Regex AnchorRegex();
+
+    /// <summary>Trích link same-origin từ HTML, ưu tiên keyword, loại asset/login.</summary>
+    internal static IReadOnlyList<Uri> ExtractLinks(string html, Uri baseUri)
+    {
+        var scored = new List<(Uri Uri, int Score)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match m in AnchorRegex().Matches(html))
+        {
+            var href = m.Groups[1].Value;
+            if (href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
+                || href.StartsWith("tel:", StringComparison.OrdinalIgnoreCase)
+                || href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!Uri.TryCreate(baseUri, href, out var link)) continue;
+            if (!string.Equals(link.Scheme, baseUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(link.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var path = link.AbsolutePath;
+            if (SkipExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) continue;
+            if (path.Equals("/", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(link.ToString(), baseUri.ToString(), StringComparison.OrdinalIgnoreCase))
+                continue;
+            var key = link.GetLeftPart(UriPartial.Path).ToLowerInvariant();
+            if (!seen.Add(key)) continue;
+
+            var haystack = (path + " " + link.Query).ToLowerInvariant();
+            var score = LinkKeywords.Count(k => haystack.Contains(k, StringComparison.Ordinal));
+            scored.Add((link, score));
+        }
+        return scored.OrderByDescending(s => s.Score).ThenBy(s => s.Uri.ToString()).Select(s => s.Uri).ToList();
     }
 
     // ---------- HTML → text ----------

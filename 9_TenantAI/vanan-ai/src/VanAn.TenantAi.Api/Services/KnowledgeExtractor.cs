@@ -38,7 +38,7 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
             if (result is null)
                 return new KnowledgeExtractResponse("Không trích xuất được — thử lại sau.", []);
 
-            return Parse(result.Text);
+            return Parse(result.Text, logger);
         }
         catch (Exception ex)
         {
@@ -68,7 +68,7 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
             """ + hint + "Văn bản nguồn:\n" + request.Text.Trim();
     }
 
-    private static KnowledgeExtractResponse Parse(string? text)
+    private static KnowledgeExtractResponse Parse(string? text, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(text))
             return new KnowledgeExtractResponse("", []);
@@ -77,7 +77,11 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
         var start = text.IndexOf('{');
         var end = text.LastIndexOf('}');
         if (start < 0 || end <= start)
+        {
+            logger.LogWarning("KnowledgeExtractor: LLM returned non-JSON ({Len} chars): {Preview}",
+                text.Length, text[..Math.Min(text.Length, 300)]);
             return new KnowledgeExtractResponse("Không đọc được kết quả trích xuất.", []);
+        }
 
         try
         {
@@ -106,8 +110,10 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
 
             return new KnowledgeExtractResponse(summary, items);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            logger.LogWarning(ex, "KnowledgeExtractor: JSON parse failed ({Len} chars): {Preview}",
+                text.Length, text[..Math.Min(text.Length, 300)]);
             return new KnowledgeExtractResponse("Không đọc được kết quả trích xuất.", []);
         }
     }
