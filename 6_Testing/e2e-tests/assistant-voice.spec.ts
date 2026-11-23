@@ -117,4 +117,27 @@ test.describe('W3d AI voice wiring RV', () => {
       .toBeGreaterThan(0);
     await expect(widget.locator('button.vanan-ai-tts').last()).toBeVisible({ timeout: 10000 });
   });
+
+  test('TTS sanitize đọc giá tiền thành chữ — 1000đ → "một nghìn đồng"', async ({ page }) => {
+    await page.goto(LINK_URL, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.vanan-ai-widget')).toBeVisible({ timeout: 30000 });
+
+    const out = await page.evaluate(() => {
+      const t = (window as any).vananVoiceTts;
+      return {
+        plain: t.sanitize('Giá 1000đ'),
+        dots: t.sanitize('Combo 850.000đ thôi'),
+        million: t.sanitize('Chỉ 1.200.000 đồng'),
+        k: t.sanitize('Rẻ 50k'),
+        untouched: t.sanitize('Năm nay 2026 có 5 món'),
+      };
+    });
+
+    expect(out.plain).toContain('một nghìn đồng');
+    expect(out.plain).not.toContain('không không');
+    expect(out.dots).toContain('tám trăm năm mươi nghìn đồng');
+    expect(out.million).toContain('một triệu hai trăm nghìn đồng');
+    expect(out.k).toContain('năm mươi nghìn đồng');
+    expect(out.untouched).toContain('2026'); // số thường không bị đổi
+  });
 });

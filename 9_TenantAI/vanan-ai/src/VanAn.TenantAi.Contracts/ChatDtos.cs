@@ -25,7 +25,10 @@ public sealed record ChatResponse(
     bool Refused,
     string? RefuseReason,
     bool StaleData,
-    bool Degraded);
+    bool Degraded,
+    /// <summary>W3e "did you mean" — corrected term/question when retrieval found
+    /// nothing but a near-match exists in the tenant vocabulary. Null otherwise.</summary>
+    string? Suggestion = null);
 
 /// <summary>SRS v1.1 §6.1 — session history (GET /v1/chat/sessions/{sid}/messages).</summary>
 public sealed record SessionMessageDto(

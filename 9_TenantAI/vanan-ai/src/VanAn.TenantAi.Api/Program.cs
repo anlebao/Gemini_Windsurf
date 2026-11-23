@@ -167,7 +167,7 @@ static string SanitizeChannel(string? channel) => channel switch
 };
 
 static VanAn.TenantAi.Contracts.ChatResponse ToResponse(VanAn.TenantAi.Api.Services.ChatResult r)
-    => new(r.Answer, r.Products, r.SourceIds, r.Confidence, r.Refused, r.RefuseReason, r.StaleData, r.Degraded);
+    => new(r.Answer, r.Products, r.SourceIds, r.Confidence, r.Refused, r.RefuseReason, r.StaleData, r.Degraded, r.Suggestion);
 
 app.MapPost("/v1/chat", async (
         HttpContext ctx, VanAn.TenantAi.Api.Services.ChatOrchestrator orch,

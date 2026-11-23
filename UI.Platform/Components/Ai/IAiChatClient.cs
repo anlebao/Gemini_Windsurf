@@ -46,7 +46,10 @@ public sealed record AiChatResult(
     bool Refused,
     string? RefuseReason,
     bool StaleData,
-    bool Degraded);
+    bool Degraded,
+    /// <summary>W3e "did you mean" — corrected term when the question found no
+    /// facts but fuzzy-matched the tenant vocabulary. Widget shows a tap-to-send chip.</summary>
+    string? Suggestion = null);
 
 /// <summary>
 /// Refused = assistant could not/would not answer (policy refuse, rate-limit, or local
@@ -58,4 +61,5 @@ public sealed record AiSessionMessage(
     string Content,
     IReadOnlyList<AiProductCardItem> Products,
     DateTime CreatedAtUtc,
-    bool Refused = false);
+    bool Refused = false,
+    string? Suggestion = null);

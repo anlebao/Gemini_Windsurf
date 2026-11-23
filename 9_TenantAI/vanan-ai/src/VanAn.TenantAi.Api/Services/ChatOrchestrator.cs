@@ -18,7 +18,8 @@ public sealed record ChatResult(
     bool StaleData,
     bool Degraded,
     string? Intent,
-    int DroppedByPermission);
+    int DroppedByPermission,
+    string? Suggestion = null);
 
 /// <summary>
 /// task_ai_p3 / SRS §5 — the 9-step grounded chat pipeline:
@@ -155,8 +156,11 @@ public sealed class ChatOrchestrator(
         if (route is { RequiresFacts: true } && facts.Count == 0)
         {
             answer = ChatTemplates.NoData;
+            // W3e: unclear/typo'd question → offer a corrected term the customer can tap.
+            var suggestion = await SuggestTermAsync(tenantId, text, ct);
             return await FinishAsync(answer, intent, productRefs, sourceIds, confidence,
-                refused, refuseReason, staleData, degraded, dropped, promptTokens, completionTokens);
+                refused, refuseReason, staleData, degraded, dropped, promptTokens, completionTokens,
+                suggestion);
         }
 
         // LLM path — prompt = persona + guardrails + facts + window + question.
@@ -212,7 +216,7 @@ public sealed class ChatOrchestrator(
             string finalAnswer, string? finalIntent,
             List<Guid> refs, List<string> sources, double conf,
             bool refused, string? refuseReason, bool staleData, bool degraded, int dropped,
-            int? promptTokens = null, int? completionTokens = null)
+            int? promptTokens = null, int? completionTokens = null, string? suggestion = null)
         {
             var products = await ToProductDtosAsync(refs, ct);
             await PersistTurnAsync(tenantId, sessionId, messageId, text, finalAnswer,
@@ -223,7 +227,7 @@ public sealed class ChatOrchestrator(
                 "chat tenant={Tenant} intent={Intent} sources={Src} refused={Ref} degraded={Deg} dropped={Drop} ms={Ms}",
                 tenantId, finalIntent ?? "-", flags, refused, degraded, dropped, sw.ElapsedMilliseconds);
             return new ChatResult(finalAnswer, products, sources, conf, refused, refuseReason,
-                staleData, degraded, finalIntent, dropped);
+                staleData, degraded, finalIntent, dropped, suggestion);
         }
     }
 
@@ -294,6 +298,33 @@ public sealed class ChatOrchestrator(
     }
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "…";
+
+    /// <summary>
+    /// W3e — fuzzy "did you mean" against the tenant's public vocabulary:
+    /// product names + approved/public/active knowledge doc titles (bounded 300+300).
+    /// Only called on the no-facts path — never adds latency to answered questions.
+    /// </summary>
+    private async Task<string?> SuggestTermAsync(Guid tenantId, string text, CancellationToken ct)
+    {
+        try
+        {
+            var names = await db.ProductKnowledge.AsNoTracking()
+                .Where(p => p.TenantId == tenantId)
+                .OrderBy(p => p.Name).Select(p => p.Name).Take(300).ToListAsync(ct);
+            var titles = await db.KnowledgeDocuments.AsNoTracking()
+                .Where(d => d.TenantId == tenantId
+                    && d.ApprovalStatus == ApprovalStatus.Approved
+                    && d.Classification == DocumentClassification.Public
+                    && d.Status == DocumentStatus.Active)
+                .OrderBy(d => d.Title).Select(d => d.Title).Take(300).ToListAsync(ct);
+            return QuestionSuggester.Suggest(text, names.Concat(titles));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "suggestion lookup failed tenant={Tenant}", tenantId);
+            return null;
+        }
+    }
 
     // ---------- persistence + helpers ----------
 

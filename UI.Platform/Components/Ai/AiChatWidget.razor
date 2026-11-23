@@ -141,6 +141,16 @@
                                         <i class="bi bi-person"></i> Hỏi chủ quán trực tiếp
                                     </button>
                                 }
+                                @* W3e: "did you mean" — server fuzzy-matched a tenant term;
+                                   tap resends it as the question (original stays in history). *@
+                                @if (!isUser && !string.IsNullOrWhiteSpace(msg.Suggestion))
+                                {
+                                    <button type="button" class="vanan-ai-chip vanan-ai-suggest"
+                                            data-testid="btn-suggest-@msgIndex"
+                                            @onclick="() => SuggestAsync(msg.Suggestion!)">
+                                        <i class="bi bi-search"></i> Ý bạn là: @msg.Suggestion?
+                                    </button>
+                                }
                                 @if (!isUser && msg.Products.Count > 0)
                                 {
                                     <div class="vanan-ai-products">
@@ -554,7 +564,7 @@
         {
             replyText = result.Answer;
             _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products,
-                DateTime.UtcNow, result.Refused));
+                DateTime.UtcNow, result.Refused, result.Suggestion));
         }
         await ScrollToBottomAsync();
         // W3d: auto-speak câu trả lời mới (opt-out qua toggle megaphone).

@@ -132,6 +132,48 @@ public class AiChatWidgetTests : TestContext
     }
 
     [Fact]
+    public void SuggestionChip_ResendsCorrectedTerm()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("Mình chưa rõ ý bạn.", [], [], 0.1, false, null, false, false,
+                Suggestion: "Phở bò")
+        };
+        var cut = Render(client);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("quán có món pho bot không");
+        cut.Find("button.vanan-ai-send").Click();
+
+        var chips = cut.FindAll("[data-testid^='btn-suggest-']");
+        chips.Should().HaveCount(1);
+        chips.First().TextContent.Should().Contain("Phở bò");
+
+        chips.First().Click();
+        cut.WaitForAssertion(() => client.SendCalls.Should().Be(2));
+        client.LastText.Should().Be("Phở bò");
+    }
+
+    [Fact]
+    public void NoSuggestionChip_WhenResultHasNone()
+    {
+        var client = new FakeAiChatClient
+        {
+            ChatResult = new AiChatResult("ok", [], [], 0.9, false, null, false, false)
+        };
+        var cut = Render(client);
+        cut.WaitForAssertion(() => cut.Find("button.vanan-ai-bubble-btn").Click());
+        cut.WaitForAssertion(() => cut.Find(".vanan-ai-panel"));
+
+        cut.Find(".vanan-ai-panel input").Input("xin chào");
+        cut.Find("button.vanan-ai-send").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("ok"));
+        cut.FindAll("[data-testid^='btn-suggest-']").Should().BeEmpty();
+    }
+
+    [Fact]
     public void Send_ForwardsChannelParameter_ForAttribution()
     {
         var client = new FakeAiChatClient
