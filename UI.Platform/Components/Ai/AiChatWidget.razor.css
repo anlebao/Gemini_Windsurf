@@ -126,9 +126,14 @@
     background: rgba(255, 255, 255, 0.32);
 }
 
-.vanan-ai-panel {
-    width: min(360px, calc(100vw - 32px));
-    max-height: min(520px, calc(100vh - 96px));
+/* Panel là root của VanAnCard (child component) → KHÔNG có scope attribute
+   của widget → phải dùng ::deep từ .vanan-ai-widget (element có scope).
+   Trước đây rule .vanan-ai-panel[b-...] là dead code: panel width:auto
+   fit-content (~554px desktop, ~403px mobile → tràn trái che text). */
+.vanan-ai-widget ::deep .vanan-ai-panel {
+    width: min(480px, calc(100vw - 32px));
+    max-height: min(560px, calc(100vh - 96px));
+    max-height: min(560px, calc(100dvh - 96px));
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -136,6 +141,55 @@
     border-radius: var(--chat-panel-radius, 18px) !important;
     overflow: hidden;
     box-shadow: var(--chat-panel-shadow, 0 12px 40px rgba(15, 23, 42, 0.18)) !important;
+}
+
+/* UX v2.0 polish: expanded — floating panel phóng gần full màn hình. */
+.vanan-ai-widget ::deep .vanan-ai-panel.vanan-ai-panel-expanded {
+    width: min(680px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+}
+
+/* UX v2.0: workspace mode (/a/{slug}) — panel fill .assistant-main, không floating. */
+.vanan-ai-widget.workspace {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    align-items: stretch;
+}
+
+.vanan-ai-widget.workspace .vanan-ai-backdrop {
+    display: none;
+}
+
+.vanan-ai-widget.workspace ::deep .vanan-ai-panel {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-height: none;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.vanan-ai-widget.workspace .vanan-ai-messages {
+    max-height: none;
+    min-height: 0;
+}
+
+.vanan-ai-widget.workspace .ai-widget-human {
+    height: auto;
+    flex: 1;
+    max-height: none;
+}
+
+/* Workspace: bubble đóng vẫn là nút tròn góc phải, không stretch full-width. */
+.vanan-ai-widget.workspace .vanan-ai-bubble-btn,
+.vanan-ai-widget.workspace .vanan-ai-callbar {
+    align-self: flex-end;
 }
 
 /* Mobile (≤480px): widget span gần hết bề ngang — trước đây 100vw tính cả scrollbar
@@ -146,16 +200,22 @@
         right: 8px;
     }
 
-    .vanan-ai-panel {
+    .vanan-ai-widget ::deep .vanan-ai-panel,
+    .vanan-ai-widget ::deep .vanan-ai-panel.vanan-ai-panel-expanded {
         width: 100%;
     }
 
     .vanan-ai-callbar {
         max-width: 100%;
     }
+
+    /* Spec §5: message max-width 94% trên mobile. */
+    .vanan-ai-bubble {
+        max-width: 94%;
+    }
 }
 
-.vanan-ai-panel .card-body {
+.vanan-ai-widget ::deep .vanan-ai-panel .card-body {
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -432,10 +492,17 @@
     min-width: 0;
 }
 
+/* UX v2.0 polish: input bar ~76px — padding rộng + input cao 44px
+   (spec §5: input area 76–100px desktop / 68–90px mobile). */
+.vanan-ai-inputbar {
+    padding: 12px 14px;
+}
+
 /* UX v1.0 M6: input ≥16px tránh iOS auto-zoom khi focus. */
 .vanan-ai-input ::deep input,
 .vanan-ai-input ::deep textarea {
     font-size: 16px;
+    min-height: 44px;
 }
 
 .vanan-ai-send {
@@ -504,6 +571,7 @@
 .ai-widget-human {
     height: 420px;
     max-height: calc(100vh - 140px);
+    max-height: calc(100dvh - 140px);
     overflow: hidden;
     display: flex;
     flex-direction: column;

@@ -15,13 +15,13 @@
 
 @if (ShowWidget)
 {
-    <div class="vanan-ai-widget">
+    <div class="vanan-ai-widget @(WorkspaceMode ? "workspace" : null)">
         @if (_open)
         {
             @* Backdrop khóa layer bên dưới khi widget mở — chặn click/scroll vào
                storefront; bấm backdrop = đóng widget (mới thao tác tiếp được). *@
             <div class="vanan-ai-backdrop" @onclick="ToggleOpen" aria-hidden="true"></div>
-            <VanAnCard Shadow="true" CssClass="vanan-ai-panel p-0 overflow-hidden">
+            <VanAnCard Shadow="true" CssClass="@($"vanan-ai-panel p-0 overflow-hidden {(_expanded ? "vanan-ai-panel-expanded" : "")}")">
                 <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom vanan-ai-header">
                     @* UX v1.0 M2: branded header — avatar + tên + trạng thái trực tuyến. *@
                     <div class="d-flex align-items-center gap-2 vanan-ai-header-id">
@@ -36,6 +36,16 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        @* UX v2.0 polish: expand toggle — panel nổi phóng to gần
+                           full màn hình không cần rời trang (ẩn ở workspace mode). *@
+                        @if (!WorkspaceMode)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleExpanded"
+                                         aria-label="@(_expanded ? "Thu nhỏ khung chat" : "Mở rộng khung chat")"
+                                         title="@(_expanded ? "Thu nhỏ" : "Mở rộng")">
+                                <i class="bi @(_expanded ? "bi-arrows-angle-contract" : "bi-arrows-angle-expand")"></i>
+                            </VanAnButton>
+                        }
                         <VanAnButton Variant="ButtonVariant.Outline"
                                      OnClick="ToggleOpen" aria-label="Đóng trợ lý AI">
                             <i class="bi bi-chevron-down"></i>
@@ -212,7 +222,7 @@
                     }
                 </div>
 
-                <div class="p-2 border-top">
+                <div class="vanan-ai-inputbar border-top">
                     @if (_addedNotice is not null)
                     {
                         <div class="small text-success mb-1"><i class="bi bi-check-circle"></i> @_addedNotice</div>
@@ -333,6 +343,11 @@
     /// </summary>
     [Parameter] public string? ExternalCallState { get; set; }
 
+    /// <summary>UX v2.0 polish: workspace mode — panel render inline fill container
+    ///    cha (dùng cho /a/{slug} hosted page) thay vì floating fixed. Host đặt
+    ///    container có chiều cao xác định (flex); embed mode giữ floating.</summary>
+    [Parameter] public bool WorkspaceMode { get; set; }
+
     private enum WidgetMode { Ai, Human }
     private const int MaxDraftChars = 500;
 
@@ -351,6 +366,7 @@
     private bool _configResolved;
     private WidgetMode _mode = WidgetMode.Ai;
     private string? _consumedQuestion;
+    private bool _expanded;
 
     private bool _speechSupported;
     private bool _supportChecked;
@@ -454,6 +470,11 @@
             if (_speechSupported || _ttsSupported) StateHasChanged();
         }
 
+        // Session continuity fix: panel mở qua OpenPanel/deep-link cũng phải
+        // load history — trước đây chỉ ToggleOpen (đóng+mở lại) mới load.
+        if (_open && !_historyLoaded)
+            await EnsureHistoryLoadedAsync();
+
         // SF-W1: host asks to open straight into human mode (nav/card CTA) — consume once.
         if (OpenHumanPanel)
         {
@@ -502,21 +523,30 @@
         {
             await StopVoiceAsync();
             await StopTtsAsync();
+            _expanded = false;
         }
         if (_open) await NotifyHumanOpenedAsync();
-        if (_open && !_historyLoaded && _sessionId is not null)
-        {
-            _loadingHistory = true;
-            var history = await AiClient.GetSessionMessagesAsync(TenantId, _sessionId);
-            _loadingHistory = false;
-            if (history is not null)
-            {
-                _messages.AddRange(history);
-                foreach (var m in history) _seenMessageIds.Add(m.CreatedAtUtc.ToString("o"));
-            }
-            _historyLoaded = true;
-        }
+        await EnsureHistoryLoadedAsync();
     }
+
+    /// <summary>Load session history một lần — gọi từ ToggleOpen (manual) và
+    /// OnAfterRender (OpenPanel/deep-link/workspace auto-open).</summary>
+    private async Task EnsureHistoryLoadedAsync()
+    {
+        if (_historyLoaded || _loadingHistory || _sessionId is null) return;
+        _loadingHistory = true;
+        var history = await AiClient.GetSessionMessagesAsync(TenantId, _sessionId);
+        _loadingHistory = false;
+        if (history is not null)
+        {
+            _messages.AddRange(history);
+            foreach (var m in history) _seenMessageIds.Add(m.CreatedAtUtc.ToString("o"));
+        }
+        _historyLoaded = true;
+    }
+
+    /// <summary>UX v2.0 polish: toggle panel expanded (floating mode only).</summary>
+    private void ToggleExpanded() => _expanded = !_expanded;
 
     /// <summary>localStorage-backed anonymous session (same pattern as customer_device_id).</summary>
     private async Task<string> GetOrCreateSessionIdAsync()

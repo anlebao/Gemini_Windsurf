@@ -77,7 +77,8 @@
                       OnAddToCart="OnAddToCartAsync"
                       OnDraftRequest="OnAiEscalateDraft"
                       @bind-OpenHumanPanel="_openHumanPanel"
-                      ExternalCallState="_humanCallState">
+                      ExternalCallState="_humanCallState"
+                      WorkspaceMode="@(!_embed)">
             <HumanContent>
                 @if (ChatIdentity.HasValue)
                 {
@@ -105,6 +106,12 @@
         flex-direction: column;
         background: var(--vanan-color-bg, #f6f7f9);
     }
+    /* UX v2.0 polish: workspace cần height xác định cho flex chain
+       (widget → panel → messages scroll độc lập); embed giữ min-height. */
+    .assistant-page:not(.embed) {
+        height: 100dvh;
+        overflow: hidden;
+    }
     .assistant-status {
         flex: 1;
         display: flex;
@@ -120,7 +127,10 @@
         display: flex;
         align-items: center;
         gap: .75rem;
-        padding: .9rem 1.25rem;
+        padding: calc(.9rem + env(safe-area-inset-top, 0px))
+                 calc(1.25rem + env(safe-area-inset-right, 0px))
+                 .9rem
+                 calc(1.25rem + env(safe-area-inset-left, 0px));
         background: var(--vanan-color-surface, #fff);
         border-bottom: 1px solid var(--vanan-color-border, #e9ecef);
         position: sticky;
@@ -138,8 +148,10 @@
     .assistant-header i { font-size: 1.75rem; color: var(--assistant-accent, var(--vanan-color-primary, #0d6efd)); }
     .assistant-main {
         flex: 1;
+        min-height: 0;
         width: 100%;
-        max-width: 520px;
+        /* UX v2.0 polish: workspace column rộng hơn (spec §5 chat area linh hoạt). */
+        max-width: min(760px, 100%);
         margin: 0 auto;
         display: flex;
         flex-direction: column;
