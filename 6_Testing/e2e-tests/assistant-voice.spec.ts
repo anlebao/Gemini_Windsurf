@@ -85,8 +85,9 @@ test.describe('W3d AI voice wiring RV', () => {
       .poll(() => ttsCallCount(page), { timeout: 15000 })
       .toBeGreaterThan(0);
 
-    // Speaker button trên AI message
-    const speaker = widget.locator('[data-testid^="btn-tts-"]').last();
+    // Speaker button trên AI message (class .vanan-ai-tts — tránh match nhầm
+    // data-testid="btn-tts-autospeak" vì cùng prefix)
+    const speaker = widget.locator('button.vanan-ai-tts').last();
     await expect(speaker).toBeVisible({ timeout: 10000 });
     const before = await ttsCallCount(page);
     await speaker.click();
@@ -114,6 +115,6 @@ test.describe('W3d AI voice wiring RV', () => {
     await expect
       .poll(() => ttsCallCount(page), { timeout: 15000 })
       .toBeGreaterThan(0);
-    await expect(widget.locator('[data-testid^="btn-tts-"]').last()).toBeVisible({ timeout: 10000 });
+    await expect(widget.locator('button.vanan-ai-tts').last()).toBeVisible({ timeout: 10000 });
   });
 });

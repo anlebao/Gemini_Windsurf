@@ -117,6 +117,7 @@
                         @for (var i = 0; i < _messages.Count; i++)
                         {
                             var msg = _messages[i];
+                            var msgIndex = i; // capture per-iteration — for-loop var is shared across lambdas
                             var isUser = msg.Role == "user";
                             var turnDraft = drafts[i];
                             // P2 R11: date separator khi message mở đầu ngày mới.
@@ -168,9 +169,9 @@
                                 @if (!isUser && VoiceEnabled && _ttsSupported)
                                 {
                                     <button type="button" class="vanan-ai-tts"
-                                            @onclick="() => SpeakMessageAsync(i)"
-                                            aria-label="@(_speakingIndex == i ? "Dừng đọc" : "Nghe câu trả lời")"
-                                            data-testid="btn-tts-@i">
+                                            @onclick="() => SpeakMessageAsync(msgIndex)"
+                                            aria-label="@(_speakingIndex == msgIndex ? "Dừng đọc" : "Nghe câu trả lời")"
+                                            data-testid="btn-tts-@msgIndex">
                                         <i class="bi @(_speakingIndex == i ? "bi-stop-circle" : "bi-volume-up")"></i>
                                     </button>
                                 }
