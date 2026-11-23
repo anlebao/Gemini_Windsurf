@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 @inject CommunityHttpService CommunityHttp
+@inject TenantProfileHttpService TenantProfileService
 
 @* UNIVERSAL AI ASSISTANT W1 (2026-11-22): hosted AI Link page — /a/{slug}.
    Khách quét QR/dán link → trang chat full với assistant của shop.
@@ -61,6 +62,7 @@
                       OpenPanelChanged="v => _openPanel = v"
                       SessionStorageKey="@($"vanan_ai_session_{Slug}")"
                       HumanChatAvailable="_handoffAvailable"
+                      VoiceEnabled="_features.Voice_Note_Enabled"
                       OnAddToCart="OnAddToCartAsync"
                       OnDraftRequest="OnAiEscalateDraft"
                       @bind-OpenHumanPanel="_openHumanPanel"
@@ -139,6 +141,7 @@
     private Guid? _customerDeviceId;
     private Guid? ChatIdentity => _customerId ?? _customerDeviceId;
     private bool _handoffAvailable;
+    private TenantFeatureSettingsDto _features = new();
     private string? _humanDraft;
     private string? _humanCallState;
     private bool _openHumanPanel;
@@ -182,9 +185,16 @@
             // aiEnabled=false (flag off / forwarder chưa cấu hình) → trang unavailable,
             // không render widget rỗng.
             if (dto?.TenantId is Guid tid && tid != Guid.Empty && dto.AiEnabled)
+            {
                 _tenantId = tid;
+                // W3d: voice flag (Voice_Note_Enabled) — service trả defaults khi lỗi,
+                // nên mic/TTS degrade graceful, không break trang.
+                _features = await TenantProfileService.GetFeatureSettingsAsync(tid);
+            }
             else
+            {
                 _resolveFailed = true;
+            }
         }
         catch
         {

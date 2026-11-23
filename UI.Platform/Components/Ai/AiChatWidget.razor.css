@@ -332,6 +332,32 @@
     flex-shrink: 0;
 }
 
+/* ── W3d: TTS read-aloud (loa trên tin AI + toggle auto-speak) ── */
+.vanan-ai-tts {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: .25rem;
+    padding: .15rem .45rem;
+    border: 1px solid var(--vanan-color-border, #e9ecef);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--vanan-color-text-muted, #6c757d);
+    font-size: .8rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease;
+}
+
+.vanan-ai-tts:hover {
+    color: var(--vanan-color-primary, #0d6efd);
+    border-color: var(--vanan-color-primary, #0d6efd);
+}
+
+.vanan-ai-tts-toggle {
+    flex-shrink: 0;
+}
+
 /* ── SF-W3: voice mic (nói thay vì gõ) ── */
 .vanan-ai-mic {
     flex-shrink: 0;

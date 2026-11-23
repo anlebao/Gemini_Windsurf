@@ -21,6 +21,10 @@
 
 ## Scope IN
 
+> **UPDATE 2026-11-23 (user directive):** auto-speak ĐƯỢC thêm vào V1 — mặc định ON
+> khi `VoiceEnabled` + TTS supported, opt-out qua toggle megaphone
+> (`btn-tts-autospeak`). Scope OUT "auto-speak" phía dưới được override.
+
 ### A. Mic cho /a/{slug} + embed
 1. `Assistant.razor`: inject `TenantProfileService` (hoặc service tương đương đang resolve feature settings trong KhachLink) → load `Voice_Note_Enabled` sau khi resolve tenant → truyền `VoiceEnabled` vào `AiChatWidget`.
 2. Verify embed mode (`?embed=1`) cũng nhận mic (cùng component, không cần thêm gì).
@@ -37,15 +41,15 @@
 - Server-side STT (Gemini audio) cho Firefox/Safari — V2.
 - AI voice conversation (speech↔speech) — W6, Gemini Live API.
 - TTS cho tin nhắn user / handoff panel.
-- Auto-speak mọi câu trả lời (opt-in per message, không auto-play — tránh annoyance).
+- ~~Auto-speak mọi câu trả lời~~ — **OVERRIDDEN 2026-11-23 (user): auto-speak ĐÃ làm trong V1**, mặc định ON + toggle opt-out (`btn-tts-autospeak`).
 
 ## TDD — tests viết TRƯỚC
 
 - JS unit-ish: không có JS test runner trong repo → cover bằng Playwright spec (mục RV).
 - C# testable parts:
-  - [ ] `Assistant.razor` flag resolution: mock `TenantProfileService`/feature settings → `VoiceEnabled` true/false truyền đúng (bUnit nếu repo có pattern; nếu không → verify qua E2E).
-  - [ ] `AiChatWidget`: `VoiceEnabled=false` → không render mic + không render speaker; `true` + browser support → render.
-- Kiểm tra repo có bUnit test cho component không trước khi viết — nếu không có infra, ghi rõ trong card là E2E-covered.
+  - [x] `Assistant.razor` flag resolution — DONE bằng inspection + E2E: `TenantProfileHttpService.GetFeatureSettingsAsync` (public anonymous, trả defaults khi lỗi) → `VoiceEnabled="_features.Voice_Note_Enabled"`; resolve fail → flag off → degrade graceful.
+  - [x] `AiChatWidget`: `VoiceEnabled=false` → không render mic/speaker/auto-speak; `true` + browser support → render. DONE: probe riêng `_speechSupported` (vananVoiceInput) + `_ttsSupported` (vananVoiceTts).
+- [x] Repo check: không có bUnit infra cho page này → E2E-covered qua `6_Testing/e2e-tests/assistant-voice.spec.ts` (4 tests).
 
 ## RV sweep-first (sau deploy)
 

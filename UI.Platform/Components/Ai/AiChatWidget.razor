@@ -163,6 +163,17 @@
                                         }
                                     </div>
                                 }
+                                @* W3d: TTS read-aloud trên câu trả lời AI — click nghe,
+                                   click lại dừng. Chỉ hiện khi flag + browser hỗ trợ. *@
+                                @if (!isUser && VoiceEnabled && _ttsSupported)
+                                {
+                                    <button type="button" class="vanan-ai-tts"
+                                            @onclick="() => SpeakMessageAsync(i)"
+                                            aria-label="@(_speakingIndex == i ? "Dừng đọc" : "Nghe câu trả lời")"
+                                            data-testid="btn-tts-@i">
+                                        <i class="bi @(_speakingIndex == i ? "bi-stop-circle" : "bi-volume-up")"></i>
+                                    </button>
+                                }
                                 </div>
                             </div>
                         }
@@ -194,6 +205,19 @@
                         <VanAInput AdditionalClasses="vanan-ai-input"
                                    Placeholder="@(_listening ? "Đang nghe..." : "Hỏi trợ lý về quán...")"
                                    @bind-Value="_input" OnKeyPress="OnKeyPress" maxlength="2000" Disabled="_sending" />
+                        @* W3d: auto-speak toggle — tự đọc câu trả lời AI mới (mặc định ON
+                           khi voice flag bật; user tắt nếu muốn chỉ đọc khi bấm loa). *@
+                        @if (VoiceEnabled && _ttsSupported)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ToggleAutoSpeak"
+                                         Disabled="_sending"
+                                         CssClass="vanan-ai-tts-toggle"
+                                         aria-label="@(_autoSpeak ? "Tắt tự động đọc" : "Bật tự động đọc")"
+                                         title="@(_autoSpeak ? "Đang tự đọc câu trả lời" : "Tự đọc câu trả lời")"
+                                         data-testid="btn-tts-autospeak">
+                                <i class="bi @(_autoSpeak ? "bi-megaphone-fill" : "bi-megaphone")"></i>
+                            </VanAnButton>
+                        }
                         @* SF-W3: voice input — nói thay vì gõ (flag-gated + browser-gated). *@
                         @if (VoiceEnabled && _speechSupported)
                         {
@@ -314,6 +338,11 @@
     private string? _voiceError;
     private DotNetObjectReference<AiChatWidget>? _voiceRef;
 
+    // ── W3d: TTS read-aloud + auto-speak ──
+    private bool _ttsSupported;
+    private bool _autoSpeak = true;
+    private int _speakingIndex = -1;
+
     /// <summary>Human handoff needs both the host opt-in and a mounted fragment.</summary>
     private bool HumanHandoffAvailable => HumanChatAvailable && HumanContent is not null;
 
@@ -394,7 +423,15 @@
             {
                 _speechSupported = false; // script not loaded / prerender — mic stays hidden
             }
-            if (_speechSupported) StateHasChanged();
+            try
+            {
+                _ttsSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceTts.isSupported");
+            }
+            catch
+            {
+                _ttsSupported = false; // script not loaded / prerender — speaker stays hidden
+            }
+            if (_speechSupported || _ttsSupported) StateHasChanged();
         }
 
         // SF-W1: host asks to open straight into human mode (nav/card CTA) — consume once.
@@ -441,7 +478,11 @@
     private async Task ToggleOpen()
     {
         _open = !_open;
-        if (!_open) await StopVoiceAsync();
+        if (!_open)
+        {
+            await StopVoiceAsync();
+            await StopTtsAsync();
+        }
         if (_open) await NotifyHumanOpenedAsync();
         if (_open && !_historyLoaded && _sessionId is not null)
         {
@@ -501,18 +542,22 @@
         catch { /* handled below — fallback message */ }
         _sending = false;
 
+        string? replyText = null;
         if (result is null)
         {
             // Transport failure is a dead-end like a refusal — offer the human channel (P8).
-            _messages.Add(new AiSessionMessage("assistant",
-                "Trợ lý AI tạm nghỉ, bạn thử lại sau nhé.", [], DateTime.UtcNow, Refused: true));
+            replyText = "Trợ lý AI tạm nghỉ, bạn thử lại sau nhé.";
+            _messages.Add(new AiSessionMessage("assistant", replyText, [], DateTime.UtcNow, Refused: true));
         }
         else if (_seenMessageIds.Add(messageId))
         {
+            replyText = result.Answer;
             _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products,
                 DateTime.UtcNow, result.Refused));
         }
         await ScrollToBottomAsync();
+        // W3d: auto-speak câu trả lời mới (opt-out qua toggle megaphone).
+        if (replyText is not null) await SpeakAutoAsync(replyText);
     }
 
     /// <summary>Task AI-P8: switch to the host's human chat surface (lazy mount).</summary>
@@ -520,6 +565,7 @@
     {
         _mode = WidgetMode.Human;
         await StopVoiceAsync();
+        await StopTtsAsync();
         await NotifyHumanOpenedAsync();
     }
 
@@ -612,6 +658,48 @@
         StateHasChanged();
     }
 
+    // ── W3d: TTS read-aloud + auto-speak ─────────────────────────────────
+
+    /// <summary>Per-message speaker — click nghe / click lại dừng (toggle).</summary>
+    private async Task SpeakMessageAsync(int index)
+    {
+        if (index < 0 || index >= _messages.Count || !_ttsSupported) return;
+        if (_speakingIndex == index)
+        {
+            await StopTtsAsync();
+            return;
+        }
+        _speakingIndex = index;
+        try
+        {
+            var ok = await JSRuntime.InvokeAsync<bool>("vananVoiceTts.speak", _messages[index].Content);
+            if (!ok) _speakingIndex = -1;
+        }
+        catch
+        {
+            _speakingIndex = -1;
+        }
+    }
+
+    private void ToggleAutoSpeak() => _autoSpeak = !_autoSpeak;
+
+    /// <summary>Auto-speak câu trả lời mới — chỉ khi flag + support + toggle ON.
+    /// JS speak() tự cancel utterance cũ → không đọc chồng.</summary>
+    private async Task SpeakAutoAsync(string text)
+    {
+        if (!VoiceEnabled || !_ttsSupported || !_autoSpeak) return;
+        try { await JSRuntime.InvokeAsync<bool>("vananVoiceTts.speak", text); }
+        catch { /* JS gone — text vẫn hiển thị bình thường */ }
+    }
+
+    private async Task StopTtsAsync()
+    {
+        if (_speakingIndex < 0 && !_ttsSupported) return;
+        _speakingIndex = -1;
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceTts.stop"); }
+        catch { /* JS gone / unsupported — nothing to stop */ }
+    }
+
     [JSInvokable]
     public void OnVoiceEnd()
     {
@@ -622,6 +710,7 @@
     public async ValueTask DisposeAsync()
     {
         await StopVoiceAsync();
+        await StopTtsAsync();
         if (_bodyLockApplied)
         {
             _bodyLockApplied = false;
