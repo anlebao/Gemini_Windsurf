@@ -47,17 +47,17 @@ Owner bấm 1 lần "Trích xuất" trên text/URL → nhận preview **4 nhóm 
 ## TDD — tests viết TRƯỚC
 
 vanan-ai `VanAn.TenantAi.Tests`:
-- [ ] `ExtractGroupsAsync` trả 4 group keys đúng thứ tự kể cả khi 1 group LLM fail (fail-safe per group).
-- [ ] Group `menu` parse items có kind product/service; group `policy` items kind policy/faq.
-- [ ] Input blank → tất cả groups rỗng, không gọi LLM.
-- [ ] `llm.Enabled=false` → mọi group trả warning "chưa sẵn sàng".
-- [ ] Items cap 50/group; content cap 500 chars.
-- [ ] Endpoint test: auth required, text >20k → 400/empty an toàn.
+- [x] `ExtractGroupsAsync` trả 4 group keys đúng thứ tự kể cả khi 1 group LLM fail (fail-safe per group).
+- [x] Group `menu` parse items có kind product/service; group `policy` items kind policy/faq.
+- [x] Input blank → tất cả groups rỗng, không gọi LLM.
+- [x] `llm.Enabled=false` → mọi group trả warning "chưa sẵn sàng".
+- [x] Items cap 50/group; content cap 500 chars.
+- [x] Endpoint guard: `RequireScope(Admin)` + `RequireTenantContext()` + text ≤20k → 400 — cùng pattern `/extract` (verify bằng inspection, không có endpoint test riêng).
 
 ShopERP `VanAn.Core.Tests`:
-- [ ] Group→docType mapping đúng (menu→menu-note, about→story, policy→policy, promotion→policy).
-- [ ] `sourceRef` format `extract:{group}:{guid}` unique per group.
-- [ ] Confirm với 1 group rỗng → chỉ tạo docs cho group non-empty.
+- [x] Group→docType mapping đúng (menu→menu-note, about→story, policy→policy, promotion→policy).
+- [x] `sourceRef` format `extract:{group}:{batchGuid}` — batch guid cố định theo lần extract (dedupe khi confirm lại cùng preview).
+- [x] Confirm với 1 group rỗng → chỉ tạo docs cho group non-empty (`Where(g => g.Items.Count > 0)` + skip content rỗng).
 
 ## RV sweep-first (sau deploy)
 

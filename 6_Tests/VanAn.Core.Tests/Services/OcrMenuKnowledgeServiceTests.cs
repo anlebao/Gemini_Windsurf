@@ -63,6 +63,7 @@ public class OcrMenuKnowledgeServiceTests
         public Task<bool> DeleteDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default) => Task.FromResult(false);
         public Task<TenantAiUsageResponse?> GetUsageAsync(Guid tenantId, int days, CancellationToken ct = default) => Task.FromResult<TenantAiUsageResponse?>(null);
         public Task<TenantAiExtractResponse?> ExtractKnowledgeAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default) => Task.FromResult<TenantAiExtractResponse?>(null);
+        public Task<TenantAiExtractGroupsResponse?> ExtractKnowledgeGroupsAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default) => Task.FromResult<TenantAiExtractGroupsResponse?>(null);
     }
 
     private static readonly List<MenuOcrLine> SampleLines =

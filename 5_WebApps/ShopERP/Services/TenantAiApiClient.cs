@@ -111,10 +111,20 @@ public interface ITenantAiClient
     /// <summary>W3a — extract structured knowledge candidates from raw pasted text
     /// (menu/bảng giá/FAQ). Preview only; owner confirms before ingest.</summary>
     Task<TenantAiExtractResponse?> ExtractKnowledgeAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default);
+
+    /// <summary>W3c-multi — extract theo 4 nhóm song song (menu/about/policy/promotion).
+    /// Preview only; owner confirm → N IngestDocumentAsync.</summary>
+    Task<TenantAiExtractGroupsResponse?> ExtractKnowledgeGroupsAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default);
 }
 
 public sealed record TenantAiExtractItem(string Kind, string Title, string Content);
 public sealed record TenantAiExtractResponse(string Summary, IReadOnlyList<TenantAiExtractItem> Items);
+
+/// <summary>W3c-multi — một nhóm tri thức (menu|about|policy|promotion).</summary>
+public sealed record TenantAiExtractGroup(
+    string Key, string Label, string Summary,
+    IReadOnlyList<TenantAiExtractItem> Items, string? Warning = null);
+public sealed record TenantAiExtractGroupsResponse(IReadOnlyList<TenantAiExtractGroup> Groups);
 
 /// <summary>
 /// task_ai_p2 — HTTP client for vanan-ai ingest/admin APIs. Self-disables when
@@ -231,6 +241,10 @@ public sealed class TenantAiApiClient : ITenantAiClient
     public Task<TenantAiExtractResponse?> ExtractKnowledgeAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default)
         => Send<TenantAiExtractResponse>(tenantId, HttpMethod.Post, "v1/admin/knowledge/extract",
             new { text, hint }, TimeSpan.FromSeconds(30), ct);
+
+    public Task<TenantAiExtractGroupsResponse?> ExtractKnowledgeGroupsAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default)
+        => Send<TenantAiExtractGroupsResponse>(tenantId, HttpMethod.Post, "v1/admin/knowledge/extract-groups",
+            new { text, hint }, TimeSpan.FromSeconds(60), ct);
 
     // ---------- plumbing ----------
 

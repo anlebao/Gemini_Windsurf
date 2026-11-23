@@ -410,6 +410,20 @@ app.MapPost("/v1/admin/knowledge/extract", async (
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
+// W3c-multi — extract theo nhóm (menu/about/policy/promotion), fan-out song song
+// trong service. Preview only — ingest vẫn qua /v1/knowledge/documents + approval.
+app.MapPost("/v1/admin/knowledge/extract-groups", async (
+        VanAn.TenantAi.Api.Services.KnowledgeExtractor extractor,
+        VanAn.TenantAi.Contracts.KnowledgeExtractRequest body, CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(body.Text) || body.Text.Length > 20000)
+            return Error(StatusCodes.Status400BadRequest, "invalid_text",
+                "Text is required and must be <= 20000 chars.");
+        return Results.Ok(await extractor.ExtractGroupsAsync(body, ct));
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
 // ---- task_ai_p6b: admin API (SRS §6.3) — route tenant must equal ctx tenant ----
 static bool WrongTenant(HttpContext ctx, Guid tenantId) => tenantId != TenantOf(ctx);
 

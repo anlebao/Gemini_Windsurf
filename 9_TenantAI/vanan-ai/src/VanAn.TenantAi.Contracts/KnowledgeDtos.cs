@@ -81,6 +81,19 @@ public sealed record KnowledgeExtractResponse(
     string Summary,
     IReadOnlyList<KnowledgeExtractItem> Items);
 
+/// <summary>W3c-multi — một nhóm tri thức trong kết quả extract-groups.
+/// Key: menu | about | policy | promotion. Warning set khi nhóm đó fail
+/// (per-group never-throw — nhóm khác vẫn trả items).</summary>
+public sealed record KnowledgeExtractGroup(
+    string Key,
+    string Label,
+    string Summary,
+    IReadOnlyList<KnowledgeExtractItem> Items,
+    string? Warning = null);
+
+public sealed record KnowledgeExtractGroupsResponse(
+    IReadOnlyList<KnowledgeExtractGroup> Groups);
+
 public sealed record KnowledgeStatusResponse(
     int PendingDocs,
     int ApprovedDocs,

@@ -24,6 +24,61 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
         {"type":"object","properties":{"summary":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"kind":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"}},"required":["kind","title","content"]}}},"required":["summary","items"]}
         """;
 
+    /// <summary>W3c-multi — 4 nhóm chạy song song, per-group never-throw:
+    /// nhóm fail trả Warning + items rỗng, không ảnh hưởng nhóm khác.</summary>
+    private static readonly (string Key, string Label, string Focus)[] GroupSpecs =
+    [
+        ("menu", "Menu & dịch vụ",
+            "CHỈ trích: món ăn/uống, dịch vụ, combo, giá cả, giờ mở cửa. Bỏ qua giới thiệu, chính sách, khuyến mãi."),
+        ("about", "Giới thiệu quán",
+            "CHỈ trích: câu chuyện, thương hiệu, đội ngũ, không gian, điểm khác biệt của quán. Bỏ qua menu/giá, chính sách, khuyến mãi."),
+        ("policy", "Chính sách",
+            "CHỈ trích: chính sách bán hàng, đổi trả, bảo hành, đặt cọc, vận chuyển, thanh toán. Bỏ qua menu/giá món, giới thiệu, khuyến mãi."),
+        ("promotion", "Khuyến mãi",
+            "CHỈ trích: chương trình khuyến mãi, ưu đãi, combo giảm giá, sự kiện, voucher, freeship. Bỏ qua menu thường, chính sách đổi trả, giới thiệu."),
+    ];
+
+    public async Task<KnowledgeExtractGroupsResponse> ExtractGroupsAsync(
+        KnowledgeExtractRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text))
+            return new KnowledgeExtractGroupsResponse(
+                GroupSpecs.Select(g => new KnowledgeExtractGroup(g.Key, g.Label, "", [], null)).ToList());
+
+        if (!llm.Enabled)
+            return new KnowledgeExtractGroupsResponse(
+                GroupSpecs.Select(g => new KnowledgeExtractGroup(g.Key, g.Label, "",
+                    [], "Trợ lý AI chưa sẵn sàng.")).ToList());
+
+        var tasks = GroupSpecs.Select(g => RunGroupAsync(request, g, ct)).ToArray();
+        var groups = await Task.WhenAll(tasks);
+        return new KnowledgeExtractGroupsResponse(groups);
+    }
+
+    private async Task<KnowledgeExtractGroup> RunGroupAsync(
+        KnowledgeExtractRequest request, (string Key, string Label, string Focus) spec, CancellationToken ct)
+    {
+        try
+        {
+            var result = await llm.GenerateAsync(
+                BuildPrompt(request, spec.Focus), SchemaHint, ct);
+            if (result is null)
+                return new KnowledgeExtractGroup(spec.Key, spec.Label, "", [],
+                    "Không trích xuất được — thử lại sau.");
+            var parsed = Parse(result.Text, logger);
+            var warning = parsed.Items.Count == 0 && !string.IsNullOrWhiteSpace(parsed.Summary)
+                ? null : parsed.Items.Count == 0 ? parsed.Summary : null;
+            return new KnowledgeExtractGroup(spec.Key, spec.Label, parsed.Summary,
+                parsed.Items, warning);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Knowledge group extraction failed for {Group}", spec.Key);
+            return new KnowledgeExtractGroup(spec.Key, spec.Label, "", [],
+                "Không trích xuất được — thử lại sau.");
+        }
+    }
+
     public async Task<KnowledgeExtractResponse> ExtractAsync(KnowledgeExtractRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Text))
@@ -47,9 +102,10 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
         }
     }
 
-    private static string BuildPrompt(KnowledgeExtractRequest request)
+    private static string BuildPrompt(KnowledgeExtractRequest request, string? focus = null)
     {
         var hint = string.IsNullOrWhiteSpace(request.Hint) ? "" : $"Gợi ý của chủ shop: {request.Hint}\n";
+        var scope = string.IsNullOrWhiteSpace(focus) ? "" : focus + "\n";
         return """
             Bạn là bộ trích xuất tri thức cho trợ lý AI của một cửa hàng Việt Nam.
             Nhiệm vụ: đọc văn bản thô chủ shop dán vào (menu, bảng giá, FAQ, chính sách, giờ mở cửa)
@@ -65,7 +121,7 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
             Quy tắc: giữ nguyên tiếng Việt và con số giá; không bịa thông tin không có trong văn bản;
             mỗi mục content ngắn gọn, tự đủ nghĩa; tối đa 50 mục, ưu tiên mục có giá và FAQ.
 
-            """ + hint + "Văn bản nguồn:\n" + request.Text.Trim();
+            """ + scope + hint + "Văn bản nguồn:\n" + request.Text.Trim();
     }
 
     private static KnowledgeExtractResponse Parse(string? text, ILogger logger)
