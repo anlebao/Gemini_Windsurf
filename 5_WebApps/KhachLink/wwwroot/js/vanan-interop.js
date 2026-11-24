@@ -85,4 +85,31 @@
             el.setSelectionRange(formatted.length, formatted.length);
         });
     };
+
+    // Storefront 2-ảnh (2026-11-24): lazy-apply hero banner + body backdrop SAU first paint
+    // (requestIdleCallback) — ảnh R2 vài trăm KB không được chặn LCP/interactive của storefront.
+    // Gradient theme vẫn hiển thị ngay; ảnh pop-in khi idle. Idempotent qua data-applied.
+    window.vananStorefront = {
+        applyLazyBackgrounds: function () {
+            var apply = function () {
+                document.querySelectorAll('.store-hero[data-hero-bg]').forEach(function (el) {
+                    if (el.dataset.applied || !el.dataset.heroBg) return;
+                    el.dataset.applied = '1';
+                    el.style.setProperty('--store-hero-image', "url('" + el.dataset.heroBg + "')");
+                });
+                document.querySelectorAll('.store-backdrop[data-bg]').forEach(function (el) {
+                    if (el.dataset.applied || !el.dataset.bg) return;
+                    el.dataset.applied = '1';
+                    el.style.backgroundImage = "url('" + el.dataset.bg + "')";
+                });
+            };
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(apply, { timeout: 2000 });
+            } else if (document.readyState === 'complete') {
+                setTimeout(apply, 300);
+            } else {
+                window.addEventListener('load', function () { setTimeout(apply, 300); }, { once: true });
+            }
+        }
+    };
 })();

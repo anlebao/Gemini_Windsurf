@@ -30,7 +30,7 @@ namespace VanAn.Gateway.Controllers
         // P6 (2026-11-11): kind cho onboarding — key R2 onboarding/{kind}/{guid}.{ext}
         // (album phân loại review — parse kind từ URL, không đổi DB). Thumb → onboarding-thumbs/.
         private static readonly HashSet<string> AllowedKinds =
-            new(StringComparer.OrdinalIgnoreCase) { "gpdk", "sign", "menu", "doc" };
+            new(StringComparer.OrdinalIgnoreCase) { "gpdk", "sign", "menu", "doc", "storefront" };
         private const long MaxFileSize = 5 * 1024 * 1024;
         // Presigned GET URL — TTL 7 ngày (claim được review sớm; key nằm trong URL → có thể
         // regenerate presigned URL mới từ key nếu cần xem lại sau).
@@ -58,7 +58,7 @@ namespace VanAn.Gateway.Controllers
                 return BadRequest(new { error = "Định dạng không hợp lệ. Chỉ chấp nhận .jpg, .jpeg, .png, .webp." });
             // P6: kind chỉ áp dụng cho folder onboarding (album phân loại); thumb cần kind.
             if (kind != null && !AllowedKinds.Contains(kind))
-                return BadRequest(new { error = "kind không hợp lệ. Chỉ chấp nhận gpdk | sign | menu | doc." });
+                return BadRequest(new { error = "kind không hợp lệ. Chỉ chấp nhận gpdk | sign | menu | doc | storefront." });
             if (kind != null && !string.Equals(folder, "onboarding", StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { error = "kind chỉ áp dụng cho folder onboarding." });
             if (thumb && kind == null)
@@ -94,7 +94,9 @@ namespace VanAn.Gateway.Controllers
 
                 var url = _r2Storage.GetPresignedDownloadUrl(key, PresignedGetTtlMinutes);
                 _logger.LogInformation("Image uploaded to R2: {Key} → {Url}", key, url);
-                return Ok(new ImageUploadResult(url));
+                // Storefront 2-ảnh (2026-11-24): trả kèm Key — client lưu KEY (không lưu presigned
+                // URL — TTL 7 ngày sẽ hết hạn) để store-info resolve presigned mới mỗi lần đọc.
+                return Ok(new ImageUploadResult(url, key));
             }
             catch (Exception ex)
             {
@@ -105,6 +107,6 @@ namespace VanAn.Gateway.Controllers
         }
     }
 
-    /// <summary>Result DTO: the uploaded image's presigned URL.</summary>
-    public record ImageUploadResult(string Url);
+    /// <summary>Result DTO: the uploaded image's presigned URL + R2 object key (persist key for long-lived references).</summary>
+    public record ImageUploadResult(string Url, string? Key = null);
 }

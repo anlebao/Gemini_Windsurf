@@ -48,7 +48,11 @@ namespace VanAn.CoreHub.Services.Onboarding
         // ID-P1 (2026-11-10, user duyệt): trust hints — trailing optional (backward compat)
         bool ContactVerified = false,           // contact (phone/email) đã qua kênh verify
         string? VerifiedChannel = null,         // "email"|"zns"|"sms"|"otp"|"manual" — null → fallback "otp"
-        UserTrustLevel? TrustHint = null);      // override trust đích; null = suy ra từ ContactVerified + tenant Active
+        UserTrustLevel? TrustHint = null,       // override trust đích; null = suy ra từ ContactVerified + tenant Active
+        // Storefront 2-ảnh background (2026-11-24): R2 key (upload onboarding kind=storefront)
+        // HOẶC absolute http(s) URL ngoài. Null/empty = không set.
+        string? StorefrontBannerUrl = null,
+        string? StorefrontBackdropUrl = null);
 
     /// <summary>
     /// Crawl-to-Onboard (2026-08-25): Result of VerifyAsync.

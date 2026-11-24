@@ -230,15 +230,28 @@ namespace VanAn.CoreHub.Services.Onboarding
             tenant.Verify();
 
             // 2. Set ContactPhone from owner-provided form (M3 — consented, NOT from CrawledPhone)
-            if (!string.IsNullOrWhiteSpace(req.OwnerPhone) || !string.IsNullOrWhiteSpace(req.OwnerEmail))
+            //    + Storefront 2-ảnh background (2026-11-24 — OCR wizard step 4, R2 key hoặc URL ngoài).
+            var settingsWithContact = tenant.Settings;
+            var settingsChanged = false;
+            if (!string.IsNullOrWhiteSpace(req.OwnerPhone))
             {
-                var settingsWithContact = tenant.Settings;
-                if (!string.IsNullOrWhiteSpace(req.OwnerPhone))
-                    settingsWithContact = settingsWithContact.WithContactPhone(req.OwnerPhone);
-                if (!string.IsNullOrWhiteSpace(req.OwnerEmail))
-                    settingsWithContact = settingsWithContact.WithContactEmail(req.OwnerEmail);
-                tenant.UpdateProfile(tenant.Name, settingsWithContact);
+                settingsWithContact = settingsWithContact.WithContactPhone(req.OwnerPhone);
+                settingsChanged = true;
             }
+            if (!string.IsNullOrWhiteSpace(req.OwnerEmail))
+            {
+                settingsWithContact = settingsWithContact.WithContactEmail(req.OwnerEmail);
+                settingsChanged = true;
+            }
+            if (req.StorefrontBannerUrl is not null || req.StorefrontBackdropUrl is not null)
+            {
+                settingsWithContact = settingsWithContact.WithStorefrontImages(
+                    string.IsNullOrWhiteSpace(req.StorefrontBannerUrl) ? null : req.StorefrontBannerUrl.Trim(),
+                    string.IsNullOrWhiteSpace(req.StorefrontBackdropUrl) ? null : req.StorefrontBackdropUrl.Trim());
+                settingsChanged = true;
+            }
+            if (settingsChanged)
+                tenant.UpdateProfile(tenant.Name, settingsWithContact);
 
             // 3. Update slug to clean slug (now UpdateSlug works — tenant is Active).
             // Issue #180 fix: BOTH the auto slug (from tenant name) and the user-provided slug

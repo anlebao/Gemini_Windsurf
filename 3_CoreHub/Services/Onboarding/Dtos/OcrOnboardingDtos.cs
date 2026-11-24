@@ -48,7 +48,11 @@ public record OcrOnboardingRequest(
     string? ContactPhone = null,          // SĐT chủ hộ (consented trên wizard — M3 pattern)
     string? ContactEmail = null,
     List<string>? PhotoUrls = null,      // Cloudinary URLs ảnh GPKD/biển hiệu/menu — provenance + audit
-    bool Unregistered = false);          // P3 (2026-11-09): chủ hộ CHƯA đăng ký HKD → force Group1 + warning pháp lý
+    bool Unregistered = false,           // P3 (2026-11-09): chủ hộ CHƯA đăng ký HKD → force Group1 + warning pháp lý
+    // Storefront 2-ảnh background (2026-11-24): R2 key từ upload kind=storefront
+    // (wizard step 4) — resolve presigned URL mỗi lần đọc store-info.
+    string? StorefrontBannerUrl = null,
+    string? StorefrontBackdropUrl = null);
 
 /// <summary>Kết quả: tenant đã Active (Pending → Verify) + owner credentials hiện 1 lần.</summary>
 public record OcrOnboardingResult(

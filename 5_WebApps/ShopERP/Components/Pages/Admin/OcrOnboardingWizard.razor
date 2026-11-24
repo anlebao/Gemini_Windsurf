@@ -5,12 +5,14 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
 @using VanAn.UI.Platform.Components
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Authorization
 @inject OcrOnboardingApiClient OcrOnboardingApi
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject IHttpClientFactory HttpFactory
 @inject VanAn.ShopERP.Services.IOcrMenuKnowledgeService OcrMenuKnowledge
+@inject VanAn.ShopERP.Services.MembershipAdminApiClient MembershipAdminApi
 @inject IConfiguration Configuration
 @inject ILogger<OcrOnboardingWizard> Logger
 
@@ -246,6 +248,40 @@
             </div>
 
             <div class="ocr-section">
+                <h4>🖼️ Ảnh nền trang cửa hàng (tùy chọn)</h4>
+                <div class="ocr-hint">Banner = ảnh hero /store/&#123;slug&#125; · Backdrop = nền mờ toàn trang. Bỏ qua = gradient mặc định theo theme.</div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="small fw-semibold">Ảnh hero (banner)</label>
+                        @if (!string.IsNullOrEmpty(_storefrontBannerPreview))
+                        {
+                            <div class="ocr-storefront-preview">
+                                <img src="@_storefrontBannerPreview" alt="Banner preview" />
+                                <button type="button" class="ocr-photo-remove" title="Xóa ảnh"
+                                        @onclick="() => ClearStorefront(StorefrontImageSlot.Banner)">✕</button>
+                            </div>
+                        }
+                        <InputFile class="ocr-file-input" accept="image/*" disabled="@_storefrontUploading"
+                                   OnChange="e => OnStorefrontFileAsync(e, StorefrontImageSlot.Banner)" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-semibold">Ảnh nền mờ (backdrop)</label>
+                        @if (!string.IsNullOrEmpty(_storefrontBackdropPreview))
+                        {
+                            <div class="ocr-storefront-preview">
+                                <img src="@_storefrontBackdropPreview" alt="Backdrop preview" />
+                                <button type="button" class="ocr-photo-remove" title="Xóa ảnh"
+                                        @onclick="() => ClearStorefront(StorefrontImageSlot.Backdrop)">✕</button>
+                            </div>
+                        }
+                        <InputFile class="ocr-file-input" accept="image/*" disabled="@_storefrontUploading"
+                                   OnChange="e => OnStorefrontFileAsync(e, StorefrontImageSlot.Backdrop)" />
+                    </div>
+                </div>
+                @if (_storefrontUploading) { <div class="ocr-busy">⏳ Đang tải ảnh…</div> }
+            </div>
+
+            <div class="ocr-section">
                 <h4>✅ Xác nhận thông tin</h4>
                 <div class="ocr-form">
                     <label>Tên tenant <span class="ocr-req">*</span> <input class="vanan-input" @bind="_tenantName" /></label>
@@ -383,6 +419,11 @@
     private string _contactEmail = string.Empty;
     private List<ProductRow> _productRows = [];
     private List<PhotoEntry> _photoUrls = [];   // P3: ảnh provenance đã upload R2
+    // Storefront 2-ảnh (2026-11-24): key R2 lưu vào tenant settings + presigned URL preview tạm (TTL 7 ngày)
+    private string? _storefrontBannerKey, _storefrontBackdropKey;
+    private string? _storefrontBannerPreview, _storefrontBackdropPreview;
+    private bool _storefrontUploading;
+    private enum StorefrontImageSlot { Banner, Backdrop }
     private double? _lat, _lng;
     private double _accuracy;
     private double? _lastMapLat, _lastMapLng;   // RV fix: guard init map chỉ khi coords đổi
@@ -449,6 +490,10 @@
         public string ContactEmail { get; set; } = string.Empty;
         public List<ProductRow> ProductRows { get; set; } = [];
         public List<PhotoEntry> PhotoUrls { get; set; } = [];
+        public string? StorefrontBannerKey { get; set; }
+        public string? StorefrontBannerPreview { get; set; }
+        public string? StorefrontBackdropKey { get; set; }
+        public string? StorefrontBackdropPreview { get; set; }
         public double? Lat { get; set; }
         public double? Lng { get; set; }
         public double Accuracy { get; set; }
@@ -819,6 +864,56 @@
         if (index >= 0 && index < _productRows.Count) _productRows.RemoveAt(index);
     }
 
+    // ── Storefront 2-ảnh (2026-11-24) ─────────────────────────────────
+    /// <summary>Upload ảnh nền → R2 kind=storefront → lưu KEY + presigned preview (chỉ để xem — submit dùng key).</summary>
+    private async Task OnStorefrontFileAsync(InputFileChangeEventArgs e, StorefrontImageSlot slot)
+    {
+        if (e.File is null) return;
+        _storefrontUploading = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var (key, url) = await MembershipAdminApi.UploadStorefrontImageAsync(ms.ToArray(), e.File.Name);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                ShowAlert("Upload thành công nhưng thiếu R2 key — thử lại.", "warning");
+                return;
+            }
+            if (slot == StorefrontImageSlot.Banner)
+            {
+                _storefrontBannerKey = key;
+                _storefrontBannerPreview = url;
+            }
+            else
+            {
+                _storefrontBackdropKey = key;
+                _storefrontBackdropPreview = url;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Tải ảnh {(slot == StorefrontImageSlot.Banner ? "banner" : "backdrop")} thất bại: {ex.Message}", "error");
+        }
+        finally
+        {
+            _storefrontUploading = false;
+        }
+    }
+
+    private void ClearStorefront(StorefrontImageSlot slot)
+    {
+        if (slot == StorefrontImageSlot.Banner)
+        {
+            _storefrontBannerKey = _storefrontBannerPreview = null;
+        }
+        else
+        {
+            _storefrontBackdropKey = _storefrontBackdropPreview = null;
+        }
+    }
+
     // ── Submit ─────────────────────────────────────────────────────────
     private async Task SubmitAsync()
     {
@@ -876,7 +971,10 @@
                 ContactPhone: string.IsNullOrWhiteSpace(_contactPhone) ? null : _contactPhone.Trim(),
                 ContactEmail: string.IsNullOrWhiteSpace(_contactEmail) ? null : _contactEmail.Trim(),
                 PhotoUrls: _photoUrls.Count > 0 ? _photoUrls.Select(p => p.Url).ToList() : null,
-                Unregistered: _case == OcrOnboardingCase.SmallShopNoLicense && _unregistered);
+                Unregistered: _case == OcrOnboardingCase.SmallShopNoLicense && _unregistered,
+                // Storefront 2-ảnh: R2 key (resolve presigned mỗi lần đọc store-info)
+                StorefrontBannerUrl: string.IsNullOrWhiteSpace(_storefrontBannerKey) ? null : _storefrontBannerKey,
+                StorefrontBackdropUrl: string.IsNullOrWhiteSpace(_storefrontBackdropKey) ? null : _storefrontBackdropKey);
 
             _result = await OcrOnboardingApi.ExecuteAsync(request);
             _importResult = null;
@@ -984,6 +1082,8 @@
         ContactPhone = _contactPhone, ContactEmail = _contactEmail,
         ProductRows = [.. _productRows],
         PhotoUrls = [.. _photoUrls],
+        StorefrontBannerKey = _storefrontBannerKey, StorefrontBannerPreview = _storefrontBannerPreview,
+        StorefrontBackdropKey = _storefrontBackdropKey, StorefrontBackdropPreview = _storefrontBackdropPreview,
         Lat = _lat, Lng = _lng, Accuracy = _accuracy
     };
 
@@ -992,7 +1092,8 @@
         d.Step > 0 || d.Case is not null
         || !string.IsNullOrWhiteSpace(d.TenantName) || !string.IsNullOrWhiteSpace(d.GpdkMst)
         || !string.IsNullOrWhiteSpace(d.SignName) || d.ProductRows.Count > 0
-        || d.PhotoUrls.Count > 0 || d.Lat is not null || d.Unregistered || !string.IsNullOrWhiteSpace(d.HkdGroup);
+        || d.PhotoUrls.Count > 0 || d.Lat is not null || d.Unregistered || !string.IsNullOrWhiteSpace(d.HkdGroup)
+        || !string.IsNullOrWhiteSpace(d.StorefrontBannerKey) || !string.IsNullOrWhiteSpace(d.StorefrontBackdropKey);
 
     private async Task RestoreDraftAsync()
     {
@@ -1032,6 +1133,8 @@
         _contactPhone = d.ContactPhone; _contactEmail = d.ContactEmail;
         _productRows = d.ProductRows;
         _photoUrls = d.PhotoUrls;
+        _storefrontBannerKey = d.StorefrontBannerKey; _storefrontBannerPreview = d.StorefrontBannerPreview;
+        _storefrontBackdropKey = d.StorefrontBackdropKey; _storefrontBackdropPreview = d.StorefrontBackdropPreview;
         _lat = d.Lat; _lng = d.Lng; _accuracy = d.Accuracy;
         _lastMapLat = null; _lastMapLng = null;   // coords restore → OnAfterRender init map lại
     }
@@ -1059,6 +1162,8 @@
         _signName = string.Empty;
         _productRows = [];
         _photoUrls = [];   // P3
+        _storefrontBannerKey = _storefrontBackdropKey = null;   // Storefront 2-ảnh
+        _storefrontBannerPreview = _storefrontBackdropPreview = null;
         _hkdGroupA = null; // P3
         _unregistered = false; // P3
         _lat = _lng = null;

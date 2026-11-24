@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
@@ -28,9 +29,37 @@ namespace VanAn.Gateway.Services
         Task<Dictionary<Guid, string>> GetKhachLinkDomainMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
     }
 
-    public class TenantSearchService(IVanAnDbContext dbContext) : ITenantSearchService
+    public class TenantSearchService(IVanAnDbContext dbContext, IR2StorageService? r2Storage = null) : ITenantSearchService
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IR2StorageService? _r2Storage = r2Storage;
+
+        // Storefront 2-ảnh (2026-11-24): presigned GET TTL — mỗi store-info call mint URL mới
+        // nên TTL chỉ cần cover phiên xem trang; 7 ngày khớp upload endpoint.
+        private const int StorefrontImagePresignedTtlMinutes = 7 * 24 * 60;
+
+        /// <summary>
+        /// Resolve giá trị lưu trong TenantSettings (R2 key HOẶC absolute http(s) URL ngoài)
+        /// → URL dùng được ngay. R2 key → presigned GET mới (presigned URL KHÔNG được lưu DB —
+        /// TTL 7 ngày sẽ hết hạn). Lỗi/không config → null (UI fallback gradient CSS).
+        /// </summary>
+        private string? ResolveStorefrontImageUrl(string? stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored)) return null;
+            if (stored.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || stored.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return stored;
+            if (_r2Storage is null) return null;
+            try
+            {
+                return _r2Storage.GetPresignedDownloadUrl(stored.Trim(), StorefrontImagePresignedTtlMinutes);
+            }
+            catch (Exception)
+            {
+                // Presign là local crypto — throw hiếm; nuốt lỗi để storefront vẫn render (fallback CSS)
+                return null;
+            }
+        }
 
         public async Task<TenantStoreDto?> GetStoreInfoAsync(Guid tenantId, CancellationToken ct = default)
         {
@@ -44,7 +73,9 @@ namespace VanAn.Gateway.Services
             if (tenant == null) return null;
 
             var flags = await GetFeatureFlagMapAsync(new List<Guid> { tenantId }, ct);
-            return MapToStoreDto(tenant, featureFlags: flags);
+            return MapToStoreDto(tenant, featureFlags: flags,
+                storefrontBannerUrl: ResolveStorefrontImageUrl(tenant.Settings?.StorefrontBannerUrl),
+                storefrontBackdropUrl: ResolveStorefrontImageUrl(tenant.Settings?.StorefrontBackdropUrl));
         }
 
         public async Task<TenantStoreDto?> GetBySlugAsync(string slug, CancellationToken ct = default)
@@ -68,7 +99,9 @@ namespace VanAn.Gateway.Services
             }
 
             var dto = MapToStoreDto(tenant, featureFlags:
-                await GetFeatureFlagMapAsync(new List<Guid> { tenant.Id.Value }, ct));
+                await GetFeatureFlagMapAsync(new List<Guid> { tenant.Id.Value }, ct),
+                storefrontBannerUrl: ResolveStorefrontImageUrl(tenant.Settings?.StorefrontBannerUrl),
+                storefrontBackdropUrl: ResolveStorefrontImageUrl(tenant.Settings?.StorefrontBackdropUrl));
 
             if (tenant.Status == TenantStatus.Pending)
             {
@@ -329,7 +362,9 @@ namespace VanAn.Gateway.Services
 
         private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,
             Dictionary<Guid, string>? khachLinkDomainMap = null,
-            IReadOnlyDictionary<Guid, TenantFeatureFlags>? featureFlags = null)
+            IReadOnlyDictionary<Guid, TenantFeatureFlags>? featureFlags = null,
+            string? storefrontBannerUrl = null,
+            string? storefrontBackdropUrl = null)
         {
             var isPending = t.Status == TenantStatus.Pending;
             // W3-1 (FR-V8): expose flagship toggles cho contextual entries — Pending ẩn hết.
@@ -354,6 +389,9 @@ namespace VanAn.Gateway.Services
                 NavColor = t.Settings?.NavColor,
                 HeaderColor = t.Settings?.HeaderColor,
                 FooterColor = t.Settings?.FooterColor,
+                // Storefront 2-ảnh (2026-11-24): resolved URL (presigned/external); Pending → ẩn như fields khác
+                StorefrontBannerUrl = isPending ? null : storefrontBannerUrl,
+                StorefrontBackdropUrl = isPending ? null : storefrontBackdropUrl,
                 // Pending: no KhachLink domain link (don't redirect to profile)
                 KhachLinkDomain = isPending ? null : khachLinkDomainMap?.GetValueOrDefault(t.Id.Value),
                 IsPending = isPending,
@@ -501,6 +539,11 @@ namespace VanAn.Gateway.Services
         /// <summary>Crawl-to-Onboard (2026-08-25): URL to Claim form for Pending tenants.
         /// Null for Active tenants. Format: /store/{slug}/claim</summary>
         public string? ClaimUrl { get; init; }
+
+        /// <summary>Storefront 2-ảnh (2026-11-24): hero banner image URL (đã resolve presigned/external). Null → fallback gradient.</summary>
+        public string? StorefrontBannerUrl { get; init; }
+        /// <summary>Storefront 2-ảnh: body backdrop image URL (đã resolve). Null → không render backdrop.</summary>
+        public string? StorefrontBackdropUrl { get; init; }
 
         /// <summary>W3-1 (FR-V8): tenant bật AI Chat — Directory/portal hiện entry "Hỏi AI".
         /// Chỉ 2 bool public-safe; config khác không expose. Pending tenant → luôn false.</summary>

@@ -5133,6 +5133,16 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_SocialLinksTiktok");
 
+                            b1.Property<string>("StorefrontBackdropUrl")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_StorefrontBackdropUrl");
+
+                            b1.Property<string>("StorefrontBannerUrl")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_StorefrontBannerUrl");
+
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)
                                 .HasColumnType("TEXT")

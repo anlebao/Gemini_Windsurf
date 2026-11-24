@@ -276,7 +276,10 @@ namespace VanAn.ShopERP.Services
                 commerceModeOverride: (CommerceMode)snapshot.CommerceModeOverride,
                 navColor: snapshot.NavColor,
                 headerColor: snapshot.HeaderColor,
-                footerColor: snapshot.FooterColor);
+                footerColor: snapshot.FooterColor,
+                // Storefront 2-ảnh background (2026-11-24): R2 key/URL — SQLite mirror giữ nguyên
+                storefrontBannerUrl: snapshot.StorefrontBannerUrl,
+                storefrontBackdropUrl: snapshot.StorefrontBackdropUrl);
 
             if (existing is null)
             {

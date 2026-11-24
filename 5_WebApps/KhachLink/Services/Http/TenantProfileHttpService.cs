@@ -46,6 +46,30 @@ public class TenantProfileHttpService(IHttpClientFactory httpClientFactory, ILog
         }
     }
 
+    /// <summary>Load tenant store info by tenant GUID (route /store/by-id/{tenantId}). Returns null if not found.</summary>
+    public async Task<ShopDto?> GetByIdAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        if (tenantId == Guid.Empty)
+            return null;
+
+        try
+        {
+            var response = await _httpClient.GetAsync($"api/tenants/{tenantId}/store-info", ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogInformation("Tenant {TenantId} store-info not found", tenantId);
+                return null;
+            }
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<ShopDto>(GatewayJsonOptions, cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading tenant store-info for {TenantId}", tenantId);
+            return null;
+        }
+    }
+
     /// <summary>Load public feature settings for a tenant (section toggles). Returns defaults on error.</summary>
     public async Task<TenantFeatureSettingsDto> GetFeatureSettingsAsync(Guid tenantId, CancellationToken ct = default)
     {

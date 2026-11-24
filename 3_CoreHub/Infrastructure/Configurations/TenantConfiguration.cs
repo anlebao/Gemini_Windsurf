@@ -94,6 +94,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 // SysAdmin uses for owner identity verification during Claim approval.
                 // After owner Verify: ContactPhone = owner-provided (consented); CrawledPhone should be cleared.
                 settings.Property(s => s.CrawledPhone).HasColumnName("Settings_CrawledPhone").HasMaxLength(50);
+                // Storefront 2-ảnh background (2026-11-24): R2 key hoặc external URL — KHÔNG lưu presigned URL (TTL 7 ngày)
+                settings.Property(s => s.StorefrontBannerUrl).HasColumnName("Settings_StorefrontBannerUrl").HasMaxLength(500);
+                settings.Property(s => s.StorefrontBackdropUrl).HasColumnName("Settings_StorefrontBackdropUrl").HasMaxLength(500);
             });
 
             // Crawl-to-Onboard Pipeline (2026-08-25): PotentialDuplicateOf flag.

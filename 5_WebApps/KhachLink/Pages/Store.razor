@@ -136,11 +136,18 @@ else if (_store is null)
 else
 {
     <div class="store-page theme-@GetThemeClass()">
+    @* Storefront 2-ảnh (2026-11-24): backdrop ảnh chìm mờ — lazy apply qua vananStorefront
+       (requestIdleCallback) để không chặn first paint *@
+    @if (!string.IsNullOrWhiteSpace(_store.StorefrontBackdropUrl))
+    {
+        <div class="store-backdrop" data-bg="@SanitizeCssUrl(_store.StorefrontBackdropUrl)"></div>
+    }
     <!-- ════════════════════════════════════════════════════════════════════
          HERO SECTION — full-width banner with brand name + story
          (inspired by tocotocotea.com hero)
     ════════════════════════════════════════════════════════════════════ -->
-    <section class="store-hero">
+    <section class="store-hero @(HasHeroBanner ? "has-image" : "")"
+             data-hero-bg="@(HasHeroBanner ? SanitizeCssUrl(_store!.StorefrontBannerUrl!) : null)">
         <div class="hero-overlay"></div>
         <div class="hero-content">
             @if (!string.IsNullOrWhiteSpace(_store.LogoUrl))
@@ -520,16 +527,37 @@ else
     .not-found-card h2 { margin: 1rem 0 0.5rem; font-weight: 700; }
     .not-found-card p { color: #6b7280; margin-bottom: 1.5rem; }
 
+    /* Storefront 2-ảnh (2026-11-24): backdrop ảnh chìm mờ — fixed dưới content,
+       opacity thấp để không ảnh hưởng readability (sections có card trắng đè lên). */
+    .store-backdrop {
+        position: fixed; inset: 0; z-index: -1;
+        background-size: cover; background-position: center;
+        opacity: 0.14;
+        filter: saturate(1.05);
+        pointer-events: none;
+    }
+
     /* ── HERO ─────────────────────────────────────────────────────────── */
     .store-hero {
         position: relative;
         min-height: 70vh;
         display: flex; align-items: center; justify-content: center;
         text-align: center;
-        background: var(--store-hero-gradient, linear-gradient(135deg, #ff9966 0%, #ff5e62 100%));
+        /* Storefront banner image (lazy — JS set --store-hero-image khi idle) đè lên
+           gradient theme; gradient layer dưới vẫn là fallback nếu ảnh 404/chưa load. */
+        background-color: #1f2937;
+        background-image:
+            var(--store-hero-image, none),
+            var(--store-hero-gradient, linear-gradient(135deg, #ff9966 0%, #ff5e62 100%));
+        background-size: cover;
+        background-position: center;
         color: white;
         padding: 4rem 1.5rem;
         overflow: hidden;
+    }
+    .store-hero.has-image .hero-overlay {
+        /* Ảnh thật cần overlay đậm hơn để text/logo vẫn đọc được */
+        background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%);
     }
     .hero-overlay {
         position: absolute; inset: 0;
@@ -1039,6 +1067,8 @@ else
 
     /// <summary>SF-W2 (B5): arm scroll-reveal once the loaded page painted —
     /// progressive enhancement, JS failure just leaves elements visible.</summary>
+    private bool _lazyBgApplied;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!_revealScanned && !_loading && _store is not null)
@@ -1046,6 +1076,15 @@ else
             _revealScanned = true;
             try { await JSRuntime.InvokeVoidAsync("vananReveal.scan"); }
             catch { }
+        }
+        // Storefront 2-ảnh (2026-11-24): lazy-apply banner/backdrop sau first paint —
+        // ảnh R2 không chặn LCP/interactive (gradient hiển thị ngay, ảnh pop-in khi idle).
+        if (!_lazyBgApplied && !_loading && _store is not null
+            && (HasHeroBanner || !string.IsNullOrWhiteSpace(_store.StorefrontBackdropUrl)))
+        {
+            _lazyBgApplied = true;
+            try { await JSRuntime.InvokeVoidAsync("vananStorefront.applyLazyBackgrounds"); }
+            catch { /* JS fail → gradient fallback vẫn đẹp */ }
         }
     }
 
@@ -1106,6 +1145,13 @@ else
         ThemeType.Premium => "premium",
         _ => "classic"
     };
+
+    // ── Storefront 2-ảnh (2026-11-24) ─────────────────────────────────
+    private bool HasHeroBanner => !string.IsNullOrWhiteSpace(_store?.StorefrontBannerUrl);
+
+    /// <summary>Escape ký tự phá vỡ CSS url('...') — presigned URL đã encode, external URL có thể chứa ' hoặc ".</summary>
+    private static string SanitizeCssUrl(string url)
+        => url.Replace("'", "%27").Replace("\"", "%22");
 
     protected override async Task OnInitializedAsync()
     {
@@ -1245,34 +1291,9 @@ else
         {
             return null;
         }
-        // Reuse ShopConfigHttpService's endpoint via direct HTTP — but we need a separate
-        // call here because TenantProfileHttpService only has GetBySlugAsync. We use the
-        // store-info endpoint through ShopConfigService and reconstruct the ShopDto from
-        // the resulting ShopConfig. Simpler: just use ShopConfigService and build a
-        // minimal ShopDto from it.
-        try
-        {
-            _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
-            // ShopConfig has all the fields we need — build a ShopDto from it
-            return new ShopDto
-            {
-                Id = _shopConfig.TenantId,
-                Name = _shopConfig.ShopName,
-                Address = _shopConfig.Address,
-                Phone = _shopConfig.Phone,
-                Email = _shopConfig.Email,
-                Latitude = _shopConfig.Latitude,
-                Longitude = _shopConfig.Longitude,
-                SocialLinksFb = _shopConfig.SocialLinksFb,
-                SocialLinksTiktok = _shopConfig.SocialLinksTiktok,
-                LogoUrl = _shopConfig.LogoUrl?.ToString()
-            };
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "LoadStoreByTenantIdAsync failed for {TenantId}", tenantId);
-            return null;
-        }
+        // Storefront 2-ảnh (2026-11-24): load full TenantStoreDto qua store-info —
+        // trước đây rebuild ShopDto tối thiểu từ ShopConfig → mất theme/ảnh nền.
+        return await TenantProfileService.GetByIdAsync(tenantId);
     }
 
     private async Task LoadProductsAsync(Guid tenantId)

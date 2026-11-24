@@ -76,5 +76,9 @@ namespace VanAn.CoreHub.Services
         string? LogoUrl = null,
         string? NavColor = null,
         string? HeaderColor = null,
-        string? FooterColor = null);
+        string? FooterColor = null,
+        // Storefront 2-ảnh background (2026-11-24): null = giữ nguyên · "" = xoá · value = set
+        // (R2 key từ upload HOẶC absolute http(s) URL ngoài).
+        string? StorefrontBannerUrl = null,
+        string? StorefrontBackdropUrl = null);
 }

@@ -551,6 +551,54 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.ToTable("BankStatementLines");
                 });
 
+            modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.CustomerContextDismissalEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CardId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DismissedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "ExpiresAt");
+
+                    b.HasIndex("TenantId", "CustomerId", "CardId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerContextDismissalEntity");
+                });
+
             modelBuilder.Entity("VanAn.CoreHub.Infrastructure.Entities.EntryPostingStatusEntity", b =>
                 {
                     b.Property<Guid>("EntryId")
@@ -8685,6 +8733,16 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                                 .HasMaxLength(500)
                                 .HasColumnType("character varying(500)")
                                 .HasColumnName("Settings_SocialLinksTiktok");
+
+                            b1.Property<string>("StorefrontBackdropUrl")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("Settings_StorefrontBackdropUrl");
+
+                            b1.Property<string>("StorefrontBannerUrl")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("Settings_StorefrontBannerUrl");
 
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)

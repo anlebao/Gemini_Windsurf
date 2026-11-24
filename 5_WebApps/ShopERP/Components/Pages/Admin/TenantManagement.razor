@@ -812,6 +812,38 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="fw-semibold">Ảnh nền trang cửa hàng (Storefront)</label>
+                    <small class="text-muted d-block mb-2">
+                        Banner = ảnh hero /store/{slug} · Backdrop = nền mờ toàn trang.
+                        Tải ảnh (lưu R2) hoặc dán URL ngoài — để trống = gradient mặc định.
+                    </small>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label for="edit-storefront-banner" class="small">Ảnh hero (banner)</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <InputFile id="edit-storefront-banner-file" class="vanan-input" style="max-width:190px"
+                                           accept="image/*" disabled="@_storefrontUploading"
+                                           OnChange="e => OnStorefrontFileAsync(e, StorefrontImageSlot.Banner)" />
+                                @if (_storefrontUploading) { <span class="text-muted small">Đang tải…</span> }
+                            </div>
+                            <input id="edit-storefront-banner" class="vanan-input mt-1"
+                                   @bind="_editForm.StorefrontBannerUrl"
+                                   placeholder="URL ảnh hoặc R2 key — trống = mặc định" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit-storefront-backdrop" class="small">Ảnh nền mờ (backdrop)</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <InputFile id="edit-storefront-backdrop-file" class="vanan-input" style="max-width:190px"
+                                           accept="image/*" disabled="@_storefrontUploading"
+                                           OnChange="e => OnStorefrontFileAsync(e, StorefrontImageSlot.Backdrop)" />
+                            </div>
+                            <input id="edit-storefront-backdrop" class="vanan-input mt-1"
+                                   @bind="_editForm.StorefrontBackdropUrl"
+                                   placeholder="URL ảnh hoặc R2 key — trống = không nền" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -1541,6 +1573,41 @@
         finally
         {
             _revertHtxSaving = false;
+        }
+    }
+
+    /// <summary>Storefront 2-ảnh (2026-11-24): slot chọn slot banner/backdrop trong edit form.</summary>
+    private enum StorefrontImageSlot { Banner, Backdrop }
+
+    private bool _storefrontUploading;
+
+    /// <summary>Upload ảnh nền storefront → R2 (kind=storefront) → lưu KEY vào form (presigned URL hết hạn — chỉ dùng preview tạm).</summary>
+    private async Task OnStorefrontFileAsync(InputFileChangeEventArgs e, StorefrontImageSlot slot)
+    {
+        if (e.File is null) return;
+        _storefrontUploading = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var (key, _) = await MembershipAdminApi.UploadStorefrontImageAsync(ms.ToArray(), e.File.Name);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                ShowAlert("error", "Upload thành công nhưng thiếu R2 key — thử lại.");
+                return;
+            }
+            if (slot == StorefrontImageSlot.Banner) _editForm.StorefrontBannerUrl = key;
+            else _editForm.StorefrontBackdropUrl = key;
+            ShowAlert("success", $"Đã tải ảnh {(slot == StorefrontImageSlot.Banner ? "hero (banner)" : "nền (backdrop)")} — nhớ Lưu thay đổi.");
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("error", $"Tải ảnh storefront thất bại: {ex.Message}");
+        }
+        finally
+        {
+            _storefrontUploading = false;
         }
     }
 
@@ -2453,6 +2520,8 @@
             NavColor = t.NavColor,
             HeaderColor = t.HeaderColor,
             FooterColor = t.FooterColor,
+            StorefrontBannerUrl = t.StorefrontBannerUrl,
+            StorefrontBackdropUrl = t.StorefrontBackdropUrl,
             ShopInstanceId = t.ShopInstanceId,
             // Bug 1 fix: pre-fill BusinessType from current tenant
             BusinessTypeStr = t.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company",
@@ -2583,7 +2652,11 @@
                 LogoUrl = string.IsNullOrWhiteSpace(_editForm.LogoUrl) ? null : _editForm.LogoUrl,
                 NavColor = string.IsNullOrWhiteSpace(_editForm.NavColor) ? null : _editForm.NavColor,
                 HeaderColor = string.IsNullOrWhiteSpace(_editForm.HeaderColor) ? null : _editForm.HeaderColor,
-                FooterColor = string.IsNullOrWhiteSpace(_editForm.FooterColor) ? null : _editForm.FooterColor
+                FooterColor = string.IsNullOrWhiteSpace(_editForm.FooterColor) ? null : _editForm.FooterColor,
+                // Storefront 2-ảnh: 3-state — null=giữ nguyên · ""=xoá · value=set.
+                // Form luôn gửi giá trị hiện tại (prefill) → admin xoá trắng = "" → clear.
+                StorefrontBannerUrl = _editForm.StorefrontBannerUrl,
+                StorefrontBackdropUrl = _editForm.StorefrontBackdropUrl
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -2710,6 +2783,9 @@
         public string? NavColor { get; set; }
         public string? HeaderColor { get; set; }
         public string? FooterColor { get; set; }
+        // Storefront 2-ảnh (2026-11-24): R2 key hoặc external URL; "" = xoá
+        public string? StorefrontBannerUrl { get; set; }
+        public string? StorefrontBackdropUrl { get; set; }
         public Guid? ShopInstanceId { get; set; }
         // Bug 1 fix: BusinessType edit (SystemAdmin correction)
         public string BusinessTypeStr { get; set; } = "Company";

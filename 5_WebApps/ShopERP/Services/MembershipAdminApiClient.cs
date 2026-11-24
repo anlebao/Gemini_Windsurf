@@ -91,6 +91,20 @@ public sealed class MembershipAdminApiClient : GatewayAdminApiClientBase
     /// </summary>
     public async Task<string> UploadDocumentAsync(byte[] bytes, string fileName, string folder = "htx-documents", CancellationToken ct = default)
     {
+        var (_, url) = await UploadImageCoreAsync(bytes, fileName, folder, kind: null, ct);
+        return url!;
+    }
+
+    /// <summary>
+    /// Storefront 2-ảnh (2026-11-24): POST /api/v1/images/upload?folder=onboarding&amp;kind=storefront
+    /// → trả (R2 key, presigned URL). Client PHẢI lưu KEY (presigned URL TTL 7 ngày sẽ hết hạn —
+    /// store-info resolve presigned mới mỗi lần đọc).
+    /// </summary>
+    public async Task<(string? Key, string? Url)> UploadStorefrontImageAsync(byte[] bytes, string fileName, CancellationToken ct = default)
+        => await UploadImageCoreAsync(bytes, fileName, "onboarding", "storefront", ct);
+
+    private async Task<(string? Key, string? Url)> UploadImageCoreAsync(byte[] bytes, string fileName, string folder, string? kind, CancellationToken ct)
+    {
         if (bytes is null || bytes.Length == 0)
             throw new ArgumentException("No file content.", nameof(bytes));
 
@@ -100,6 +114,7 @@ public sealed class MembershipAdminApiClient : GatewayAdminApiClientBase
         {
             ".png" => "image/png",
             ".webp" => "image/webp",
+            ".jpeg" or ".jpg" => "image/jpeg",
             ".pdf" => "application/pdf",
             ".doc" => "application/msword",
             ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -107,7 +122,8 @@ public sealed class MembershipAdminApiClient : GatewayAdminApiClientBase
         });
         form.Add(fileContent, "file", fileName);
 
-        var response = await HttpClient.PostAsync($"api/v1/images/upload?folder={folder}", form, ct);
+        var query = $"api/v1/images/upload?folder={folder}" + (kind is not null ? $"&kind={kind}" : string.Empty);
+        var response = await HttpClient.PostAsync(query, form, ct);
         if (!response.IsSuccessStatusCode)
         {
             string body = await response.Content.ReadAsStringAsync(ct);
@@ -115,11 +131,13 @@ public sealed class MembershipAdminApiClient : GatewayAdminApiClientBase
         }
 
         using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        if (doc.RootElement.TryGetProperty("url", out var urlEl) && urlEl.ValueKind == System.Text.Json.JsonValueKind.String)
-            return urlEl.GetString()!;
-        if (doc.RootElement.TryGetProperty("Url", out var urlEl2) && urlEl2.ValueKind == System.Text.Json.JsonValueKind.String)
-            return urlEl2.GetString()!;
-        throw new InvalidOperationException("Upload response missing 'url'.");
+        string? GetStr(string name) =>
+            doc.RootElement.TryGetProperty(name, out var el) && el.ValueKind == System.Text.Json.JsonValueKind.String
+                ? el.GetString() : null;
+        var url = GetStr("url") ?? GetStr("Url");
+        var key = GetStr("key") ?? GetStr("Key");
+        if (url is null) throw new InvalidOperationException("Upload response missing 'url'.");
+        return (key, url);
     }
 }
 

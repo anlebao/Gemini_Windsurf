@@ -40,6 +40,11 @@ public class ShopDto
     public string? HeaderColor { get; set; }
     public string? FooterColor { get; set; }
 
+    // Storefront 2-ảnh background (2026-11-24): đã resolve presigned/external URL từ Gateway.
+    // Banner → hero background · Backdrop → nền body chìm mờ. Null = fallback CSS gradient.
+    public string? StorefrontBannerUrl { get; set; }
+    public string? StorefrontBackdropUrl { get; set; }
+
     // Crawl-to-Onboard Phase 6 (2026-08-26): Pending tenant flags.
     // Gateway returns IsPending=true + ClaimUrl for Pending tenants (Phone=null + Email=null per M3).
     // H6: NO MaskedPhone field — Gateway already nulls Phone for Pending.

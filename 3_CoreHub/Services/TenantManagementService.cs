@@ -111,7 +111,10 @@ namespace VanAn.CoreHub.Services
                 theme: theme,
                 navColor: request.NavColor ?? existingSettings?.NavColor,
                 headerColor: request.HeaderColor ?? existingSettings?.HeaderColor,
-                footerColor: request.FooterColor ?? existingSettings?.FooterColor);
+                footerColor: request.FooterColor ?? existingSettings?.FooterColor,
+                // Storefront 2-ảnh: 3-state — null=giữ nguyên, ""=xoá, value=set (R2 key hoặc URL ngoài)
+                storefrontBannerUrl: ResolveOptionalImage(request.StorefrontBannerUrl, existingSettings?.StorefrontBannerUrl),
+                storefrontBackdropUrl: ResolveOptionalImage(request.StorefrontBackdropUrl, existingSettings?.StorefrontBackdropUrl));
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);
@@ -296,6 +299,10 @@ namespace VanAn.CoreHub.Services
                 }
             }
         }
+
+        /// <summary>Storefront image 3-state: incoming null → giữ existing; whitespace → clear (null); else trimmed value.</summary>
+        private static string? ResolveOptionalImage(string? incoming, string? existing)
+            => incoming is null ? existing : (string.IsNullOrWhiteSpace(incoming) ? null : incoming.Trim());
 
         // ── Private event handlers ─────────────────────────────────────────────
 

@@ -175,13 +175,16 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         int CommerceModeOverride,  // CommerceMode enum as int
         string? NavColor,
         string? HeaderColor,
-        string? FooterColor)
+        string? FooterColor,
+        string? StorefrontBannerUrl = null,
+        string? StorefrontBackdropUrl = null)
     {
         /// <summary>Factory to create snapshot from TenantSettings.</summary>
         public static TenantSettingsSnapshot From(TenantSettings s) => new(
             s.ContactEmail, s.ContactPhone, s.Address, s.LogoUrl, s.TaxCode,
             s.Latitude, s.Longitude, s.Slug, s.SocialLinksFb, s.SocialLinksTiktok,
             s.BrandStory, (int)s.Theme, (int)s.CommerceModeOverride,
-            s.NavColor, s.HeaderColor, s.FooterColor);
+            s.NavColor, s.HeaderColor, s.FooterColor,
+            s.StorefrontBannerUrl, s.StorefrontBackdropUrl);
     }
 }
