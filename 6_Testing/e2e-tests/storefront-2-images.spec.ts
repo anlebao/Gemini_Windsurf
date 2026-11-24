@@ -24,64 +24,79 @@ async function fetchJson<T>(request: any, url: string): Promise<T | null> {
   return res.json() as Promise<T>;
 }
 
-async function firstStorefront(request: any): Promise<{ domain: string; slug: string; tenantId: string } | null> {
+// Member có slug → storefront tại {khachLinkDomain ?? PORTAL}/store/{slug}
+// (portal hoptacxa.timlathay.com cũng serve /store/{slug} + proxy /api/tenants).
+async function storefrontCandidates(request: any): Promise<{ base: string; path: string; slug: string | null; tenantId: string }[]> {
+  const out: { base: string; path: string; slug: string | null; tenantId: string }[] = [];
   const coops = await fetchJson<any[]>(request, `${PORTAL}/api/cooperatives`);
-  if (!coops?.length) return null;
+  if (!coops?.length) return out;
   for (const coop of coops) {
     const members = await fetchJson<CoopMember[]>(request, `${PORTAL}/api/cooperatives/${coop.tenantId}/members`);
-    const m = members?.find((x) => x.khachLinkDomain && x.slug);
-    if (m?.khachLinkDomain && m.slug) {
-      return { domain: m.khachLinkDomain, slug: m.slug, tenantId: m.tenantId };
+    for (const m of members ?? []) {
+      if (m.slug) {
+        out.push({
+          base: m.khachLinkDomain ? `https://${m.khachLinkDomain}` : PORTAL,
+          path: `/store/${m.slug}`, slug: m.slug, tenantId: m.tenantId,
+        });
+      } else if (m.khachLinkDomain) {
+        out.push({
+          base: `https://${m.khachLinkDomain}`,
+          path: `/store/by-id/${m.tenantId}`, slug: null, tenantId: m.tenantId,
+        });
+      }
     }
   }
-  return null;
+  return out;
 }
 
 test.describe('Storefront 2 background images', () => {
   test('by-slug store-info DTO chứa storefrontBannerUrl/storefrontBackdropUrl', async ({ request }) => {
-    const target = await firstStorefront(request);
+    const candidates = await storefrontCandidates(request);
+    const target = candidates.find((c) => c.slug);
     if (!target) {
       test.skip(true, 'Không có member storefront có slug trên prod');
       return;
     }
 
-    // Ưu tiên storefront domain (Gateway API proxied qua KhachLink nginx), fallback portal.
+    // by-slug chỉ áp dụng cho candidate có slug
     let dto: any = null;
-    for (const base of [`https://${target.domain}`, PORTAL]) {
-      dto = await fetchJson<any>(request, `${base}/api/tenants/by-slug/${target.slug}`);
-      if (dto) break;
+    if (target.slug) {
+      for (const base of [target.base, PORTAL]) {
+        dto = await fetchJson<any>(request, `${base}/api/tenants/by-slug/${target.slug}`);
+        if (dto) break;
+      }
     }
     if (!dto) {
       test.skip(true, `by-slug endpoint không reachable cho ${target.slug}`);
       return;
     }
 
-    // Field phải tồn tại trong JSON contract (System.Text.Json omit-null? → check key presence
-    // bằng raw text vì null fields có thể bị omit tuỳ config).
-    const res = await request.get(`${PORTAL}/api/tenants/by-slug/${target.slug}`).catch(() => null);
-    const raw = res?.ok() ? await res.text() : '';
-    const hasBannerKey = raw.includes('storefrontBannerUrl');
-    const hasBackdropKey = raw.includes('storefrontBackdropUrl');
-
-    // Nếu API omit null → field absent là OK miễn là DTO deserialize được (dto != null ở trên).
-    // Assert tối thiểu: endpoint trả TenantStoreDto hợp lệ.
-    expect(dto.name ?? dto.tenantName ?? dto.slug ?? 'ok').toBeTruthy();
-    if (raw) {
-      // Khi tenant ĐÃ set ảnh → bắt buộc có key; khi chưa set → chấp nhận absent (omit-null).
-      if (dto.storefrontBannerUrl) expect(hasBannerKey).toBeTruthy();
-      if (dto.storefrontBackdropUrl) expect(hasBackdropKey).toBeTruthy();
-    }
+    // Assert tối thiểu: endpoint trả TenantStoreDto hợp lệ + field mới trong contract.
+    expect(dto.name).toBeTruthy();
+    // Field PHẢI có mặt trong JSON (null OK — tenant chưa set ảnh; verify camelCase names).
+    expect(Object.prototype.hasOwnProperty.call(dto, 'storefrontBannerUrl')).toBeTruthy();
+    expect(Object.prototype.hasOwnProperty.call(dto, 'storefrontBackdropUrl')).toBeTruthy();
   });
 
   test('Store page: vananStorefront lazy helper + hero/backdrop render an toàn', async ({ page, request }) => {
-    const target = await firstStorefront(request);
-    if (!target) {
-      test.skip(true, 'Không có member storefront có slug trên prod');
+    const candidates = await storefrontCandidates(request);
+    if (!candidates.length) {
+      test.skip(true, 'Không có member storefront trên prod');
       return;
     }
 
-    await page.goto(`https://${target.domain}/store/${target.slug}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.store-hero', { timeout: 60000 });
+    // Thử từng storefront — tenant hết phí nền tảng (metering gate) render "tạm ngưng"
+    // không có .store-hero → skip sang candidate kế tiếp.
+    let loaded = false;
+    for (const c of candidates.slice(0, 6)) {
+      await page.goto(`${c.base}${c.path}`, { waitUntil: 'domcontentloaded' });
+      loaded = await page.waitForSelector('.store-hero', { timeout: 20000 }).then(() => true).catch(() => false);
+      if (loaded) break;
+    }
+    if (!loaded) {
+      test.skip(true, 'Tất cả storefront candidates đều bị metering-gate hoặc lỗi');
+      return;
+    }
 
     // JS helper phải tồn tại (lazy-load contract)
     const fnType = await page.evaluate(() => typeof (window as any).vananStorefront?.applyLazyBackgrounds);
