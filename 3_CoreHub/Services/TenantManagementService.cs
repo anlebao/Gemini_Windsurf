@@ -114,7 +114,9 @@ namespace VanAn.CoreHub.Services
                 footerColor: request.FooterColor ?? existingSettings?.FooterColor,
                 // Storefront 2-ảnh: 3-state — null=giữ nguyên, ""=xoá, value=set (R2 key hoặc URL ngoài)
                 storefrontBannerUrl: ResolveOptionalImage(request.StorefrontBannerUrl, existingSettings?.StorefrontBannerUrl),
-                storefrontBackdropUrl: ResolveOptionalImage(request.StorefrontBackdropUrl, existingSettings?.StorefrontBackdropUrl));
+                storefrontBackdropUrl: ResolveOptionalImage(request.StorefrontBackdropUrl, existingSettings?.StorefrontBackdropUrl),
+                // Storefront vertical (Phương án A): null = giữ nguyên
+                storefrontVertical: request.StorefrontVertical ?? existingSettings?.StorefrontVertical ?? StorefrontVertical.General);
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);

@@ -5143,6 +5143,10 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_StorefrontBannerUrl");
 
+                            b1.Property<int>("StorefrontVertical")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("Settings_StorefrontVertical");
+
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)
                                 .HasColumnType("TEXT")

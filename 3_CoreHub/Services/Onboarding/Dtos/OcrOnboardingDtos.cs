@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
 namespace VanAn.CoreHub.Services.Onboarding;
 
@@ -52,7 +53,9 @@ public record OcrOnboardingRequest(
     // Storefront 2-ảnh background (2026-11-24): R2 key từ upload kind=storefront
     // (wizard step 4) — resolve presigned URL mỗi lần đọc store-info.
     string? StorefrontBannerUrl = null,
-    string? StorefrontBackdropUrl = null);
+    string? StorefrontBackdropUrl = null,
+    // Storefront vertical (Phương án A, 2026-11-24): null = General.
+    StorefrontVertical? StorefrontVertical = null);
 
 /// <summary>Kết quả: tenant đã Active (Pending → Verify) + owner credentials hiện 1 lần.</summary>
 public record OcrOnboardingResult(

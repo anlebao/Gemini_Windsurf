@@ -16,7 +16,9 @@ public class ChatDateFormatterTests
     [Fact]
     public void SeparatorLabel_SameDay_ReturnsNull()
     {
-        var t1 = DateTime.UtcNow;
+        // Fixed midday local timestamps — UtcNow+2h flake khi chạy gần nửa đêm
+        // (UTC+7: UtcNow 16:00+ → +2h qua ngày hôm sau local → separator != null).
+        var t1 = new DateTime(2026, 1, 15, 10, 0, 0, DateTimeKind.Local);
         var t2 = t1.AddHours(2);
         Assert.Null(ChatDateFormatter.SeparatorLabel(t1, t2));
     }

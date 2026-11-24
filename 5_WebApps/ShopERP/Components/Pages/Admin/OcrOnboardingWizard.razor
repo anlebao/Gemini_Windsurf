@@ -3,6 +3,7 @@
 @layout AdminLayout
 @using VanAn.CoreHub.Services.Onboarding
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @using VanAn.Shared.DTOs
 @using VanAn.UI.Platform.Components
 @using Microsoft.AspNetCore.Components.Forms
@@ -75,6 +76,19 @@
                     <div class="ocr-case-title">🏪 Shop nhỏ</div>
                     <div class="ocr-case-desc">KHÔNG có GPKD — chỉ scan biển hiệu + menu, chọn nhóm thuế HKD thủ công</div>
                 </button>
+            </div>
+            <div class="ocr-section" style="max-width:480px;">
+                <label>Ngành nghề trang cửa hàng
+                    <select class="vanan-select" @bind="_storefrontVertical" aria-label="Ngành nghề trang cửa hàng">
+                        <option value="General">General — Sản phẩm &amp; Dịch vụ</option>
+                        <option value="Fnb">F&amp;B — Quán ăn, nhà hàng, cafe, trà sữa</option>
+                        <option value="BeautySpa">Beauty &amp; Spa — Spa, salon, vật lý trị liệu</option>
+                        <option value="ProfessionalService">Dịch vụ chuyên môn — Luật sư, kế toán, thiết kế</option>
+                        <option value="Technology">Công nghệ — Phần mềm, giải pháp IT</option>
+                        <option value="Retail">Bán lẻ — Shop thời trang, tạp hóa, showroom</option>
+                    </select>
+                </label>
+                <div class="ocr-hint">Quyết định tiêu đề, nút CTA, câu hỏi AI gợi ý trên trang /store của tenant.</div>
             </div>
             <div class="ocr-wizard-actions">
                 <VanAButton Variant="primary" OnClick="NextFromCase" Disabled="_case is null">Tiếp theo</VanAButton>
@@ -422,6 +436,8 @@
     // Storefront 2-ảnh (2026-11-24): key R2 lưu vào tenant settings + presigned URL preview tạm (TTL 7 ngày)
     private string? _storefrontBannerKey, _storefrontBackdropKey;
     private string? _storefrontBannerPreview, _storefrontBackdropPreview;
+    // Storefront vertical (Phương án A, 2026-11-24): tên enum dưới dạng string cho <select>/draft JSON
+    private string _storefrontVertical = "General";
     private bool _storefrontUploading;
     private enum StorefrontImageSlot { Banner, Backdrop }
     private double? _lat, _lng;
@@ -494,6 +510,7 @@
         public string? StorefrontBannerPreview { get; set; }
         public string? StorefrontBackdropKey { get; set; }
         public string? StorefrontBackdropPreview { get; set; }
+        public string StorefrontVertical { get; set; } = "General";
         public double? Lat { get; set; }
         public double? Lng { get; set; }
         public double Accuracy { get; set; }
@@ -974,7 +991,9 @@
                 Unregistered: _case == OcrOnboardingCase.SmallShopNoLicense && _unregistered,
                 // Storefront 2-ảnh: R2 key (resolve presigned mỗi lần đọc store-info)
                 StorefrontBannerUrl: string.IsNullOrWhiteSpace(_storefrontBannerKey) ? null : _storefrontBannerKey,
-                StorefrontBackdropUrl: string.IsNullOrWhiteSpace(_storefrontBackdropKey) ? null : _storefrontBackdropKey);
+                StorefrontBackdropUrl: string.IsNullOrWhiteSpace(_storefrontBackdropKey) ? null : _storefrontBackdropKey,
+                // Storefront vertical (Phương án A): enum parse — select luôn có giá trị hợp lệ
+                StorefrontVertical: Enum.TryParse<StorefrontVertical>(_storefrontVertical, out var sv) ? sv : StorefrontVertical.General);
 
             _result = await OcrOnboardingApi.ExecuteAsync(request);
             _importResult = null;
@@ -1084,6 +1103,7 @@
         PhotoUrls = [.. _photoUrls],
         StorefrontBannerKey = _storefrontBannerKey, StorefrontBannerPreview = _storefrontBannerPreview,
         StorefrontBackdropKey = _storefrontBackdropKey, StorefrontBackdropPreview = _storefrontBackdropPreview,
+        StorefrontVertical = _storefrontVertical,
         Lat = _lat, Lng = _lng, Accuracy = _accuracy
     };
 
@@ -1135,6 +1155,7 @@
         _photoUrls = d.PhotoUrls;
         _storefrontBannerKey = d.StorefrontBannerKey; _storefrontBannerPreview = d.StorefrontBannerPreview;
         _storefrontBackdropKey = d.StorefrontBackdropKey; _storefrontBackdropPreview = d.StorefrontBackdropPreview;
+        _storefrontVertical = string.IsNullOrWhiteSpace(d.StorefrontVertical) ? "General" : d.StorefrontVertical;
         _lat = d.Lat; _lng = d.Lng; _accuracy = d.Accuracy;
         _lastMapLat = null; _lastMapLng = null;   // coords restore → OnAfterRender init map lại
     }
@@ -1164,6 +1185,7 @@
         _photoUrls = [];   // P3
         _storefrontBannerKey = _storefrontBackdropKey = null;   // Storefront 2-ảnh
         _storefrontBannerPreview = _storefrontBackdropPreview = null;
+        _storefrontVertical = "General";   // Storefront vertical (Phương án A)
         _hkdGroupA = null; // P3
         _unregistered = false; // P3
         _lat = _lng = null;

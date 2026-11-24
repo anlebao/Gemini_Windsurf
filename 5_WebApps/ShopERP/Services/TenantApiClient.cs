@@ -146,6 +146,8 @@ namespace VanAn.ShopERP.Services
         /// <summary>Storefront 2-ảnh (2026-11-24): raw stored value — R2 key hoặc external URL.</summary>
         public string? StorefrontBannerUrl { get; init; }
         public string? StorefrontBackdropUrl { get; init; }
+        /// <summary>Storefront vertical (Phương án A): ngành nghề → preset labels.</summary>
+        public StorefrontVertical StorefrontVertical { get; init; } = StorefrontVertical.General;
         public DateTime CreatedAt { get; init; }
     }
 
@@ -172,6 +174,8 @@ namespace VanAn.ShopERP.Services
         /// <summary>Storefront 2-ảnh (2026-11-24): null = giữ nguyên · "" = xoá · value = set (R2 key hoặc URL ngoài).</summary>
         public string? StorefrontBannerUrl { get; init; }
         public string? StorefrontBackdropUrl { get; init; }
+        /// <summary>Storefront vertical (Phương án A): null = giữ nguyên · value = set.</summary>
+        public StorefrontVertical? StorefrontVertical { get; init; }
     }
 
     /// <summary>#110 fix: Request body for POST /api/v1/tenants (create tenant via Gateway PG).</summary>

@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.Shared.Domain.Aggregates.UserAggregate;
 
 namespace VanAn.CoreHub.Services.Onboarding
@@ -52,7 +53,9 @@ namespace VanAn.CoreHub.Services.Onboarding
         // Storefront 2-ảnh background (2026-11-24): R2 key (upload onboarding kind=storefront)
         // HOẶC absolute http(s) URL ngoài. Null/empty = không set.
         string? StorefrontBannerUrl = null,
-        string? StorefrontBackdropUrl = null);
+        string? StorefrontBackdropUrl = null,
+        // Storefront vertical (Phương án A, 2026-11-24): null = General (không set).
+        StorefrontVertical? StorefrontVertical = null);
 
     /// <summary>
     /// Crawl-to-Onboard (2026-08-25): Result of VerifyAsync.

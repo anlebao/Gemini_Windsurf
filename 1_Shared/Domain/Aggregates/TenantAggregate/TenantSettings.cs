@@ -1,4 +1,4 @@
-﻿namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
+namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 {
     /// <summary>
     /// Value object for tenant configuration settings â€” Wave 5
@@ -76,6 +76,11 @@
         public string? StorefrontBannerUrl { get; private set; }
         public string? StorefrontBackdropUrl { get; private set; }
 
+        // Storefront content vertical (2026-11-24, Phương án A): ngành nghề →
+        // preset labels trên /store/{slug} (section title, CTA, AI chips, search).
+        // Trước đây hardcode F&B — sai với tenant dịch vụ. General = trung lập.
+        public StorefrontVertical StorefrontVertical { get; private set; } = StorefrontVertical.General;
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -99,7 +104,8 @@
             string? crawledPhone = null,
             DnsnTaxMethod? dnsnTaxMethod = null,
             string? storefrontBannerUrl = null,
-            string? storefrontBackdropUrl = null)
+            string? storefrontBackdropUrl = null,
+            StorefrontVertical storefrontVertical = StorefrontVertical.General)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -121,54 +127,55 @@
             DnsnTaxMethod = dnsnTaxMethod;
             StorefrontBannerUrl = storefrontBannerUrl;
             StorefrontBackdropUrl = storefrontBackdropUrl;
+            StorefrontVertical = storefrontVertical;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithSlug(string? slug)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithSocialLinks(string? fb, string? tiktok)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithBrandStory(string? story)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         public TenantSettings WithTheme(ThemeType theme)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// Sprint 7 — Set commerce mode override for this tenant.
         /// Inherit = use global setting. Marketplace/Reseller = ép mode cho tenant này.
         /// </summary>
         public TenantSettings WithCommerceModeOverride(CommerceMode mode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// #93 — Set KhachLink style customization (nav/header/footer colors).
         /// Null = use default hardcoded colors.
         /// </summary>
         public TenantSettings WithStyleColors(string? navColor, string? headerColor, string? footerColor)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// #93 — Set logo URL for KhachLink header.
         /// </summary>
         public TenantSettings WithLogoUrl(string? logoUrl)
-            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// Crawl-to-Onboard Pipeline (2026-08-25, M3 resolved): Set raw crawled phone number.
@@ -178,14 +185,14 @@
         /// (data minimization per Luật 91/2025).
         /// </summary>
         public TenantSettings WithCrawledPhone(string? crawledPhone)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, crawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, crawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// TT 58/2026 (P2 — DNSN): set phương pháp nộp thuế DN siêu nhỏ (Điều 5-8).
         /// Null = mặc định VatPercent_TndnPercent. Chỉ đổi từ đầu kỳ kế toán năm (Điều 4.3).
         /// </summary>
         public TenantSettings WithDnsnTaxMethod(DnsnTaxMethod? method)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, method, StorefrontBannerUrl, StorefrontBackdropUrl);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, method, StorefrontBannerUrl, StorefrontBackdropUrl, StorefrontVertical);
 
         /// <summary>
         /// Storefront 2-ảnh background (2026-11-24): set banner (hero) + backdrop (nền chìm)
@@ -193,6 +200,13 @@
         /// </summary>
         public TenantSettings WithStorefrontImages(string? bannerUrl, string? backdropUrl)
             => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, bannerUrl, backdropUrl);
+
+        /// <summary>
+        /// Storefront vertical (2026-11-24, Phương án A): set ngành nghề → preset labels
+        /// trên /store/{slug}. General = labels trung lập; null không áp dụng (enum non-null).
+        /// </summary>
+        public TenantSettings WithStorefrontVertical(StorefrontVertical vertical)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor, CrawledPhone, DnsnTaxMethod, StorefrontBannerUrl, StorefrontBackdropUrl, vertical);
 
         public static TenantSettings Empty() => new(null, null, null);
     }

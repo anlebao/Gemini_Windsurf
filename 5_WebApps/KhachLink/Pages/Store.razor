@@ -4,6 +4,7 @@
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Services.Http
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @using VanAn.UI.Platform.Components.Realtime
 @using VanAn.UI.Platform.Core.Interfaces
 @page "/store/{Slug}"
@@ -228,7 +229,9 @@ else
         @if (AiFeaturesVisible)
         {
             <StoreSearchBar TenantId="_store.Id" OnAskAi="AskAi" OnAddToCart="AddAiProductToCartAsync"
-                            VoiceEnabled="_features.Voice_Note_Enabled" />
+                            VoiceEnabled="_features.Voice_Note_Enabled"
+                            SearchPlaceholder="@_labels.SearchPlaceholder"
+                            SearchEmptyText="@_labels.SearchEmptyText" />
         }
 
         @* BS-3 (2026-10-14): entry point đặt lịch — khách bấm link hoặc quét QR (tenant profile page) *@
@@ -339,15 +342,15 @@ else
                 <div class="section-header reveal-on-scroll">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-grid-fill"></i></span>
-                        Bộ Sưu Tập Sản Phẩm
+                        @_labels.ProductsSectionTitle
                     </h2>
                     <div class="section-divider"></div>
                 </div>
                 @if (AiFeaturesVisible)
                 {
                     <div class="store-ai-chips">
-                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý sản phẩm hoặc dịch vụ nổi bật?")'>💡 Gợi ý nổi bật?</button>
-                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý lựa chọn phù hợp với nhu cầu của tôi?")'>✨ Tư vấn lựa chọn</button>
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi(_labels.Chip1Question)'>@_labels.Chip1Label</button>
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi(_labels.Chip2Question)'>@_labels.Chip2Label</button>
                     </div>
                 }
                 @if (_productsLoading)
@@ -361,7 +364,8 @@ else
                 else
                 {
                     <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync"
-                                  OnProductClick="OpenQuickView" />
+                                  OnProductClick="OpenQuickView"
+                                  ProductCardCta="@_labels.ProductCardCta" />
                 }
             </section>
         }
@@ -483,7 +487,8 @@ else
                           AiEnabled="AiFeaturesVisible"
                           OnClose="CloseQuickView"
                           OnAddToCart="QuickViewAddToCartAsync"
-                          OnAskAi="QuickViewAskAi" />
+                          OnAskAi="QuickViewAskAi"
+                          QuickViewAskLabel="@_labels.QuickViewAskLabel" />
 
         <!-- ════════════════════════════════════════════════════════════════
              FOOTER
@@ -1101,7 +1106,7 @@ else
             var links = new List<(string, string)>();
             if (_bookingEntry is { Enabled: true, BookingLink: not null }) links.Add(("booking", "Đặt lịch"));
             if (_features.Campaign_Section_Enabled) links.Add(("campaigns", "Khuyến mãi"));
-            if (_features.VibeShowcase_Section_Enabled) links.Add(("products", "Sản phẩm"));
+            if (_features.VibeShowcase_Section_Enabled) links.Add(("products", _labels.ProductsNavLabel));
             if (_features.GoogleMap_Section_Enabled) links.Add(("location", "Bản đồ"));
             if (ChatIdentity.HasValue) links.Add(("shop-chat", "Chat"));
             if (_features.SocialHub_Section_Enabled) links.Add(("social", "Kết nối"));
@@ -1153,6 +1158,11 @@ else
 
     // ── Storefront 2-ảnh (2026-11-24) ─────────────────────────────────
     private bool HasHeroBanner => !string.IsNullOrWhiteSpace(_store?.StorefrontBannerUrl);
+
+    /// <summary>Storefront vertical (Phương án A): labels theo ngành nghề tenant —
+    /// resolve mỗi render (rẻ, pure function). Null/absent → General trung lập.</summary>
+    private StorefrontLabels _labels =>
+        StorefrontLabelPresets.For(_store?.StorefrontVertical ?? StorefrontVertical.General);
 
     /// <summary>Escape ký tự phá vỡ CSS url('...') — presigned URL đã encode, external URL có thể chứa ' hoặc ".</summary>
     private static string SanitizeCssUrl(string url)

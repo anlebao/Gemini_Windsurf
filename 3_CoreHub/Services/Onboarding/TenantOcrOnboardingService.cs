@@ -140,7 +140,8 @@ public class TenantOcrOnboardingService(
             ApprovedByUserId: approvedByUserId,
             // Storefront 2-ảnh background (2026-11-24): R2 key từ wizard upload kind=storefront
             StorefrontBannerUrl: request.StorefrontBannerUrl,
-            StorefrontBackdropUrl: request.StorefrontBackdropUrl), ct);
+            StorefrontBackdropUrl: request.StorefrontBackdropUrl,
+            StorefrontVertical: request.StorefrontVertical), ct);
 
         logger.LogInformation(
             "OCR Onboarding hoàn tất: tenant {TenantId} Active — slug {Slug} — owner {Username} ({Case})",

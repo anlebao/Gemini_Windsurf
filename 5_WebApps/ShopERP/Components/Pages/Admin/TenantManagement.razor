@@ -844,6 +844,20 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label for="edit-storefront-vertical">Ngành nghề trang cửa hàng</label>
+                    <select id="edit-storefront-vertical" class="vanan-select" @bind="_editForm.StorefrontVertical" aria-label="Ngành nghề trang cửa hàng">
+                        <option value="General">General — Sản phẩm &amp; Dịch vụ (mặc định)</option>
+                        <option value="Fnb">F&amp;B — Quán ăn, nhà hàng, cafe, trà sữa</option>
+                        <option value="BeautySpa">Beauty &amp; Spa — Spa, salon, nail, vật lý trị liệu</option>
+                        <option value="ProfessionalService">Dịch vụ chuyên môn — Luật sư, kế toán, thiết kế, tư vấn</option>
+                        <option value="Technology">Công nghệ — Phần mềm, giải pháp IT</option>
+                        <option value="Retail">Bán lẻ — Shop thời trang, tạp hóa, showroom</option>
+                    </select>
+                    <small class="text-muted">
+                        Quyết định tiêu đề section, nút CTA, câu hỏi AI gợi ý trên /store/{slug}.
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -2522,6 +2536,7 @@
             FooterColor = t.FooterColor,
             StorefrontBannerUrl = t.StorefrontBannerUrl,
             StorefrontBackdropUrl = t.StorefrontBackdropUrl,
+            StorefrontVertical = t.StorefrontVertical.ToString(),
             ShopInstanceId = t.ShopInstanceId,
             // Bug 1 fix: pre-fill BusinessType from current tenant
             BusinessTypeStr = t.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company",
@@ -2656,7 +2671,9 @@
                 // Storefront 2-ảnh: 3-state — null=giữ nguyên · ""=xoá · value=set.
                 // Form luôn gửi giá trị hiện tại (prefill) → admin xoá trắng = "" → clear.
                 StorefrontBannerUrl = _editForm.StorefrontBannerUrl,
-                StorefrontBackdropUrl = _editForm.StorefrontBackdropUrl
+                StorefrontBackdropUrl = _editForm.StorefrontBackdropUrl,
+                // Storefront vertical (Phương án A): enum parse — select luôn có giá trị hợp lệ
+                StorefrontVertical = Enum.TryParse<StorefrontVertical>(_editForm.StorefrontVertical, out var sv) ? sv : StorefrontVertical.General
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -2786,6 +2803,8 @@
         // Storefront 2-ảnh (2026-11-24): R2 key hoặc external URL; "" = xoá
         public string? StorefrontBannerUrl { get; set; }
         public string? StorefrontBackdropUrl { get; set; }
+        // Storefront vertical (Phương án A): tên enum dưới dạng string cho <select>
+        public string StorefrontVertical { get; set; } = "General";
         public Guid? ShopInstanceId { get; set; }
         // Bug 1 fix: BusinessType edit (SystemAdmin correction)
         public string BusinessTypeStr { get; set; } = "Company";

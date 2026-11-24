@@ -2,6 +2,7 @@
 
 using System.Text.Json.Serialization;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
 /// <summary>
 /// DTO for Shop data received from ShopERP via Gateway (GET /api/shops/by-tenant/{tenantId}).
@@ -44,6 +45,9 @@ public class ShopDto
     // Banner → hero background · Backdrop → nền body chìm mờ. Null = fallback CSS gradient.
     public string? StorefrontBannerUrl { get; set; }
     public string? StorefrontBackdropUrl { get; set; }
+    /// <summary>Storefront vertical (Phương án A, 2026-11-24): ngành nghề → preset labels.
+    /// KhachLink resolve qua StorefrontLabelPresets — null/absent = General.</summary>
+    public StorefrontVertical StorefrontVertical { get; set; } = StorefrontVertical.General;
 
     // Crawl-to-Onboard Phase 6 (2026-08-26): Pending tenant flags.
     // Gateway returns IsPending=true + ClaimUrl for Pending tenants (Phone=null + Email=null per M3).

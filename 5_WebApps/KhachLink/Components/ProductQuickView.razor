@@ -34,7 +34,7 @@
             @if (AiEnabled)
             {
                 <button type="button" class="store-ai-chip" @onclick="AskAiAsync">
-                    🤖 Hỏi AI về sản phẩm này
+                    @QuickViewAskLabel
                 </button>
             }
         </div>
@@ -50,6 +50,8 @@
     [Parameter] public EventCallback<ProductDto> OnAddToCart { get; set; }
     /// <summary>"Hỏi AI về món này" → host feeds a question into the chat widget.</summary>
     [Parameter] public EventCallback<ProductDto> OnAskAi { get; set; }
+    /// <summary>Storefront vertical (Phương án A): label nút Hỏi AI theo ngành nghề.</summary>
+    [Parameter] public string QuickViewAskLabel { get; set; } = "🤖 Hỏi AI về sản phẩm này";
 
     private Task AddToCartAsync()
         => Product is null ? Task.CompletedTask : OnAddToCart.InvokeAsync(Product);

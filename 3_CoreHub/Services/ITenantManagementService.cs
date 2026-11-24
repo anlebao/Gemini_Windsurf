@@ -80,5 +80,7 @@ namespace VanAn.CoreHub.Services
         // Storefront 2-ảnh background (2026-11-24): null = giữ nguyên · "" = xoá · value = set
         // (R2 key từ upload HOẶC absolute http(s) URL ngoài).
         string? StorefrontBannerUrl = null,
-        string? StorefrontBackdropUrl = null);
+        string? StorefrontBackdropUrl = null,
+        // Storefront vertical (Phương án A, 2026-11-24): null = giữ nguyên · value = set
+        StorefrontVertical? StorefrontVertical = null);
 }

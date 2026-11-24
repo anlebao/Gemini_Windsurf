@@ -392,6 +392,8 @@ namespace VanAn.Gateway.Services
                 // Storefront 2-ảnh (2026-11-24): resolved URL (presigned/external); Pending → ẩn như fields khác
                 StorefrontBannerUrl = isPending ? null : storefrontBannerUrl,
                 StorefrontBackdropUrl = isPending ? null : storefrontBackdropUrl,
+                // Storefront vertical (Phương án A): không nhạy cảm — Pending vẫn cần labels cơ bản
+                StorefrontVertical = t.Settings?.StorefrontVertical ?? StorefrontVertical.General,
                 // Pending: no KhachLink domain link (don't redirect to profile)
                 KhachLinkDomain = isPending ? null : khachLinkDomainMap?.GetValueOrDefault(t.Id.Value),
                 IsPending = isPending,
@@ -544,6 +546,10 @@ namespace VanAn.Gateway.Services
         public string? StorefrontBannerUrl { get; init; }
         /// <summary>Storefront 2-ảnh: body backdrop image URL (đã resolve). Null → không render backdrop.</summary>
         public string? StorefrontBackdropUrl { get; init; }
+
+        /// <summary>Storefront vertical (Phương án A, 2026-11-24): ngành nghề → preset labels trên /store/{slug}.
+        /// General = default trung lập. KháchLink resolve labels phía client.</summary>
+        public StorefrontVertical StorefrontVertical { get; init; } = StorefrontVertical.General;
 
         /// <summary>W3-1 (FR-V8): tenant bật AI Chat — Directory/portal hiện entry "Hỏi AI".
         /// Chỉ 2 bool public-safe; config khác không expose. Pending tenant → luôn false.</summary>

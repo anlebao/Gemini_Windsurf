@@ -8744,6 +8744,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                                 .HasColumnType("character varying(500)")
                                 .HasColumnName("Settings_StorefrontBannerUrl");
 
+                            b1.Property<int>("StorefrontVertical")
+                                .HasColumnType("integer")
+                                .HasColumnName("Settings_StorefrontVertical");
+
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)
                                 .HasColumnType("character varying(20)")

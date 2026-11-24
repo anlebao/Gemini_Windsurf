@@ -76,6 +76,8 @@ test.describe('Storefront 2 background images', () => {
     // Field PHẢI có mặt trong JSON (null OK — tenant chưa set ảnh; verify camelCase names).
     expect(Object.prototype.hasOwnProperty.call(dto, 'storefrontBannerUrl')).toBeTruthy();
     expect(Object.prototype.hasOwnProperty.call(dto, 'storefrontBackdropUrl')).toBeTruthy();
+    // Phương án A (2026-11-24): storefrontVertical — enum serialize string ("General"...).
+    expect(Object.prototype.hasOwnProperty.call(dto, 'storefrontVertical')).toBeTruthy();
   });
 
   test('Store page: vananStorefront lazy helper + hero/backdrop render an toàn', async ({ page, request }) => {

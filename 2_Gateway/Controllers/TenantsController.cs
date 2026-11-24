@@ -123,7 +123,8 @@ namespace VanAn.Gateway.Controllers
                     HeaderColor: request.HeaderColor,
                     FooterColor: request.FooterColor,
                     StorefrontBannerUrl: request.StorefrontBannerUrl,
-                    StorefrontBackdropUrl: request.StorefrontBackdropUrl);
+                    StorefrontBackdropUrl: request.StorefrontBackdropUrl,
+                    StorefrontVertical: request.StorefrontVertical);
                 await _tenantService.UpdateProfileAsync(new TenantId(tenantId), profileRequest);
                 return Ok(new { success = true });
             }
@@ -367,6 +368,7 @@ namespace VanAn.Gateway.Controllers
             // Storefront 2-ảnh: raw stored value (R2 key hoặc external URL) — admin UI hiển thị/sửa
             StorefrontBannerUrl = t.Settings?.StorefrontBannerUrl,
             StorefrontBackdropUrl = t.Settings?.StorefrontBackdropUrl,
+            StorefrontVertical = t.Settings?.StorefrontVertical ?? StorefrontVertical.General,
             CreatedAt = t.CreatedAt
         };
     }
@@ -406,6 +408,8 @@ namespace VanAn.Gateway.Controllers
         /// <summary>Storefront 2-ảnh background (2026-11-24): raw stored value — R2 key hoặc external URL. Null nếu chưa set.</summary>
         public string? StorefrontBannerUrl { get; init; }
         public string? StorefrontBackdropUrl { get; init; }
+        /// <summary>Storefront vertical (Phương án A): ngành nghề → preset labels trên /store/{slug}.</summary>
+        public StorefrontVertical StorefrontVertical { get; init; } = StorefrontVertical.General;
         public DateTime CreatedAt { get; init; }
     }
 
@@ -439,6 +443,8 @@ namespace VanAn.Gateway.Controllers
         /// <summary>Storefront 2-ảnh background: null = giữ nguyên · "" = xoá · value = set (R2 key hoặc URL ngoài).</summary>
         public string? StorefrontBannerUrl { get; init; }
         public string? StorefrontBackdropUrl { get; init; }
+        /// <summary>Storefront vertical (Phương án A): null = giữ nguyên · value = set.</summary>
+        public StorefrontVertical? StorefrontVertical { get; init; }
     }
 
     public record AssignShopInstanceRequest

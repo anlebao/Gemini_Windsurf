@@ -250,6 +250,12 @@ namespace VanAn.CoreHub.Services.Onboarding
                     string.IsNullOrWhiteSpace(req.StorefrontBackdropUrl) ? null : req.StorefrontBackdropUrl.Trim());
                 settingsChanged = true;
             }
+            // Storefront vertical (Phương án A): null = không set (General default)
+            if (req.StorefrontVertical is { } vertical)
+            {
+                settingsWithContact = settingsWithContact.WithStorefrontVertical(vertical);
+                settingsChanged = true;
+            }
             if (settingsChanged)
                 tenant.UpdateProfile(tenant.Name, settingsWithContact);
 

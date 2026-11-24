@@ -177,7 +177,8 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         string? HeaderColor,
         string? FooterColor,
         string? StorefrontBannerUrl = null,
-        string? StorefrontBackdropUrl = null)
+        string? StorefrontBackdropUrl = null,
+        int StorefrontVertical = 0) // StorefrontVertical enum as int
     {
         /// <summary>Factory to create snapshot from TenantSettings.</summary>
         public static TenantSettingsSnapshot From(TenantSettings s) => new(
@@ -185,6 +186,6 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             s.Latitude, s.Longitude, s.Slug, s.SocialLinksFb, s.SocialLinksTiktok,
             s.BrandStory, (int)s.Theme, (int)s.CommerceModeOverride,
             s.NavColor, s.HeaderColor, s.FooterColor,
-            s.StorefrontBannerUrl, s.StorefrontBackdropUrl);
+            s.StorefrontBannerUrl, s.StorefrontBackdropUrl, (int)s.StorefrontVertical);
     }
 }

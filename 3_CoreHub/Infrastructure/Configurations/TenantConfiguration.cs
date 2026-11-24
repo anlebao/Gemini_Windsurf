@@ -97,6 +97,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 // Storefront 2-ảnh background (2026-11-24): R2 key hoặc external URL — KHÔNG lưu presigned URL (TTL 7 ngày)
                 settings.Property(s => s.StorefrontBannerUrl).HasColumnName("Settings_StorefrontBannerUrl").HasMaxLength(500);
                 settings.Property(s => s.StorefrontBackdropUrl).HasColumnName("Settings_StorefrontBackdropUrl").HasMaxLength(500);
+                // Storefront vertical (Phương án A, 2026-11-24): enum → int, default General=0.
+                // No HasDefaultValue — same sentinel caveat as Settings_Theme.
+                settings.Property(s => s.StorefrontVertical)
+                    .HasColumnName("Settings_StorefrontVertical")
+                    .HasConversion<int>();
             });
 
             // Crawl-to-Onboard Pipeline (2026-08-25): PotentialDuplicateOf flag.

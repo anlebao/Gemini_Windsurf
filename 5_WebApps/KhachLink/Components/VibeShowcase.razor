@@ -1,4 +1,4 @@
-﻿@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain
 @using VanAn.Shared.Extensions
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components.Shared
@@ -39,7 +39,7 @@
                                                            Size="ButtonSize.Medium"
                                                            FullWidth="true"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Thêm vào giỏ
+                                                    @ProductCardCta
                                                 </VanAnButton>
                                             </span>
                                         </div>
@@ -69,7 +69,7 @@
                                                 <VanAnButton Variant="ButtonVariant.Secondary"
                                                            Size="ButtonSize.Small"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Thêm vào giỏ
+                                                    @ProductCardCta
                                                 </VanAnButton>
                                             </span>
                                         </div>
@@ -98,7 +98,7 @@
                                                 <VanAnButton Variant="ButtonVariant.Primary"
                                                            Size="ButtonSize.Small"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Thêm vào giỏ
+                                                    @ProductCardCta
                                                 </VanAnButton>
                                             </span>
                                         </div>
@@ -132,7 +132,7 @@
                                                     <VanAnButton Variant="ButtonVariant.Success"
                                                                Size="ButtonSize.Large"
                                                                OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                        Thêm vào giỏ
+                                                        @ProductCardCta
                                                     </VanAnButton>
                                                 </span>
                                             </div>
@@ -164,7 +164,7 @@
                                                    Size="ButtonSize.Medium"
                                                    FullWidth="true"
                                                    OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                            Thêm vào giỏ
+                                            @ProductCardCta
                                         </VanAnButton>
                                     </span>
                                 </div>
@@ -314,6 +314,10 @@
     /// <summary>SF-W2 (B3): optional card click → host opens the quick-view modal.</summary>
     [Parameter]
     public EventCallback<ProductDto> OnProductClick { get; set; }
+
+    /// <summary>Storefront vertical (Phương án A): CTA label trên product card. Mặc định trung lập.</summary>
+    [Parameter]
+    public string ProductCardCta { get; set; } = "Thêm vào giỏ";
 
     private Task NotifyProductClick(ProductDto? product)
         => product is not null && OnProductClick.HasDelegate
