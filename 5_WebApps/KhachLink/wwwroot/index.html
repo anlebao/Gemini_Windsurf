@@ -45,8 +45,6 @@
                 .catch(function () { /* offline / endpoint lỗi → default tĩnh */ });
         })();
     </script>
-    <script src="/js/lib/qr/html5-qrcode.min.js"></script>
-    <script src="/js/lib/qr/jsQR.js"></script>
 </head>
 
 <body>
@@ -97,35 +95,54 @@
         </style>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
+    <!-- PERF (2026-11): lazy-load non-critical JS sau window.load — trước đây
+         ~20 script (voice stack, signalr, qr libs, leaflet, onboarding...)
+         load ngay đầu trang → tranh bandwidth với WASM boot, TTI >5s.
+         Giữ eager: pwa.js (SW register sớm), vanan-interop.js (window.vanan),
+         metering.js (wallet banner). Phần còn lại inject theo đúng thứ tự
+         (async=false → execute tuần tự) khi load xong — các tính năng này
+         đều user-triggered (mic/scan/map/voice call) nên an toàn. -->
     <script src="/js/pwa.js"></script>
-    <script src="/js/qr-scanner.js"></script>
-    <script src="/js/cart-animation.js"></script>
-    <script src="/js/fingerprint.js"></script>
-    <script src="/_content/VanAn.UI.Platform/lib/leaflet/leaflet.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/realtime.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/voice-input.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/voice-tts.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/inapp-browser.js"></script>
-    <!-- VOICE SERVICE P4 (2026-11-11): gọi thoại trong chat — SDK (SignalR + media + signaling) + bridge Blazor -->
-    <script src="/_content/VanAn.UI.Platform/js/signalr.min.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/voice-media.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/voice-sdk.js"></script>
-    <script src="/_content/VanAn.UI.Platform/js/voice-chat.js"></script>
-    <script src="/js/qrcode.js"></script>
-    <script src="/js/qr-wallet.js"></script>
-    <script src="/js/app-install-tracker.js"></script>
-    <script src="/js/voice-note.js"></script>
-    <script src="/js/profile-toast.js"></script>
     <script src="/js/metering.js"></script>
-    <!-- ATRS-5 (2026-11-16): WebAuthn/passkey interop — navigator.credentials.create/get -->
-    <script src="/js/webauthn.js"></script>
-    <script src="/lib/driver.js/driver.min.js"></script>
-    <script src="/js/onboarding-tour.js"></script>
     <script src="/js/vanan-interop.js"></script>
-    <!-- Self-serve onboarding (/onboard): OCR + wizard interop. OCR worker lazy-loads
-         Tesseract assets từ /js/lib/ocr chỉ khi user chụp ảnh đầu tiên. -->
-    <script src="/js/onboarding-ocr.js" defer></script>
-    <script src="/js/onboarding-wizard.js" defer></script>
+    <script>
+        window.__vananLazyJs = [
+            '/js/lib/qr/html5-qrcode.min.js',
+            '/js/lib/qr/jsQR.js',
+            '/js/qr-scanner.js',
+            '/js/cart-animation.js',
+            '/js/fingerprint.js',
+            '/_content/VanAn.UI.Platform/lib/leaflet/leaflet.js',
+            '/_content/VanAn.UI.Platform/js/realtime.js',
+            '/_content/VanAn.UI.Platform/js/voice-input.js',
+            '/_content/VanAn.UI.Platform/js/voice-tts.js',
+            '/_content/VanAn.UI.Platform/js/inapp-browser.js',
+            '/_content/VanAn.UI.Platform/js/signalr.min.js',
+            '/_content/VanAn.UI.Platform/js/voice-media.js',
+            '/_content/VanAn.UI.Platform/js/voice-sdk.js',
+            '/_content/VanAn.UI.Platform/js/voice-chat.js',
+            '/js/qrcode.js',
+            '/js/qr-wallet.js',
+            '/js/app-install-tracker.js',
+            '/js/voice-note.js',
+            '/js/profile-toast.js',
+            '/js/webauthn.js',
+            '/lib/driver.js/driver.min.js',
+            '/js/onboarding-tour.js',
+            '/js/onboarding-ocr.js',
+            '/js/onboarding-wizard.js'
+        ];
+        function vananLoadLazyJs() {
+            window.__vananLazyJs.forEach(function (src) {
+                var s = document.createElement('script');
+                s.src = src;
+                s.async = false; // dynamic scripts: async=false → chạy đúng thứ tự chèn
+                document.body.appendChild(s);
+            });
+        }
+        if (document.readyState === 'complete') vananLoadLazyJs();
+        else window.addEventListener('load', vananLoadLazyJs, { once: true });
+    </script>
     <!-- Turnstile site key (PUBLIC value). Empty = dev mode (widget not rendered, Gateway skips verify).
          Set this at deploy time when Turnstile:SiteKey is configured on the Gateway. -->
     <script>window.vananTurnstileSiteKey = '';</script>
