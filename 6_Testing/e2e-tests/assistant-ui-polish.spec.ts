@@ -120,4 +120,30 @@ test.describe('AI widget UI polish — expand (desktop)', () => {
     const restored = await panel.boundingBox();
     expect(restored!.height).toBeLessThan(after!.height - 100);
   });
+
+  test('expanded: inputbar pinned to panel bottom + send button in-bounds', async ({ page }) => {
+    await page.goto(STORE_AI, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.vanan-ai-panel')).toBeVisible({ timeout: 30000 });
+    await page.locator('button[aria-label="Mở rộng khung chat"], button[title="Mở rộng"]').first().click();
+    await page.waitForTimeout(400);
+
+    // Regression (2026-11): messages max-height:360px cap → inputbar trôi
+    // giữa panel ~250px; VanAInput scoped CSS dead → send bị clip mép phải.
+    const m = await page.evaluate(() => {
+      const panel = document.querySelector('.vanan-ai-panel')!.getBoundingClientRect();
+      const bar = document.querySelector('.vanan-ai-inputbar')!.getBoundingClientRect();
+      const send = document.querySelector('.vanan-ai-send')!.getBoundingClientRect();
+      const input = document.querySelector('.vanan-ai-input') as HTMLElement;
+      return {
+        bottomGap: panel.bottom - bar.bottom,
+        sendInside: send.left >= panel.left - 1 && send.right <= panel.right + 1,
+        sendRightGap: panel.right - send.right,
+        inputFlex: input ? getComputedStyle(input).flexGrow : null,
+      };
+    });
+    expect(m.bottomGap).toBeLessThanOrEqual(20);   // inputbar sát đáy panel
+    expect(m.sendInside).toBe(true);               // send không bị clip
+    expect(m.sendRightGap).toBeLessThanOrEqual(30); // send sát mép phải (input flex:1)
+    expect(m.inputFlex).toBe('1');
+  });
 });

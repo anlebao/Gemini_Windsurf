@@ -337,6 +337,13 @@
     background: var(--bs-light, #f8f9fa);
 }
 
+/* Expanded: panel ~100dvh nhưng messages cap 360px → inputbar trôi giữa
+   panel, ~250px trống dưới đáy. Bỏ cap để messages fill → inputbar neo bottom. */
+.vanan-ai-widget ::deep .vanan-ai-panel.vanan-ai-panel-expanded .vanan-ai-messages {
+    max-height: none;
+    min-height: 0;
+}
+
 .vanan-ai-msg {
     display: flex;
     flex-direction: column;
@@ -507,22 +514,21 @@
     cursor: pointer;
 }
 
-.vanan-ai-input {
+/* VanAInput render <input> làm ROOT của child component → không nhận scope
+   attr của widget → rule scoped .vanan-ai-input[b-...] là dead code:
+   input mất flex:1/min-width:0/font-size → nút send bị đẩy tràn mép phải.
+   Phải ::deep từ .vanan-ai-widget. */
+.vanan-ai-widget ::deep .vanan-ai-input {
     flex: 1;
     min-width: 0;
+    font-size: 16px;
+    min-height: 44px;
 }
 
 /* UX v2.0 polish: input bar ~76px — padding rộng + input cao 44px
    (spec §5: input area 76–100px desktop / 68–90px mobile). */
 .vanan-ai-inputbar {
     padding: 12px 14px;
-}
-
-/* UX v1.0 M6: input ≥16px tránh iOS auto-zoom khi focus. */
-.vanan-ai-input ::deep input,
-.vanan-ai-input ::deep textarea {
-    font-size: 16px;
-    min-height: 44px;
 }
 
 /* Nút trong inputbar là VanAnButton (child component) → cần ::deep;
