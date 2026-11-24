@@ -24,11 +24,52 @@
 </head>
 <body>
     <Routes @rendermode="InteractiveServer" />
+    <!-- Phase 1 Scaling pattern (copy từ ShopERP App.razor): Blazor circuit reconnect UI —
+         toast nhỏ góc phải dưới cho "reconnecting"/"failed", modal full-screen chỉ cho
+         "rejected" (phiên hết hạn). Trước đây dùng modal mặc định của Blazor
+         ("Could not reconnect to the server. Reload the page...") — khó hiểu với user. -->
+    <div id="components-reconnect-modal" class="reconnect-toast">
+        <div class="reconnect-toast-content">
+            <span class="reconnect-icon">&#x21BB;</span>
+            <span class="reconnect-status components-reconnect-show">Đang kết nối lại…</span>
+            <span class="reconnect-status components-reconnect-failed">Không thể kết nối lại. <button onclick="location.reload()" class="btn btn-primary btn-sm">Tải lại</button></span>
+            <span class="reconnect-status components-reconnect-rejected">Phiên đã hết hạn. <button onclick="location.reload()" class="btn btn-primary btn-sm">Tải lại</button></span>
+        </div>
+    </div>
     <script src="/lib/leaflet/leaflet.js"></script>
     <script src="/js/directory-map.js"></script>
     <!-- SF-W3 (2026-11-08): voice input cho thanh tìm kiếm — vananVoiceInput vi-VN -->
     <script src="/_content/VanAn.UI.Platform/js/voice-input.js"></script>
     <script src="/js/directory-pwa.js"></script>
     <script src="_framework/blazor.web.js"></script>
+    <!-- Phase 2 Scaling pattern (copy từ ShopERP): Circuit keepalive ping 10s —
+         giữ circuit sống qua proxy idle timeout, giảm tần suất reconnect -->
+    <script src="js/circuit-keepalive.js"></script>
+    <style>
+        /* Reconnect toast: góc phải dưới, nhỏ gọn, không che UI */
+        .reconnect-toast { display: none; position: fixed; bottom: 1rem; right: 1rem; z-index: 9999; }
+        .reconnect-toast-content { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 0.75rem 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 0.5rem; max-width: 360px; }
+        .reconnect-icon { font-size: 1.25rem; color: #f59e0b; animation: spin 1s linear infinite; }
+        @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .reconnect-status { display: none; color: #6b7280; font-size: 0.875rem; }
+        .components-reconnect-show .reconnect-status.components-reconnect-show,
+        .components-reconnect-failed .reconnect-status.components-reconnect-failed { display: inline; }
+
+        /* Toast hiển thị cho show + failed (không che UI) */
+        #components-reconnect-modal.components-reconnect-show,
+        #components-reconnect-modal.components-reconnect-failed { display: block; }
+
+        /* Rejected: modal full-screen (phiên hết hạn — cần reload, che UI OK) */
+        #components-reconnect-modal.components-reconnect-rejected {
+            display: flex !important;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 9999;
+            justify-content: center; align-items: center;
+        }
+        #components-reconnect-modal.components-reconnect-rejected .reconnect-toast-content {
+            background: white; border-radius: 12px; padding: 2rem; text-align: center;
+            max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+    </style>
 </body>
 </html>
