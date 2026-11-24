@@ -346,8 +346,8 @@ else
                 @if (AiFeaturesVisible)
                 {
                     <div class="store-ai-chips">
-                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Quán có món gì bán chạy nhất?")'>💡 Món bán chạy?</button>
-                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý combo cho 2 người?")'>🍽 Gợi ý combo 2 người</button>
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý sản phẩm hoặc dịch vụ nổi bật?")'>💡 Gợi ý nổi bật?</button>
+                        <button type="button" class="store-ai-chip" @onclick='() => AskAi("Gợi ý lựa chọn phù hợp với nhu cầu của tôi?")'>✨ Tư vấn lựa chọn</button>
                     </div>
                 }
                 @if (_productsLoading)
@@ -399,7 +399,7 @@ else
                     <i class="bi bi-chat-dots-fill"></i>
                     <div class="chat-cta-text">
                         <strong>Trò chuyện với cửa hàng</strong>
-                        <span>Nhắn trực tiếp cho chủ quán — mở khung chat góc màn hình.</span>
+                        <span>Nhắn trực tiếp cho cửa hàng — mở khung chat góc màn hình.</span>
                     </div>
                     <button type="button" class="btn-cta" @onclick="OpenHumanChat">Mở khung chat</button>
                 </div>
@@ -466,7 +466,7 @@ else
                                        CustomerDeviceId="_customerDeviceId"
                                        ScrollContainerId="ai-widget-human-scroll"
                                        ShowHeader="false"
-                                       HeaderTitle="Chủ quán"
+                                       HeaderTitle="Cửa hàng"
                                        VoiceCallStateChanged="OnHumanCallStateChanged"
                                        VoiceEnabled="_features.Voice_Note_Enabled"
                                        VoiceCallEnabled="_features.Voice_Call_Enabled"
@@ -1067,7 +1067,7 @@ else
     private void QuickViewAskAi(ProductDto product)
     {
         _quickViewProduct = null;
-        AskAi($"Món {product.Name} có gì nổi bật?");
+        AskAi($"Cho tôi biết chi tiết về {product.Name}");
     }
 
     /// <summary>SF-W2 (B5): arm scroll-reveal once the loaded page painted —

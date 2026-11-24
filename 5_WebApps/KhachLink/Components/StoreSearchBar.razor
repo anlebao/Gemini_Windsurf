@@ -17,7 +17,7 @@
                @onkeydown="OnKeyDownAsync"
                maxlength="500"
                disabled="@_searching"
-               placeholder="@(_listening ? "Đang nghe..." : "Hỏi gì về quán? (VD: đồ chay, giá massage...)")"
+               placeholder="@(_listening ? "Đang nghe..." : "Hỏi gì về cửa hàng? (VD: dịch vụ, bảng giá...)")"
                aria-label="Tìm kiếm bằng câu hỏi" />
         @* SF-W3: voice input — nói thay vì gõ. Chỉ hiện khi tenant bật
            Voice_Note_Enabled + trình duyệt hỗ trợ SpeechRecognition. *@
@@ -73,7 +73,7 @@
             }
             @if (string.IsNullOrWhiteSpace(_result.Answer) && _result.Products.Count == 0)
             {
-                <p class="store-search-empty">Chưa tìm thấy món phù hợp — thử hỏi AI bên dưới nhé.</p>
+                <p class="store-search-empty">Chưa tìm thấy kết quả phù hợp — thử hỏi AI bên dưới nhé.</p>
             }
             <button type="button" class="store-ai-chip store-search-ask" @onclick="AskAiAsync">
                 🤖 Hỏi AI thêm về "@_lastQuery"

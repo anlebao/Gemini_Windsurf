@@ -8,7 +8,8 @@
 
 <VanAnCard CssClass="vibe-showcase-container" Shadow="false">
     <div class="container">
-        <h2 class="section-title text-center mb-4">🍹 Thực đơn đặc sắc</h2>
+        @* Storefront content-neutral (2026-11-24): bỏ "Thực đơn đặc sắc" hardcode F&B —
+           outer section ở Store.razor đã có title "Bộ Sưu Tập Sản Phẩm". *@
         
         @if (ShopConfig?.ActiveTheme != null)
         {
@@ -38,7 +39,7 @@
                                                            Size="ButtonSize.Medium"
                                                            FullWidth="true"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Đặt Hàng
+                                                    Thêm vào giỏ
                                                 </VanAnButton>
                                             </span>
                                         </div>
@@ -97,7 +98,7 @@
                                                 <VanAnButton Variant="ButtonVariant.Primary"
                                                            Size="ButtonSize.Small"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Đặt hàng
+                                                    Thêm vào giỏ
                                                 </VanAnButton>
                                             </span>
                                         </div>
@@ -131,7 +132,7 @@
                                                     <VanAnButton Variant="ButtonVariant.Success"
                                                                Size="ButtonSize.Large"
                                                                OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                        Đặt ngay
+                                                        Thêm vào giỏ
                                                     </VanAnButton>
                                                 </span>
                                             </div>

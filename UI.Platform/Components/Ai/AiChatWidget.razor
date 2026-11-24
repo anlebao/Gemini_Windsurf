@@ -29,9 +29,9 @@
                             <i class="bi @(_mode == WidgetMode.Human ? "bi-person-fill" : "bi-robot")"></i>
                         </span>
                         <div class="vanan-ai-header-text">
-                            <h6 class="mb-0">@(_mode == WidgetMode.Human ? "Chủ quán" : _aiName)</h6>
+                            <h6 class="mb-0">@(_mode == WidgetMode.Human ? "Cửa hàng" : _aiName)</h6>
                             <span class="vanan-ai-header-status">
-                                <span class="vanan-ai-status-dot"></span>@(_mode == WidgetMode.Human ? "Nhân viên quán" : "Trợ lý AI · trực tuyến")
+                                <span class="vanan-ai-status-dot"></span>@(_mode == WidgetMode.Human ? "Nhân viên cửa hàng" : "Trợ lý AI · trực tuyến")
                             </span>
                         </div>
                     </div>
@@ -67,7 +67,7 @@
                         <button type="button" role="tab" aria-selected="@(_mode == WidgetMode.Human)"
                                 class="vanan-ai-tab vanan-ai-tab-human @(_mode == WidgetMode.Human ? "active" : "")"
                                 @onclick="SwitchToHuman">
-                            <i class="bi bi-person"></i> Chủ quán
+                            <i class="bi bi-person"></i> Cửa hàng
                             @if (_mode != WidgetMode.Human && HumanUnreadCount > 0)
                             {
                                 <span class="vanan-ai-tab-badge">@(HumanUnreadCount > 9 ? "9+" : HumanUnreadCount.ToString())</span>
@@ -157,7 +157,7 @@
                                 {
                                     <button type="button" class="vanan-ai-chip vanan-ai-escalate"
                                             @onclick="() => EscalateAsync(turnDraft)">
-                                        <i class="bi bi-person"></i> Hỏi chủ quán trực tiếp
+                                        <i class="bi bi-person"></i> Hỏi cửa hàng trực tiếp
                                     </button>
                                 }
                                 @* W3e: "did you mean" — server fuzzy-matched a tenant term;
@@ -233,7 +233,7 @@
                     }
                     <div class="d-flex gap-2 align-items-center">
                         <VanAInput AdditionalClasses="vanan-ai-input"
-                                   Placeholder="@(_listening ? "Đang nghe..." : "Hỏi trợ lý về quán...")"
+                                   Placeholder="@(_listening ? "Đang nghe..." : "Hỏi trợ lý về cửa hàng...")"
                                    @bind-Value="_input" OnKeyPress="OnKeyPress" maxlength="2000" Disabled="_sending" />
                         @* W3d: auto-speak toggle — tự đọc câu trả lời AI mới (mặc định ON
                            khi voice flag bật; user tắt nếu muốn chỉ đọc khi bấm loa). *@
