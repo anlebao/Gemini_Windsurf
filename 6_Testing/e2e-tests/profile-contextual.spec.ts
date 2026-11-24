@@ -116,5 +116,36 @@ test.describe('Profile contextual UX v1 @mobile', () => {
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollWidth).toBeLessThanOrEqual(376);
     });
+
+    // UX fix (2026-11): "Việc cần làm" cards — CTA text-nowrap + thiếu
+    // min-width:0 trên flex text → nội dung tràn khỏi card mép phải.
+    test('context cards: inner content stays inside card bounds @375px', async ({ page }) => {
+      const cards = page.locator('.profile-context-card');
+      const count = await cards.count();
+      test.skip(count === 0, 'no context cards rendered');
+
+      for (let i = 0; i < count; i++) {
+        const m = await cards.nth(i).evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          let maxRight = r.right;
+          let minLeft = r.left;
+          for (const n of Array.from(el.querySelectorAll('*'))) {
+            const nr = (n as HTMLElement).getBoundingClientRect();
+            if (nr.width > 0) {
+              maxRight = Math.max(maxRight, nr.right);
+              minLeft = Math.min(minLeft, nr.left);
+            }
+          }
+          return {
+            left: r.left, right: r.right,
+            minLeft, maxRight,
+            scrollW: el.scrollWidth, clientW: el.clientWidth,
+          };
+        });
+        expect(m.minLeft).toBeGreaterThanOrEqual(m.left - 1);
+        expect(m.maxRight).toBeLessThanOrEqual(m.right + 1);
+        expect(m.scrollW).toBeLessThanOrEqual(m.clientW + 1);
+      }
+    });
   });
 });

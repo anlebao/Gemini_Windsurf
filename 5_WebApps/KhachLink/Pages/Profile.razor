@@ -386,6 +386,30 @@
     </div>
 </KhachLinkLayout>
 
+<style>
+    /* UX fix: "Việc cần làm" cards — flex row thiếu min-width:0 → text/CTA
+       nowrap đẩy nội dung tràn khỏi card trên màn hẹp. */
+    .profile-context-card .flex-grow-1 {
+        min-width: 0;
+    }
+    .profile-context-card .flex-grow-1 > div {
+        overflow-wrap: break-word;
+    }
+    @@media (max-width: 576px) {
+        .profile-context-card .d-flex {
+            flex-wrap: wrap;
+            row-gap: .5rem;
+        }
+        .profile-context-card .flex-grow-1 {
+            flex-basis: calc(100% - 44px - 1.5rem);
+        }
+        /* CTA "Xem ngay" nowrap vẫn có thể tràn card → cho wrap trên mobile. */
+        .profile-context-card .text-nowrap {
+            white-space: normal;
+        }
+    }
+</style>
+
 @code {
     private bool _loading = true;
     private bool _isLoggedIn = false;

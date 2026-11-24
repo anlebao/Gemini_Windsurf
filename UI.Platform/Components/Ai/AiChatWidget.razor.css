@@ -143,11 +143,16 @@
     box-shadow: var(--chat-panel-shadow, 0 12px 40px rgba(15, 23, 42, 0.18)) !important;
 }
 
-/* UX v2.0 polish: expanded — floating panel phóng gần full màn hình. */
+/* UX v2.0 polish: expanded — floating panel phóng gần full màn hình
+   (width + height gần hết viewport, neo bottom → bung lên trên). */
 .vanan-ai-widget ::deep .vanan-ai-panel.vanan-ai-panel-expanded {
-    width: min(680px, calc(100vw - 32px));
-    max-height: calc(100vh - 48px);
-    max-height: calc(100dvh - 48px);
+    width: min(960px, calc(100vw - 24px));
+    /* UX fix: bung ~100% chiều cao viewport (trừ safe-area + lề nhỏ),
+       neo bottom → panel tràn lên trên che gần hết màn hình. */
+    height: calc(100vh - 24px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 24px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100vh - 24px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom, 0px));
 }
 
 /* UX v2.0: workspace mode (/a/{slug}) — panel fill .assistant-main, không floating. */
@@ -366,14 +371,29 @@
     align-items: flex-start;
 }
 
-.vanan-ai-bubble {
+/* msg-body là flex item shrink-to-fit → bubble max-width:% resolve vòng.
+   Cho msg-body max-width xác định → bubble fill tới cap, wrap tự nhiên. */
+.vanan-ai-msg-user .vanan-ai-msg-body,
+.vanan-ai-msg-assistant .vanan-ai-msg-body {
     max-width: 85%;
+}
+
+@media (max-width: 480px) {
+    .vanan-ai-msg-user .vanan-ai-msg-body,
+    .vanan-ai-msg-assistant .vanan-ai-msg-body {
+        max-width: 94%;
+    }
+}
+
+.vanan-ai-bubble {
+    width: 100%;
     padding: 8px 12px;
     border-radius: var(--chat-bubble-radius, 14px);
     font-size: var(--chat-font-base, 0.95rem);
     white-space: pre-wrap;
-    word-break: break-word;
-    overflow-wrap: anywhere;
+    /* break-word (không phải anywhere): chỉ ngắt từ khi thật sự tràn —
+       tiếng Việt có dấu cách giữa âm tiết, anywhere làm gãy từ tự nhiên. */
+    overflow-wrap: break-word;
 }
 
 .vanan-ai-msg-user .vanan-ai-bubble {
@@ -505,16 +525,36 @@
     min-height: 44px;
 }
 
-.vanan-ai-send {
+/* Nút trong inputbar là VanAnButton (child component) → cần ::deep;
+   trước đây rule scoped là dead → nút không shrink, send bị đẩy tràn
+   khỏi mép panel trên màn hẹp ("thiếu nút gửi"). */
+.vanan-ai-inputbar ::deep .vanan-ai-send,
+.vanan-ai-inputbar ::deep .vanan-ai-mic,
+.vanan-ai-inputbar ::deep .vanan-ai-tts-toggle {
     flex-shrink: 0;
 }
 
-/* UX v1.0 M6: màn rất hẹp — nút icon nhỏ gọn hơn, giữ input usable. */
+/* Mobile ≤480px: icon buttons nhỏ gọn để input + 3 nút vừa khung
+   (trước send button tràn phải ~11px bị panel overflow:hidden cắt). */
+@media (max-width: 480px) {
+    .vanan-ai-inputbar {
+        gap: 6px;
+        padding: 10px 10px;
+    }
+
+    .vanan-ai-inputbar ::deep button {
+        min-width: 36px;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
+/* Màn rất hẹp — nút icon nhỏ gọn hơn, giữ input usable. */
 @media (max-width: 380px) {
-    .vanan-ai-tts-toggle,
-    .vanan-ai-mic {
-        padding-left: 0.4rem;
-        padding-right: 0.4rem;
+    .vanan-ai-inputbar ::deep .vanan-ai-tts-toggle,
+    .vanan-ai-inputbar ::deep .vanan-ai-mic {
+        padding-left: 6px;
+        padding-right: 6px;
     }
 }
 
@@ -540,16 +580,16 @@
     border-color: var(--vanan-color-primary, #0d6efd);
 }
 
-.vanan-ai-tts-toggle {
+.vanan-ai-widget ::deep .vanan-ai-tts-toggle {
     flex-shrink: 0;
 }
 
 /* ── SF-W3: voice mic (nói thay vì gõ) ── */
-.vanan-ai-mic {
+.vanan-ai-widget ::deep .vanan-ai-mic {
     flex-shrink: 0;
 }
 
-.vanan-ai-mic.listening {
+.vanan-ai-widget ::deep .vanan-ai-mic.listening {
     color: #dc2626;
     border-color: #dc2626;
     animation: vanan-ai-mic-pulse 1.2s ease-in-out infinite;
@@ -561,7 +601,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .vanan-ai-mic.listening { animation: none; }
+    .vanan-ai-widget ::deep .vanan-ai-mic.listening { animation: none; }
     /* P2 R13: tắt entrance animation cho user giảm chuyển động. */
     .vanan-ai-msg { animation: none; }
     .vanan-ai-product-card { transition: none; }
