@@ -528,7 +528,12 @@ else
     .not-found-card p { color: #6b7280; margin-bottom: 1.5rem; }
 
     /* Storefront 2-ảnh (2026-11-24): backdrop ảnh chìm mờ — fixed dưới content,
-       opacity thấp để không ảnh hưởng readability (sections có card trắng đè lên). */
+       opacity thấp để không ảnh hưởng readability (sections có card trắng đè lên).
+       FIX 2026-11-24 (user report "backdrop không show"): z-index:-1 bị background
+       #f9f9f9 của .khachlink-app-layout (MainLayout) che — .store-page tạo stacking
+       context (position:relative + z-index:0) để backdrop nằm TRÊN nền layout
+       nhưng DƯỚI mọi content trong trang. */
+    .store-page { position: relative; z-index: 0; }
     .store-backdrop {
         position: fixed; inset: 0; z-index: -1;
         background-size: cover; background-position: center;
