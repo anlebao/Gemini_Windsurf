@@ -81,6 +81,9 @@ test.describe('Storefront 2 background images', () => {
   });
 
   test('Store page: vananStorefront lazy helper + hero/backdrop render an toàn', async ({ page, request }) => {
+    // Loop thử tới 6 candidates × (goto + 20s chờ .store-hero) — tenant metering-gated
+    // không có hero → cần >30s mặc định. 120s đủ cho ~5 candidate chậm.
+    test.setTimeout(120_000);
     const candidates = await storefrontCandidates(request);
     if (!candidates.length) {
       test.skip(true, 'Không có member storefront trên prod');
