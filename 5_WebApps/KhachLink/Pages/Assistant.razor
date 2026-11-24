@@ -62,6 +62,36 @@
             </header>
         }
 
+        @* In-app browser banner (Zalo/Messenger/...): WebView thiếu mic/STT
+           permission → gợi ý mở trình duyệt ngoài. Chỉ hiện khi detect UA
+           in-app + chưa dismiss; embed mode ẩn (iframe đã là external context). *@
+        @if (!_embed && _inAppBrowser)
+        {
+            <div class="assistant-inapp-banner" role="alert">
+                <i class="bi bi-box-arrow-up-right"></i>
+                <div class="assistant-inapp-text">
+                    <strong>Đang mở trong @_inAppName</strong>
+                    @if (_inAppIsAndroid)
+                    {
+                        <span> — mic/loa hoạt động tốt hơn trên trình duyệt ngoài.</span>
+                    }
+                    else
+                    {
+                        <span> — nhấn <strong>⋯ → Mở trong Safari/Chrome</strong> để dùng đầy đủ mic &amp; loa.</span>
+                    }
+                </div>
+                @if (_inAppIsAndroid)
+                {
+                    <button type="button" class="assistant-inapp-open"
+                            @onclick="OpenExternalBrowserAsync">Mở ngoài</button>
+                }
+                <button type="button" class="assistant-inapp-close" aria-label="Đóng gợi ý"
+                        @onclick="() => _inAppBrowser = false">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        }
+
         <main class="assistant-main">
         @* OpenPanel consume-once: field reset về false sau lần đầu → user đóng
            được. SessionStorageKey per-slug: nhiều shop cùng domain KhachLink
@@ -165,6 +195,42 @@
     }
     .assistant-header h1 { font-size: 1.15rem; margin: 0; color: var(--assistant-accent, inherit); }
     .assistant-header p { margin: 0; font-size: .8rem; color: var(--vanan-color-text-muted, #6c757d); }
+
+    /* In-app browser banner — Zalo/Messenger WebView thiếu mic/STT. */
+    .assistant-inapp-banner {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        padding: .55rem .9rem;
+        background: #fff8e6;
+        border-bottom: 1px solid #f0d98c;
+        font-size: .82rem;
+        color: #5c4a00;
+    }
+    .assistant-inapp-banner > i { color: #b8860b; font-size: 1rem; flex-shrink: 0; }
+    .assistant-inapp-text { flex: 1; min-width: 0; line-height: 1.35; }
+    .assistant-inapp-open {
+        flex-shrink: 0;
+        border: 1px solid #b8860b;
+        background: #fff;
+        color: #8a6d00;
+        border-radius: 999px;
+        padding: .25rem .8rem;
+        font-size: .78rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .assistant-inapp-open:active { background: #f5e6b8; }
+    .assistant-inapp-close {
+        flex-shrink: 0;
+        border: none;
+        background: transparent;
+        color: #8a6d00;
+        padding: .2rem .35rem;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+    }
 </style>
 
 @code {
@@ -198,6 +264,47 @@
     private string? _humanDraft;
     private string? _humanCallState;
     private bool _openHumanPanel;
+
+    // ── In-app browser detection (Zalo/Messenger/TikTok...) ──────────────
+    private bool _inAppBrowser;
+    private string? _inAppName;
+    private bool _inAppIsAndroid;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _embed || _inAppBrowser) return;
+        try
+        {
+            var info = await JSRuntime.InvokeAsync<InAppInfo?>(
+                "vananInAppBrowser.detect");
+            if (info?.InApp == true)
+            {
+                _inAppBrowser = true;
+                _inAppName = info.App;
+                _inAppIsAndroid = info.IsAndroid;
+                StateHasChanged();
+            }
+        }
+        catch { /* JS chưa load / interop lỗi → không hiện banner */ }
+    }
+
+    private async Task OpenExternalBrowserAsync()
+    {
+        try
+        {
+            var url = Nav.Uri;
+            await JSRuntime.InvokeVoidAsync("vananInAppBrowser.openExternal", url);
+        }
+        catch { /* best-effort */ }
+    }
+
+    private sealed class InAppInfo
+    {
+        public bool InApp { get; set; }
+        public string? App { get; set; }
+        public bool IsAndroid { get; set; }
+        public bool IsIos { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
