@@ -22,6 +22,15 @@ public interface IContextVerifier
     /// in the thread ("call whoever you're chatting with").
     /// </summary>
     Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// UX hint (2026-11-26): when candidate resolution returns empty, distinguishes
+    /// "the thread only has guest counterparts" (deny GUEST_PEER — guests can't call
+    /// per SRS O2) from a genuinely bad context (deny INVALID_CONTEXT). SQL key:
+    /// <c>Voice:ContextVerifySql:&lt;type&gt;:guestcounterpart</c> — a COUNT query;
+    /// unconfigured/failed → false (generic INVALID_CONTEXT, same as before).
+    /// </summary>
+    Task<bool> HasGuestCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -74,6 +83,34 @@ public sealed class PostgresContextVerifier(
         }
     }
 
+    public async Task<bool> HasGuestCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+    {
+        var sql = configuration[$"Voice:ContextVerifySql:{contextType}:guestcounterpart"];
+        if (string.IsNullOrWhiteSpace(_connectionString) || string.IsNullOrWhiteSpace(sql))
+            return false;
+
+        try
+        {
+#pragma warning disable CA2100
+            await using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync(ct);
+            await using var cmd = new NpgsqlCommand(sql, conn);
+#pragma warning restore CA2100
+            cmd.Parameters.AddWithValue("contextRef", contextReferenceId);
+            cmd.Parameters.AddWithValue("caller", callerUserId);
+            var count = await cmd.ExecuteScalarAsync(ct);
+            var has = count is long n && n > 0;
+            logger.LogInformation("Guest counterpart check {ContextType} {ContextRef}: caller={Caller} → {Has}",
+                contextType, contextReferenceId, callerUserId, has);
+            return has;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Guest counterpart check failed for {ContextType} — defaulting to generic context error.", contextType);
+            return false;
+        }
+    }
+
     private async Task<ContextVerification?> VerifyInternalAsync(string contextType, string contextReferenceId, Guid callerUserId, Guid targetUserId, CancellationToken ct)
     {
         var sql = configuration[$"Voice:ContextVerifySql:{contextType}"];
@@ -119,4 +156,7 @@ public sealed class NullContextVerifier(ILogger<NullContextVerifier> logger) : I
 
     public Task<IReadOnlyList<Guid>> ResolveCounterpartCandidatesAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<Guid>>(Array.Empty<Guid>());
+
+    public Task<bool> HasGuestCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+        => Task.FromResult(false);
 }

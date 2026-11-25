@@ -16,7 +16,7 @@
             <i class="bi bi-shield-lock text-primary"></i> Bảo mật tài khoản
         </h3>
         <p class="text-muted small mb-4">
-            Quản lý passkey, thiết bị và mã khôi phục. Mức bảo vệ không phải là chứng minh danh tính pháp lý.
+            Quản lý đăng nhập nhanh (vân tay/khuôn mặt), thiết bị và mã khôi phục. Mức bảo vệ không phải là chứng minh danh tính pháp lý.
         </p>
 
         @if (_loading)
@@ -58,7 +58,7 @@
                     <div class="row text-center mt-3 g-2">
                         <div class="col-4">
                             <div class="fs-4 fw-bold">@_me?.ActivePasskeyCount</div>
-                            <div class="text-muted small">Passkey</div>
+                            <div class="text-muted small">Khoá đăng nhập nhanh</div>
                         </div>
                         <div class="col-4">
                             <div class="fs-4 fw-bold">@_me?.ActiveDeviceCount</div>
@@ -75,19 +75,20 @@
             @* ===== Passkey (U03) ===== *@
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-fingerprint me-2"></i>Passkey</span>
+                    <span><i class="bi bi-fingerprint me-2"></i>Đăng nhập nhanh</span>
                     <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small" OnClick="RegisterPasskey" Disabled="_passkeyBusy">
-                        @(_passkeyBusy ? "Đang tạo..." : "Tạo passkey")
+                        @(_passkeyBusy ? "Đang tạo..." : "Bật đăng nhập nhanh")
                     </VanAnButton>
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-2">
-                        Passkey giúp xác thực nhanh và an toàn trên thiết bị này. Passkey có thể được đồng bộ
-                        qua nền tảng (Google/Apple) nên không khẳng định chỉ tồn tại trên một thiết bị vật lý.
+                        Đăng nhập nhanh dùng vân tay, khuôn mặt hoặc mã PIN của thiết bị để vào tài khoản —
+                        không cần mật khẩu hay chờ mã OTP. Khoá đăng nhập nhanh (passkey) có thể được đồng bộ
+                        qua tài khoản Google/Apple nên có thể hiện trên nhiều thiết bị của bạn.
                     </p>
                     @if (!_webauthnSupported)
                     {
-                        <VanAnAlert Message="Thiết bị/trình duyệt của bạn hiện không hỗ trợ passkey. Bạn vẫn có thể dùng mã khôi phục." Variant="AlertVariant.Warning" />
+                        <VanAnAlert Message="Thiết bị/trình duyệt của bạn hiện không hỗ trợ đăng nhập nhanh (passkey). Bạn vẫn có thể dùng mã khôi phục." Variant="AlertVariant.Warning" />
                     }
                     @if (_credentials is { Count: > 0 })
                     {
@@ -96,7 +97,7 @@
                             {
                                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                     <div>
-                                        <div>Passkey · tạo @cred.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                        <div>Khoá đăng nhập nhanh · tạo @cred.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
                                         <div class="text-muted small">
                                             @(cred.BackupEligible == true ? "Có thể đồng bộ" : "Gắn thiết bị") · dùng gần nhất @(cred.LastUsedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "chưa dùng")
                                         </div>
@@ -108,7 +109,7 @@
                     }
                     else
                     {
-                        <div class="text-muted small">Chưa có passkey nào.</div>
+                        <div class="text-muted small">Chưa có khoá đăng nhập nhanh nào.</div>
                     }
                     @if (_passkeyError is not null)
                     {
@@ -184,7 +185,7 @@
                                             </div>
                                             <div class="text-muted small">
                                                 Trạng thái: <span class="badge @DeviceStatusBadge(device.Status)">@DeviceStatusLabel(device.Status)</span>
-                                                @(device.ActiveCredentialCount > 0 ? $" · {device.ActiveCredentialCount} passkey" : "")
+                                                @(device.ActiveCredentialCount > 0 ? $" · {device.ActiveCredentialCount} khoá" : "")
                                             </div>
                                         </div>
                                         @if (device.Status != "REVOKED")
@@ -326,14 +327,14 @@
             var begin = await SecurityHttp.BeginRegistrationAsync(_customerToken!, fullOrigin, rpId, null);
             if (begin is null)
             {
-                _passkeyError = "Không thể bắt đầu đăng ký passkey. Vui lòng thử lại.";
+                _passkeyError = "Không thể bắt đầu đăng ký khoá đăng nhập nhanh. Vui lòng thử lại.";
                 return;
             }
 
             var attestation = await WebAuthnJs.CreateCredentialAsync(JSRuntime, begin.Options);
             if (attestation is null)
             {
-                _passkeyError = "Không hoàn tất tạo passkey (hủy bỏ hoặc thiết bị không hỗ trợ).";
+                _passkeyError = "Không hoàn tất tạo khoá đăng nhập nhanh (hủy bỏ hoặc thiết bị không hỗ trợ).";
                 return;
             }
 
@@ -342,9 +343,9 @@
             {
                 _passkeyError = finish?.Reason switch
                 {
-                    "DuplicateCredential" => "Passkey này đã được đăng ký.",
-                    "InvalidAttestation" => "Dữ liệu passkey không hợp lệ.",
-                    _ => "Không thể lưu passkey. Vui lòng thử lại."
+                    "DuplicateCredential" => "Khoá đăng nhập nhanh này đã được đăng ký.",
+                    "InvalidAttestation" => "Dữ liệu khoá đăng nhập nhanh không hợp lệ.",
+                    _ => "Không thể lưu khoá đăng nhập nhanh. Vui lòng thử lại."
                 };
                 return;
             }
@@ -365,13 +366,13 @@
             _stepUpToken = await PerformPasskeyStepUp();
             if (_stepUpToken is null)
             {
-                _passkeyError = "Cần xác thực passkey gần đây để thu hồi. Vui lòng thử lại.";
+                _passkeyError = "Cần xác thực lại bằng vân tay/khuôn mặt để thu hồi. Vui lòng thử lại.";
                 return;
             }
         }
         var ok = await SecurityHttp.RevokeCredentialAsync(_customerToken!, _stepUpToken, credentialId);
         if (!ok)
-            _passkeyError = "Không thể thu hồi passkey.";
+            _passkeyError = "Không thể thu hồi khoá đăng nhập nhanh.";
         else
             await LoadAllAsync();
     }
@@ -409,7 +410,7 @@
             _stepUpToken = await PerformPasskeyStepUp();
             if (_stepUpToken is null)
             {
-                _stepUpRequiredMessage = "Cần xác thực passkey gần đây để tạo mã khôi phục (bảo vệ tài khoản của bạn).";
+                _stepUpRequiredMessage = "Cần xác thực lại bằng vân tay/khuôn mặt để tạo mã khôi phục (bảo vệ tài khoản của bạn).";
                 return;
             }
         }
@@ -432,7 +433,7 @@
             _stepUpToken = await PerformPasskeyStepUp();
             if (_stepUpToken is null)
             {
-                _deviceError = "Cần xác thực passkey gần đây để thu hồi thiết bị.";
+                _deviceError = "Cần xác thực lại bằng vân tay/khuôn mặt để thu hồi thiết bị.";
                 return;
             }
         }

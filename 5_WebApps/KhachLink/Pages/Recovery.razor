@@ -80,7 +80,7 @@
                         <div class="fw-semibold mb-3">Phương thức bạn còn dùng được?</div>
                         <div class="list-group list-group-flush">
                             <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                                <span><i class="bi bi-fingerprint me-2"></i>Passkey trên thiết bị khác</span>
+                                <span><i class="bi bi-fingerprint me-2"></i>Đăng nhập nhanh trên thiết bị khác</span>
                                 <span class="badge @((_me?.ActivePasskeyCount ?? 0) > 0 ? "text-bg-success" : "text-bg-secondary")">@((_me?.ActivePasskeyCount ?? 0) > 0 ? "Có" : "Không")</span>
                             </div>
                             <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
@@ -166,7 +166,7 @@
     private static readonly ProblemOption[] ProblemOptions =
     [
         new("LOST_DEVICE", "Tôi bị mất điện thoại/thiết bị"),
-        new("NO_CREDENTIAL", "Tôi không còn mật khẩu/passkey/mã khôi phục"),
+        new("NO_CREDENTIAL", "Tôi không còn mật khẩu, đăng nhập nhanh hay mã khôi phục"),
         new("COMPROMISED", "Tôi nghi tài khoản bị truy cập trái phép"),
         new("OTHER", "Lý do khác")
     ];

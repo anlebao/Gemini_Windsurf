@@ -60,6 +60,11 @@ public sealed class FakeContextVerifier : IContextVerifier
         if (ResolvedCounterparts is { } list) return Task.FromResult(list);
         return Task.FromResult<IReadOnlyList<Guid>>(ResolvedCounterpart is { } id ? new[] { id } : Array.Empty<Guid>());
     }
+
+    public bool HasGuestCounterpart { get; set; }
+
+    public Task<bool> HasGuestCounterpartAsync(string contextType, string contextReferenceId, Guid callerUserId, CancellationToken ct = default)
+        => Task.FromResult(HasGuestCounterpart);
 }
 
 /// <summary>Thread-safe recording publisher — captures (connectionId, method, arg) for assertions.</summary>

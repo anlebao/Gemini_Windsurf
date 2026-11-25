@@ -393,7 +393,11 @@
 }
 
 .vanan-ai-bubble {
-    width: 100%;
+    /* fit-content + cap 100%: bubble ôm nội dung. Trước đây width:100% khiến
+       bubble rộng theo msg-body — vốn shrink-to-fit theo timestamp (~36px) —
+       nên tin "hi" (content box ~12px) bị xuống dòng. */
+    width: fit-content;
+    max-width: 100%;
     padding: 8px 12px;
     border-radius: var(--chat-bubble-radius, 14px);
     font-size: var(--chat-font-base, 0.95rem);

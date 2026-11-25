@@ -6,6 +6,10 @@ public static class CallEndReason
     public const string MeteringDenied = "METERING_DENIED";
     public const string FeatureDisabled = "FEATURE_DISABLED";
     public const string InvalidContext = "INVALID_CONTEXT";
+    /// <summary>Counterpart resolution found only guest (device-id) participants — guests
+    /// cannot call per SRS O2; the client shows "khách chưa đăng nhập" instead of a
+    /// generic context error.</summary>
+    public const string GuestPeer = "GUEST_PEER";
     public const string ContextRequired = "CONTEXT_REQUIRED";
     public const string SelfCall = "SELF_CALL";
     public const string CallerBusy = "CALLER_BUSY";

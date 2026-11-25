@@ -43,8 +43,8 @@
                     <div class="list-group list-group-flush">
                         <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <div>
-                                <div><i class="bi bi-fingerprint me-2 text-primary"></i>Passkey</div>
-                                <div class="text-muted small">Đăng nhập nhanh, an toàn hơn mật khẩu.</div>
+                                <div><i class="bi bi-fingerprint me-2 text-primary"></i>Đăng nhập nhanh</div>
+                                <div class="text-muted small">Dùng vân tay/khuôn mặt — nhanh và an toàn hơn mật khẩu.</div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge @((_me?.ActivePasskeyCount ?? 0) > 0 ? "text-bg-success" : "text-bg-secondary")">
@@ -106,8 +106,8 @@
     private string _assuranceLabel => _assuranceState switch
     {
         "RECOVERY_READY" => "Đã tăng cường — tài khoản được bảo vệ tốt",
-        "PROTECTED" => "Cơ bản — nên thêm passkey và mã khôi phục",
-        _ => "Chưa thiết lập — nên bắt đầu với passkey hoặc mã khôi phục"
+        "PROTECTED" => "Cơ bản — nên bật đăng nhập nhanh và mã khôi phục",
+        _ => "Chưa thiết lập — nên bắt đầu với đăng nhập nhanh hoặc mã khôi phục"
     };
     private string _assuranceBadgeClass => _assuranceState switch
     {

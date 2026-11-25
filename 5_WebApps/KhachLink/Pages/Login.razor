@@ -35,15 +35,18 @@
                     Đăng nhập với Google
                 </VanAnButton>
 
+                @* 2026-11-26: Facebook OAuth chưa cấu hình credentials (Sprint 7+)
+                   → tạm disable nút để khách không bấm vào lỗi "not_configured". *@
                 <VanAnButton Variant="ButtonVariant.Outline"
                              FullWidth="true"
                              CssClass="mb-3 d-flex align-items-center justify-content-center gap-2"
                              OnClick="LoginWithFacebook"
+                             Disabled="true"
                              TestId="btn-facebook-login">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2" xmlns="http://www.w3.org/2000/svg">
                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
-                    Đăng nhập với Facebook
+                    Đăng nhập với Facebook (sắp ra mắt)
                 </VanAnButton>
 
                 @* ATRS-21: passkey login — free, không cần Google/Facebook/SMS *@
@@ -57,12 +60,17 @@
                         <i class="bi bi-fingerprint"></i>
                         @(_passkeyBusy ? "Đang xác thực…" : "Đăng nhập bằng vân tay / khuôn mặt")
                     </VanAnButton>
-                    <div class="text-center mb-3">
+                    <div class="text-center">
                         <button type="button" class="btn btn-link btn-sm p-0 text-muted"
                                 @onclick="RegisterGuestPasskey" disabled="@_passkeyBusy"
                                 data-testid="btn-passkey-register">
-                            Chưa có passkey? Tạo trên thiết bị này
+                            Chưa thiết lập? Bật đăng nhập nhanh trên thiết bị này
                         </button>
+                    </div>
+                    @* 2026-11-26: "passkey" khó hiểu với người dùng thường — giải thích
+                       bằng thuật ngữ quen thuộc + lý do nên tạo. *@
+                    <div class="text-muted text-center mb-3" style="font-size:0.78rem;">
+                        Đăng nhập nhanh dùng vân tay hoặc khuôn mặt đã lưu trên thiết bị — không cần mật khẩu hay chờ mã OTP.
                     </div>
                 }
 
@@ -320,7 +328,7 @@
         if (finish?.Success != true || string.IsNullOrEmpty(finish.CustomerToken))
         {
             _error = _passkeyJustRegistered
-                ? "Đã tạo passkey nhưng đăng nhập chưa thành công. Vui lòng thử lại."
+                ? "Đã tạo khoá đăng nhập nhanh nhưng đăng nhập chưa thành công. Vui lòng thử lại."
                 : "Đăng nhập không thành công. Vui lòng thử lại.";
             return;
         }
@@ -350,21 +358,21 @@
             var begin = await SecurityHttp.BeginGuestPasskeyRegistrationAsync(deviceId, origin, rpId);
             if (begin is null)
             {
-                _error = "Không thể bắt đầu tạo passkey. Vui lòng thử lại.";
+                _error = "Không thể bắt đầu tạo khoá đăng nhập nhanh. Vui lòng thử lại.";
                 return;
             }
 
             var attestation = await WebAuthnJs.CreateCredentialAsync(JSRuntime, begin.Options);
             if (attestation is null)
             {
-                _error = "Không hoàn tất tạo passkey (hủy bỏ hoặc thiết bị không hỗ trợ).";
+                _error = "Không hoàn tất tạo khoá đăng nhập nhanh (hủy bỏ hoặc thiết bị không hỗ trợ).";
                 return;
             }
 
             var finish = await SecurityHttp.FinishGuestPasskeyRegistrationAsync(deviceId, begin.Challenge, origin, rpId, attestation.Value);
             if (finish?.Success != true)
             {
-                _error = "Không thể lưu passkey. Vui lòng thử lại.";
+                _error = "Không thể lưu khoá đăng nhập nhanh. Vui lòng thử lại.";
                 return;
             }
 
@@ -376,7 +384,7 @@
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "Guest passkey registration error");
-            _error = "Không thể tạo passkey. Vui lòng thử lại.";
+            _error = "Không thể tạo khoá đăng nhập nhanh. Vui lòng thử lại.";
         }
         finally
         {

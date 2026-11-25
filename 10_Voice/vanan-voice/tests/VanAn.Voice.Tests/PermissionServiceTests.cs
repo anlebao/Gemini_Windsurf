@@ -88,6 +88,39 @@ public class PermissionServiceTests
     }
 
     [Fact]
+    public async Task Guest_only_counterpart_is_denied_guest_peer()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        // 2026-11-26: staff calls a thread whose only counterpart is a guest —
+        // candidates resolve empty but the guest probe says "guest-only thread"
+        // → GUEST_PEER so the UI can explain "khách chưa đăng nhập".
+        harness.ContextVerifier.ResolvedCounterparts = Array.Empty<Guid>();
+        harness.ContextVerifier.HasGuestCounterpart = true;
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Staff(VoiceIdentities.UserA), Guid.Empty, "chat", "conv-g", DateTime.UtcNow);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Be(CallEndReason.GuestPeer);
+    }
+
+    [Fact]
+    public async Task Empty_counterpart_without_guest_stays_invalid_context()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        harness.ContextVerifier.ResolvedCounterparts = Array.Empty<Guid>();
+        harness.ContextVerifier.HasGuestCounterpart = false;
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Staff(VoiceIdentities.UserA), Guid.Empty, "chat", "conv-x", DateTime.UtcNow);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Be(CallEndReason.InvalidContext);
+    }
+
+    [Fact]
     public async Task No_context_customer_is_denied_no_tenant_source()
     {
         var (permission, harness) = Create();

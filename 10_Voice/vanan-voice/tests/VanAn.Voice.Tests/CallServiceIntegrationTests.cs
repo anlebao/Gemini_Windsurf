@@ -398,6 +398,10 @@ public class CallServiceIntegrationTests
             new StartCallRequest(callId, VoiceIdentities.UserB, null, null, "video"), "conn-a");
 
         result.Status.Should().Be("OFFLINE");
+        // Usage ingest is fire-and-forget (`_ = metering.RecordUsageBatchAsync`) —
+        // poll briefly instead of asserting on the same tick (flaky under parallel load).
+        for (var i = 0; i < 50 && batchBody is null; i++)
+            await Task.Delay(20);
         batchBody.Should().NotBeNull();
         batchBody.Should().Contain("\"serviceCode\":\"video.call\"");
         batchBody.Should().Contain("callType"); // metadataJson carries the call type

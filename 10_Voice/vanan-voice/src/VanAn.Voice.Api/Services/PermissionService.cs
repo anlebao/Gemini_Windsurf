@@ -40,7 +40,14 @@ public sealed class PermissionService(
                 _ => reachable[(store.NextRotationIndex(contextReferenceId!) - 1) % reachable.Count]
             };
             if (targetUserId == Guid.Empty)
-                return new PermissionResult(false, CallStatus.Failed, CallEndReason.InvalidContext, caller.TenantId);
+            {
+                // No callable counterpart — guests are excluded from candidates (SRS O2),
+                // so a guest-only thread resolves empty. Distinguish it for UX: staff sees
+                // "khách chưa đăng nhập" instead of a misleading INVALID_CONTEXT.
+                var guestOnly = await contextVerifier.HasGuestCounterpartAsync(contextType!, contextReferenceId!, caller.UserId, ct);
+                return new PermissionResult(false, CallStatus.Failed,
+                    guestOnly ? CallEndReason.GuestPeer : CallEndReason.InvalidContext, caller.TenantId);
+            }
         }
 
         if (targetUserId == Guid.Empty || targetUserId == caller.UserId)

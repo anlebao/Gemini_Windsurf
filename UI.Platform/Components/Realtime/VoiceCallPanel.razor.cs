@@ -142,6 +142,31 @@ public partial class VoiceCallPanel : IAsyncDisposable
     protected override async Task OnInitializedAsync()
     {
         if (!Enabled) return;
+        if (string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty)
+        {
+            // Guests carry no credential — skip the hub connect entirely: the server
+            // rejects tokenless connects (repeated Unauthorized entries in prod logs)
+            // and S5 already shows the login hint on the disabled call button.
+            _hubState = "disconnected";
+            return;
+        }
+        await InitializeVoiceAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Hosts often resolve the token asynchronously after first render — retry
+        // init once a credential appears. True guests never get one and stay off.
+        if (Enabled && !_voiceInitialized && !_delegated
+            && !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty)
+            await InitializeVoiceAsync();
+    }
+
+    private bool _voiceInitialized;
+
+    private async Task InitializeVoiceAsync()
+    {
+        _voiceInitialized = true;
         _hubState = "connecting";
 
         // VOICE PRESENCE: JS singleton đã có owner (presence panel ở layout) →
@@ -306,6 +331,11 @@ public partial class VoiceCallPanel : IAsyncDisposable
                     break;
                 case "FEATURE_DISABLED":
                     _error = "Tính năng gọi thoại đang tạm ngừng.";
+                    break;
+                case "GUEST_PEER":
+                    // 2026-11-26: staff called a guest-only thread — guests can't call
+                    // per SRS O2; say WHY instead of the generic context error.
+                    _error = "Khách hàng chưa đăng nhập nên chưa thể gọi thoại — hãy nhắn mời khách đăng nhập.";
                     break;
                 case "INVALID_CONTEXT":
                 case "SELF_CALL":
