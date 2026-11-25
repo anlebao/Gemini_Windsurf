@@ -402,7 +402,8 @@ public record BookingOfferingDto(
     string DisplayName,
     int DurationMinutes,
     decimal Price,
-    string? Description);
+    string? Description,
+    bool NeedsReview = false);
 
 public record BookingAddOnDto(Guid Id, string Name, decimal Price);
 

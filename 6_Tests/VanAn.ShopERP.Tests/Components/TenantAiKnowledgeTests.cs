@@ -28,6 +28,9 @@ public sealed class TenantAiKnowledgeTests : ComponentTestBase
             .ReturnsAsync(flagOn);
         Services.AddSingleton(flags.Object);
         Services.AddSingleton(new Mock<IProductService>().Object);
+        Services.AddSingleton(new Mock<IBookingTenantApiClient>().Object);
+        Services.AddSingleton(new Mock<IWebContentExtractor>().Object);
+        Services.AddSingleton(new Mock<IMenuOcrService>().Object);
         return client;
     }
 

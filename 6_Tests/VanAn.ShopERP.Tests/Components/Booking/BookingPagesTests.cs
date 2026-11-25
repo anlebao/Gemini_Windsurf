@@ -358,7 +358,7 @@ public class BookingServicesPageTests : ComponentTestBase
         var api = MockCatalogApi();
         api.Setup(a => a.CreateOfferingAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<decimal>(),
-                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApiResponse<BookingOfferingDto>.Success(new BookingOfferingDto(Guid.NewGuid(), null, "Service", "Massage 60 phút", 60, 300000, null)));
         Services.AddSingleton(api.Object);
 
@@ -373,7 +373,7 @@ public class BookingServicesPageTests : ComponentTestBase
         cut.FindAll(".modal button").First(b => b.TextContent.Contains("Confirm")).Click();
 
         api.Verify(a => a.CreateOfferingAsync(
-            "Massage 60 phút", "Service", 60, 300000m, It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+            "Massage 60 phút", "Service", 60, 300000m, It.IsAny<Guid?>(), It.IsAny<string?>(), false, It.IsAny<CancellationToken>()), Times.Once);
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Đã thêm dịch vụ"));
     }
 

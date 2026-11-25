@@ -458,7 +458,7 @@ public class TenantBookingController(
         {
             var offering = await _offeringService.CreateOfferingAsync(tenantId, new CreateOfferingCommand(
                 request.DisplayName.Trim(), type, request.DurationMinutes, request.Price,
-                request.CategoryId, request.RequiredSkillCode, request.Description), ct);
+                request.CategoryId, request.RequiredSkillCode, request.Description, request.NeedsReview), ct);
             return StatusCode(StatusCodes.Status201Created, ToOfferingDto(offering));
         }
         catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
@@ -519,7 +519,20 @@ public class TenantBookingController(
     }
 
     private static BookingOfferingDto ToOfferingDto(AppointmentOffering o)
-        => new(o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description);
+        => new(o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description, o.NeedsReview);
+
+    /// <summary>Bulk-approve AI-imported offerings (NeedsReview → active).</summary>
+    [HttpPost("offerings/bulk-review")]
+    public async Task<IActionResult> BulkReviewOfferings([FromBody] BulkReviewOfferingsRequest request, CancellationToken ct = default)
+    {
+        TenantId tenantId = ResolveTenantId();
+        if (tenantId.Value == Guid.Empty)
+            return Unauthorized(new { error = "Missing tenant_id claim" });
+        if (request.OfferingIds is null || request.OfferingIds.Count == 0)
+            return BadRequest(new { message = "OfferingIds không được rỗng." });
+        int approved = await _offeringService.ApproveOfferingsAsync(tenantId, request.OfferingIds, ct);
+        return Ok(new { approved });
+    }
 
     // ── Schedules (P5.3 — SRS §11.3) ─────────────────────────────────────────
 
@@ -987,7 +1000,10 @@ public record UpsertCategoryRequest(string Name, int DisplayOrder = 0, bool IsAc
 
 public record UpsertOfferingRequest(
     string DisplayName, string OfferingType, int DurationMinutes, decimal Price,
-    Guid? CategoryId = null, string? RequiredSkillCode = null, string? Description = null, bool IsActive = true);
+    Guid? CategoryId = null, string? RequiredSkillCode = null, string? Description = null, bool IsActive = true,
+    bool NeedsReview = false);
+
+public record BulkReviewOfferingsRequest(List<Guid> OfferingIds);
 
 public record UpsertAddOnRequest(string Name, decimal Price, bool IsActive = true);
 

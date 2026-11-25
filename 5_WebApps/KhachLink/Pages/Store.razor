@@ -267,6 +267,24 @@ else
                         </div>
                     }
                 </div>
+                @* AI-P11: offerings public — service items đi luồng booking (deep-link preselect), KHÔNG hiện trong product grid *@
+                @if (_bookingOfferings is { Count: > 0 })
+                {
+                    <div class="booking-offerings" data-testid="store-booking-offerings">
+                        @foreach (var o in _bookingOfferings)
+                        {
+                            <div class="booking-offering-item">
+                                <div class="booking-offering-meta">
+                                    <span class="booking-offering-name">@o.DisplayName</span>
+                                    <span class="booking-offering-sub">@o.DurationMinutes phút · @o.Price.ToString("N0")đ</span>
+                                </div>
+                                <a class="booking-offering-cta"
+                                   href="@BookingOfferingLink(o.Id)"
+                                   data-testid="@($"store-offering-cta-{o.Id}")">Đặt lịch</a>
+                            </div>
+                        }
+                    </div>
+                }
             </section>
         }
 
@@ -927,6 +945,38 @@ else
     .booking-entry-qr img { display: block; border-radius: 8px; }
     .booking-entry-qr small { color: #157347; font-weight: 600; }
 
+    /* ── AI-P11: offerings đặt lịch — service items route booking flow ───────── */
+    .booking-offerings {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-top: 1rem;
+    }
+    .booking-offering-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+    }
+    .booking-offering-meta { display: flex; flex-direction: column; min-width: 0; }
+    .booking-offering-name { font-weight: 600; font-size: 0.95rem; }
+    .booking-offering-sub { font-size: 0.8rem; color: #64748b; }
+    .booking-offering-cta {
+        flex-shrink: 0;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        background: #157347;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-decoration: none;
+    }
+    .booking-offering-cta:hover { background: #0f5c38; color: #fff; }
+
     /* ── SF-W2 (B5): scroll-reveal micro-motion (armed by vananReveal JS) ───── */
     .reveal-on-scroll.reveal-armed {
         opacity: 0;
@@ -999,6 +1049,7 @@ else
     private bool _vatDisplayEnabled = true;
     // BS-3 (2026-10-14): entry point đặt lịch công khai — link + QR (ẩn nếu chưa bật/chưa có QR).
     private BookingEntryDto? _bookingEntry;
+    private List<BookingOfferingDto>? _bookingOfferings;
 
     // Realtime Platform P5: shop chat identity — logged-in customer id, else the guest device id.
     private string? _customerToken;
@@ -1094,6 +1145,9 @@ else
 
     private void OpenQuickView(ProductDto product) => _quickViewProduct = product;
     private void CloseQuickView() => _quickViewProduct = null;
+
+    private string BookingOfferingLink(Guid offeringId)
+        => $"{_bookingEntry!.BookingLink}?offering={offeringId}";
 
     private async Task QuickViewAddToCartAsync(ProductDto product)
     {
@@ -1311,6 +1365,11 @@ else
             {
                 Guid entryTenantId = _store.TenantId != Guid.Empty ? _store.TenantId : _store.Id;
                 _bookingEntry = await BookingPublic.GetEntryAsync(entryTenantId);
+                if (_bookingEntry is { Enabled: true })
+                {
+                    var catalog = await BookingPublic.GetCatalogAsync(entryTenantId);
+                    _bookingOfferings = catalog?.Offerings;
+                }
             }
             catch (Exception entryEx)
             {

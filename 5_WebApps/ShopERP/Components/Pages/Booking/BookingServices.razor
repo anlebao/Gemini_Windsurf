@@ -35,7 +35,17 @@
             @* ── Dịch vụ (offerings) ── *@
             <div class="col-12">
                 <VanACard Header="💆 Dịch vụ đặt lịch (Appointment Offering)">
-                    <div class="d-flex justify-content-end mb-2">
+                    <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+                        @if (_offerings.Any(o => o.NeedsReview))
+                        {
+                            <span class="badge bg-warning text-dark align-self-center">
+                                ⏳ @_offerings.Count(o => o.NeedsReview) dịch vụ chờ duyệt
+                            </span>
+                            <VanAButton Variant="success" Size="small" OnClick="ApproveAllPendingOfferings"
+                                        data-testid="offering-approve-all">
+                                <i class="bi bi-check-all"></i> Duyệt tất cả chờ duyệt
+                            </VanAButton>
+                        }
                         <VanAButton Variant="primary" Size="small" OnClick="OpenOfferingCreate" data-testid="offering-add">
                             <i class="bi bi-plus-circle"></i> Thêm dịch vụ
                         </VanAButton>
@@ -46,6 +56,10 @@
                             <VanAnColumn TItem="BookingOfferingDto" Title="Dịch vụ" Width="4">
                                 <Template Context="o">
                                     <span>@o.DisplayName</span>
+                                    @if (o.NeedsReview)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" title="AI import — chưa duyệt">⏳ Chờ duyệt</span>
+                                    }
                                     @if (o.OfferingType == "Package")
                                     {
                                         <span class="badge bg-info ms-1">Gói</span>
@@ -392,6 +406,27 @@
         {
             Logger.LogError(ex, "Booking services offering toggle failed");
             _actionError = "Không cập nhật được dịch vụ. Vui lòng thử lại.";
+        }
+    }
+
+    /// <summary>AI import — duyệt hàng loạt offerings NeedsReview (kích hoạt luôn).</summary>
+    private async Task ApproveAllPendingOfferings()
+    {
+        _actionError = null;
+        _successMessage = null;
+        List<Guid> ids = _offerings.Where(o => o.NeedsReview).Select(o => o.Id).ToList();
+        if (ids.Count == 0) return;
+        try
+        {
+            var result = await BookingApi.BulkReviewOfferingsAsync(ids);
+            if (!result.Ok) { _actionError = result.Error; return; }
+            _successMessage = $"Đã duyệt {result.Data?.Approved ?? 0} dịch vụ — hiện khách đặt lịch được.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Booking services bulk approve failed");
+            _actionError = "Không duyệt được dịch vụ. Vui lòng thử lại.";
         }
     }
 

@@ -19,9 +19,12 @@ public record BookingQueueItemDto(
 public record BookingCategoryDto(Guid Id, string Name, int DisplayOrder);
 
 public record BookingOfferingDto(
-    Guid Id, Guid? CategoryId, string OfferingType, string DisplayName, int DurationMinutes, decimal Price, string? Description);
+    Guid Id, Guid? CategoryId, string OfferingType, string DisplayName, int DurationMinutes, decimal Price, string? Description,
+    bool NeedsReview = false);
 
 public record BookingAddOnDto(Guid Id, string Name, decimal Price);
+
+public record BulkReviewOfferingsResult(int Approved);
 
 public record StaffDto(Guid Id, string DisplayName, string? Role, string? AvatarUrl, bool IsActive);
 
@@ -110,7 +113,8 @@ public interface IBookingTenantApiClient
     // Catalog CRUD (Fix 2026-10-09 — bug 2: quản lý dịch vụ đặt lịch /booking/services)
     Task<ApiResponse<BookingCategoryDto>> CreateCategoryAsync(string name, int displayOrder, CancellationToken ct = default);
     Task<ApiResponse<BookingCategoryDto>> UpdateCategoryAsync(Guid categoryId, string name, int displayOrder, bool isActive, CancellationToken ct = default);
-    Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, CancellationToken ct = default);
+    Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool needsReview = false, CancellationToken ct = default);
+    Task<ApiResponse<BulkReviewOfferingsResult>> BulkReviewOfferingsAsync(List<Guid> offeringIds, CancellationToken ct = default);
     Task<ApiResponse<BookingOfferingDto>> UpdateOfferingAsync(Guid offeringId, string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool isActive, CancellationToken ct = default);
     Task<ApiResponse<BookingAddOnDto>> CreateAddOnAsync(string name, decimal price, CancellationToken ct = default);
     Task<ApiResponse<BookingAddOnDto>> UpdateAddOnAsync(Guid addOnId, string name, decimal price, bool isActive, CancellationToken ct = default);
@@ -292,9 +296,12 @@ public sealed class BookingTenantApiClient : GatewayAdminApiClientBase, IBooking
     public Task<ApiResponse<BookingCategoryDto>> UpdateCategoryAsync(Guid categoryId, string name, int displayOrder, bool isActive, CancellationToken ct = default)
         => PostAsync<BookingCategoryDto>($"{Base}/categories/{categoryId}", new { name, displayOrder, isActive }, ct, HttpMethod.Put);
 
-    public Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, CancellationToken ct = default)
+    public Task<ApiResponse<BookingOfferingDto>> CreateOfferingAsync(string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool needsReview = false, CancellationToken ct = default)
         => PostAsync<BookingOfferingDto>($"{Base}/offerings",
-            new { displayName, offeringType, durationMinutes, price, categoryId, description }, ct);
+            new { displayName, offeringType, durationMinutes, price, categoryId, description, needsReview }, ct);
+
+    public Task<ApiResponse<BulkReviewOfferingsResult>> BulkReviewOfferingsAsync(List<Guid> offeringIds, CancellationToken ct = default)
+        => PostAsync<BulkReviewOfferingsResult>($"{Base}/offerings/bulk-review", new { offeringIds }, ct);
 
     public Task<ApiResponse<BookingOfferingDto>> UpdateOfferingAsync(Guid offeringId, string displayName, string offeringType, int durationMinutes, decimal price, Guid? categoryId, string? description, bool isActive, CancellationToken ct = default)
         => PostAsync<BookingOfferingDto>($"{Base}/offerings/{offeringId}",

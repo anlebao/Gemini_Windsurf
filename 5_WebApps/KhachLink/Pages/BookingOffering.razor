@@ -154,6 +154,8 @@
 
 @code {
     [Parameter] public string QrToken { get; set; } = string.Empty;
+    /// <summary>Deep-link từ storefront "Dịch vụ đặt lịch" — preselect offering theo Id.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "offering")] public string? OfferingIdQuery { get; set; }
 
     private bool _isLoading = true;
     private string? _loadError;
@@ -186,6 +188,15 @@
         else
         {
             _isLoading = false;
+        }
+
+        if (Flow.Catalog is not null
+            && Guid.TryParse(OfferingIdQuery, out Guid offeringId)
+            && Flow.Offering?.Id != offeringId)
+        {
+            var preselect = Flow.Catalog.Offerings.FirstOrDefault(o => o.Id == offeringId);
+            if (preselect is not null)
+                SelectOffering(preselect);
         }
     }
 

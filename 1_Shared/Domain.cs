@@ -6304,6 +6304,7 @@ namespace VanAn.Shared.Domain
         public string? RequiredSkillCode { get; protected set; }    // optional — eligibility chính qua StaffService junction
         public string? Description { get; protected set; }
         public bool IsActive { get; protected set; } = true;
+        public bool NeedsReview { get; protected set; }             // AI-import chưa duyệt — ẩn khỏi public catalog
 
         protected AppointmentOffering() { }
 
@@ -6352,6 +6353,8 @@ namespace VanAn.Shared.Domain
 
         public void Activate() { IsActive = true; UpdateAudit(); }
         public void Deactivate() { IsActive = false; UpdateAudit(); }
+        public void MarkNeedsReview() { NeedsReview = true; UpdateAudit(); }
+        public void MarkReviewed() { NeedsReview = false; IsActive = true; UpdateAudit(); }
     }
 
     /// <summary>Package item — snapshot child service (SRS §8.2: package duration đã cấu hình trước).</summary>

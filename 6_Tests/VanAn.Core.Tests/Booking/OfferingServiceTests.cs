@@ -70,6 +70,35 @@ namespace VanAn.Core.Tests.BookingScheduling
         }
 
         [Fact]
+        public async Task Offering_NeedsReview_HiddenFromActiveList_UntilApproved()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var svc = BuildService(scope.Context);
+
+            var pending = await svc.CreateOfferingAsync(BookingTestData.TenantId,
+                new CreateOfferingCommand("Cắt tóc AI", OfferingType.Service, 60, 150_000m, NeedsReview: true));
+            var live = await svc.CreateOfferingAsync(BookingTestData.TenantId,
+                new CreateOfferingCommand("Massage", OfferingType.Service, 60, 300_000m));
+
+            Assert.True(pending.NeedsReview);
+            Assert.False(live.NeedsReview);
+
+            // activeOnly (public catalog path) loại pending; management list vẫn thấy.
+            var active = await svc.ListOfferingsAsync(BookingTestData.TenantId, activeOnly: true);
+            Assert.Single(active);
+            Assert.Equal(live.Id, active[0].Id);
+            var all = await svc.ListOfferingsAsync(BookingTestData.TenantId);
+            Assert.Equal(2, all.Count);
+
+            // Approve → reviewed + active → hiện public catalog.
+            int approved = await svc.ApproveOfferingsAsync(BookingTestData.TenantId, [pending.Id]);
+            Assert.Equal(1, approved);
+            var after = await svc.ListOfferingsAsync(BookingTestData.TenantId, activeOnly: true);
+            Assert.Equal(2, after.Count);
+        }
+
+        [Fact]
         public async Task Offering_InvalidCategory_ThrowsValidation()
         {
             using var scope = VanAnDbContextTestFactory.Create();

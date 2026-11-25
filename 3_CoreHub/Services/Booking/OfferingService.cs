@@ -51,6 +51,8 @@ namespace VanAn.CoreHub.Services.Booking
             var offering = new AppointmentOffering(
                 tenantId, command.DisplayName, command.OfferingType, command.DurationMinutes,
                 command.Price, command.CategoryId, command.RequiredSkillCode, command.Description);
+            if (command.NeedsReview)
+                offering.MarkNeedsReview();
             _context.AppointmentOfferings.Add(offering);
             _ = await _context.SaveChangesAsync(ct);
             _logger.LogInformation("Offering created: {OfferingId} type={Type} tenant={TenantId}", offering.Id, command.OfferingType, tenantId.Value);
@@ -84,8 +86,20 @@ namespace VanAn.CoreHub.Services.Booking
             if (categoryId is not null)
                 query = query.Where(o => o.CategoryId == categoryId);
             if (activeOnly)
-                query = query.Where(o => o.IsActive);
+                query = query.Where(o => o.IsActive && !o.NeedsReview);
             return await query.OrderBy(o => o.DisplayName).ToListAsync(ct);
+        }
+
+        public async Task<int> ApproveOfferingsAsync(TenantId tenantId, IReadOnlyList<Guid> offeringIds, CancellationToken ct = default)
+        {
+            List<AppointmentOffering> offerings = await _context.AppointmentOfferings
+                .IgnoreQueryFilters()
+                .Where(o => o.TenantId == tenantId && offeringIds.Contains(o.Id) && o.NeedsReview)
+                .ToListAsync(ct);
+            foreach (AppointmentOffering offering in offerings)
+                offering.MarkReviewed();
+            _ = await _context.SaveChangesAsync(ct);
+            return offerings.Count;
         }
 
         public async Task<IReadOnlyList<AppointmentOfferingItem>> SetPackageItemsAsync(

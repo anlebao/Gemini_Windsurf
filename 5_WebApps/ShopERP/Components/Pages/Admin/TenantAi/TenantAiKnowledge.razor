@@ -14,6 +14,7 @@
 @using VanAn.ShopERP.Services
 @inject ITenantAiClient AiClient
 @inject IProductService ProductService
+@inject IBookingTenantApiClient BookingApi
 @inject IMenuOcrService MenuOcr
 @inject IWebContentExtractor WebExtractor
 @inject IShopFeatureSettingsService FeatureSettings
@@ -770,12 +771,14 @@
                 SetAlert("Đưa vào hàng chờ thất bại — thử lại sau.", "error");
                 return;
             }
-            var created = 0;
+            var (created, offerings) = (0, 0);
             if (_importToCatalog)
             {
-                created = await ImportExtractItemsToCatalogAsync();
+                (created, offerings) = await ImportExtractItemsToCatalogAsync();
             }
-            var catalogNote = created > 0 ? $" + {created} sản phẩm/dịch vụ vào danh mục (Chờ duyệt)" : string.Empty;
+            var catalogNote = (created + offerings) > 0
+                ? $" + {created} sản phẩm vào danh mục (Chờ duyệt)" + (offerings > 0 ? $" + {offerings} dịch vụ vào đặt lịch (Chờ duyệt — cấu hình ở Đặt lịch → Dịch vụ)" : string.Empty)
+                : string.Empty;
             SetAlert($"Đã đưa tài liệu trích xuất ({_extractResult.Items.Count} mục) vào hàng chờ duyệt{catalogNote}.", "success");
             _extractResult = null;
             _importToCatalog = true;
@@ -789,35 +792,49 @@
         }
     }
 
-    /// <summary>Pending-Review (2026-11-25): items kind=product/service → Products
-    /// ở Status=Pending. Owner duyệt trong /products trước khi hiện storefront/cart.</summary>
-    private async Task<int> ImportExtractItemsToCatalogAsync()
+    /// <summary>Pending-Review (2026-11-25): kind=product → Products Status=Pending
+    /// (owner duyệt trong /products); kind=service → AppointmentOffering NeedsReview
+    /// (owner duyệt trong /booking/services — luồng đặt lịch, KHÔNG vào order).</summary>
+    private async Task<(int products, int offerings)> ImportExtractItemsToCatalogAsync()
     {
-        if (_extractResult is null) return 0;
-        var created = 0;
+        if (_extractResult is null) return (0, 0);
+        var products = 0;
+        var offerings = 0;
         foreach (var item in _extractResult.Items.Where(i => i.Kind is "product" or "service"))
         {
             if (string.IsNullOrWhiteSpace(item.Title)) continue;
             try
             {
-                await ProductService.CreateProductAsync(new CreateProductRequest
+                if (item.Kind == "service")
                 {
-                    Name = item.Title.Trim(),
-                    Description = string.IsNullOrWhiteSpace(item.Content) ? null : item.Content.Trim(),
-                    Price = item.Price ?? 0m,
-                    Category = "Menu",
-                    VatRate = 0.10m,
-                    ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl,
-                    PendingReview = true,
-                }, TenantProvider.TenantId);
-                created++;
+                    var resp = await BookingApi.CreateOfferingAsync(
+                        item.Title.Trim(), "Service", 60, item.Price ?? 0m,
+                        null, string.IsNullOrWhiteSpace(item.Content) ? null : item.Content.Trim(),
+                        needsReview: true);
+                    if (resp.Ok) offerings++;
+                    else Logger.LogWarning("TenantAiKnowledge: offering import failed for '{Title}': {Error}", item.Title, resp.Error);
+                }
+                else
+                {
+                    await ProductService.CreateProductAsync(new CreateProductRequest
+                    {
+                        Name = item.Title.Trim(),
+                        Description = string.IsNullOrWhiteSpace(item.Content) ? null : item.Content.Trim(),
+                        Price = item.Price ?? 0m,
+                        Category = "Menu",
+                        VatRate = 0.10m,
+                        ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl,
+                        PendingReview = true,
+                    }, TenantProvider.TenantId);
+                    products++;
+                }
             }
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "TenantAiKnowledge: catalog import failed for '{Title}'", item.Title);
             }
         }
-        return created;
+        return (products, offerings);
     }
 
     private async Task UploadAsync()

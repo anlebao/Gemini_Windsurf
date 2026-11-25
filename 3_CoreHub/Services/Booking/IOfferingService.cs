@@ -10,7 +10,8 @@ public sealed record CreateOfferingCommand(
     decimal Price,
     Guid? CategoryId = null,
     string? RequiredSkillCode = null,
-    string? Description = null);
+    string? Description = null,
+    bool NeedsReview = false);
 
 /// <summary>1 dòng package (SRS §8.2 — package duration đã cấu hình trước; child name + giá là snapshot).</summary>
 public sealed record PackageItemCommand(Guid? ChildOfferingId, string ChildName, int Quantity, decimal UnitPriceSnapshot);
@@ -28,6 +29,7 @@ public interface IOfferingService
 
     // ── AppointmentOffering (SERVICE | PACKAGE) ────────────────────────────
     Task<AppointmentOffering> CreateOfferingAsync(TenantId tenantId, CreateOfferingCommand command, CancellationToken ct = default);
+    Task<int> ApproveOfferingsAsync(TenantId tenantId, IReadOnlyList<Guid> offeringIds, CancellationToken ct = default);
     Task<AppointmentOffering> UpdateOfferingAsync(TenantId tenantId, Guid offeringId, CreateOfferingCommand command, bool isActive = true, CancellationToken ct = default);
     Task<AppointmentOffering?> GetOfferingAsync(TenantId tenantId, Guid offeringId, CancellationToken ct = default);
     Task<IReadOnlyList<AppointmentOffering>> ListOfferingsAsync(TenantId tenantId, Guid? categoryId = null, bool activeOnly = false, CancellationToken ct = default);
