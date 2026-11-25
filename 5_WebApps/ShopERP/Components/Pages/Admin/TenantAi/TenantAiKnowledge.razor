@@ -205,6 +205,12 @@
                                 @foreach (var item in _extractResult.Items)
                                 {
                                     <div class="border rounded p-2 mb-1 small">
+                                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                        {
+                                            <img src="@item.ImageUrl" alt="" loading="lazy"
+                                                 style="width:40px;height:40px;object-fit:cover;border-radius:4px;float:right;"
+                                                 onerror="this.style.display='none'" />
+                                        }
                                         <span class="badge bg-secondary me-1">@KindLabel(item.Kind)</span>
                                         <strong>@item.Title</strong>
                                         @if (item.Price is > 0)
@@ -801,6 +807,7 @@
                     Price = item.Price ?? 0m,
                     Category = "Menu",
                     VatRate = 0.10m,
+                    ImageUrl = string.IsNullOrWhiteSpace(item.ImageUrl) ? null : item.ImageUrl,
                     PendingReview = true,
                 }, TenantProvider.TenantId);
                 created++;

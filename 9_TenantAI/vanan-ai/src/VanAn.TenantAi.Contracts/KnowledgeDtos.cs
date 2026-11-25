@@ -75,7 +75,8 @@ public sealed record ApproveDocumentRequest(string? Classification);
 /// owner confirms, then pushes via /v1/knowledge/documents (approval gate intact).</summary>
 public sealed record KnowledgeExtractRequest(string Text, string? Hint = null);
 
-public sealed record KnowledgeExtractItem(string Kind, string Title, string Content, decimal? Price = null);
+public sealed record KnowledgeExtractItem(string Kind, string Title, string Content, decimal? Price = null,
+    string? ImageUrl = null);
 
 public sealed record KnowledgeExtractResponse(
     string Summary,

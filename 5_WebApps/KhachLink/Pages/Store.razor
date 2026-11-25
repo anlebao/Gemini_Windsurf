@@ -960,6 +960,14 @@ else
         }
         .hero-logo-placeholder i { font-size: 1.5rem; }
     }
+
+    /* Mobile nhỏ: cân bằng lại chiều ngang/cao cho các section — giảm padding
+       lồng nhau để lưới sản phẩm rộng hơn, section spacing gọn hơn. */
+    @@media (max-width: 576px) {
+        .store-body { padding: 1.5rem 0.5rem; }
+        .store-section { margin-bottom: 2.5rem; }
+        .section-header { margin-bottom: 1.25rem; }
+    }
 </style>
 
 @code {

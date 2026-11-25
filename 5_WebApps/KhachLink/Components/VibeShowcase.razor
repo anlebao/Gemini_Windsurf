@@ -301,8 +301,14 @@
     /* Mobile (≤576px): 2-col grid đã set bằng col-6 — thu gọn padding/border
        để card nhỏ gọn, nhiều sản phẩm hiển thị hơn. */
     @@media (max-width: 576px) {
+        /* Giải phóng chiều ngang: padding lồng nhau (card-body + container +
+           vibe + gutter) ăn ~90px mỗi bên → card col-6 chỉ còn ~135px. */
+        .vibe-showcase-container .card-body { padding: 0.5rem; }
+        .vibe-showcase-container .container { padding: 0; }
+        .vibe-showcase-container .row { --bs-gutter-x: 0.5rem; }
+
         .teen-vibe, .lady-vibe, .classic-vibe, .premium-vibe, .default-vibe {
-            padding: 1rem;
+            padding: 0.5rem;
         }
 
         .classic-card {

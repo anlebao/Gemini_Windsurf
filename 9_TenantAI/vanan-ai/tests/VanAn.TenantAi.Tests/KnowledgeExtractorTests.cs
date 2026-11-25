@@ -145,4 +145,23 @@ public sealed class KnowledgeExtractorTests
         result.Items[1].Price.Should().BeNull();
         result.Items[2].Price.Should().Be(15000m);
     }
+
+    [Fact]
+    public async Task Extract_ImageUrl_ParsesValidHttp_SkipsInvalid()
+    {
+        var llm = LlmReturning("""
+            {"summary":"s","items":[
+              {"kind":"product","title":"Trà sữa","content":"25k","price":25000,
+               "imageUrl":"https://shop.com/trasua.jpg"},
+              {"kind":"product","title":"Cà phê","content":"20k",
+               "imageUrl":"javascript:alert(1)"},
+              {"kind":"product","title":"Bánh","content":"10k"}
+            ]}
+            """);
+        var result = await Extractor(llm).ExtractAsync(new KnowledgeExtractRequest("menu"), default);
+
+        result.Items[0].ImageUrl.Should().Be("https://shop.com/trasua.jpg");
+        result.Items[1].ImageUrl.Should().BeNull();
+        result.Items[2].ImageUrl.Should().BeNull();
+    }
 }

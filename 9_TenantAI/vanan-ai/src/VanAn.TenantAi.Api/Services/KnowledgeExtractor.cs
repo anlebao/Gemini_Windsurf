@@ -21,7 +21,7 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
         { "product", "service", "faq", "policy", "hours", "other" };
 
     private const string SchemaHint = """
-        {"type":"object","properties":{"summary":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"kind":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"price":{"type":"number"}},"required":["kind","title","content"]}}},"required":["summary","items"]}
+        {"type":"object","properties":{"summary":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"kind":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"price":{"type":"number"},"imageUrl":{"type":"string"}},"required":["kind","title","content"]}}},"required":["summary","items"]}
         """;
 
     /// <summary>W3c-multi — 4 nhóm chạy song song, per-group never-throw:
@@ -115,6 +115,8 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
             - product/service: món/dịch vụ có tên + giá nếu có (giữ nguyên đơn vị tiền);
               nếu có giá rõ ràng → điền thêm field "price" = số nguyên VND (bỏ chữ đ/k/đồng);
               không có giá → bỏ trống field price.
+              Nếu ngay cạnh tên/mô tả món có marker "[ẢNH: http...]" hoặc "ẢNH: http..." →
+              điền field "imageUrl" = url đó (copy nguyên văn); không có → bỏ trống field imageUrl.
             - faq: câu hỏi khách thường hỏi + câu trả lời ngắn.
             - policy: chính sách (đổi trả, đặt cọc, bảo hành...).
             - hours: giờ mở cửa / lịch hoạt động.
@@ -165,8 +167,16 @@ public sealed class KnowledgeExtractor(ILlmChatClient llm, ILogger<KnowledgeExtr
                     if (el.TryGetProperty("price", out var pv) && pv.ValueKind == JsonValueKind.Number
                         && pv.TryGetDecimal(out var pdec) && pdec >= 0)
                         price = pdec;
+                    string? imageUrl = null;
+                    if (el.TryGetProperty("imageUrl", out var iv) && iv.ValueKind == JsonValueKind.String)
+                    {
+                        var raw = iv.GetString();
+                        if (raw is { Length: <= 500 } && Uri.TryCreate(raw, UriKind.Absolute, out var iu)
+                            && (iu.Scheme == Uri.UriSchemeHttp || iu.Scheme == Uri.UriSchemeHttps))
+                            imageUrl = raw;
+                    }
                     items.Add(new KnowledgeExtractItem(normalizedKind, title.Trim(),
-                        content.Trim()[..Math.Min(content.Trim().Length, MaxContentLength)], price));
+                        content.Trim()[..Math.Min(content.Trim().Length, MaxContentLength)], price, imageUrl));
                 }
             }
 

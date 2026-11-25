@@ -56,9 +56,12 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
 
             if (isHtml)
             {
-                pages.Add(HtmlToText(body));
+                // Catalog-Image (2026-11-25): JSON-LD Product/Service (A) + <img> markers
+                // (B) giữ image URL trong text để LLM pair vào item.imageUrl.
+                var startBase = finalUrl ?? uri!;
+                pages.Add(HtmlToTextWithJsonLd(body, startBase));
                 // Deep crawl: cùng origin, ưu tiên link keyword, tối đa MaxExtraPages.
-                var links = ExtractLinks(body, finalUrl ?? uri!)
+                var links = ExtractLinks(body, startBase)
                     .Where(l => seen.Add(l.ToString()))
                     .Take(MaxExtraPages).ToList();
                 foreach (var link in links)
@@ -66,7 +69,8 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
                     var (sub, subType, _) = await FetchFollowingRedirectsAsync(link, ct, PageTimeout);
                     if (sub is null) continue;
                     var subText = subType?.Contains("html", StringComparison.OrdinalIgnoreCase) == true
-                        ? HtmlToText(sub) : sub;
+                        ? HtmlToTextWithJsonLd(sub, link)
+                        : sub;
                     if (!string.IsNullOrWhiteSpace(subText))
                         pages.Add($"--- {link} ---\n{subText}");
                 }
@@ -258,12 +262,148 @@ public sealed partial class WebContentExtractorService : IWebContentExtractor
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex TagRegex();
 
-    internal static string HtmlToText(string html)
+    internal static string HtmlToText(string html) => HtmlToText(html, null);
+
+    /// <summary>Catalog-Image (B): <img> → marker " [ẢNH: abs-url] " inline trong text
+    /// để LLM pair image vào item. baseUri resolve relative src; skip data:/icons/tiny.</summary>
+    internal static string HtmlToText(string html, Uri? baseUri)
     {
-        var s = BlockRegex().Replace(html, " ");
+        var s = baseUri is null ? html : ImgToMarkers(html, baseUri);
+        s = BlockRegex().Replace(s, " ");
         s = TagRegex().Replace(s, " ");
         s = WebUtility.HtmlDecode(s);
         s = Regex.Replace(s, @"\s+", " ").Trim();
         return s;
+    }
+
+    /// <summary>JSON-LD (A) + img markers (B) — pipeline chuẩn cho 1 trang HTML.</summary>
+    private static string HtmlToTextWithJsonLd(string html, Uri baseUri)
+    {
+        var jsonLd = ExtractJsonLdProducts(html);
+        return (jsonLd.Length > 0 ? jsonLd + "\n" : "") + HtmlToText(html, baseUri);
+    }
+
+    // ---------- img → [ẢNH:url] markers ----------
+
+    private const int MaxImgMarkers = 60;
+    private static readonly string[] ImgSkipKeywords =
+        ["logo", "icon", "sprite", "favicon", "loading", "spinner", "blank", "placeholder",
+         "avatar", "badge", "banner-", "data:image"];
+
+    [GeneratedRegex("<img\\s[^>]*src=[\"']([^\"']+)[\"']", RegexOptions.IgnoreCase)]
+    private static partial Regex ImgRegex();
+
+    internal static string ImgToMarkers(string html, Uri baseUri)
+    {
+        var count = 0;
+        return ImgRegex().Replace(html, m =>
+        {
+            if (count >= MaxImgMarkers) return " ";
+            var src = m.Groups[1].Value.Trim();
+            if (src.Length == 0 || src.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                return " ";
+            var lower = src.ToLowerInvariant();
+            if (ImgSkipKeywords.Any(k => lower.Contains(k, StringComparison.Ordinal)))
+                return " ";
+            if (!Uri.TryCreate(baseUri, src, out var abs)) return " ";
+            if (abs.Scheme != Uri.UriSchemeHttp && abs.Scheme != Uri.UriSchemeHttps) return " ";
+            count++;
+            return $" [ẢNH: {abs}] ";
+        });
+    }
+
+    // ---------- JSON-LD Product/Service → text lines ----------
+
+    [GeneratedRegex("<script[^>]*type=[\"']application/ld\\+json[\"'][^>]*>(.*?)</script>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex JsonLdRegex();
+
+    private static readonly HashSet<string> JsonLdProductTypes = new(StringComparer.OrdinalIgnoreCase)
+        { "Product", "Service", "Offer", "MenuItem" };
+
+    /// <summary>Catalog-Image (A): site có schema.org Product/Service → emit text lines
+    /// "SẢN PHẨM: name | GIÁ: price | ẢNH: url" — LLM đọc như text thường.</summary>
+    internal static string ExtractJsonLdProducts(string html)
+    {
+        var lines = new List<string>();
+        foreach (Match m in JsonLdRegex().Matches(html))
+        {
+            if (lines.Count >= 50) break;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(m.Groups[1].Value);
+                CollectJsonLd(doc.RootElement, lines);
+            }
+            catch (System.Text.Json.JsonException) { /* block hỏng → bỏ qua */ }
+        }
+        return string.Join("\n", lines);
+    }
+
+    private static void CollectJsonLd(System.Text.Json.JsonElement el, List<string> lines)
+    {
+        switch (el.ValueKind)
+        {
+            case System.Text.Json.JsonValueKind.Array:
+                foreach (var item in el.EnumerateArray())
+                {
+                    if (lines.Count >= 50) return;
+                    CollectJsonLd(item, lines);
+                }
+                return;
+            case System.Text.Json.JsonValueKind.Object:
+                if (el.TryGetProperty("@graph", out var graph))
+                    CollectJsonLd(graph, lines);
+                if (el.TryGetProperty("itemListElement", out var list))
+                    CollectJsonLd(list, lines);
+                var type = el.TryGetProperty("@type", out var t)
+                    ? (t.ValueKind == System.Text.Json.JsonValueKind.String ? t.GetString() : null)
+                    : null;
+                if (type is null || !JsonLdProductTypes.Contains(type)) return;
+                var name = el.TryGetProperty("name", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? n.GetString() : null;
+                if (string.IsNullOrWhiteSpace(name)) return;
+                var price = ExtractJsonLdPrice(el);
+                var image = ExtractJsonLdImage(el);
+                var line = $"SẢN PHẨM: {name.Trim()}";
+                if (price is not null) line += $" | GIÁ: {price}";
+                if (image is not null) line += $" | ẢNH: {image}";
+                if (!lines.Contains(line)) lines.Add(line);
+                return;
+            default:
+                return;
+        }
+    }
+
+    private static string? ExtractJsonLdPrice(System.Text.Json.JsonElement el)
+    {
+        if (el.TryGetProperty("offers", out var offers))
+        {
+            var first = offers.ValueKind == System.Text.Json.JsonValueKind.Array && offers.GetArrayLength() > 0
+                ? offers[0] : offers;
+            if (first.ValueKind == System.Text.Json.JsonValueKind.Object
+                && first.TryGetProperty("price", out var p))
+            {
+                return p.ValueKind == System.Text.Json.JsonValueKind.Number
+                    ? p.GetRawText()
+                    : p.ValueKind == System.Text.Json.JsonValueKind.String ? p.GetString() : null;
+            }
+        }
+        if (el.TryGetProperty("price", out var direct)
+            && direct.ValueKind is System.Text.Json.JsonValueKind.Number or System.Text.Json.JsonValueKind.String)
+            return direct.ValueKind == System.Text.Json.JsonValueKind.Number ? direct.GetRawText() : direct.GetString();
+        return null;
+    }
+
+    private static string? ExtractJsonLdImage(System.Text.Json.JsonElement el)
+    {
+        if (!el.TryGetProperty("image", out var img)) return null;
+        return img.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.String => img.GetString(),
+            System.Text.Json.JsonValueKind.Array when img.GetArrayLength() > 0 && img[0].ValueKind == System.Text.Json.JsonValueKind.String
+                => img[0].GetString(),
+            System.Text.Json.JsonValueKind.Object when img.TryGetProperty("url", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.String
+                => u.GetString(),
+            _ => null,
+        };
     }
 }

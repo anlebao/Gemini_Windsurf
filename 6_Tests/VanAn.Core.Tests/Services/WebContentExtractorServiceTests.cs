@@ -151,4 +151,77 @@ public class WebContentExtractorServiceTests
         Assert.Contains("Nội dung chính", text);
         Assert.DoesNotContain("All rights reserved", text);
     }
+
+    // ── Catalog-Image markers (2026-11-25) ────────────────────────────────
+
+    [Fact]
+    public void HtmlToText_WithBaseUri_EmitsImgMarkers_Absolute()
+    {
+        var baseUri = new Uri("https://shop.com/menu");
+        var html = "<div><h3>Trà sữa</h3><img src=\"/img/trasua.jpg\" /><p>25k</p></div>";
+        var text = WebContentExtractorService.HtmlToText(html, baseUri);
+        Assert.Contains("[ẢNH: https://shop.com/img/trasua.jpg]", text);
+        Assert.Contains("Trà sữa", text);
+    }
+
+    [Fact]
+    public void HtmlToText_ImgMarkers_SkipsDataUriIconsAndNonHttp()
+    {
+        var baseUri = new Uri("https://shop.com/");
+        var html = "<div>" +
+                   "<img src=\"data:image/png;base64,AAA\" />" +
+                   "<img src=\"/assets/icon-cart.png\" />" +
+                   "<img src=\"javascript:void(0)\" />" +
+                   "<img src=\"/real/product.webp\" />" +
+                   "</div>";
+        var text = WebContentExtractorService.HtmlToText(html, baseUri);
+        Assert.Contains("[ẢNH: https://shop.com/real/product.webp]", text);
+        Assert.DoesNotContain("data:image", text);
+        Assert.DoesNotContain("icon-cart", text);
+        Assert.DoesNotContain("javascript:", text);
+    }
+
+    [Fact]
+    public void ExtractJsonLdProducts_ProductWithOffer_EmitsLine()
+    {
+        var html = """
+            <html><head>
+            <script type="application/ld+json">
+            {"@context":"https://schema.org","@type":"Product","name":"Aqua Peel",
+             "offers":{"@type":"Offer","price":590000},
+             "image":["https://shop.com/aqua.jpg"]}
+            </script>
+            </head><body>menu</body></html>
+            """;
+        var text = WebContentExtractorService.ExtractJsonLdProducts(html);
+        Assert.Contains("SẢN PHẨM: Aqua Peel", text);
+        Assert.Contains("GIÁ: 590000", text);
+        Assert.Contains("ẢNH: https://shop.com/aqua.jpg", text);
+    }
+
+    [Fact]
+    public void ExtractJsonLdProducts_NoJsonLd_ReturnsEmpty()
+    {
+        Assert.Equal("", WebContentExtractorService.ExtractJsonLdProducts("<html><body>plain</body></html>"));
+    }
+
+    [Fact]
+    public void ExtractJsonLdProducts_GraphItemList_CollectsAll()
+    {
+        var html = """
+            <script type="application/ld+json">
+            {"@context":"https://schema.org","@graph":[
+              {"@type":"Service","name":"Massage chân","price":150000,
+               "image":{"url":"https://shop.com/massage.jpg"}},
+              {"@type":"ItemList","itemListElement":[
+                {"@type":"Product","name":"Kem dưỡng","image":"https://shop.com/kem.jpg"}
+              ]}
+            ]}
+            </script>
+            """;
+        var text = WebContentExtractorService.ExtractJsonLdProducts(html);
+        Assert.Contains("SẢN PHẨM: Massage chân", text);
+        Assert.Contains("ẢNH: https://shop.com/massage.jpg", text);
+        Assert.Contains("SẢN PHẨM: Kem dưỡng", text);
+    }
 }

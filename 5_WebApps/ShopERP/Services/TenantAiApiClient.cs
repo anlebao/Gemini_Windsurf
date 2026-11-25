@@ -117,7 +117,8 @@ public interface ITenantAiClient
     Task<TenantAiExtractGroupsResponse?> ExtractKnowledgeGroupsAsync(Guid tenantId, string text, string? hint, CancellationToken ct = default);
 }
 
-public sealed record TenantAiExtractItem(string Kind, string Title, string Content, decimal? Price = null);
+public sealed record TenantAiExtractItem(string Kind, string Title, string Content, decimal? Price = null,
+    string? ImageUrl = null);
 public sealed record TenantAiExtractResponse(string Summary, IReadOnlyList<TenantAiExtractItem> Items);
 
 /// <summary>W3c-multi — một nhóm tri thức (menu|about|policy|promotion).</summary>
