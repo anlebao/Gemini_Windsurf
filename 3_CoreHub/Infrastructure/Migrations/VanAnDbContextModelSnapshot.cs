@@ -8225,6 +8225,11 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                     b.Property<bool>("VoiceFeatureEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("VoiceGuestCalling")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("VoiceOpenCalling")
                         .HasColumnType("boolean");
 

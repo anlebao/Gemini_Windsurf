@@ -60,6 +60,17 @@ public class VoiceHub(
             || !rateLimiter.TryAcquire($"startcall_hour:{identity.UserId}", max: 60, window: TimeSpan.FromHours(1)))
             throw new HubException("Rate limit exceeded for call initiation.");
 
+        // Device (guest) callers: the GUID is self-asserted → per-user limits are trivially
+        // bypassed by minting new GUIDs. Add a per-IP bucket so spam rings cost the abuser
+        // their IP, not just a fabricated identity (anti-abuse for VoiceGuestCalling).
+        if (identity.Kind == VoiceIdentityKind.Device)
+        {
+            var ip = Context.GetHttpContext()?.Connection?.RemoteIpAddress?.ToString();
+            if (!string.IsNullOrEmpty(ip)
+                && !rateLimiter.TryAcquire($"startcall_ip:{ip}", max: 15, window: TimeSpan.FromMinutes(1)))
+                throw new HubException("Rate limit exceeded for call initiation.");
+        }
+
         logger.LogInformation("StartCall {CallId}: caller={Caller} target={Target} ctx={Ctx}/{Ref} conn={Conn}",
             req.CallId, identity.UserId, req.TargetUserId, req.ContextType, req.ContextReferenceId, Context.ConnectionId);
         return await callService.StartCallAsync(identity, req, Context.ConnectionId);

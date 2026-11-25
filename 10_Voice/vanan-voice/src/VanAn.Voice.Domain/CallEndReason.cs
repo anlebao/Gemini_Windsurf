@@ -10,6 +10,9 @@ public static class CallEndReason
     /// cannot call per SRS O2; the client shows "khách chưa đăng nhập" instead of a
     /// generic context error.</summary>
     public const string GuestPeer = "GUEST_PEER";
+    /// <summary>A Device (guest) caller tried to call a tenant whose VoiceGuestCalling flag
+    /// is off — the client shows "đăng nhập nhanh để gọi" so the guest can upgrade inline.</summary>
+    public const string GuestCallDisabled = "GUEST_CALL_DISABLED";
     public const string ContextRequired = "CONTEXT_REQUIRED";
     public const string SelfCall = "SELF_CALL";
     public const string CallerBusy = "CALLER_BUSY";

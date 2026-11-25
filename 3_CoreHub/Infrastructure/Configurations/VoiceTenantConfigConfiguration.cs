@@ -17,6 +17,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             _ = builder.Property(e => e.VoiceFeatureEnabled).IsRequired();
             _ = builder.Property(e => e.VoiceOpenCalling).IsRequired();
+            _ = builder.Property(e => e.VoiceGuestCalling).IsRequired().HasDefaultValue(true);
             _ = builder.Property(e => e.LastChangedBy).HasMaxLength(256);
 
             _ = builder.Property(e => e.CreatedAt)

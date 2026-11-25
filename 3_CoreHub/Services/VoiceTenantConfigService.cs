@@ -41,6 +41,7 @@ public class VoiceTenantConfigService(
                 TenantName = t.Name,
                 VoiceFeatureEnabled = cfg.VoiceFeatureEnabled,
                 VoiceOpenCalling = cfg.VoiceOpenCalling,
+                VoiceGuestCalling = cfg.VoiceGuestCalling,
                 IsDefault = false,
                 LastChangedAt = cfg.LastChangedAt,
                 LastChangedBy = cfg.LastChangedBy
@@ -70,16 +71,16 @@ public class VoiceTenantConfigService(
         if (existing is null)
         {
             _context.VoiceTenantConfigs.Add(new VoiceTenantConfig(
-                tenantId, request.VoiceFeatureEnabled, request.VoiceOpenCalling, actor));
+                tenantId, request.VoiceFeatureEnabled, request.VoiceOpenCalling, actor, request.VoiceGuestCalling));
         }
         else
         {
-            existing.Update(request.VoiceFeatureEnabled, request.VoiceOpenCalling, actor);
+            existing.Update(request.VoiceFeatureEnabled, request.VoiceOpenCalling, request.VoiceGuestCalling, actor);
         }
 
         await _context.SaveChangesAsync(ct);
-        _logger.LogInformation("VoiceTenantConfig upserted for tenant {TenantId} (feature={Feature}, open={Open}) by {Actor}",
-            tenantId, request.VoiceFeatureEnabled, request.VoiceOpenCalling, actor);
+        _logger.LogInformation("VoiceTenantConfig upserted for tenant {TenantId} (feature={Feature}, open={Open}, guest={Guest}) by {Actor}",
+            tenantId, request.VoiceFeatureEnabled, request.VoiceOpenCalling, request.VoiceGuestCalling, actor);
 
         return new VoiceTenantConfigDto
         {
@@ -87,6 +88,7 @@ public class VoiceTenantConfigService(
             TenantName = tenant.Name,
             VoiceFeatureEnabled = request.VoiceFeatureEnabled,
             VoiceOpenCalling = request.VoiceOpenCalling,
+            VoiceGuestCalling = request.VoiceGuestCalling,
             IsDefault = false,
             LastChangedAt = DateTime.UtcNow,
             LastChangedBy = actor

@@ -224,12 +224,14 @@
                             SubjectId="SubjectId"
                             PeerId="PeerId"
                             CurrentUserId="CurrentUserId"
+                            DeviceId="@CustomerDeviceId"
                             Token="@(IsStaff ? StaffToken : CustomerToken)"
                             VoiceHubUrl="@VoiceHubUrl"
                             VoiceServiceUrl="@VoiceServiceUrl"
                             ShowWalletLink="IsStaff"
                             HubStateChanged="OnVoiceHubStateChanged"
-                            CallStateChanged="OnVoiceCallStateChanged" />
+                            CallStateChanged="OnVoiceCallStateChanged"
+                            CallDenied="OnVoiceCallDenied" />
         }
     </VanAnCard>
 </div>
@@ -294,6 +296,9 @@
     /// </summary>
     [Parameter] public EventCallback<string> VoiceCallStateChanged { get; set; }
 
+    /// <summary>Forward deny reason lên host (GUEST_CALL_DISABLED → inline quick-login).</summary>
+    [Parameter] public EventCallback<string> VoiceCallDenied { get; set; }
+
     /// <summary>AI-P11 payload — conversation + message ids for SourceRef dedupe, texts verbatim.</summary>
     public sealed record KnowledgeSuggestion(
         Guid ConversationId, Guid MessageId, string Question, string Answer);
@@ -326,8 +331,10 @@
     private string _voiceHubState = "connecting";
     private string _voiceCallState = "idle";
 
-    // Guests (device id only, no customer token / staff JWT) cannot call — S5 Option 1.
-    private bool VoiceCallIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken);
+    // Zero-barrier (2026-11-25): guests with a device id CAN call (Device identity,
+    // tenant VoiceGuestCalling flag gates server-side). No-identity users can't.
+    private bool VoiceCallIdentity => IsStaff || !string.IsNullOrEmpty(CustomerToken)
+        || (CustomerDeviceId.HasValue && CustomerDeviceId.Value != Guid.Empty);
 
     // Terminal call states are retryable (SDK resets to idle on retry) — mirror
     // VoiceCallPanel._idleLike so the header button doesn't stay dead after a failed call.
@@ -381,6 +388,8 @@
             or "negotiating" or "connected" or "reconnecting";
         _ = InvokeAsync(StateHasChanged);
     }
+
+    private void OnVoiceCallDenied(string reason) => _ = VoiceCallDenied.InvokeAsync(reason);
 
     private bool _voiceCallActive;
 

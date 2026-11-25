@@ -3463,26 +3463,31 @@ namespace VanAn.Shared.Domain
     {
         public bool VoiceFeatureEnabled { get; protected set; } = true;
         public bool VoiceOpenCalling { get; protected set; }
+        /// <summary>Zero-barrier guest calling (Device identity): mặc định ON — khách chưa
+        /// đăng nhập gọi được shop. Sysadmin tắt per-tenant khi shop bị phiền.</summary>
+        public bool VoiceGuestCalling { get; protected set; } = true;
         public DateTime? LastChangedAt { get; protected set; }
         public string? LastChangedBy { get; protected set; }
 
         protected VoiceTenantConfig() { }
 
         /// <summary>Single-Identity: Id (PK) = tenantId — 1 config row per tenant.</summary>
-        public VoiceTenantConfig(Guid tenantId, bool voiceFeatureEnabled, bool voiceOpenCalling, string? changedBy)
+        public VoiceTenantConfig(Guid tenantId, bool voiceFeatureEnabled, bool voiceOpenCalling, string? changedBy, bool voiceGuestCalling = true)
             : base(new TenantId(tenantId))
         {
             Id = tenantId;
             VoiceFeatureEnabled = voiceFeatureEnabled;
             VoiceOpenCalling = voiceOpenCalling;
+            VoiceGuestCalling = voiceGuestCalling;
             LastChangedAt = DateTime.UtcNow;
             LastChangedBy = changedBy;
         }
 
-        public void Update(bool voiceFeatureEnabled, bool voiceOpenCalling, string? changedBy)
+        public void Update(bool voiceFeatureEnabled, bool voiceOpenCalling, bool voiceGuestCalling, string? changedBy)
         {
             VoiceFeatureEnabled = voiceFeatureEnabled;
             VoiceOpenCalling = voiceOpenCalling;
+            VoiceGuestCalling = voiceGuestCalling;
             LastChangedAt = DateTime.UtcNow;
             LastChangedBy = changedBy;
             UpdateAudit();

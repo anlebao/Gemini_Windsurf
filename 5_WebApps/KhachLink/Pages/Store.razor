@@ -27,6 +27,7 @@
 @inject VanAn.KhachLink.Services.FeatureContextService FeatureContext
 @inject MeteringCheckHttpService MeteringCheck
 @inject VanAn.KhachLink.Services.Http.PublicTopupHttpService PublicTopup
+@inject SecurityHttpService SecurityHttp
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @* CartDrawer moved to KhachLinkLayout (global floating cart — visible on all pages). *@
@@ -198,6 +199,20 @@ else
             else
             {
             <div class="hero-cta-group">
+                @* Zero-barrier call (2026-11-25): nút gọi nổi bật ngay hero — khách bấm là
+                   gọi thẳng shop (context 'shop'), không cần mở chat, không cần đăng nhập.
+                   Tenant tắt guest calling → server deny GUEST_CALL_DISABLED → quick-login. *@
+                @if (_features.Voice_Call_Enabled)
+                {
+                    <button type="button" class="btn-cta" @onclick='() => StartStoreCallAsync("audio")'
+                            data-testid="store-call-audio">
+                        <i class="bi bi-telephone"></i> Gọi thoại
+                    </button>
+                    <button type="button" class="btn-cta-outline" @onclick='() => StartStoreCallAsync("video")'
+                            data-testid="store-call-video">
+                        <i class="bi bi-camera-video"></i> Gọi video
+                    </button>
+                }
                 @if (_features.GoogleMap_Section_Enabled && _store.Latitude.HasValue && _store.Longitude.HasValue)
                 {
                     <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude" target="_blank" class="btn-cta">
@@ -223,7 +238,7 @@ else
 
     @* SF-W1: sticky glass navbar — sticks when scrolled past the hero (pure CSS). *@
     <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks"
-              VoiceCallEnabled="_features.Voice_Call_Enabled" OnVoiceCall="OpenHumanChat" />
+              VoiceCallEnabled="_features.Voice_Call_Enabled" OnVoiceCall='() => StartStoreCallAsync("audio")' />
 
     <div class="store-body">
 
@@ -478,6 +493,41 @@ else
     </div>
     </div>
 
+    @* Zero-barrier call (2026-11-25): storefront call panel — context 'shop' (tenant
+       exists-check, counterpart = shop staff). Guest connect bằng ?customerDeviceId=
+       (Device identity); đã đăng nhập dùng customer_token. Panel chỉ render khi đang
+       gọi/có lỗi — mount ngoài .store-page (cùng lý do stacking context với widget). *@
+    <VoiceCallPanel @ref="_storeCallPanel" Enabled="_features.Voice_Call_Enabled"
+                    ContextType="shop" ContextReference="@_store.Id.ToString()"
+                    SubjectType="Shop" SubjectId="_store.Id"
+                    CurrentUserId="@(_customerId ?? Guid.Empty)"
+                    DeviceId="@_customerDeviceId"
+                    Token="@_customerToken"
+                    VoiceHubUrl="@_voiceHubUrl"
+                    VoiceServiceUrl="@_voiceServiceUrl"
+                    CallDenied="OnStoreCallDenied" />
+
+    @* B flow: sysadmin tắt guest calling cho tenant này → đăng nhập nhanh (passkey)
+       inline rồi tự động gọi lại — không phải rời trang. *@
+    @if (_quickLoginPrompt)
+    {
+        <div class="store-quicklogin" data-testid="store-quicklogin">
+            <div class="store-quicklogin-card">
+                <i class="bi bi-fingerprint store-quicklogin-icon"></i>
+                <p class="store-quicklogin-text">
+                    Shop chỉ nhận cuộc gọi từ khách đã đăng nhập.<br />
+                    <small>Đăng nhập nhanh bằng vân tay / khuôn mặt — không cần mật khẩu.</small>
+                </p>
+                <button type="button" class="btn-cta" @onclick="QuickLoginAndCallAsync"
+                        disabled="@_quickLoginBusy" data-testid="store-quicklogin-btn">
+                    @(_quickLoginBusy ? "Đang xác thực…" : "Đăng nhập nhanh rồi gọi")
+                </button>
+                <button type="button" class="store-quicklogin-dismiss"
+                        @onclick="() => _quickLoginPrompt = false">Để sau</button>
+            </div>
+        </div>
+    }
+
     @* FIX 2026-11-25 (user report mobile): AiChatWidget + ProductQuickView render
        NGOÀI .store-page — .store-page có position:relative+z-index:0 (stacking context
        cho .store-backdrop fix 2026-11-24) → z-index:1050 của widget bị "giam" trong
@@ -655,6 +705,32 @@ else
         display: flex; flex-wrap: wrap; justify-content: center;
         gap: 1rem;
     }
+
+    /* ── QUICK LOGIN (zero-barrier call B flow, 2026-11-25) ──────────────────── */
+    .store-quicklogin {
+        position: fixed; inset: 0;
+        z-index: 1080;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.55);
+        padding: 1rem;
+    }
+    .store-quicklogin-card {
+        background: #fff;
+        border-radius: 20px;
+        padding: 1.75rem;
+        max-width: 340px; width: 100%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        display: flex; flex-direction: column; gap: 0.9rem; align-items: center;
+    }
+    .store-quicklogin-icon { font-size: 2.5rem; color: #157347; }
+    .store-quicklogin-text { margin: 0; font-weight: 600; color: #1a1a2e; }
+    .store-quicklogin-text small { font-weight: 400; color: #6b7280; }
+    .store-quicklogin-dismiss {
+        background: none; border: none; color: #6b7280;
+        font-size: 0.9rem; cursor: pointer; padding: 0.25rem;
+    }
+    .store-quicklogin-dismiss:hover { color: #1a1a2e; text-decoration: underline; }
 
     /* ── PENDING BANNER (Crawl-to-Onboard Phase 6) ────────────────────── */
     .pending-banner {
@@ -1131,6 +1207,107 @@ else
     /// <summary>SF-W1: slim chat card CTA → open bubble straight in human mode.</summary>
     private bool _openHumanPanel;
     private void OpenHumanChat() => _openHumanPanel = true;
+
+    // ─── Zero-barrier storefront call (2026-11-25) ─────────────────────────────
+    private VoiceCallPanel? _storeCallPanel;
+    private bool _quickLoginPrompt;
+    private bool _quickLoginBusy;
+    private string _pendingCallType = "audio";
+
+    private async Task StartStoreCallAsync(string callType)
+    {
+        _pendingCallType = callType;
+        if (_storeCallPanel is not null)
+            await _storeCallPanel.StartCallAsync(callType);
+    }
+
+    /// <summary>B flow: tenant tắt guest calling → bung prompt đăng nhập nhanh inline.</summary>
+    private void OnStoreCallDenied(string reason)
+    {
+        if (reason == "GUEST_CALL_DISABLED")
+        {
+            _quickLoginPrompt = true;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Passkey register-or-login ngay trong trang → reconnect hub bằng
+    /// customer_token → tự động gọi lại loại cuộc gọi khách vừa bấm.</summary>
+    private async Task QuickLoginAndCallAsync()
+    {
+        if (_quickLoginBusy) return;
+        _quickLoginBusy = true;
+        try
+        {
+            // Thiết bị không hỗ trợ WebAuthn → về trang login đầy đủ.
+            var supported = await JSRuntime.InvokeAsync<bool>("vananWebAuthn.isSupported");
+            if (!supported)
+            {
+                Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString($"/store/{Slug}")}");
+                return;
+            }
+
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                deviceId = Guid.NewGuid().ToString();
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+            }
+            var origin = await JSRuntime.InvokeAsync<string>("vananWebAuthn.getOrigin");
+            var host = Uri.TryCreate(origin, UriKind.Absolute, out var u) ? u.Host : "";
+            var rpId = host == "localhost" || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
+                ? "localhost"
+                : host.Split('.') is { Length: >= 2 } parts ? string.Join('.', parts[^2..]) : host;
+
+            // Ưu tiên login passkey có sẵn; chưa có → đăng ký mới rồi login (flow Login.razor).
+            var login = await TryPasskeyLoginAsync(deviceId, origin, rpId);
+            if (login?.Success != true || string.IsNullOrEmpty(login.CustomerToken))
+            {
+                var beginReg = await SecurityHttp.BeginGuestPasskeyRegistrationAsync(deviceId, origin, rpId);
+                var attestation = beginReg is not null
+                    ? await WebAuthnJs.CreateCredentialAsync(JSRuntime, beginReg.Options) : null;
+                var finishReg = attestation is not null
+                    ? await SecurityHttp.FinishGuestPasskeyRegistrationAsync(
+                        deviceId, beginReg!.Challenge, origin, rpId, attestation.Value) : null;
+                if (finishReg?.Success == true)
+                    login = await TryPasskeyLoginAsync(deviceId, origin, rpId);
+            }
+
+            if (login?.Success != true || string.IsNullOrEmpty(login.CustomerToken)) return;
+
+            _customerToken = login.CustomerToken;
+            _customerId = login.CustomerId;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", login.CustomerToken);
+            if (login.CustomerId.HasValue)
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", login.CustomerId.Value.ToString());
+            _quickLoginPrompt = false;
+
+            // JS singleton đang connect bằng deviceId (guest) → reconnect với customer
+            // token rồi gọi lại — call giờ đi qua Customer identity, không bị flag chặn.
+            if (_storeCallPanel is not null)
+            {
+                await _storeCallPanel.ReconnectAsync();
+                await _storeCallPanel.StartCallAsync(_pendingCallType);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Store: quick-login for call failed");
+        }
+        finally
+        {
+            _quickLoginBusy = false;
+        }
+    }
+
+    private async Task<SecurityHttpService.FinishPasskeyLoginResultDto?> TryPasskeyLoginAsync(string deviceId, string origin, string rpId)
+    {
+        var begin = await SecurityHttp.BeginPasskeyLoginAsync(origin, rpId);
+        var assertion = begin is not null ? await WebAuthnJs.GetAssertionAsync(JSRuntime, begin.Options) : null;
+        return assertion is not null
+            ? await SecurityHttp.FinishPasskeyLoginAsync(begin!.Challenge, origin, rpId, assertion.Value, deviceId)
+            : null;
+    }
     /// <summary>W3-1: deep-link ?chat=ai (không ask) → mở AI bubble không auto-send.</summary>
     private bool _openAiPanel;
     /// <summary>P1 R10: voice call state từ human chat → AiChatWidget mini call-bar.</summary>

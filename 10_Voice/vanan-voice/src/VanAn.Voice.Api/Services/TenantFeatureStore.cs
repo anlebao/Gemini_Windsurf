@@ -10,7 +10,12 @@ namespace VanAn.Voice.Api.Services;
 /// fail-open → default (feature ENABLED — metering gate still governs cost, open-calling OFF).
 /// Khi chưa cấu hình Voice:GatewayDb (local dev) → default, không lỗi.
 /// </summary>
-public sealed record VoiceTenantConfig(bool VoiceFeatureEnabled = true, bool VoiceOpenCalling = false);
+/// <param name="VoiceGuestCalling">Zero-barrier guest calls (Device identity): mặc định ON —
+/// khách chưa đăng nhập gọi được shop qua context <c>shop</c>/<c>chat</c>. Sysadmin tắt
+/// per-tenant khi shop thấy phiền → guest bị deny GUEST_CALL_DISABLED (client gợi ý
+/// đăng nhập nhanh rồi gọi lại).</param>
+public sealed record VoiceTenantConfig(
+    bool VoiceFeatureEnabled = true, bool VoiceOpenCalling = false, bool VoiceGuestCalling = true);
 
 public sealed class TenantFeatureStore
 {
@@ -57,15 +62,16 @@ public sealed class TenantFeatureStore
             await using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync(ct);
             await using var cmd = new NpgsqlCommand(
-                "SELECT \"VoiceFeatureEnabled\", \"VoiceOpenCalling\" FROM \"VoiceTenantConfigs\" WHERE \"TenantId\" = @tenantId LIMIT 1", conn);
+                "SELECT \"VoiceFeatureEnabled\", \"VoiceOpenCalling\", \"VoiceGuestCalling\" FROM \"VoiceTenantConfigs\" WHERE \"TenantId\" = @tenantId LIMIT 1", conn);
             cmd.Parameters.AddWithValue("tenantId", tenantId);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct))
-                return new VoiceTenantConfig(); // no row → defaults (feature enabled, open-calling off)
+                return new VoiceTenantConfig(); // no row → defaults (feature + guest calling on, open-calling off)
 
             return new VoiceTenantConfig(
                 reader.GetBoolean(0),
-                reader.GetBoolean(1));
+                reader.GetBoolean(1),
+                !reader.IsDBNull(2) && reader.GetBoolean(2));
         }
         catch (Exception ex)
         {

@@ -78,6 +78,11 @@ public sealed class PermissionService(
         if (!config.VoiceFeatureEnabled)
             return new PermissionResult(false, CallStatus.Failed, CallEndReason.FeatureDisabled, tenantId);
 
+        // Guest calling (Device identity): default ON for every tenant; sysadmin turns it
+        // off when a shop reports abuse — the guest is then told to log in (passkey) instead.
+        if (caller.Kind == VoiceIdentityKind.Device && !config.VoiceGuestCalling)
+            return new PermissionResult(false, CallStatus.Failed, CallEndReason.GuestCallDisabled, tenantId);
+
         // No context → allowed only when the tenant opted into open calling.
         if (string.IsNullOrEmpty(contextType) && !config.VoiceOpenCalling)
             return new PermissionResult(false, CallStatus.Failed, CallEndReason.ContextRequired, tenantId);

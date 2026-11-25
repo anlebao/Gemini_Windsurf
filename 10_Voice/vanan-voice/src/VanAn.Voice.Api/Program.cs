@@ -40,6 +40,9 @@ builder.Services.AddScoped<VoiceMetricsService>();
 // Auth validators (SRS v1.1 O2): staff JWT first, then customer token.
 builder.Services.AddScoped<IVoiceTokenValidator, StaffJwtValidator>();
 builder.Services.AddScoped<IVoiceTokenValidator, CustomerTokenValidator>();
+// Zero-barrier guest calling: device GUID is the LAST resort — real credentials win.
+// A Device identity still needs a verified shop/chat context + tenant VoiceGuestCalling flag.
+builder.Services.AddScoped<IVoiceTokenValidator, DeviceTokenValidator>();
 builder.Services.AddScoped<VoiceIdentityResolver>();
 
 // Context verification (O6): PostgreSQL read-only when configured, otherwise fail closed.

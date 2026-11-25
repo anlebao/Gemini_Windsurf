@@ -475,6 +475,9 @@ window.vananVoice = (function () {
             const token = options.accessTokenProvider ? await options.accessTokenProvider() : (options.token || null);
             const headers = { Accept: 'application/json' };
             if (token) headers.Authorization = 'Bearer ' + token;
+            // Guest callers (zero-barrier): device GUID is their identity for the TURN
+            // credentials endpoint — same trust model as guest chat.
+            if (options.deviceId) headers['X-Customer-Device-Id'] = options.deviceId;
             const resp = await fetch(options.turnCredentialsUrl, { headers, signal: AbortSignal.timeout(5000) });
             if (!resp.ok) return [{ urls: FALLBACK_STUN }];
             const data = await resp.json();
@@ -499,8 +502,14 @@ window.vananVoice = (function () {
         if (options.connection) {
             connection = options.connection; // injected (tests / custom transports)
         } else if (window.signalR) {
+            // Guest callers carry no token — the device GUID rides the hub URL query so
+            // the WS handshake (which can't set headers) still identifies them.
+            var hubUrl = options.hubUrl;
+            if (options.deviceId) {
+                hubUrl += (hubUrl.indexOf('?') >= 0 ? '&' : '?') + 'customerDeviceId=' + encodeURIComponent(options.deviceId);
+            }
             connection = new window.signalR.HubConnectionBuilder()
-                .withUrl(options.hubUrl, {
+                .withUrl(hubUrl, {
                     accessTokenFactory: options.accessTokenProvider
                         || (() => options.token || null)
                 })

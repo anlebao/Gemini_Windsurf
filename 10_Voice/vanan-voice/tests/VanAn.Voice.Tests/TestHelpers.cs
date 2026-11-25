@@ -172,4 +172,6 @@ public static class VoiceIdentities
 
     public static VoiceIdentity Staff(Guid userId) => new(userId, VoiceIdentityKind.Staff, Tenant);
     public static VoiceIdentity Customer(Guid userId) => new(userId, VoiceIdentityKind.Customer);
+    /// <summary>Guest device-id caller (zero-barrier) — no tenant claim, resolves it from context.</summary>
+    public static VoiceIdentity Device(Guid userId) => new(userId, VoiceIdentityKind.Device);
 }

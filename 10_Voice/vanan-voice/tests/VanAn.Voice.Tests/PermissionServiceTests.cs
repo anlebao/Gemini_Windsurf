@@ -208,4 +208,83 @@ public class PermissionServiceTests
 
         result.TargetUserId.Should().Be(VoiceIdentities.UserB);
     }
+
+    // ---- Zero-barrier guest calling (Device identity + VoiceGuestCalling flag, 2026-11-25) ----
+
+    [Fact]
+    public async Task Device_caller_with_verified_shop_context_is_allowed_by_default()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        // 'shop' context: verify resolves the tenant (default flag VoiceGuestCalling=true).
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.ContextVerifier.ResolvedCounterparts = new[] { VoiceIdentities.UserB };
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), Guid.Empty, "shop", VoiceIdentities.Tenant.ToString(), DateTime.UtcNow);
+
+        result.Allowed.Should().BeTrue();
+        result.TenantId.Should().Be(VoiceIdentities.Tenant);
+        result.TargetUserId.Should().Be(VoiceIdentities.UserB);
+    }
+
+    [Fact]
+    public async Task Device_caller_is_denied_when_guest_calling_flag_off()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.ContextVerifier.ResolvedCounterparts = new[] { VoiceIdentities.UserB };
+        harness.Features.Set(VoiceIdentities.Tenant, new VoiceTenantConfig(VoiceGuestCalling: false));
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), Guid.Empty, "shop", VoiceIdentities.Tenant.ToString(), DateTime.UtcNow);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Be(CallEndReason.GuestCallDisabled);
+        result.TenantId.Should().Be(VoiceIdentities.Tenant);
+    }
+
+    [Fact]
+    public async Task Guest_calling_flag_off_does_not_block_logged_in_customer()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.Features.Set(VoiceIdentities.Tenant, new VoiceTenantConfig(VoiceGuestCalling: false));
+
+        // Sysadmin tắt guest calling → chỉ chặn Device; customer đã đăng nhập vẫn gọi được.
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Customer(VoiceIdentities.UserA), VoiceIdentities.UserB, "chat", "conv-1", DateTime.UtcNow);
+
+        result.Allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Device_caller_without_context_is_denied()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+
+        // A device identity carries no tenant claim and no context → no tenant source.
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), VoiceIdentities.UserB, null, null, DateTime.UtcNow);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Be(CallEndReason.ContextRequired);
+    }
+
+    [Fact]
+    public async Task Device_caller_via_chat_context_is_allowed_when_flag_on()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        // Guest đã chat trước đó → participant row 'Guest' tồn tại → 'chat' context cũng verify được.
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), VoiceIdentities.UserB, "chat", "Shop:t-1", DateTime.UtcNow);
+
+        result.Allowed.Should().BeTrue();
+    }
 }

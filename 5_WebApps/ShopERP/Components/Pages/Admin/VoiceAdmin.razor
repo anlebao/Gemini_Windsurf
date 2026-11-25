@@ -37,7 +37,9 @@
                 <strong>VoiceFeatureEnabled</strong> = kill-switch: tắt → mọi cuộc gọi của tenant bị chặn
                 (<code>FEATURE_DISABLED</code>) dù ví còn hạn mức.
                 <strong>VoiceOpenCalling</strong> = cho phép gọi không qua context chat đã xác minh (mặc định tắt).
-                Chưa cấu hình (default) = bật gọi thoại, tắt open calling — phí theo rate card
+                <strong>VoiceGuestCalling</strong> = khách chưa đăng nhập gọi được shop (mặc định BẬT) —
+                tắt khi tenant bị phiền → khách được yêu cầu đăng nhập nhanh (passkey) để gọi.
+                Chưa cấu hình (default) = bật gọi thoại + guest calling, tắt open calling — phí theo rate card
                 <code>voice.call</code>/<code>voice.minute</code>.
             </div>
         </ChildContent>
@@ -78,6 +80,7 @@
                                 <th>Tenant</th>
                                 <th style="width: 160px;">Gọi thoại (kill-switch)</th>
                                 <th style="width: 160px;">Gọi tự do (open calling)</th>
+                                <th style="width: 170px;">Khách vãng lai gọi (guest)</th>
                                 <th style="width: 120px;">Trạng thái</th>
                                 <th style="width: 200px;">Nạp phí</th>
                                 <th style="width: 110px;"></th>
@@ -107,6 +110,15 @@
                                                    id="voice-open-@c.TenantId" @bind="c.VoiceOpenCalling" />
                                             <label class="form-check-label small" for="voice-open-@c.TenantId">
                                                 @(c.VoiceOpenCalling ? "Bật" : "Tắt")
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                   id="voice-guest-@c.TenantId" @bind="c.VoiceGuestCalling" />
+                                            <label class="form-check-label small" for="voice-guest-@c.TenantId">
+                                                @(c.VoiceGuestCalling ? "Bật" : "Tắt")
                                             </label>
                                         </div>
                                     </td>
@@ -186,10 +198,11 @@
             var saved = await VoiceApi.UpsertAsync(c.TenantId, new UpdateVoiceTenantConfigRequest
             {
                 VoiceFeatureEnabled = c.VoiceFeatureEnabled,
-                VoiceOpenCalling = c.VoiceOpenCalling
+                VoiceOpenCalling = c.VoiceOpenCalling,
+                VoiceGuestCalling = c.VoiceGuestCalling
             });
             _alertType = "success";
-            _alertMessage = $"Đã lưu cấu hình voice cho '{c.TenantName}' (gọi thoại: {(saved.VoiceFeatureEnabled ? "bật" : "tắt")}, gọi tự do: {(saved.VoiceOpenCalling ? "bật" : "tắt")}).";
+            _alertMessage = $"Đã lưu cấu hình voice cho '{c.TenantName}' (gọi thoại: {(saved.VoiceFeatureEnabled ? "bật" : "tắt")}, gọi tự do: {(saved.VoiceOpenCalling ? "bật" : "tắt")}, khách vãng lai: {(saved.VoiceGuestCalling ? "bật" : "tắt")}).";
         }
         catch (Exception ex)
         {

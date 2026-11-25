@@ -7,6 +7,8 @@ public sealed class VoiceTenantConfigDto
     public string? TenantName { get; set; }
     public bool VoiceFeatureEnabled { get; set; } = true;
     public bool VoiceOpenCalling { get; set; }
+    /// <summary>Zero-barrier guest calling (Device identity) — mặc định ON.</summary>
+    public bool VoiceGuestCalling { get; set; } = true;
     /// <summary>True khi chưa có row trong VoiceTenantConfigs — voice service dùng defaults.</summary>
     public bool IsDefault { get; set; } = true;
     public DateTime? LastChangedAt { get; set; }
@@ -18,6 +20,7 @@ public sealed class UpdateVoiceTenantConfigRequest
 {
     public bool VoiceFeatureEnabled { get; set; } = true;
     public bool VoiceOpenCalling { get; set; }
+    public bool VoiceGuestCalling { get; set; } = true;
 }
 
 /// <summary>

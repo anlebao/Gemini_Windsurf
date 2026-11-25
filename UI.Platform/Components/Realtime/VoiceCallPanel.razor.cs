@@ -39,8 +39,27 @@ public partial class VoiceCallPanel : IAsyncDisposable
     /// <summary>The caller's own participant id (staff userId or customerId).</summary>
     [Parameter] public Guid CurrentUserId { get; set; }
 
+    /// <summary>
+    /// Guest device GUID (zero-barrier calling, 2026-11-25): when the host has no Token, the
+    /// panel still connects via ?customerDeviceId= — the server treats the device GUID as a
+    /// Device identity (same trust model as guest chat). Logged-in users keep Token priority.
+    /// </summary>
+    [Parameter] public Guid? DeviceId { get; set; }
+
     /// <summary>Auth token for the voice service: staff JWT (StaffToken) or customer token.</summary>
     [Parameter] public string? Token { get; set; }
+
+    /// <summary>
+    /// Call context type: 'chat' (default — verified conversation) or 'shop' (zero-barrier
+    /// storefront call — the tenant exists check only; counterpart resolves to shop staff).
+    /// </summary>
+    [Parameter] public string ContextType { get; set; } = "chat";
+
+    /// <summary>
+    /// Override for the context reference sent to the server. For 'shop' context this is the
+    /// raw tenant GUID; when null the reference is built as "{SubjectType}:{SubjectId}:{PeerId?}".
+    /// </summary>
+    [Parameter] public string? ContextReference { get; set; }
 
     /// <summary>Voice service SignalR hub URL (default: same-origin /hubs/voice).</summary>
     [Parameter] public string VoiceHubUrl { get; set; } = "/hubs/voice";
@@ -64,6 +83,13 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     /// <summary>S3: notifies the host of call-state changes (for header button busy state).</summary>
     [Parameter] public EventCallback<string> CallStateChanged { get; set; }
+
+    /// <summary>
+    /// Notifies the host when a call is denied with a reason code (METERING_DENIED,
+    /// GUEST_CALL_DISABLED, ...). Hosts use GUEST_CALL_DISABLED to offer inline quick-login
+    /// (passkey) then retry the call (B flow, 2026-11-25).
+    /// </summary>
+    [Parameter] public EventCallback<string> CallDenied { get; set; }
 
     private DotNetObjectReference<VoiceCallPanel>? _ref;
     private string _state = "idle";
@@ -102,15 +128,18 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     // Terminal states (offline/busy/failed/...) are retryable — the SDK resets to idle
     // on the next startCall; gating on exactly "idle" left the button dead forever (S6).
-    private bool _canCall => !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty
-        && _idleLike && _hubState == "connected";
+    // Zero-barrier (2026-11-25): a guest CAN call — identity is Token'ed user OR DeviceId.
+    private bool HasIdentity => (!string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty)
+        || (DeviceId.HasValue && DeviceId.Value != Guid.Empty);
+
+    private bool _canCall => HasIdentity && _idleLike && _hubState == "connected";
 
     // S5 (2026-11-12): guests have no customer token — button stays visible but disabled
     // with a login hint instead of failing on click.
     private bool HubConnecting => _hubState == "connecting";
 
     private string CallButtonTitle =>
-        string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty ? "Đăng nhập để gọi thoại"
+        !HasIdentity ? "Đăng nhập để gọi thoại"
         : _hubState == "connecting" ? "Đang kết nối máy chủ cuộc gọi..."
         : _hubState != "connected" ? "Không kết nối được máy chủ cuộc gọi"
         : "Gọi thoại";
@@ -142,11 +171,11 @@ public partial class VoiceCallPanel : IAsyncDisposable
     protected override async Task OnInitializedAsync()
     {
         if (!Enabled) return;
-        if (string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty)
+        if (!HasIdentity)
         {
-            // Guests carry no credential — skip the hub connect entirely: the server
-            // rejects tokenless connects (repeated Unauthorized entries in prod logs)
-            // and S5 already shows the login hint on the disabled call button.
+            // Guests WITHOUT a device id carry no credential at all — skip the hub connect
+            // entirely (the server rejects tokenless connects). Guests WITH DeviceId connect
+            // via ?customerDeviceId= for zero-barrier calling.
             _hubState = "disconnected";
             return;
         }
@@ -155,10 +184,9 @@ public partial class VoiceCallPanel : IAsyncDisposable
 
     protected override async Task OnParametersSetAsync()
     {
-        // Hosts often resolve the token asynchronously after first render — retry
-        // init once a credential appears. True guests never get one and stay off.
-        if (Enabled && !_voiceInitialized && !_delegated
-            && !string.IsNullOrEmpty(Token) && CurrentUserId != Guid.Empty)
+        // Hosts often resolve the token/device id asynchronously after first render — retry
+        // init once a credential appears. True guests (no device id) stay off.
+        if (Enabled && !_voiceInitialized && !_delegated && HasIdentity)
             await InitializeVoiceAsync();
     }
 
@@ -196,7 +224,8 @@ public partial class VoiceCallPanel : IAsyncDisposable
             {
                 hubUrl = VoiceHubUrl,
                 serviceUrl = VoiceServiceUrl,
-                token = Token
+                token = Token,
+                deviceId = DeviceId?.ToString()
             });
             await LoadMissedCallsAsync();
         }
@@ -251,7 +280,7 @@ public partial class VoiceCallPanel : IAsyncDisposable
         {
             // Identity failures must be visible — a silent return left the header call
             // button looking dead (ShopERP tenant login lacked a GUID sub claim, S9).
-            if (string.IsNullOrEmpty(Token) || CurrentUserId == Guid.Empty)
+            if (!HasIdentity)
                 _error = "Phiên đăng nhập chưa sẵn sàng — vui lòng đăng nhập lại.";
             StateHasChanged();
             return;
@@ -261,12 +290,31 @@ public partial class VoiceCallPanel : IAsyncDisposable
         {
             // Chat-first (P4): pass NULL target — the server resolves the conversation
             // counterpart. Passing CurrentUserId made every call SELF_CALL-denied (S7).
-            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall", null, SubjectType, SubjectId, PeerId, callType);
+            // 'shop' context (zero-barrier): ContextReference = raw tenant GUID.
+            await JSRuntime.InvokeVoidAsync("vananVoiceChat.startCall",
+                null, SubjectType, SubjectId, PeerId, callType, ContextType, ContextReference);
         }
         catch (Exception ex)
         {
             _error = "Không gọi được: " + ex.Message;
         }
+    }
+
+    /// <summary>
+    /// B flow (2026-11-25): a guest upgrades to a logged-in customer mid-session — the JS
+    /// singleton still holds a Device-identity connection, so dispose + re-init with the
+    /// Token now set. Host calls ReconnectAsync right after quick-login, then StartCallAsync.
+    /// </summary>
+    public async Task ReconnectAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("vananVoiceChat.dispose"); } catch { /* best effort */ }
+        _voiceInitialized = false;
+        _delegated = false;
+        _hubState = "connecting";
+        if (_coordinatorHandler is not null && Coordinator is not null)
+            Coordinator.Changed -= _coordinatorHandler;
+        _coordinatorHandler = null;
+        await InitializeVoiceAsync();
     }
 
     private async Task AcceptCallAsync() => await JSRuntime.InvokeVoidAsync("vananVoiceChat.acceptCall");
@@ -337,6 +385,11 @@ public partial class VoiceCallPanel : IAsyncDisposable
                     // per SRS O2; say WHY instead of the generic context error.
                     _error = "Khách hàng chưa đăng nhập nên chưa thể gọi thoại — hãy nhắn mời khách đăng nhập.";
                     break;
+                case "GUEST_CALL_DISABLED":
+                    // Zero-barrier (2026-11-25): sysadmin đã tắt gọi khách vãng lai cho
+                    // tenant này — host có thể bung inline passkey prompt (CallDenied).
+                    _error = "Shop chỉ nhận cuộc gọi từ khách đã đăng nhập — bạn có thể đăng nhập nhanh bằng vân tay / khuôn mặt để gọi.";
+                    break;
                 case "INVALID_CONTEXT":
                 case "SELF_CALL":
                 case "CONTEXT_REQUIRED":
@@ -378,6 +431,11 @@ public partial class VoiceCallPanel : IAsyncDisposable
         // khiển global overlay/mini-bar (ẩn khi chat đang hiển thị call UI).
         if (!_delegated) Coordinator?.PublishCallState(state, infoJson);
         Coordinator?.SetChatSurfaceActive(CallUiRelevant(state));
+
+        // Deny reasons reach the host so it can react (e.g. GUEST_CALL_DISABLED → inline
+        // quick-login prompt, then retry the call).
+        if (state == "failed" && !string.IsNullOrEmpty(reason))
+            _ = CallDenied.InvokeAsync(reason);
 
         _ = CallStateChanged.InvokeAsync(state);
         StateHasChanged();

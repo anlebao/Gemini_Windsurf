@@ -30,6 +30,7 @@ window.vananVoiceChat = (function () {
             await voice.initialize({
                 hubUrl: options.hubUrl,
                 token: options.token || null,
+                deviceId: options.deviceId || null,
                 turnCredentialsUrl: serviceUrl ? serviceUrl + '/v1/turn/credentials' : null,
                 onStateChange: (s, info) => dotNetRef.invokeMethodAsync('OnVoiceStateChange', s, JSON.stringify(info || {})),
                 // S3 (2026-11-12): hub transport state — host disables the call button until Connected.
@@ -56,12 +57,14 @@ window.vananVoiceChat = (function () {
     // context verifier scopes verification/counterpart resolution to THAT thread, not every
     // customer conversation of the shop.
     // callType 'audio'|'video' (VIDEO MVP 2026-11-22) — default 'audio'.
-    async function startCall(targetUserId, subjectType, subjectId, peerId, callType) {
-        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, peerId, callType, sdkState: voice ? voice.getCallState() : null });
+    // ctxType/ctxRef (2026-11-25): zero-barrier calls use context 'shop' + raw tenant GUID —
+    // no chat thread needed. Chat calls keep the default 'chat' + "{type}:{id}:{peer}".
+    async function startCall(targetUserId, subjectType, subjectId, peerId, callType, ctxType, ctxRef) {
+        console.info('[voice-chat] startCall invoked', { targetUserId, subjectType, subjectId, peerId, callType, ctxType, ctxRef, sdkState: voice ? voice.getCallState() : null });
         try {
-            const contextRef = subjectType + ':' + subjectId + (peerId ? ':' + peerId : '');
+            const contextRef = ctxRef || (subjectType + ':' + subjectId + (peerId ? ':' + peerId : ''));
             await voice.startCall(targetUserId || null, {
-                contextType: 'chat',
+                contextType: ctxType || 'chat',
                 contextReferenceId: contextRef,
                 callType: callType === 'video' ? 'video' : 'audio'
             });

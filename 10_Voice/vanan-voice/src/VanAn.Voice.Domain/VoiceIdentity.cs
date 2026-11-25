@@ -8,7 +8,11 @@ namespace VanAn.Voice.Domain;
 public enum VoiceIdentityKind
 {
     Staff = 0,
-    Customer = 1
+    Customer = 1,
+    /// <summary>Unauthenticated guest — a self-asserted device GUID (same trust model as
+    /// guest chat). May only start calls against a verified <c>shop</c>/<c>chat</c> context,
+    /// and only while the tenant's <c>VoiceGuestCalling</c> flag is on.</summary>
+    Device = 2
 }
 
 public sealed record VoiceIdentity(Guid UserId, VoiceIdentityKind Kind, Guid? TenantId = null, string? DisplayName = null)
