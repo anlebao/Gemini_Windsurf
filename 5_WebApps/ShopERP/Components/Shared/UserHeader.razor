@@ -154,11 +154,30 @@
         background: rgba(220, 53, 69, 0.1);
     }
     @@media (max-width: 768px) {
-        .user-header__tenant-name {
-            max-width: 120px;
+        .user-header {
+            gap: 0.5rem;
+            padding: 0 0.5rem;
         }
-        .user-header__name {
-            font-size: 0.85rem;
+        .user-header__tenant-name {
+            display: none;
+        }
+        .user-header__tenant {
+            padding: 4px 6px;
+        }
+        .user-header__name,
+        .user-header__role-badge {
+            display: none;
+        }
+        .user-header__logout span {
+            display: none;
+        }
+        .user-header__logout {
+            padding: 4px 6px;
+        }
+    }
+    @@media (max-width: 576px) {
+        .user-header__tenant {
+            display: none;
         }
     }
 </style>

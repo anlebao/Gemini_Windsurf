@@ -21,7 +21,7 @@
                         <div class="row g-4">
                             @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
+                                <div class="col-6 col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="teen-card" Shadow="true" Hoverable="true">
                                         <div class="teen-image">
@@ -55,7 +55,7 @@
                         <div class="row g-4">
                             @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
+                                <div class="col-6 col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="lady-card" Shadow="true">
                                         <div class="lady-header">
@@ -85,7 +85,7 @@
                         <div class="row">
                             @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 mb-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
+                                <div class="col-6 col-md-6 mb-3 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="classic-card" Shadow="true">
                                         <div class="classic-row">
@@ -152,7 +152,7 @@
                 <div class="row">
                     @foreach (var product in Products ?? new List<ProductDto>())
                     {
-                        <div class="col-md-4 mb-3 vibe-qv reveal-on-scroll" key="@product.ProductId"
+                        <div class="col-6 col-md-4 mb-3 vibe-qv reveal-on-scroll" key="@product.ProductId"
                              @onclick="() => NotifyProductClick(product)">
                             <VanAnCard CssClass="product-card" Shadow="true">
                                 <div class="product-info">
@@ -296,6 +296,46 @@
         padding: 12px 24px;
         border-radius: 25px;
         font-weight: bold;
+    }
+
+    /* Mobile (≤576px): 2-col grid đã set bằng col-6 — thu gọn padding/border
+       để card nhỏ gọn, nhiều sản phẩm hiển thị hơn. */
+    @@media (max-width: 576px) {
+        .teen-vibe, .lady-vibe, .classic-vibe, .premium-vibe, .default-vibe {
+            padding: 1rem;
+        }
+
+        .classic-card {
+            padding: .75rem;
+            border-left-width: 3px;
+        }
+
+        .classic-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: .5rem;
+        }
+
+        .classic-card p {
+            display: none;
+        }
+
+        .classic-card h4 {
+            font-size: 1rem;
+            margin-bottom: .25rem;
+        }
+
+        .teen-card, .lady-card {
+            padding: .75rem;
+        }
+
+        .teen-desc, .lady-desc {
+            display: none;
+        }
+
+        .premium-content {
+            padding: 1rem;
+        }
     }
 </style>
 
