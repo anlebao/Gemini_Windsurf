@@ -25,10 +25,11 @@ public sealed class TenantAiKnowledgeSyncTests
             new Microsoft.Extensions.Logging.Abstractions.NullLogger<TenantAiKnowledgeSyncService>());
     }
 
-    private static ProductDetailDto Dto(bool active = true) => new()
+    private static ProductDetailDto Dto(bool active = true, string status = "Ready") => new()
     {
         ProductId = ProductId, TenantId = Tenant, Name = "Phở chay",
-        Description = "Nước dùng nấm", Price = 50_000m, Category = "Món chính", IsActive = active
+        Description = "Nước dùng nấm", Price = 50_000m, Category = "Món chính", IsActive = active,
+        Status = status
     };
 
     [Fact]
@@ -40,6 +41,35 @@ public sealed class TenantAiKnowledgeSyncTests
         item.Price.Should().Be(50_000m);
         item.Available.Should().BeTrue();
         item.CategoryName.Should().Be("Món chính");
+    }
+
+    [Fact]
+    public void Map_PendingProduct_NotAvailable()
+    {
+        // AI-P11: sản phẩm chờ duyệt phải sync với Available=false —
+        // KnowledgeRetriever vanan-ai chỉ inject Available vào prompt.
+        var item = TenantAiKnowledgeSyncService.Map(Dto(status: "Pending"));
+        item.Available.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task NotifyProductsChanged_PushesBatchOnce()
+    {
+        // bulk-status duyệt hàng loạt — 1 batch call thay vì N calls.
+        _flags.Setup(f => f.IsEnabledAsync(Tenant, TenantAiKnowledgeSyncService.FlagName, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var id2 = Guid.NewGuid();
+        _products.Setup(p => p.GetProductForManagementAsync(ProductId, Tenant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Dto());
+        _products.Setup(p => p.GetProductForManagementAsync(id2, Tenant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProductDetailDto { ProductId = id2, TenantId = Tenant, Name = "Trà", Price = 10m, IsActive = true, Status = "Ready" });
+
+        await _sut.NotifyProductsChangedAsync(Tenant, [ProductId, id2]);
+
+        _client.Verify(c => c.PushProductsBatchAsync(
+            Tenant,
+            It.Is<IReadOnlyList<TenantAiProductItem>>(l => l.Count == 2),
+            false, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

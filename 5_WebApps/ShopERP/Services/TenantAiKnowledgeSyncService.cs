@@ -9,6 +9,8 @@ public interface ITenantAiKnowledgeSync
 {
     /// <summary>Push one product after CUD — fire-safe: flag OFF or client down = no-op.</summary>
     Task NotifyProductChangedAsync(Guid tenantId, Guid productId, CancellationToken ct = default);
+    /// <summary>Batch push after bulk status change (duyệt chờ duyệt) — 1 HTTP call.</summary>
+    Task NotifyProductsChangedAsync(Guid tenantId, IReadOnlyList<Guid> productIds, CancellationToken ct = default);
     Task NotifyProductDeletedAsync(Guid tenantId, Guid productId, CancellationToken ct = default);
     /// <summary>Full replace-by-source sync (manual "Đồng bộ AI" + nightly reconcile).</summary>
     Task<int> SyncNowAsync(Guid tenantId, CancellationToken ct = default);
@@ -35,7 +37,8 @@ public sealed class TenantAiKnowledgeSyncService(
     public static TenantAiProductItem Map(ProductDetailDto p)
         => new(p.ProductId, p.Name, p.Description, p.Price,
             Calories: null, Ingredients: null, Allergens: null,
-            Available: p.IsActive, CategoryName: p.Category);
+            Available: p.IsActive && string.Equals(p.Status, "Ready", StringComparison.OrdinalIgnoreCase),
+            CategoryName: p.Category);
 
     public async Task NotifyProductChangedAsync(Guid tenantId, Guid productId, CancellationToken ct = default)
     {
@@ -55,6 +58,29 @@ public sealed class TenantAiKnowledgeSyncService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "TenantAi product sync failed (non-blocking) {Product}", productId);
+        }
+    }
+
+    public async Task NotifyProductsChangedAsync(Guid tenantId, IReadOnlyList<Guid> productIds, CancellationToken ct = default)
+    {
+        try
+        {
+            if (!await EnabledAsync(tenantId, ct)) return;
+            var items = new List<TenantAiProductItem>(productIds.Count);
+            foreach (var productId in productIds)
+            {
+                var product = await products.GetProductForManagementAsync(productId, tenantId, ct);
+                if (product != null)
+                    items.Add(Map(product));
+            }
+            if (items.Count == 0) return;
+            await client.PushProductsBatchAsync(tenantId, items, fullSync: false,
+                sourceVersion: $"bulk:{DateTime.UtcNow:yyyyMMddHHmmss}",
+                idempotencyKey: $"bulk:{tenantId}:{Guid.NewGuid():N}", ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "TenantAi bulk product sync failed (non-blocking) {Tenant}", tenantId);
         }
     }
 

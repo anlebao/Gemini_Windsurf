@@ -512,6 +512,12 @@ namespace VanAn.ShopERP.Controllers
 
             int updated = await _productService.BulkSetStatusAsync(
                 _tenantProvider.TenantId, request.ProductIds, status.Value, ct);
+            // AI-P11 follow-up: duyệt hàng loạt phải sync knowledge — trước đây AI chỉ
+            // biết sản phẩm sau reconcile 24h; pending→Available=false nếu revert.
+            if (_tenantAiSync != null && updated > 0)
+            {
+                await _tenantAiSync.NotifyProductsChangedAsync(_tenantProvider.TenantId, request.ProductIds, ct);
+            }
             return Ok(new { updated });
         }
 
