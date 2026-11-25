@@ -42,7 +42,8 @@ namespace VanAn.CoreHub.Services
                 isActive: true,
                 imageUrl: request.ImageUrl,
                 vatRate: request.VatRate,
-                costPrice: request.CostPrice);
+                costPrice: request.CostPrice,
+                status: request.PendingReview ? ProductStatus.Pending : ProductStatus.Ready);
 
             _ = await _productRepository.AddAsync(product, ct);
             await _productRepository.SaveChangesAsync(ct);
@@ -121,6 +122,30 @@ namespace VanAn.CoreHub.Services
             return true;
         }
 
+        /// <summary>
+        /// Pending-Review (2026-11-25): bulk đổi Status cho nhiều product cùng tenant.
+        /// Tenant-scope enforced per item qua GetByIdAsync(productId, tenantId) — product
+        /// tenant khác/không tồn tại bị skip lặng (không lộ existence). SaveChanges 1 lần cuối.
+        /// </summary>
+        public async Task<int> BulkSetStatusAsync(Guid tenantId, IReadOnlyList<Guid> productIds, ProductStatus status, CancellationToken ct = default)
+        {
+            var updated = 0;
+            foreach (var productId in productIds.Distinct())
+            {
+                Product? product = await _productRepository.GetByIdAsync(new ProductId(productId), new TenantId(tenantId), ct);
+                if (product == null || product.IsDeleted) continue;
+
+                if (status == ProductStatus.Pending) product.MarkPending();
+                else product.MarkReady();
+
+                _ = await _productRepository.UpdateAsync(product, ct);
+                updated++;
+            }
+            if (updated > 0) await _productRepository.SaveChangesAsync(ct);
+            _logger.LogInformation("BulkSetStatus {Status}: tenant {TenantId} — {Updated}/{Total} products", status, tenantId, updated, productIds.Count);
+            return updated;
+        }
+
         public async Task<string?> UploadImageAsync(Guid productId, IFormFile file, Guid tenantId, CancellationToken ct = default)
         {
             Product? product = await _productRepository.GetByIdAsync(new ProductId(productId), new TenantId(tenantId), ct);
@@ -179,6 +204,7 @@ namespace VanAn.CoreHub.Services
             ImageUrl = p.ImageUrl,
             VatRate = p.VatRate,
             IsPosOnly = p.IsPosOnly,
+            Status = p.Status.ToString(),
             CreatedAt = p.CreatedAt,
             UpdatedAt = p.UpdatedAt
         };

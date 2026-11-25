@@ -1,6 +1,6 @@
 # Task T2 — Public gating + bulk-status endpoint
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T2 (sau T1)
+> **Status:** DONE · **Created:** 2026-11-25 · **Phase:** T2 (sau T1)
 > **Plan:** `docs/AI/plans/product-pending-review-master-plan.md` (D2)
 > **TDD:** test fail trước → implement → green
 

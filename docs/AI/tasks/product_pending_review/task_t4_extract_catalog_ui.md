@@ -1,6 +1,6 @@
 # Task T4 — TenantAiKnowledge: extract → products Pending
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T4 (sau T1 + T3)
+> **Status:** DONE · **Created:** 2026-11-25 · **Phase:** T4 (sau T1 + T3)
 > **Plan:** D4 + D5 — `docs/AI/plans/product-pending-review-master-plan.md`
 > **TDD:** extract logic testable → UI wiring → verify build
 

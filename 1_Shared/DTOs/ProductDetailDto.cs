@@ -18,6 +18,8 @@
         public decimal VatRate { get; set; }
         /// <summary>#114: POS-only service product — hidden from catalog/KhachLink, only visible in POS.</summary>
         public bool IsPosOnly { get; set; }
+        /// <summary>Pending-Review (2026-11-25): "Ready" | "Pending" — Pending ẩn khỏi public catalog.</summary>
+        public string Status { get; set; } = "Ready";
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

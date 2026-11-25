@@ -43,6 +43,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.IsPosOnly)
                 .HasDefaultValue(false);
 
+            // Pending-Review (2026-11-25): Ready=0 default → row cũ tự động Ready
+            _ = builder.Property(e => e.Status)
+                .HasConversion<int>()
+                .HasDefaultValue(ProductStatus.Ready);
+
             _ = builder.Property(e => e.ImageUrl)
                 .HasMaxLength(500);
 

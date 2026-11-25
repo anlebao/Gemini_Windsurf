@@ -10,6 +10,7 @@
 @using VanAn.ShopERP.Components.Pages.Accounting
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
 @using VanAn.Shared.Helpers
 @inject IProductService ProductService
@@ -25,6 +26,13 @@
         <h1>📦 Quản lý sản phẩm</h1>
         <div class="header-actions">
             <VanAButton Variant="primary" OnClick="OpenCreateModal">+ Thêm sản phẩm</VanAButton>
+            @if (_pendingCount > 0)
+            {
+                <VanAButton Variant="success" OnClick="ApproveAllPendingAsync" Loading="@_isSaving"
+                            data-testid="btn-approve-all-pending">
+                    Duyệt tất cả chờ duyệt (@_pendingCount)
+                </VanAButton>
+            }
             <VanAButton Variant="info" OnClick="PrintSelected" Disabled="@(_selectedForPrint.Count == 0)">In QR đã chọn (@_selectedForPrint.Count)</VanAButton>
             <VanAButton Variant="secondary" OnClick="LoadProducts">Làm mới</VanAButton>
         </div>
@@ -56,8 +64,21 @@
     }
     else
     {
-        <VanACard Header="@($"Danh sách sản phẩm ({_products.Count})")">
-            <VanAnDataGrid Items="_products" EmptyMessage="Không có sản phẩm">
+        <VanACard Header="@($"Danh sách sản phẩm ({_filteredProducts.Count}{(_showPendingOnly ? $" / {_products.Count} tổng, {_pendingCount} chờ duyệt" : "")})")">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="filter-pending" @bind="_showPendingOnly" @bind:after="OnPendingFilterChanged" />
+                    <label class="form-check-label" for="filter-pending">Chỉ hiện chờ duyệt (@_pendingCount)</label>
+                </div>
+                @if (_showPendingOnly && _selectedForPrint.Count > 0)
+                {
+                    <VanAButton Variant="success" Size="small" OnClick="ApproveSelectedAsync" Loading="@_isSaving"
+                                data-testid="btn-approve-selected">
+                        Duyệt đã chọn (@_selectedForPrint.Count)
+                    </VanAButton>
+                }
+            </div>
+            <VanAnDataGrid Items="_filteredProducts" EmptyMessage="Không có sản phẩm">
                 <Columns>
                     <VanAnColumn TItem="ProductDetailDto" Title="Chọn">
                         <Template Context="p">
@@ -89,7 +110,11 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="ProductDetailDto" Title="Trạng thái">
                         <Template Context="p">
-                            @if (p.IsActive)
+                            @if (p.Status == "Pending")
+                            {
+                                <span class="status-badge" style="background:#fff3cd;color:#856404;">⏳ Chờ duyệt</span>
+                            }
+                            else if (p.IsActive)
                             {
                                 <span class="status-badge status-active">Đang bán</span>
                             }
@@ -348,6 +373,9 @@ window.printBatchQrCodes = function(productIds, tenantId, productsData) {
 
 @code {
     private List<ProductDetailDto> _products = new();
+    private List<ProductDetailDto> _filteredProducts = new();
+    private bool _showPendingOnly;
+    private int _pendingCount;
     private ProductDetailDto? _selected;
     private bool _isLoading = true;
     private bool _isSaving;
@@ -376,6 +404,8 @@ window.printBatchQrCodes = function(productIds, tenantId, productsData) {
         try
         {
             _products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId);
+            _pendingCount = _products.Count(p => p.Status == "Pending");
+            ApplyPendingFilter();
         }
         catch (Exception ex)
         {
@@ -385,6 +415,53 @@ window.printBatchQrCodes = function(productIds, tenantId, productsData) {
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private void ApplyPendingFilter()
+    {
+        _filteredProducts = _showPendingOnly
+            ? _products.Where(p => p.Status == "Pending").ToList()
+            : _products;
+    }
+
+    private void OnPendingFilterChanged() => ApplyPendingFilter();
+
+    // ── Pending-Review bulk approve (2026-11-25) ──
+
+    private async Task ApproveSelectedAsync()
+    {
+        var ids = _products.Where(p => _selectedForPrint.Contains(p.ProductId) && p.Status == "Pending")
+            .Select(p => p.ProductId).ToList();
+        if (ids.Count == 0) return;
+        await BulkApproveAsync(ids);
+    }
+
+    private async Task ApproveAllPendingAsync()
+    {
+        var ids = _products.Where(p => p.Status == "Pending").Select(p => p.ProductId).ToList();
+        if (ids.Count == 0) return;
+        await BulkApproveAsync(ids);
+    }
+
+    private async Task BulkApproveAsync(List<Guid> ids)
+    {
+        _isSaving = true;
+        try
+        {
+            var n = await ProductService.BulkSetStatusAsync(TenantProvider.TenantId, ids, ProductStatus.Ready);
+            _errorMessage = n > 0 ? null : "Không có sản phẩm nào được cập nhật.";
+            _selectedForPrint.Clear();
+            await LoadProducts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Bulk approve failed");
+            _errorMessage = "Duyệt hàng loạt thất bại — thử lại sau.";
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 

@@ -706,6 +706,19 @@ namespace VanAn.Shared.Domain
     // NOTE: Shop entity removed 2026-07-21 — Tenant is the single identity (shop/company/HKD).
     // Store Finder coordinates moved to TenantSettings.Latitude/Longitude.
 
+    /// <summary>
+    /// Product Pending-Review (2026-11-25, plan product-pending-review-master-plan D1):
+    /// vòng đời duyệt của sản phẩm — tách khỏi IsActive ("có đang bán không").
+    /// Ready = được phép hiển thị public (storefront/cart/booking); Pending = chờ owner duyệt,
+    /// ẩn khỏi mọi public API nhưng vẫn thấy trong management/POS.
+    /// Ready = 0 → default(int) + migration default → row cũ tự động Ready, zero backfill.
+    /// </summary>
+    public enum ProductStatus
+    {
+        Ready = 0,
+        Pending = 1
+    }
+
     public class Product : BaseEntity
     {
         public ProductId ProductId { get; protected set; } = new ProductId(Guid.NewGuid());
@@ -720,10 +733,13 @@ namespace VanAn.Shared.Domain
         /// <summary>#114: POS-only service product — only visible in POS screen, not in product catalog/KhachLink.
         /// Used for "Sản phẩm dịch vụ" default item: staff enters price + VAT% + name at order time.</summary>
         public bool IsPosOnly { get; protected set; } = false;
+        /// <summary>Pending-Review (2026-11-25): Ready = public usable; Pending = chờ owner duyệt.
+        /// Độc lập IsActive — Pending+IsActive=true vẫn hợp lệ (ẩn public vì Status, hiện management).</summary>
+        public ProductStatus Status { get; protected set; } = ProductStatus.Ready;
 
         public Product() { } // Public constructor for UI layer
 
-        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m, bool isPosOnly = false)
+        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m, bool isPosOnly = false, ProductStatus status = ProductStatus.Ready)
             : base(tenantId)
         {
             // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
@@ -735,9 +751,10 @@ namespace VanAn.Shared.Domain
             Category = category;
             CostPrice = costPrice;
             IsPosOnly = isPosOnly;
+            Status = status;
         }
 
-        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m, bool isPosOnly = false)
+        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m, bool isPosOnly = false, ProductStatus status = ProductStatus.Ready)
             : base(tenantId)
         {
             // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
@@ -751,6 +768,7 @@ namespace VanAn.Shared.Domain
             VatRate = vatRate;
             CostPrice = costPrice;
             IsPosOnly = isPosOnly;
+            Status = status;
         }
 
         /// <summary>
@@ -809,6 +827,24 @@ namespace VanAn.Shared.Domain
         public void MarkAsDeleted(string? updatedBy = null)
         {
             base.MarkAsDeleted(updatedBy);
+        }
+
+        /// <summary>Pending-Review (2026-11-25): đưa sản phẩm vào hàng chờ owner duyệt —
+        /// ẩn khỏi public catalog cho tới khi MarkReady. Idempotent.</summary>
+        public void MarkPending(string? updatedBy = null)
+        {
+            if (Status == ProductStatus.Pending) return;
+            Status = ProductStatus.Pending;
+            UpdateAudit(updatedBy);
+        }
+
+        /// <summary>Pending-Review (2026-11-25): owner duyệt → sản phẩm dùng được public.
+        /// Idempotent. KHÔNG đụng IsActive — owner vẫn tự quyết bật/tắt bán.</summary>
+        public void MarkReady(string? updatedBy = null)
+        {
+            if (Status == ProductStatus.Ready) return;
+            Status = ProductStatus.Ready;
+            UpdateAudit(updatedBy);
         }
     }
 

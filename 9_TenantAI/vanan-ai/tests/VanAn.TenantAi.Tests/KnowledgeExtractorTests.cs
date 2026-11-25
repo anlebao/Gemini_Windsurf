@@ -99,4 +99,50 @@ public sealed class KnowledgeExtractorTests
 
         result.Items.Should().ContainSingle(i => i.Title == "Giữ lại");
     }
+
+    // ── Pending-Review T3 (2026-11-25): price field optional ──────────────
+
+    [Fact]
+    public async Task Extract_PriceNumber_ParsesDecimal()
+    {
+        var llm = LlmReturning("""
+            {"summary":"Menu","items":[
+              {"kind":"product","title":"Cà phê sữa đá","content":"20k","price":20000},
+              {"kind":"service","title":"Aqua Peel","content":"590k","price":590000.0}
+            ]}
+            """);
+        var result = await Extractor(llm).ExtractAsync(new KnowledgeExtractRequest("menu"), default);
+
+        result.Items[0].Price.Should().Be(20000m);
+        result.Items[1].Price.Should().Be(590000m);
+    }
+
+    [Fact]
+    public async Task Extract_NoPriceField_PriceNull()
+    {
+        var llm = LlmReturning("""
+            {"summary":"s","items":[{"kind":"faq","title":"Giờ mở cửa","content":"8h-21h"}]}
+            """);
+        var result = await Extractor(llm).ExtractAsync(new KnowledgeExtractRequest("abc"), default);
+
+        result.Items.Should().ContainSingle();
+        result.Items[0].Price.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Extract_PriceNonNumericOrNegative_PriceNull()
+    {
+        var llm = LlmReturning("""
+            {"summary":"s","items":[
+              {"kind":"product","title":"A","content":"c","price":"abc"},
+              {"kind":"product","title":"B","content":"c","price":-500},
+              {"kind":"product","title":"C","content":"c","price":15000}
+            ]}
+            """);
+        var result = await Extractor(llm).ExtractAsync(new KnowledgeExtractRequest("abc"), default);
+
+        result.Items[0].Price.Should().BeNull();
+        result.Items[1].Price.Should().BeNull();
+        result.Items[2].Price.Should().Be(15000m);
+    }
 }

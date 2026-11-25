@@ -6,9 +6,14 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using VanAn.UI.Platform.Components
 @using VanAn.Shared.Domain.Common
+@using VanAn.Shared.Domain
 @using VanAn.Shared.Services
+@using VanAn.Shared.Helpers
+@using VanAn.Shared.DTOs
+@using VanAn.CoreHub.Services
 @using VanAn.ShopERP.Services
 @inject ITenantAiClient AiClient
+@inject IProductService ProductService
 @inject IMenuOcrService MenuOcr
 @inject IWebContentExtractor WebExtractor
 @inject IShopFeatureSettingsService FeatureSettings
@@ -202,10 +207,25 @@
                                     <div class="border rounded p-2 mb-1 small">
                                         <span class="badge bg-secondary me-1">@KindLabel(item.Kind)</span>
                                         <strong>@item.Title</strong>
+                                        @if (item.Price is > 0)
+                                        {
+                                            <span class="badge bg-success ms-1">@CurrencyHelper.FormatVND(item.Price.Value)</span>
+                                        }
                                         <div class="text-muted">@item.Content</div>
                                     </div>
                                 }
                             </div>
+                            @if (_extractResult.Items.Any(i => i.Kind is "product" or "service"))
+                            {
+                                var catalogCount = _extractResult.Items.Count(i => i.Kind is "product" or "service");
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="import-to-catalog"
+                                           @bind="_importToCatalog" data-testid="check-import-catalog" />
+                                    <label class="form-check-label" for="import-to-catalog">
+                                        Đưa @catalogCount sản phẩm/dịch vụ vào danh mục (trạng thái <strong>Chờ duyệt</strong> — owner bật sẵn sàng trong Quản lý sản phẩm)
+                                    </label>
+                                </div>
+                            }
 
                             <label class="form-label">Nội dung sẽ đưa vào knowledge (có thể sửa)</label>
                             <textarea class="form-control font-monospace" rows="6" @bind="_extractDocContent"
@@ -460,6 +480,7 @@
     private string _websiteUrl = string.Empty;
     private bool _webFetching;
     private bool _extractingGroups;
+    private bool _importToCatalog = true;
     private TenantAiExtractGroupsResponse? _groupResult;
     private string? _groupBatchId;
     private readonly Dictionary<string, string> _groupDocContents = new(StringComparer.OrdinalIgnoreCase);
@@ -743,8 +764,15 @@
                 SetAlert("Đưa vào hàng chờ thất bại — thử lại sau.", "error");
                 return;
             }
-            SetAlert($"Đã đưa tài liệu trích xuất ({_extractResult.Items.Count} mục) vào hàng chờ duyệt.", "success");
+            var created = 0;
+            if (_importToCatalog)
+            {
+                created = await ImportExtractItemsToCatalogAsync();
+            }
+            var catalogNote = created > 0 ? $" + {created} sản phẩm/dịch vụ vào danh mục (Chờ duyệt)" : string.Empty;
+            SetAlert($"Đã đưa tài liệu trích xuất ({_extractResult.Items.Count} mục) vào hàng chờ duyệt{catalogNote}.", "success");
             _extractResult = null;
+            _importToCatalog = true;
             _extractInput = string.Empty;
             _extractDocContent = string.Empty;
             await ReloadAsync();
@@ -753,6 +781,36 @@
         {
             _busy = false;
         }
+    }
+
+    /// <summary>Pending-Review (2026-11-25): items kind=product/service → Products
+    /// ở Status=Pending. Owner duyệt trong /products trước khi hiện storefront/cart.</summary>
+    private async Task<int> ImportExtractItemsToCatalogAsync()
+    {
+        if (_extractResult is null) return 0;
+        var created = 0;
+        foreach (var item in _extractResult.Items.Where(i => i.Kind is "product" or "service"))
+        {
+            if (string.IsNullOrWhiteSpace(item.Title)) continue;
+            try
+            {
+                await ProductService.CreateProductAsync(new CreateProductRequest
+                {
+                    Name = item.Title.Trim(),
+                    Description = string.IsNullOrWhiteSpace(item.Content) ? null : item.Content.Trim(),
+                    Price = item.Price ?? 0m,
+                    Category = "Menu",
+                    VatRate = 0.10m,
+                    PendingReview = true,
+                }, TenantProvider.TenantId);
+                created++;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "TenantAiKnowledge: catalog import failed for '{Title}'", item.Title);
+            }
+        }
+        return created;
     }
 
     private async Task UploadAsync()

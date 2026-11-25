@@ -25,5 +25,9 @@ namespace VanAn.Shared.DTOs
 
         [Range(0, double.MaxValue, ErrorMessage = "Giá vốn không được âm")]
         public decimal CostPrice { get; set; } = 0m;
+
+        /// <summary>Pending-Review (2026-11-25): true → product tạo ở Status=Pending
+        /// (ẩn public catalog cho tới khi owner duyệt). Manual UI create giữ false.</summary>
+        public bool PendingReview { get; set; }
     }
 }

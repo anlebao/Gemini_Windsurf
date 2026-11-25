@@ -75,6 +75,7 @@ namespace VanAn.CoreHub.Services
                     .Where(p => productIds.Contains(p.Id) &&
                                 p.IsActive &&
                                 !p.IsDeleted &&
+                                p.Status == ProductStatus.Ready &&
                                 p.TenantId == new TenantId(tenantId))
                     .ToListAsync();
 

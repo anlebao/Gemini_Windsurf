@@ -3534,6 +3534,11 @@ namespace VanAn.ShopERP.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 

@@ -2,6 +2,7 @@ using Bunit;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Services;
 using VanAn.ShopERP.Components.Pages.Admin.TenantAi;
 using VanAn.ShopERP.Services;
@@ -26,6 +27,7 @@ public sealed class TenantAiKnowledgeTests : ComponentTestBase
                 Tenant, TenantAiKnowledgeSyncService.FlagName, It.IsAny<CancellationToken>()))
             .ReturnsAsync(flagOn);
         Services.AddSingleton(flags.Object);
+        Services.AddSingleton(new Mock<IProductService>().Object);
         return client;
     }
 

@@ -1,6 +1,6 @@
 # Task T3 — vanan-ai extract `price` field + ShopERP DTO
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T3 (độc lập T1/T2, có thể song song)
+> **Status:** DONE · **Created:** 2026-11-25 · **Phase:** T3 (độc lập T1/T2, có thể song song)
 > **Plan:** D3 — `docs/AI/plans/product-pending-review-master-plan.md`
 > **TDD:** extractor unit tests trước → implement → green
 

@@ -1,6 +1,6 @@
 # Task T5 — ProductManagement: pending badge + bulk approve
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T5 (sau T2)
+> **Status:** DONE · **Created:** 2026-11-25 · **Phase:** T5 (sau T2)
 > **Plan:** D6 — `docs/AI/plans/product-pending-review-master-plan.md`
 > **TDD:** filter/selection logic trước → UI → verify
 

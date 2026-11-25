@@ -1,6 +1,6 @@
 # Task T1 — Domain `ProductStatus` + EF + DTOs + migrations
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T1
+> **Status:** DONE · **Created:** 2026-11-25 · **Phase:** T1
 > **Plan:** `docs/AI/plans/product-pending-review-master-plan.md` (D1, D4)
 > **TDD:** viết test fail trước → implement → green
 

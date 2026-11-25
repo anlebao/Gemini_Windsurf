@@ -49,7 +49,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 IQueryable<Product> query = _dbContext.Products
-                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly); // #114: hide POS-only service products from public catalog
+                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly && p.Status == ProductStatus.Ready); // #114 POS-only + Pending-Review: hide khỏi public catalog
 
                 if (shopId.HasValue)
                 {
@@ -92,7 +92,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted && p.Status == ProductStatus.Ready);
 
                 if (product == null)
                 {
@@ -131,7 +131,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 List<Product> allProducts = await _dbContext.Products
-                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly) // #114: hide POS-only service products
+                    .Where(p => p.IsActive && !p.IsDeleted && !p.IsPosOnly && p.Status == ProductStatus.Ready) // #114 + Pending-Review
                     .OrderBy(p => p.Category)
                     .ThenBy(p => p.Name)
                     .ToListAsync();
@@ -238,7 +238,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted && p.Status == ProductStatus.Ready);
 
                 if (product == null)
                 {
@@ -301,7 +301,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted && p.Status == ProductStatus.Ready);
 
                 if (product == null)
                 {
@@ -478,6 +478,44 @@ namespace VanAn.ShopERP.Controllers
         }
 
         /// <summary>
+        /// Pending-Review (2026-11-25): bulk đổi Status (Ready/Pending) — owner duyệt
+        /// hàng loạt sản phẩm chờ review (extract knowledge/menu import). Tenant-scoped;
+        /// product tenant khác bị skip. Cap 500 ids.
+        /// </summary>
+        [HttpPost("bulk-status")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult> BulkSetStatus([FromBody] BulkProductStatusRequest request, CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+            if (request.ProductIds is null || request.ProductIds.Count == 0)
+            {
+                return BadRequest(new { error = "ProductIds trống." });
+            }
+            if (request.ProductIds.Count > 500)
+            {
+                return BadRequest(new { error = "Tối đa 500 sản phẩm mỗi lần." });
+            }
+
+            var status = request.Status?.Trim().ToLowerInvariant() switch
+            {
+                "ready" => ProductStatus.Ready,
+                "pending" => ProductStatus.Pending,
+                _ => (ProductStatus?)null
+            };
+            if (status is null)
+            {
+                return BadRequest(new { error = "Status chỉ nhận 'ready' hoặc 'pending'." });
+            }
+
+            int updated = await _productService.BulkSetStatusAsync(
+                _tenantProvider.TenantId, request.ProductIds, status.Value, ct);
+            return Ok(new { updated });
+        }
+
+        /// <summary>
         /// Upload an image for a product (multipart/form-data). Returns the image URL.
         /// G8: Cloudinary — separate endpoint, no binary in JSON DTO.
         /// </summary>
@@ -522,5 +560,12 @@ namespace VanAn.ShopERP.Controllers
         public int FrequencyScore { get; set; }
         public decimal TotalSpent { get; set; }
         public string RecommendationReason { get; set; } = string.Empty;
+    }
+
+    /// <summary>Pending-Review (2026-11-25): bulk status request — ids + target status.</summary>
+    public class BulkProductStatusRequest
+    {
+        public List<Guid> ProductIds { get; set; } = new();
+        public string? Status { get; set; }
     }
 }

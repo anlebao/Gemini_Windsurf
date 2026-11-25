@@ -1,6 +1,6 @@
 # Task T6 — E2E spec + guard + deploy + RV
 
-> **Status:** PENDING · **Created:** 2026-11-25 · **Phase:** T6 (cuối)
+> **Status:** IN PROGRESS · **Created:** 2026-11-25 · **Phase:** T6 (cuối)
 > **Plan:** `docs/AI/plans/product-pending-review-master-plan.md` — Acceptance criteria tổng
 
 ## Mục tiêu

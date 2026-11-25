@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 
 namespace VanAn.CoreHub.Services
@@ -32,6 +33,10 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>Activate a product (IsActive = true). Returns true on success, false if not found.</summary>
         Task<bool> ActivateProductAsync(Guid productId, Guid tenantId, CancellationToken ct = default);
+
+        /// <summary>Pending-Review (2026-11-25): bulk đổi Status (Ready/Pending) cho nhiều product
+        /// thuộc tenant. Product không thuộc tenant/không tồn tại bị skip. Trả số product đã đổi.</summary>
+        Task<int> BulkSetStatusAsync(Guid tenantId, IReadOnlyList<Guid> productIds, ProductStatus status, CancellationToken ct = default);
 
         /// <summary>Upload an image for a product (IFormFile — from HTTP endpoint). Returns the image URL, or null on failure.</summary>
         Task<string?> UploadImageAsync(Guid productId, IFormFile file, Guid tenantId, CancellationToken ct = default);
