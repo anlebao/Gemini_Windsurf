@@ -199,20 +199,6 @@ else
             else
             {
             <div class="hero-cta-group">
-                @* Zero-barrier call (2026-11-25): nút gọi nổi bật ngay hero — khách bấm là
-                   gọi thẳng shop (context 'shop'), không cần mở chat, không cần đăng nhập.
-                   Tenant tắt guest calling → server deny GUEST_CALL_DISABLED → quick-login. *@
-                @if (_features.Voice_Call_Enabled)
-                {
-                    <button type="button" class="btn-cta" @onclick='() => StartStoreCallAsync("audio")'
-                            data-testid="store-call-audio">
-                        <i class="bi bi-telephone"></i> Gọi thoại
-                    </button>
-                    <button type="button" class="btn-cta-outline" @onclick='() => StartStoreCallAsync("video")'
-                            data-testid="store-call-video">
-                        <i class="bi bi-camera-video"></i> Gọi video
-                    </button>
-                }
                 @if (_features.GoogleMap_Section_Enabled && _store.Latitude.HasValue && _store.Longitude.HasValue)
                 {
                     <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude" target="_blank" class="btn-cta">
@@ -237,8 +223,7 @@ else
     </section>
 
     @* SF-W1: sticky glass navbar — sticks when scrolled past the hero (pure CSS). *@
-    <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks"
-              VoiceCallEnabled="_features.Voice_Call_Enabled" OnVoiceCall='() => StartStoreCallAsync("audio")' />
+    <StoreNav ShopName="@_store.Name" LogoUrl="@_store.LogoUrl" Phone="@_store.Phone" Links="NavLinks" />
 
     <div class="store-body">
 
@@ -493,6 +478,27 @@ else
     </div>
     </div>
 
+    @* Zero-barrier call: 2 nút floating ngoài trang (user directive 2026-11-26) — khách
+       bấm là gọi thẳng shop (context 'shop'), không cần mở chat, không cần đăng nhập.
+       Anti-spam: khách vãng lai có 1 lượt gọi miễn phí → lần 2 server deny
+       GUEST_CALL_LIMIT → quick-login. *@
+    @if (_features.Voice_Call_Enabled)
+    {
+        <div class="store-call-fabs" data-testid="store-call-fabs">
+            <button type="button" class="store-call-fab" @onclick='() => StartStoreCallAsync("audio")'
+                    data-testid="store-call-audio" aria-label="Gọi thoại cho cửa hàng">
+                <i class="bi bi-telephone-fill"></i>
+                <span>Gọi thoại</span>
+            </button>
+            <button type="button" class="store-call-fab store-call-fab-video" @onclick='() => StartStoreCallAsync("video")'
+                    data-testid="store-call-video" aria-label="Gọi video cho cửa hàng">
+                <i class="bi bi-camera-video-fill"></i>
+                <span>Gọi video</span>
+            </button>
+            <small class="store-call-fabs-note">Chưa đăng nhập: 1 lượt gọi miễn phí</small>
+        </div>
+    }
+
     @* Zero-barrier call (2026-11-25): storefront call panel — context 'shop' (tenant
        exists-check, counterpart = shop staff). Guest connect bằng ?customerDeviceId=
        (Device identity); đã đăng nhập dùng customer_token. Panel chỉ render khi đang
@@ -515,8 +521,12 @@ else
             <div class="store-quicklogin-card">
                 <i class="bi bi-fingerprint store-quicklogin-icon"></i>
                 <p class="store-quicklogin-text">
-                    Shop chỉ nhận cuộc gọi từ khách đã đăng nhập.<br />
-                    <small>Đăng nhập nhanh bằng vân tay / khuôn mặt — không cần mật khẩu.</small>
+                    @(_quickLoginReason == "GUEST_CALL_LIMIT"
+                        ? "Bạn đã dùng hết 1 lượt gọi miễn phí dành cho khách vãng lai."
+                        : "Shop chỉ nhận cuộc gọi từ khách đã đăng nhập.")<br />
+                    <small>Đăng nhập nhanh bằng vân tay / khuôn mặt — không cần mật khẩu.
+                        Đăng nhập giúp shop biết bạn là ai, gọi lại cho bạn khi cần,
+                        và gọi không giới hạn số lần.</small>
                 </p>
                 <button type="button" class="btn-cta" @onclick="QuickLoginAndCallAsync"
                         disabled="@_quickLoginBusy" data-testid="store-quicklogin-btn">
@@ -704,6 +714,41 @@ else
     .hero-cta-group {
         display: flex; flex-wrap: wrap; justify-content: center;
         gap: 1rem;
+    }
+
+    /* ── CALL FABs (zero-barrier floating call buttons, 2026-11-26) ─────────── */
+    .store-call-fabs {
+        position: fixed;
+        left: 1rem;
+        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        z-index: 1040;
+        display: flex; flex-direction: column; align-items: flex-start;
+        gap: 0.6rem;
+    }
+    .store-call-fab {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        border: none; border-radius: 999px;
+        padding: 0.75rem 1.1rem;
+        background: #157347; color: #fff;
+        font-size: 0.92rem; font-weight: 600;
+        box-shadow: 0 6px 20px rgba(21,115,71,0.4);
+        cursor: pointer;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .store-call-fab i { font-size: 1.05rem; }
+    .store-call-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(21,115,71,0.5); }
+    .store-call-fab:active { transform: translateY(0); }
+    .store-call-fab-video { background: #1a1a2e; box-shadow: 0 6px 20px rgba(26,26,46,0.35); }
+    .store-call-fab-video:hover { box-shadow: 0 10px 26px rgba(26,26,46,0.45); }
+    .store-call-fabs-note {
+        color: #6b7280; font-size: 0.72rem;
+        background: rgba(255,255,255,0.9);
+        padding: 0.15rem 0.5rem; border-radius: 999px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    @@media (max-width: 576px) {
+        .store-call-fab { padding: 0.65rem 0.95rem; font-size: 0.85rem; }
+        .store-call-fabs { left: 0.75rem; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); }
     }
 
     /* ── QUICK LOGIN (zero-barrier call B flow, 2026-11-25) ──────────────────── */
@@ -1212,6 +1257,7 @@ else
     private VoiceCallPanel? _storeCallPanel;
     private bool _quickLoginPrompt;
     private bool _quickLoginBusy;
+    private string? _quickLoginReason;
     private string _pendingCallType = "audio";
 
     private async Task StartStoreCallAsync(string callType)
@@ -1221,11 +1267,13 @@ else
             await _storeCallPanel.StartCallAsync(callType);
     }
 
-    /// <summary>B flow: tenant tắt guest calling → bung prompt đăng nhập nhanh inline.</summary>
+    /// <summary>B flow: tenant tắt guest calling (GUEST_CALL_DISABLED) hoặc khách đã
+    /// dùng hết 1 lượt gọi miễn phí (GUEST_CALL_LIMIT) → bung prompt đăng nhập nhanh.</summary>
     private void OnStoreCallDenied(string reason)
     {
-        if (reason == "GUEST_CALL_DISABLED")
+        if (reason is "GUEST_CALL_DISABLED" or "GUEST_CALL_LIMIT")
         {
+            _quickLoginReason = reason;
             _quickLoginPrompt = true;
             StateHasChanged();
         }

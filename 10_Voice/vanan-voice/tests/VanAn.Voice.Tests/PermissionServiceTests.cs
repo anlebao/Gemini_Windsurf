@@ -10,7 +10,7 @@ public class PermissionServiceTests
     private static (PermissionService Service, CallServiceHarness Harness) Create()
     {
         var harness = new CallServiceHarness();
-        var permission = new PermissionService(harness.Store, harness.Features, harness.ContextVerifier);
+        var permission = new PermissionService(harness.Store, harness.Features, harness.ContextVerifier, harness.GuestQuota);
         return (permission, harness);
     }
 
@@ -286,5 +286,108 @@ public class PermissionServiceTests
             VoiceIdentities.Device(VoiceIdentities.UserA), VoiceIdentities.UserB, "chat", "Shop:t-1", DateTime.UtcNow);
 
         result.Allowed.Should().BeTrue();
+    }
+}
+public class GuestCallQuotaTests
+{
+    private static (PermissionService Service, CallServiceHarness Harness) Create()
+    {
+        var harness = new CallServiceHarness();
+        var permission = new PermissionService(harness.Store, harness.Features, harness.ContextVerifier, harness.GuestQuota);
+        return (permission, harness);
+    }
+
+    private void SetupShopContext(CallServiceHarness harness)
+    {
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.ContextVerifier.ResolvedCounterparts = new[] { VoiceIdentities.UserB };
+    }
+
+    [Fact]
+    public async Task Device_caller_with_free_call_remaining_is_allowed()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        SetupShopContext(harness);
+        harness.GuestQuota.HasFreeCall = true;
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), Guid.Empty, "shop", VoiceIdentities.Tenant.ToString(), DateTime.UtcNow);
+
+        result.Allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Device_caller_who_used_free_call_is_denied_with_GUEST_CALL_LIMIT()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        SetupShopContext(harness);
+        harness.GuestQuota.HasFreeCall = false;
+
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), Guid.Empty, "shop", VoiceIdentities.Tenant.ToString(), DateTime.UtcNow);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Be(CallEndReason.GuestCallLimit);
+        result.TenantId.Should().Be(VoiceIdentities.Tenant);
+    }
+
+    [Fact]
+    public async Task Quota_limit_only_applies_to_device_callers()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        harness.ContextVerifier.VerifiedTenantId = VoiceIdentities.Tenant;
+        harness.GuestQuota.HasFreeCall = false;
+
+        // Customer đã đăng nhập không bị giới hạn số lần gọi.
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Customer(VoiceIdentities.UserA), VoiceIdentities.UserB, "chat", "conv-1", DateTime.UtcNow);
+
+        result.Allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Flag_off_takes_precedence_over_quota()
+    {
+        var (permission, harness) = Create();
+        using var _ = harness;
+        SetupShopContext(harness);
+        harness.Features.Set(VoiceIdentities.Tenant, new VoiceTenantConfig(VoiceGuestCalling: false));
+        harness.GuestQuota.HasFreeCall = false;
+
+        // Tenant cấm hẳn khách vãng lai → GUEST_CALL_DISABLED (không phải LIMIT).
+        var result = await permission.CheckStartCallAsync(
+            VoiceIdentities.Device(VoiceIdentities.UserA), Guid.Empty, "shop", VoiceIdentities.Tenant.ToString(), DateTime.UtcNow);
+
+        result.Reason.Should().Be(CallEndReason.GuestCallDisabled);
+    }
+
+    [Fact]
+    public async Task GuestCallQuota_counts_only_real_call_attempts()
+    {
+        var harness = new CallServiceHarness();
+        using var _ = harness;
+        var quota = new GuestCallQuota(harness.Db);
+        var deviceId = VoiceIdentities.UserA;
+
+        (await quota.HasFreeCallAsync(deviceId)).Should().BeTrue("device chưa gọi lần nào");
+
+        // Denied call (Failed — vd INVALID_CONTEXT) KHÔNG tính là đã dùng lượt.
+        var denied = VoiceCall.Create(Guid.NewGuid(), VoiceIdentities.Tenant, deviceId, VoiceIdentities.UserB,
+            "test", "shop", "Shop:t", DateTime.UtcNow);
+        denied.ForceTerminal(CallStatus.Failed, CallEndReason.InvalidContext, DateTime.UtcNow);
+        harness.Db.VoiceCalls.Add(denied);
+        await harness.Db.SaveChangesAsync();
+        (await quota.HasFreeCallAsync(deviceId)).Should().BeTrue("call bị deny không trừ lượt miễn phí");
+
+        // Call đã đổ chuông (Ringing → Ended) TÍNH là đã dùng lượt.
+        var rang = VoiceCall.Create(Guid.NewGuid(), VoiceIdentities.Tenant, deviceId, VoiceIdentities.UserB,
+            "test", "shop", "Shop:t", DateTime.UtcNow);
+        rang.ForceTerminal(CallStatus.Missed, CallEndReason.RingTimeout, DateTime.UtcNow);
+        harness.Db.VoiceCalls.Add(rang);
+        await harness.Db.SaveChangesAsync();
+        (await quota.HasFreeCallAsync(deviceId)).Should().BeFalse("đã gọi 1 lần → lần 2 phải đăng nhập");
     }
 }

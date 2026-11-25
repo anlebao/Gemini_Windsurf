@@ -33,6 +33,7 @@ builder.Services.AddSingleton<TenantFeatureStore>();
 builder.Services.AddSingleton<RateLimiter>();
 builder.Services.AddSingleton<TurnCredentialService>();
 builder.Services.AddSingleton<ICallEventPublisher, CallEventPublisher>();
+builder.Services.AddScoped<IGuestCallQuota, GuestCallQuota>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<CallService>();
 builder.Services.AddScoped<VoiceMetricsService>();

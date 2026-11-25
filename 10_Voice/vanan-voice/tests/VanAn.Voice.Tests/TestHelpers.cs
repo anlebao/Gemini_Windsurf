@@ -67,6 +67,14 @@ public sealed class FakeContextVerifier : IContextVerifier
         => Task.FromResult(HasGuestCounterpart);
 }
 
+/// <summary>Fake guest-call quota — tests flip <see cref="HasFreeCall"/> directly.</summary>
+public sealed class FakeGuestCallQuota : IGuestCallQuota
+{
+    public bool HasFreeCall { get; set; } = true;
+    public Task<bool> HasFreeCallAsync(Guid deviceUserId, CancellationToken ct = default)
+        => Task.FromResult(HasFreeCall);
+}
+
 /// <summary>Thread-safe recording publisher — captures (connectionId, method, arg) for assertions.</summary>
 public sealed class RecordingPublisher : ICallEventPublisher
 {
@@ -105,6 +113,7 @@ public sealed class CallServiceHarness : IDisposable
     public TenantFeatureStore Features { get; }
     public RecordingPublisher Publisher { get; }
     public FakeContextVerifier ContextVerifier { get; } = new();
+    public FakeGuestCallQuota GuestQuota { get; } = new();
     public IConfiguration Configuration { get; }
     public ServiceProvider Services { get; }
     public IServiceScope Scope { get; }
@@ -134,6 +143,7 @@ public sealed class CallServiceHarness : IDisposable
         services.AddSingleton<RateLimiter>();
         services.AddSingleton<ICallEventPublisher, RecordingPublisher>();
         services.AddScoped<IContextVerifier>(_ => ContextVerifier);
+        services.AddSingleton<IGuestCallQuota>(_ => GuestQuota);
         // Display name resolver: stub trả null → CallService fallback GUID (giữ behavior test cũ).
         services.AddSingleton<IVoiceDisplayNameResolver, StubDisplayNameResolver>();
         // Metering not configured → disabled client → fail-open (CheckAsync null = allow).

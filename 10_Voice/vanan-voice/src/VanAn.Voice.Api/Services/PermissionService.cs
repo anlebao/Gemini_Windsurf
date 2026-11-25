@@ -14,7 +14,8 @@ public sealed record PermissionResult(bool Allowed, CallStatus? TerminalStatus, 
 public sealed class PermissionService(
     VoiceStateStore store,
     TenantFeatureStore features,
-    IContextVerifier contextVerifier)
+    IContextVerifier contextVerifier,
+    IGuestCallQuota guestQuota)
 {
     public async Task<PermissionResult> CheckStartCallAsync(
         VoiceIdentity caller, Guid targetUserId, string? contextType, string? contextReferenceId,
@@ -82,6 +83,11 @@ public sealed class PermissionService(
         // off when a shop reports abuse — the guest is then told to log in (passkey) instead.
         if (caller.Kind == VoiceIdentityKind.Device && !config.VoiceGuestCalling)
             return new PermissionResult(false, CallStatus.Failed, CallEndReason.GuestCallDisabled, tenantId);
+
+        // Anti-spam (2026-11-26): a guest device gets ONE free call — after that the
+        // client is told to log in. Flag-off takes precedence (checked above).
+        if (caller.Kind == VoiceIdentityKind.Device && !await guestQuota.HasFreeCallAsync(caller.UserId, ct))
+            return new PermissionResult(false, CallStatus.Failed, CallEndReason.GuestCallLimit, tenantId);
 
         // No context → allowed only when the tenant opted into open calling.
         if (string.IsNullOrEmpty(contextType) && !config.VoiceOpenCalling)

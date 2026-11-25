@@ -390,6 +390,11 @@ public partial class VoiceCallPanel : IAsyncDisposable
                     // tenant này — host có thể bung inline passkey prompt (CallDenied).
                     _error = "Shop chỉ nhận cuộc gọi từ khách đã đăng nhập — bạn có thể đăng nhập nhanh bằng vân tay / khuôn mặt để gọi.";
                     break;
+                case "GUEST_CALL_LIMIT":
+                    // Anti-spam (2026-11-26): khách vãng lai đã dùng hết 1 lượt gọi
+                    // miễn phí — host bung inline quick-login để gọi tiếp (CallDenied).
+                    _error = "Bạn đã dùng hết 1 lượt gọi miễn phí dành cho khách vãng lai — đăng nhập nhanh bằng vân tay / khuôn mặt để gọi tiếp.";
+                    break;
                 case "INVALID_CONTEXT":
                 case "SELF_CALL":
                 case "CONTEXT_REQUIRED":

@@ -13,6 +13,9 @@ public static class CallEndReason
     /// <summary>A Device (guest) caller tried to call a tenant whose VoiceGuestCalling flag
     /// is off — the client shows "đăng nhập nhanh để gọi" so the guest can upgrade inline.</summary>
     public const string GuestCallDisabled = "GUEST_CALL_DISABLED";
+    /// <summary>A Device (guest) caller already used their one free call — further calls
+    /// require logging in (the client shows the inline quick-login prompt again).</summary>
+    public const string GuestCallLimit = "GUEST_CALL_LIMIT";
     public const string ContextRequired = "CONTEXT_REQUIRED";
     public const string SelfCall = "SELF_CALL";
     public const string CallerBusy = "CALLER_BUSY";
