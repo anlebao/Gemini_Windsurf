@@ -269,6 +269,7 @@ public sealed class KnowledgeIngestService(
             .Select(g => new { Total = g.Count(), Embedded = g.Count(c => c.Embedding != null) })
             .FirstOrDefaultAsync(ct);
         var productCount = await db.ProductKnowledge.AsNoTracking().CountAsync(p => p.TenantId == tenantId, ct);
+        var availableCount = await db.ProductKnowledge.AsNoTracking().CountAsync(p => p.TenantId == tenantId && p.Available, ct);
         var lastSync = await db.ProductKnowledge.AsNoTracking()
             .Where(p => p.TenantId == tenantId)
             .OrderByDescending(p => p.SyncedAtUtc)
@@ -280,7 +281,7 @@ public sealed class KnowledgeIngestService(
         return new KnowledgeStatusResponse(
             Count(ApprovalStatus.PendingReview), Count(ApprovalStatus.Approved), Count(ApprovalStatus.Rejected),
             chunks?.Total ?? 0, chunks?.Embedded ?? 0, (chunks?.Total ?? 0) - (chunks?.Embedded ?? 0),
-            productCount, lastSync?.SourceVersion, lastSync?.SyncedAtUtc, stale, StaleHours);
+            productCount, lastSync?.SourceVersion, lastSync?.SyncedAtUtc, stale, StaleHours, availableCount);
     }
 
     /// <summary>[G16] staleness check — strip volatile claims when sync age exceeds TTL.</summary>

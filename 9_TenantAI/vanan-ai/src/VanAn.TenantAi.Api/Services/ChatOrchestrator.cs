@@ -19,7 +19,9 @@ public sealed record ChatResult(
     bool Degraded,
     string? Intent,
     int DroppedByPermission,
-    string? Suggestion = null);
+    string? Suggestion = null,
+    /// <summary>Corpus had no verified data → client offers the human handoff chip.</summary>
+    bool OfferHandoff = false);
 
 /// <summary>
 /// task_ai_p3 / SRS §5 — the 9-step grounded chat pipeline:
@@ -226,8 +228,12 @@ public sealed class ChatOrchestrator(
             logger.LogInformation(
                 "chat tenant={Tenant} intent={Intent} sources={Src} refused={Ref} degraded={Deg} dropped={Drop} ms={Ms}",
                 tenantId, finalIntent ?? "-", flags, refused, degraded, dropped, sw.ElapsedMilliseconds);
+            // Corpus coverage (2026-11-26): a NoData answer means the tenant's knowledge
+            // is thin/missing — the widget should offer the handoff chip (chat/call the
+            // shop directly) instead of leaving the customer at a dead end.
+            var offerHandoff = finalAnswer.StartsWith(ChatTemplates.NoData, StringComparison.Ordinal);
             return new ChatResult(finalAnswer, products, sources, conf, refused, refuseReason,
-                staleData, degraded, finalIntent, dropped, suggestion);
+                staleData, degraded, finalIntent, dropped, suggestion, offerHandoff);
         }
     }
 
@@ -428,7 +434,8 @@ public sealed class ChatOrchestrator(
         catch (JsonException) { }
         var products = await ToProductDtosAsync(refs, ct);
         return new ChatResult(prior.Content, products, sources, prior.Confidence ?? 0,
-            prior.Refused, prior.RefuseReason, StaleData: false, prior.Degraded, prior.Intent, 0);
+            prior.Refused, prior.RefuseReason, StaleData: false, prior.Degraded, prior.Intent, 0,
+            OfferHandoff: prior.Content.StartsWith(ChatTemplates.NoData, StringComparison.Ordinal));
     }
 
     private static List<string> ParseStringArray(string? json)

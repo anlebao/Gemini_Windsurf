@@ -148,6 +148,21 @@ public sealed class IngestTests : IDisposable
     }
 
     [Fact]
+    public async Task KnowledgeStatus_CountsAvailableProductsSeparately()
+    {
+        await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/products:batch",
+            Batch("cov-1",
+                Item(Guid.NewGuid(), "Cơm gà", 45_000m),
+                Item(Guid.NewGuid(), "Món hết hàng", 30_000m, available: false)),
+            idem: "cov-avail"));
+
+        var status = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/knowledge/status")))
+            .Content.ReadFromJsonAsync<KnowledgeStatusResponse>();
+        status!.Products.Should().Be(2);
+        status.AvailableProducts.Should().Be(1, "chỉ món sẵn bán mới vào corpus AI thấy");
+    }
+
+    [Fact]
     public async Task DeleteProduct_RemovesRow()
     {
         var p = Guid.NewGuid();

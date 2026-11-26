@@ -1,0 +1,24 @@
+/* TenantAiHub — checklist ra mắt trợ lý AI (2026-11-26) */
+.ai-checklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+.ai-checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+.ai-checklist li i {
+    font-size: 1.15rem;
+    line-height: 1.4;
+}
+.ai-checklist li.done strong {
+    color: #157347;
+}
+.ai-checklist a {
+    margin-left: 0.25rem;
+}

@@ -53,6 +53,22 @@
             <VanAAlert Variant="warning" Message="Không kết nối được dịch vụ AI — số liệu có thể trống. Thử Làm mới sau ít phút." data-testid="alert-service-down" />
         }
 
+        @* Knowledge coverage (2026-11-26): AI chỉ trả lời được từ sản phẩm Available +
+           tài liệu đã duyệt — corpus mỏng = AI "dốt". Cảnh báo owner ngay trên hub. *@
+        @if (_status != null)
+        {
+            @if (CorpusThin)
+            {
+                <VanAAlert Variant="warning" data-testid="alert-corpus-thin"
+                    Message="@($"Trợ lý AI đang thiếu dữ liệu để trả lời tốt: {_status.AvailableProducts} sản phẩm sẵn bán + {_status.ApprovedDocs} tài liệu đã duyệt. Hoàn tất checklist bên dưới — câu hỏi không có dữ liệu sẽ được gợi ý khách chat/gọi trực tiếp với quán.")" />
+            }
+            else
+            {
+                <VanAAlert Variant="success" data-testid="alert-corpus-ok"
+                    Message="@($"Trợ lý AI đang thấy: {_status.AvailableProducts} sản phẩm sẵn bán + {_status.ApprovedDocs} tài liệu đã duyệt.")" />
+            }
+        }
+
         <div class="row g-3 mb-3">
             <div class="col-md-3">
                 <VanACard Header="Đồng bộ sản phẩm" data-testid="card-ai-products">
@@ -138,6 +154,56 @@
             </div>
         </div>
 
+        @* Onboarding checklist (2026-11-26): AI "thông minh" tỷ lệ thuận corpus —
+           hướng dẫn owner nạp đủ trước khi khách dùng. *@
+        <VanACard Header="@($"Checklist ra mắt trợ lý — {ChecklistDone}/3")" data-testid="card-ai-checklist">
+            <ul class="ai-checklist">
+                <li class="@(HasProducts ? "done" : "")" data-testid="check-products">
+                    <i class="bi @(HasProducts ? "bi-check-circle-fill text-success" : "bi-circle text-muted")"></i>
+                    <span>
+                        <strong>Sản phẩm/dịch vụ trong danh mục</strong>
+                        <small class="d-block text-muted">
+                            @(_status != null ? $"{_status.AvailableProducts} sẵn bán" : "—")
+                            — AI chỉ nhắc được món sẵn bán.
+                            <a href="/products">Quản lý sản phẩm</a>
+                        </small>
+                    </span>
+                </li>
+                <li class="@(HasDocs ? "done" : "")" data-testid="check-docs">
+                    <i class="bi @(HasDocs ? "bi-check-circle-fill text-success" : "bi-circle text-muted")"></i>
+                    <span>
+                        <strong>Ít nhất 3 tài liệu tri thức đã duyệt</strong>
+                        <small class="d-block text-muted">
+                            @(_status != null ? $"{_status.ApprovedDocs} đã duyệt" : "—")
+                            — giới thiệu, chính sách, giờ mở cửa, FAQ.
+                            <a href="/admin/tenant-ai/knowledge">Nạp tri thức</a>
+                        </small>
+                    </span>
+                </li>
+                <li class="@(HasProfile ? "done" : "")" data-testid="check-profile">
+                    <i class="bi @(HasProfile ? "bi-check-circle-fill text-success" : "bi-circle text-muted")"></i>
+                    <span>
+                        <strong>Hồ sơ trợ lý đã phát hành</strong>
+                        <small class="d-block text-muted">
+                            @(HasProfile ? $"v{_profile!.Published!.Version} — {_profile.Published.AiName}" : "chưa phát hành")
+                            — tên, xưng hô, lời chào.
+                            <a href="/admin/tenant-ai/profile">Hồ sơ &amp; Persona</a>
+                        </small>
+                    </span>
+                </li>
+                <li data-testid="check-preview">
+                    <i class="bi bi-chat-dots text-muted"></i>
+                    <span>
+                        <strong>Thử chat trước khi khách dùng</strong>
+                        <small class="d-block text-muted">
+                            hỏi thử về menu, giá, giờ mở cửa — kiểm tra AI trả lời đúng.
+                            <a href="/admin/tenant-ai/profile">Mở preview</a>
+                        </small>
+                    </span>
+                </li>
+            </ul>
+        </VanACard>
+
         <VanACard Header="Quản trị trợ lý AI" data-testid="card-ai-links">
             <div class="row g-2">
                 <div class="col-md-4">
@@ -197,6 +263,13 @@
     private TenantAiStatus? _status;
     private TenantAiProfileResponse? _profile;
     private TenantAiUsageResponse? _usage;
+
+    // Coverage checklist (2026-11-26): ngưỡng tối thiểu để AI trả lời được đa số câu hỏi.
+    private bool HasProducts => (_status?.AvailableProducts ?? 0) > 0;
+    private bool HasDocs => (_status?.ApprovedDocs ?? 0) >= 3;
+    private bool HasProfile => _profile?.Published != null;
+    private bool CorpusThin => !HasProducts || !HasDocs;
+    private int ChecklistDone => (HasProducts ? 1 : 0) + (HasDocs ? 1 : 0) + (HasProfile ? 1 : 0);
 
     protected override async Task OnInitializedAsync()
     {

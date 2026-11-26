@@ -49,7 +49,10 @@ public sealed record AiChatResult(
     bool Degraded,
     /// <summary>W3e "did you mean" — corrected term when the question found no
     /// facts but fuzzy-matched the tenant vocabulary. Widget shows a tap-to-send chip.</summary>
-    string? Suggestion = null);
+    string? Suggestion = null,
+    /// <summary>Corpus coverage (2026-11-26): server found no verified data → widget
+    /// shows the "chat với chủ quán" handoff chip (chat/call the shop directly).</summary>
+    bool OfferHandoff = false);
 
 /// <summary>
 /// Refused = assistant could not/would not answer (policy refuse, rate-limit, or local
@@ -62,4 +65,6 @@ public sealed record AiSessionMessage(
     IReadOnlyList<AiProductCardItem> Products,
     DateTime CreatedAtUtc,
     bool Refused = false,
-    string? Suggestion = null);
+    string? Suggestion = null,
+    /// <summary>Corpus had no data for this answer → handoff chip (same as Refused).</summary>
+    bool OfferHandoff = false);

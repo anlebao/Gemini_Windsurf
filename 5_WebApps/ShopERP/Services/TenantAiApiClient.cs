@@ -20,7 +20,9 @@ public sealed record TenantAiDocSummary(
 public sealed record TenantAiStatus(
     int PendingDocs, int ApprovedDocs, int RejectedDocs, int Chunks, int ChunksEmbedded,
     int ChunksPendingEmbedding, int Products, string? LastProductSourceVersion,
-    DateTime? LastProductSyncedAtUtc, bool ProductsStale, int StaleHours);
+    DateTime? LastProductSyncedAtUtc, bool ProductsStale, int StaleHours,
+    /// <summary>Sản phẩm Available=true — thứ AI thực sự nhắc được cho khách.</summary>
+    int AvailableProducts = 0);
 
 /// <summary>Task AI-P9 — admin conversation review DTOs (mirror vanan-ai Contracts/AdminDtos, scope=admin).</summary>
 public sealed record TenantAiConversationSummary(

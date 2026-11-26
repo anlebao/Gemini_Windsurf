@@ -73,4 +73,55 @@ public sealed class TenantAiHubTests : ComponentTestBase
         client.VerifyNoOtherCalls();
         cut.Markup.Should().Contain("Bé");
     }
+
+    // Knowledge coverage badge + onboarding checklist (2026-11-26): corpus mỏng →
+    // cảnh báo + checklist chưa đủ; corpus đủ → alert xanh + 3/3 done.
+    private Mock<ITenantAiClient> SetupHub(int availableProducts, int approvedDocs, bool published)
+    {
+        var client = RegisterClient();
+        SetFlag(on: true);
+        client.Setup(c => c.GetKnowledgeStatusAsync(Tenant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TenantAiStatus(0, approvedDocs, 0, 4, 4, 0, availableProducts + 1, "v1",
+                DateTime.UtcNow, false, 24, availableProducts));
+        client.Setup(c => c.GetProfileAsync(Tenant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TenantAiProfileResponse(
+                null,
+                published ? new TenantAiProfileVersion(1, "published", "Bé", "{}", "{}",
+                    DateTime.UtcNow, "ops") : null,
+                []));
+        client.Setup(c => c.GetUsageAsync(Tenant, 30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TenantAiUsageResponse(30, [],
+                new TenantAiUsageDay("total", 0, 0, 0, 0, 0)));
+        return client;
+    }
+
+    [Fact]
+    public void ThinCorpus_ShowsWarning_AndIncompleteChecklist()
+    {
+        SetupHub(availableProducts: 0, approvedDocs: 1, published: false);
+
+        var cut = RenderComponent<TenantAiHub>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("[data-testid='alert-corpus-thin']").Should().NotBeNull();
+            cut.Find("[data-testid='card-ai-checklist']").Should().NotBeNull();
+            cut.Markup.Should().Contain("0/3");
+        }, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void RichCorpus_ShowsOk_AndChecklistComplete()
+    {
+        SetupHub(availableProducts: 22, approvedDocs: 5, published: true);
+
+        var cut = RenderComponent<TenantAiHub>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("[data-testid='alert-corpus-ok']").Should().NotBeNull();
+            cut.Markup.Should().Contain("3/3");
+            cut.Markup.Should().Contain("22 sản phẩm sẵn bán");
+        }, TimeSpan.FromSeconds(5));
+    }
 }

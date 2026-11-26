@@ -135,8 +135,18 @@ public sealed class ChatApiTests : IDisposable
     {
         var body = await Chat(await _client.SendAsync(ChatReq("Giá xúc xích đức bao nhiêu?")));
         body.Answer.Should().Contain("chưa có dữ liệu");
+        body.Answer.Should().Contain("gọi"); // hướng khách tới kênh người thật
         body.Products.Should().BeEmpty();
+        body.OfferHandoff.Should().BeTrue("corpus không có dữ liệu → gợi ý chat/gọi trực tiếp");
         _llm.Calls.Should().Be(0); // requiresFacts + no facts → refuse trước LLM
+    }
+
+    [Fact]
+    public async Task Chat_NoData_OfferHandoff_FalseOnNormalAnswer()
+    {
+        await SeedProductAsync(TenantA, "Cơm gà", 45_000m);
+        var body = await Chat(await _client.SendAsync(ChatReq("Cơm gà giá bao nhiêu?")));
+        body.OfferHandoff.Should().BeFalse("câu trả lời có dữ liệu không cần handoff");
     }
 
     [Fact]

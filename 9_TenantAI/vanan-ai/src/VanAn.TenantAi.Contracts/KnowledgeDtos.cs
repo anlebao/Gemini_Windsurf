@@ -106,4 +106,7 @@ public sealed record KnowledgeStatusResponse(
     string? LastProductSourceVersion,
     DateTime? LastProductSyncedAtUtc,
     bool ProductsStale,
-    int StaleHours);
+    int StaleHours,
+    /// <summary>Products with Available=true — what the retriever can actually surface
+    /// to customers (pending/inactive items stay invisible to the AI).</summary>
+    int AvailableProducts = 0);

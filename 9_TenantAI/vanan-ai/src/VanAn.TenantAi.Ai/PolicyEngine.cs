@@ -98,7 +98,8 @@ public static class ChatTemplates
         "Xin lỗi, mình không thể hỗ trợ yêu cầu này. Mình vẫn sẵn sàng giúp bạn chọn món hoặc trả lời về quán nhé!";
 
     public const string NoData =
-        "Xin lỗi, mình chưa có dữ liệu xác nhận cho câu hỏi này.";
+        "Xin lỗi, mình chưa có dữ liệu xác nhận cho câu hỏi này — "
+        + "bạn chat trực tiếp hoặc gọi cho quán để được hỗ trợ nhé.";
 
     public const string DegradedUnavailable =
         "Xin lỗi, trợ lý đang tạm bận một chút — bạn thử lại sau giúp mình nhé.";

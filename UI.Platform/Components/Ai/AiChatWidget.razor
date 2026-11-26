@@ -153,7 +153,9 @@
                                 {
                                     <span class="vanan-ai-meta">@ChatDateFormatter.ToLocal(msg.CreatedAtUtc).ToString("HH:mm")</span>
                                 }
-                                @if (!isUser && msg.Refused && HumanHandoffAvailable)
+                                @* Refused (policy/rate-limit) hoặc OfferHandoff (corpus
+                                   thiếu dữ liệu, 2026-11-26) → chip chuyển kênh người thật. *@
+                                @if (!isUser && (msg.Refused || msg.OfferHandoff) && HumanHandoffAvailable)
                                 {
                                     <button type="button" class="vanan-ai-chip vanan-ai-escalate"
                                             @onclick="() => EscalateAsync(turnDraft)">
@@ -607,7 +609,7 @@
         {
             replyText = result.Answer;
             _messages.Add(new AiSessionMessage("assistant", result.Answer, result.Products,
-                DateTime.UtcNow, result.Refused, result.Suggestion));
+                DateTime.UtcNow, result.Refused, result.Suggestion, result.OfferHandoff));
         }
         await ScrollToBottomAsync();
         // W3d: auto-speak câu trả lời mới (opt-out qua toggle megaphone).
