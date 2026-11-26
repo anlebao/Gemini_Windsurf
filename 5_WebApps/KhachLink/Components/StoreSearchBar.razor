@@ -2,8 +2,12 @@
    answer ngắn + product cards ngay trên trang, không cần mở chat bubble.
    Gọi Gateway /api/public/tenant-ai/search qua IAiChatClient. Fail-open theo NFR-3:
    lỗi/degraded → ẩn phần kết quả, không bao giờ làm vỡ trang. *@
+@* Search unification (task_public_search_unification): input shell = shared
+   VanAnPublicSearchBar (UI.Platform) — enterkeyhint/clear/mic chuẩn 1 chỗ.
+   store-search-* classes giữ nguyên qua *CssClass params → e2e + scoped CSS vẫn đúng. *@
 @using VanAn.Shared.Helpers
 @using VanAn.UI.Platform.Components.Ai
+@using VanAn.UI.Platform.Components.Composite
 @using Microsoft.JSInterop
 @inject IAiChatClient AiClient
 @inject IJSRuntime JS
@@ -11,35 +15,20 @@
 
 <div class="store-search">
     <div class="store-search-box">
-        <i class="bi bi-search store-search-icon" aria-hidden="true"></i>
-        <input class="store-search-input"
-               @bind="_query" @bind:event="oninput"
-               @onkeydown="OnKeyDownAsync"
-               maxlength="500"
-               disabled="@_searching"
-               placeholder="@(_listening ? "Đang nghe..." : SearchPlaceholder)"
-               aria-label="Tìm kiếm bằng câu hỏi" />
-        @* SF-W3: voice input — nói thay vì gõ. Chỉ hiện khi tenant bật
-           Voice_Note_Enabled + trình duyệt hỗ trợ SpeechRecognition. *@
-        @if (VoiceEnabled && _speechSupported)
-        {
-            <button type="button" class="store-search-mic @(_listening ? "listening" : null)"
-                    @onclick="ToggleVoiceAsync" disabled="@_searching"
-                    aria-label="@(_listening ? "Dừng nói" : "Tìm bằng giọng nói")">
-                <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
-            </button>
-        }
-        <button type="button" class="store-search-btn" @onclick="SearchAsync"
-                disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
-            @if (_searching)
-            {
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            }
-            else
-            {
-                <span>Tìm</span>
-            }
-        </button>
+        <VanAnPublicSearchBar @bind-Value="_query"
+                              InputId="store-search-input"
+                              InputCssClass="store-search-input"
+                              SearchButtonCssClass="store-search-btn"
+                              VoiceButtonCssClass="store-search-mic"
+                              InputMaxLength="500"
+                              SearchText="Tìm"
+                              Placeholder="@(_listening ? "Đang nghe..." : SearchPlaceholder)"
+                              AriaLabel="Tìm kiếm bằng câu hỏi"
+                              ShowVoiceButton="@(VoiceEnabled && _speechSupported)"
+                              IsListening="_listening"
+                              OnVoiceToggle="ToggleVoiceAsync"
+                              Loading="_searching"
+                              OnSearch="SearchAsync" />
     </div>
 
     @if (_result is not null)
@@ -130,11 +119,6 @@
         {
             _searching = false;
         }
-    }
-
-    private async Task OnKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await SearchAsync();
     }
 
     private Task AskAiAsync()

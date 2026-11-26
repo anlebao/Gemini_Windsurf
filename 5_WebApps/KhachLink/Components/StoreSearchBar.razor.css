@@ -11,7 +11,7 @@
     background: #fff;
     border: 1.5px solid #e5e7eb;
     border-radius: 999px;
-    padding: 0.35rem 0.35rem 0.35rem 1.1rem;
+    padding: 0.35rem 0.35rem 0.35rem 0.6rem;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -21,13 +21,29 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
 }
 
-.store-search-icon {
-    color: #9ca3af;
-    font-size: 1.05rem;
-    flex: 0 0 auto;
+/* Search unification: child component internals need ::deep (scoped CSS
+   does not cross component boundary). Strip bootstrap chrome so the
+   shared input-group renders inside the pill. */
+.store-search-box ::deep .input-group {
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
 }
 
-.store-search-input {
+.store-search-box ::deep .input-group-text {
+    border: none;
+    background: transparent;
+    padding: 0 0 0 0.5rem;
+    color: #9ca3af;
+    font-size: 1.05rem;
+}
+
+.store-search-box ::deep .input-group-text .bi-search {
+    color: #9ca3af;
+}
+
+.store-search-box ::deep .store-search-input {
     flex: 1 1 auto;
     min-width: 0;
     border: none;
@@ -35,16 +51,22 @@
     font-size: 1rem;
     background: transparent;
     color: #1f2937;
+    padding-left: 0.25rem;
 }
 
-.store-search-input::placeholder {
+.store-search-box ::deep .store-search-input:focus {
+    box-shadow: none;
+    border: none;
+}
+
+.store-search-box ::deep .store-search-input::placeholder {
     color: #9ca3af;
 }
 
-.store-search-btn {
+.store-search-box ::deep .store-search-btn {
     flex: 0 0 auto;
     border: none;
-    border-radius: 999px;
+    border-radius: 999px !important;
     padding: 0.55rem 1.4rem;
     font-weight: 600;
     font-size: 0.95rem;
@@ -59,17 +81,32 @@
     min-height: 38px;
 }
 
-.store-search-btn:hover:not(:disabled) {
+.store-search-box ::deep .store-search-btn:hover:not(:disabled) {
     transform: translateY(-1px);
 }
 
-.store-search-btn:disabled {
+.store-search-box ::deep .store-search-btn:disabled {
     opacity: 0.55;
     cursor: default;
 }
 
+/* clear-X button inside the pill */
+.store-search-box ::deep .btn-outline-secondary {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #9ca3af;
+    padding: 0.25rem 0.4rem;
+}
+
+.store-search-box ::deep .btn-outline-secondary:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
 /* ── SF-W3: voice mic ───────────────────────────────────────────────── */
-.store-search-mic {
+.store-search-box ::deep .store-search-mic {
     flex: 0 0 auto;
     width: 38px;
     height: 38px;
@@ -85,17 +122,17 @@
     transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.store-search-mic:hover:not(:disabled) {
+.store-search-box ::deep .store-search-mic:hover:not(:disabled) {
     background: #e5e7eb;
     color: #374151;
 }
 
-.store-search-mic:disabled {
+.store-search-box ::deep .store-search-mic:disabled {
     opacity: 0.55;
     cursor: default;
 }
 
-.store-search-mic.listening {
+.store-search-box ::deep .store-search-mic.listening {
     background: #fee2e2;
     color: #dc2626;
     animation: store-mic-pulse 1.2s ease-in-out infinite;

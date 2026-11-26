@@ -11,7 +11,7 @@
    (không bị bàn phím ảo che), enterkeyhint=search, icon actions mic/clear.
    Business logic KHÔNG nằm đây — parent truyền OnSearch. *@
 
-<div class="input-group">
+<div class="input-group @GroupCssClass">
     <span class="input-group-text bg-white border-end-0">
         <i class="bi bi-search text-primary"></i>
     </span>
@@ -21,12 +21,13 @@
            @oninput="OnInput"
            @onkeyup="OnKeyUp"
            enterkeyhint="@EnterKeyHint"
+           maxlength="@InputMaxLength"
            placeholder="@Placeholder"
            aria-label="@AriaLabel"
            disabled="@(Disabled || Loading)" />
     @if (ShowVoiceButton)
     {
-        <button type="button" class="btn btn-outline-primary @(IsListening ? "text-danger" : "")"
+        <button type="button" class="btn btn-outline-primary @(IsListening ? "text-danger listening" : "") @VoiceButtonCssClass"
                 @onclick="OnVoiceToggle" disabled="@(Disabled || Loading)"
                 title="@(IsListening ? "Dừng nói" : "Nói để tìm kiếm")"
                 aria-label="Tìm kiếm bằng giọng nói">
@@ -39,7 +40,8 @@
             <i class="bi bi-x-circle"></i>
         </button>
     }
-    <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchAsync" Disabled="@(Disabled || Loading)">
+    <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchAsync" Disabled="@(Disabled || Loading)"
+                 Loading="@Loading" CssClass="@SearchButtonCssClass">
         <i class="bi bi-search"></i><span class="d-none d-sm-inline ms-1">@SearchText</span>
     </VanAnButton>
 </div>
@@ -57,6 +59,14 @@
     // (parameter names case-insensitive, trùng tên → InvalidOperationException crash SSR).
     /// <summary>Extra class trên input (vd "dir-search-input" của Directory).</summary>
     [Parameter] public string? InputCssClass { get; set; }
+    /// <summary>Extra class trên root .input-group (vd "input-group-lg" của Home).</summary>
+    [Parameter] public string? GroupCssClass { get; set; }
+    /// <summary>Extra class trên nút submit — hook style/e2e (vd "store-search-btn").</summary>
+    [Parameter] public string? SearchButtonCssClass { get; set; }
+    /// <summary>Extra class trên nút mic — hook style/e2e (vd "store-search-mic").</summary>
+    [Parameter] public string? VoiceButtonCssClass { get; set; }
+    /// <summary>maxlength trên input — null = không render attribute.</summary>
+    [Parameter] public int? InputMaxLength { get; set; }
     [Parameter] public string InputId { get; set; } = "vanan-public-search-input";
     /// <summary>Virtual-keyboard action — mobile search UX bắt buộc "search".</summary>
     [Parameter] public string EnterKeyHint { get; set; } = "search";

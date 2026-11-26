@@ -2,7 +2,9 @@ using Bunit;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using VanAn.KhachLink.Components;
+using VanAn.UI.Platform.Adapters;
 using VanAn.UI.Platform.Components.Ai;
+using VanAn.UI.Platform.Core.Interfaces;
 using Xunit;
 
 namespace VanAn.Core.Tests.KhachLink;
@@ -14,6 +16,9 @@ namespace VanAn.Core.Tests.KhachLink;
 public class StoreSearchBarTests : TestContext
 {
     private static readonly Guid TenantId = Guid.NewGuid();
+
+    public StoreSearchBarTests()
+        => Services.AddSingleton<ICssAdapter, BootstrapAdapter>(); // VanAnPublicSearchBar → VanAnButton
 
     private sealed class FakeSearchClient : IAiChatClient
     {
@@ -253,5 +258,41 @@ public class StoreSearchBarTests : TestContext
         cut.WaitForAssertion(() => client.SearchCalls.Should().Be(1));
         cut.Find("input.store-search-input").GetAttribute("value").Should().Be("phở chay",
             "fail-open keeps the query so the customer can retry");
+    }
+
+    // ── Search unification: shared VanAnPublicSearchBar shell ────────────
+
+    [Fact]
+    public void Shell_UsesSharedPublicSearchBar_InsidePillBox()
+    {
+        var cut = Render(new FakeSearchClient());
+
+        cut.Find(".store-search-box").Should().NotBeNull("pill chrome kept");
+        cut.Find(".store-search-box input.store-search-input").Should().NotBeNull(
+            "input lives inside the pill wrapper");
+    }
+
+    [Fact]
+    public void Shell_Input_HasMobileSearchAttributes()
+    {
+        var cut = Render(new FakeSearchClient());
+        var input = cut.Find("input.store-search-input");
+
+        input.GetAttribute("enterkeyhint").Should().Be("search");
+        input.GetAttribute("maxlength").Should().Be("500");
+        input.GetAttribute("aria-label").Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public void ClearButton_AppearsAfterTyping_AndClearsInput()
+    {
+        var cut = Render(new FakeSearchClient());
+        var input = cut.Find("input.store-search-input");
+
+        input.Input("phở");
+        var clearBtn = cut.Find("button[aria-label='Xóa từ khóa']");
+        clearBtn.Click();
+
+        cut.Find("input.store-search-input").GetAttribute("value").Should().BeEmpty();
     }
 }

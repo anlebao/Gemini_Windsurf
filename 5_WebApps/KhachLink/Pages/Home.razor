@@ -1,4 +1,5 @@
 ﻿@using VanAn.KhachLink.Components.Layout
+@using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Components.Web
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
@@ -58,36 +59,22 @@
                     <i class="bi bi-bag"></i> Tìm sản phẩm
                 </button>
             </div>
-            <div class="input-group input-group-lg home-search-box">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-primary"></i>
-                </span>
-                <input type="text" class="form-control border-start-0 border-end-0"
-                       id="home-search-input"
-                       @bind="_homeSearchKeyword"
-                       @onkeyup="OnHomeSearchKeyUp"
-                       placeholder="@(_searchMode == "product" ? "Tìm theo tên sản phẩm, dịch vụ..." : "Tìm theo tên cửa hàng, sản phẩm, dịch vụ...")"
-                       aria-label="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")" />
-                @if (_homeVoiceEnabled && _homeSpeechSupported)
-                {
-                    <button type="button"
-                            class="btn btn-outline-primary home-voice-mic-btn @(_homeVoiceRecording ? "recording" : "")"
-                            @onclick="ToggleHomeVoiceSearch"
-                            title="@(_homeVoiceRecording ? "Dừng ghi âm" : "Nói để tìm kiếm")"
-                            aria-label="Tìm kiếm bằng giọng nói">
-                        @if (_homeVoiceRecording)
-                        {
-                            <i class="bi bi-stop-fill"></i>
-                        }
-                        else
-                        {
-                            <i class="bi bi-mic-fill"></i>
-                        }
-                    </button>
-                }
-                <button type="button" class="btn btn-primary home-search-go-btn" @onclick="SubmitHomeSearch">
-                    <i class="bi bi-arrow-right"></i>
-                </button>
+            @* Search unification: shared VanAnPublicSearchBar — same input shell as
+               Directory/StoreFinder. #home-search-input + .home-voice-mic-btn kept
+               as e2e/style hooks via component params. *@
+            <div class="home-search-box">
+                <VanAnPublicSearchBar @bind-Value="_homeSearchKeyword"
+                                      InputId="home-search-input"
+                                      GroupCssClass="input-group-lg"
+                                      SearchText=""
+                                      SearchButtonCssClass="home-search-go-btn"
+                                      VoiceButtonCssClass="@(_homeVoiceRecording ? "home-voice-mic-btn recording" : "home-voice-mic-btn")"
+                                      Placeholder="@(_searchMode == "product" ? "Tìm theo tên sản phẩm, dịch vụ..." : "Tìm theo tên cửa hàng, sản phẩm, dịch vụ...")"
+                                      AriaLabel="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")"
+                                      ShowVoiceButton="@(_homeVoiceEnabled && _homeSpeechSupported)"
+                                      IsListening="_homeVoiceRecording"
+                                      OnVoiceToggle="ToggleHomeVoiceSearch"
+                                      OnSearch="SubmitHomeSearch" />
             </div>
             @if (_homeVoiceRecording)
             {
@@ -729,15 +716,6 @@
     private void SetSearchMode(string mode)
     {
         _searchMode = mode == "product" ? "product" : "store";
-    }
-
-    /// <summary>Issue #142: Enter key on home search input → submit</summary>
-    private void OnHomeSearchKeyUp(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            SubmitHomeSearch();
-        }
     }
 
     /// <summary>Issue #142: Toggle voice recording on home search box</summary>
