@@ -110,7 +110,7 @@ services:
       - Jwt__Secret=${JWT_SECRET_KEY}
       # W2 (2026-11-10): Brevo transactional email (OTP merchant signup + MFA fallback) — GH secret BREVO_API_KEY
       - Brevo__ApiKey=${BREVO_API_KEY:-not-configured}
-      - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
+      - Brevo__SenderEmail=${BREVO_SENDER_EMAIL:-noreply@${VANAN_DOMAIN}}
       # Dynamic CORS: static origins from appsettings.Production.json + dynamic from KhachLinkInstance registry.
       # No Cors__AllowedOrigins__* env vars — managed via admin UI + DynamicCorsCacheHostedService.
       # Seq runs on remote KhachLink VPS — use Serilog sink via HTTP

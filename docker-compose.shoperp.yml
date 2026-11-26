@@ -57,7 +57,7 @@ services:
       # ValidateProductionConfig sentinel keys
       - DataProtection__KeyDirectory=/app/keys
       - Brevo__ApiKey=${BREVO_API_KEY:-not-configured}
-      - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
+      - Brevo__SenderEmail=${BREVO_SENDER_EMAIL:-noreply@${VANAN_DOMAIN}}
       - Esms__ApiKey=not-configured
       - Esms__SecretKey=not-configured
       - Esms__BrandName=VanAn
