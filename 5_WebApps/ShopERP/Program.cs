@@ -1083,11 +1083,16 @@ namespace VanAn.ShopERP
             // Platform SystemAdmin: Register login service
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPlatformUserLoginService, VanAn.CoreHub.Services.PlatformUserLoginService>();
 
-            // Wave 7: Rate limiting for login endpoint (5 requests per minute per IP)
+            // Wave 7: Rate limiting for login endpoint (5 POST attempts per minute per IP).
+            // GET page loads are exempt — only credential attempts count, so tenant switching
+            // (logout -> load /Login -> POST) cannot exhaust the quota and 503 the page.
             _ = builder.Services.AddRateLimiter(options =>
             {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
                 options.AddPolicy("LoginRateLimit", context =>
                 {
+                    if (!HttpMethods.IsPost(context.Request.Method))
+                        return RateLimitPartition.GetNoLimiter("no-limit");
                     string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                     return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
                     {
