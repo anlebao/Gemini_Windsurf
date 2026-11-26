@@ -67,8 +67,13 @@ public sealed class PromptBuilder
     public static string ProductLine(VanAn.TenantAi.Domain.ProductKnowledge p)
     {
         var sb = new StringBuilder(128);
-        sb.Append(p.Name)
-          .Append(" — giá ").Append(p.Price.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)).Append('đ');
+        sb.Append(p.Name);
+        // Giá ≤ 0 = chưa có giá (vd import từ crawl không bóc được) — "giá 0đ"
+        // gây hiểu nhầm miễn phí; hướng khách liên hệ shop thay vì hiển thị số sai.
+        if (p.Price > 0)
+            sb.Append(" — giá ").Append(p.Price.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)).Append('đ');
+        else
+            sb.Append(" — giá liên hệ");
         if (p.Calories != null) sb.Append(" — ").Append(p.Calories).Append(" kcal");
         if (!string.IsNullOrWhiteSpace(p.CategoryName)) sb.Append(" — nhóm ").Append(p.CategoryName);
         sb.Append(p.Available ? " — còn bán" : " — hết hàng");

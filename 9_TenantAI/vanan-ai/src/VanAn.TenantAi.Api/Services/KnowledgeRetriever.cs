@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using Pgvector;
 using VanAn.TenantAi.Ai;
 using VanAn.TenantAi.Domain;
@@ -74,7 +75,12 @@ public sealed class KnowledgeRetriever(
             .ToList();
     }
 
-    /// <summary>Whole-name containment or all significant tokens present in the question.</summary>
+    /// <summary>
+    /// Whole-name containment, all significant name tokens in the question, OR
+    /// (2026-11-26) every content token of the question ⊆ name tokens — the last
+    /// covers industrial/SKU names ("Ampe Kìm AC Fluke Model 305") where customers
+    /// ask by category words ("giá ampe kìm") and never type the model string.
+    /// </summary>
     private static bool NameMentioned(string normalizedQuestion, string productName)
     {
         var name = IntentRouter.Normalize(productName);
@@ -83,8 +89,38 @@ public sealed class KnowledgeRetriever(
         // menu questions and would mark every product "mentioned").
         var tokens = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(t => t.Length >= 4).ToList();
-        return tokens.Count > 0 && tokens.All(t => normalizedQuestion.Contains(t, StringComparison.Ordinal));
+        if (tokens.Count > 0 && tokens.All(t => normalizedQuestion.Contains(t, StringComparison.Ordinal)))
+            return true;
+
+        // Reverse match: every significant question token equals a name token
+        // (exact-token compare — substring would let "do" hit "model").
+        // Split trên non-alphanumeric: bỏ dấu câu ("nhieu?") + tách SKU "cc120-b-1"
+        // thành {cc120,b,1} để khách gõ "cc120" vẫn match.
+        var nameTokens = new HashSet<string>(SplitTokens(name), StringComparer.Ordinal);
+        var qTokens = SplitTokens(normalizedQuestion)
+            .Where(t => t.Length >= 3 && !QuestionStopwords.Contains(t)).ToList();
+        return qTokens.Count > 0 && qTokens.All(nameTokens.Contains);
     }
+
+    private static IEnumerable<string> SplitTokens(string s)
+        => Regex.Split(s, @"[^\p{L}\p{N}]+")
+            .Where(t => t.Length > 0);
+
+    /// <summary>Filler words stripped before the reverse match — question phrasing
+    /// (giá/bao nhiêu/còn không/cho hỏi…) must never be required in product names.
+    /// All in normalized form (lower, no diacritics, đ→d).</summary>
+    private static readonly HashSet<string> QuestionStopwords = new(StringComparer.Ordinal)
+    {
+        "gia", "bao", "nhieu", "tien", "la", "co", "khong", "con", "shop", "quan",
+        "ben", "minh", "em", "anh", "chi", "toi", "hoi", "ve", "cua", "may",
+        "cai", "loai", "dong", "mua", "ban", "tu", "van", "san", "pham", "nao",
+        "gi", "dau", "nha", "nhe", "oi", "dich", "vu", "hay", "theo", "va",
+        "voi", "xin", "vui", "long", "hien", "tai", "dang", "cung", "cap", "can",
+        "tim", "kiem", "thong", "tin", "tiet", "xem", "duoc", "khach", "gui",
+        "gom", "nhung", "mat", "hang", "thiet", "cho", "du", "di", "dc", "ko",
+        "k", "kh", "ad", "admin", "oi", "nhi", "day", "nay", "kia", "do", "muon",
+        "can", "thiet", "tot", "nhat", "re", "chat", "luong", "bao", "hanh"
+    };
 
     // ---------- semantic: knowledge_chunks (pgvector / fallback) ----------
 

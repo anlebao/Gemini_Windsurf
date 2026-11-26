@@ -149,6 +149,37 @@ public sealed class ChatApiTests : IDisposable
         body.OfferHandoff.Should().BeFalse("câu trả lời có dữ liệu không cần handoff");
     }
 
+    // ---- Reverse token match (2026-11-26) — tên sản phẩm công nghiệp có model/sku:
+    // khách hỏi theo nhóm ("ampe kìm", "bàn so màu") không gõ full name → vẫn phải match.
+    [Fact]
+    public async Task Chat_ProductQuery_PartialName_ResolvesProducts()
+    {
+        var pid = await SeedProductAsync(TenantA, "Ampe Kìm AC Fluke Model 305", 1_500_000m);
+        var body = await Chat(await _client.SendAsync(ChatReq("Giá ampe kìm bao nhiêu?")));
+        body.Products.Select(p => p.ProductId).Should().Contain(pid,
+            "question tokens ⊆ name tokens phải match dù khách không gõ 'model 305'");
+        body.OfferHandoff.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Chat_ProductQuery_PartialName_ModelNumberStillMatches()
+    {
+        var pid = await SeedProductAsync(TenantA, "Bàn So Màu 3nh Model CC120-B-1", 0m);
+        var body = await Chat(await _client.SendAsync(ChatReq("Bàn so màu 3nh còn hàng không?")));
+        body.OfferHandoff.Should().BeFalse("content tokens 'ban','mau','3nh' ⊆ name → facts có");
+        // price=0 → dòng fact phải ghi 'giá liên hệ', không in '0đ' gây hiểu nhầm.
+        _llm.Prompts.Last().Should().Contain("liên hệ");
+    }
+
+    [Fact]
+    public async Task Chat_ProductQuery_UnrelatedTokens_StillNoData()
+    {
+        await SeedProductAsync(TenantA, "Ampe Kìm AC Fluke Model 305", 1_500_000m);
+        var body = await Chat(await _client.SendAsync(ChatReq("Giá xúc xích đức bao nhiêu?")));
+        body.Products.Should().BeEmpty("token không khớp tên sản phẩm nào → NoData đúng");
+        body.OfferHandoff.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Chat_AvailabilityQuery_OutOfStock_NotSuggested()
     {
