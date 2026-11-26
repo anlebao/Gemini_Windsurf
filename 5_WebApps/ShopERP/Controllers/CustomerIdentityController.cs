@@ -81,21 +81,23 @@ namespace VanAn.ShopERP.Controllers
         [HttpPost("otp/verify")]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.PhoneNumber) || string.IsNullOrWhiteSpace(request.Otp))
-                return BadRequest(new { error = "Số điện thoại và OTP không được để trống." });
+            if (string.IsNullOrWhiteSpace(request.Otp)
+                || (string.IsNullOrWhiteSpace(request.PhoneNumber) && string.IsNullOrWhiteSpace(request.Email)))
+                return BadRequest(new { error = "Cần email hoặc số điện thoại và OTP." });
 
             if (!VerifyOtpAnyContact(request.Otp, "customer-login", request.Channel, request.PhoneNumber, request.Email))
                 return BadRequest(new { error = "OTP không đúng hoặc đã hết hạn." });
 
-            // Find or create customer by phone number.
-            // Note: PhoneNumber is PII-encrypted — LINQ comparison requires loading all and filtering
+            // Find or create customer by phone OR email (email-first OTP login, 2026-11-26).
+            // Note: PhoneNumber/Email are PII-encrypted — LINQ comparison requires loading all and filtering
             // in-memory (EF can't translate encrypted-column WHERE clauses reliably).
             var tenantId = GetTenantId(request.TenantId);
             var allCustomers = await _customerRepository.GetAllActiveAsync();
-            var customer = allCustomers.FirstOrDefault(c => c.PhoneNumber == request.PhoneNumber);
+            var customer = FindCustomerByContact(allCustomers, request.PhoneNumber, request.Email);
             if (customer == null)
             {
-                var newCustomer = new Customer(new TenantId(tenantId), request.DisplayName ?? "Khách hàng", request.PhoneNumber);
+                var newCustomer = new Customer(new TenantId(tenantId), request.DisplayName ?? "Khách hàng",
+                    request.PhoneNumber ?? string.Empty, request.Email);
                 if (request.DeviceId.HasValue)
                     newCustomer.UpdateCustomerDetails(newCustomer.FullName, newCustomer.PhoneNumber, newCustomer.Email, newCustomer.CustomerTier, request.DeviceId, true);
                 customer = await _customerRepository.AddAsync(newCustomer);
@@ -393,6 +395,23 @@ namespace VanAn.ShopERP.Controllers
         /// <summary>2026-11-21: mask dùng chung cho email/SĐT — giữ 4 ký tự cuối.</summary>
         private static string MaskContact(string contact) =>
             contact.Length > 4 ? $"****{contact[^4..]}" : "****";
+
+        /// <summary>
+        /// Find customer by phone (exact) then email (case-insensitive). Both PII-encrypted →
+        /// compare in-memory on the decrypted values loaded by GetAllActiveAsync.
+        /// </summary>
+        private static Customer? FindCustomerByContact(IEnumerable<Customer> customers, string? phone, string? email)
+        {
+            if (!string.IsNullOrWhiteSpace(phone))
+            {
+                var byPhone = customers.FirstOrDefault(c => c.PhoneNumber == phone.Trim());
+                if (byPhone != null) return byPhone;
+            }
+            if (!string.IsNullOrWhiteSpace(email))
+                return customers.FirstOrDefault(c =>
+                    string.Equals(c.Email, email.Trim(), StringComparison.OrdinalIgnoreCase));
+            return null;
+        }
 
         /// <summary>
         /// Chọn contact verify OTP theo channel hint ("email"|"sms"). Channel null → thử phone rồi email

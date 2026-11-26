@@ -103,6 +103,9 @@ namespace VanAn.KhachLink
             // Tiered Auth Phase 3: Social auth + identity upgrade HTTP service
             _ = builder.Services.AddScoped<Services.Http.SocialAuthHttpService>();
 
+            // 2026-11-26: Customer email-OTP login (Brevo) — anonymous otp/send + otp/verify
+            _ = builder.Services.AddScoped<Services.Http.CustomerAuthHttpService>();
+
             // CC-S1-T1/T2 (Sprint 1): Community Commerce HTTP service (nearby orders + accept)
             _ = builder.Services.AddScoped<Services.Http.CommunityHttpService>();
             // P4 (UI-10): ChatHttpService removed — ChatPanel is now a shim over the UI Platform

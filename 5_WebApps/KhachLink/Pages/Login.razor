@@ -6,6 +6,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject SecurityHttpService SecurityHttp
+@inject CustomerAuthHttpService CustomerAuth
 @inject ILogger<Login> _logger
 
 <PageTitle>Đăng nhập</PageTitle>
@@ -79,10 +80,26 @@
                     <hr class="mt-n3" />
                 </div>
 
+                @* 2026-11-26: email OTP login (Brevo 0đ) — không cần Google/Facebook,
+                   khách chỉ cần email. OTP endpoints /api/customer-identity/otp/*. *@
+                <div class="text-center text-muted my-3" style="font-size:0.85rem;">
+                    <span style="background:var(--bs-body-bg); padding:0 8px; position:relative; z-index:1;">hoặc</span>
+                    <hr class="mt-n3" />
+                </div>
+
                 @if (_error != null)
                 {
                     <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
                 }
+                <VanAnButton Variant="ButtonVariant.Secondary"
+                             FullWidth="true"
+                             CssClass="mb-2 d-flex align-items-center justify-content-center gap-2"
+                             OnClick="StartEmailOtp"
+                             TestId="btn-email-otp-login">
+                    <i class="bi bi-envelope"></i>
+                    Đăng nhập bằng email
+                </VanAnButton>
+
                 <VanAnButton Variant="ButtonVariant.Secondary"
                              FullWidth="true"
                              OnClick="ContinueAsGuest"
@@ -90,6 +107,80 @@
                     <i class="bi bi-bag me-2"></i>
                     Tiếp tục as Guest
                 </VanAnButton>
+            }
+            else if (_step == LoginStep.EmailEntry)
+            {
+                <h5 class="mb-3"><i class="bi bi-envelope text-primary"></i> Đăng nhập bằng email</h5>
+                <p class="text-muted" style="font-size:0.85rem;">Nhập email — chúng tôi sẽ gửi mã xác minh 6 số (miễn phí, hiệu lực 5 phút).</p>
+
+                @if (_error != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
+                }
+                @if (_info != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Info" Message="@_info" />
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" placeholder="ban@email.com"
+                           @bind="_otpEmail" @bind:event="oninput" @onkeydown="OnEmailKeyDown"
+                           data-testid="input-otp-email" />
+                </div>
+
+                <VanAnButton Variant="ButtonVariant.Primary"
+                             FullWidth="true"
+                             Disabled="@_otpBusy"
+                             OnClick="SendEmailOtp"
+                             TestId="btn-send-otp">
+                    @(_otpBusy ? "Đang gửi…" : "Gửi mã xác minh")
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Ghost" FullWidth="true" CssClass="mt-2"
+                             OnClick="BackToChoice" TestId="btn-otp-back">
+                    ← Quay lại
+                </VanAnButton>
+            }
+            else if (_step == LoginStep.OtpEntry)
+            {
+                <h5 class="mb-3"><i class="bi bi-shield-lock text-primary"></i> Nhập mã xác minh</h5>
+                <p class="text-muted" style="font-size:0.85rem;">
+                    Mã 6 số đã gửi đến <strong>@_otpContactSuffix</strong> (@(_otpChannel == "email" ? "email" : "SMS")).
+                    Hiệu lực 5 phút.
+                </p>
+
+                @if (_error != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Mã xác minh</label>
+                    <input type="text" class="form-control text-center" inputmode="numeric"
+                           maxlength="6" placeholder="••••••" autocomplete="one-time-code"
+                           @bind="_otpCode" @onkeydown="OnOtpKeyDown"
+                           style="font-size:1.4rem;letter-spacing:0.5rem;font-weight:700;"
+                           data-testid="input-otp-code" />
+                </div>
+
+                <VanAnButton Variant="ButtonVariant.Primary"
+                             FullWidth="true"
+                             Disabled="@(_otpBusy || _otpCode.Trim().Length != 6)"
+                             OnClick="VerifyEmailOtp"
+                             TestId="btn-verify-otp">
+                    @(_otpBusy ? "Đang xác thực…" : "Xác nhận đăng nhập")
+                </VanAnButton>
+                <div class="d-flex justify-content-between mt-2">
+                    <VanAnButton Variant="ButtonVariant.Ghost" CssClass="p-0"
+                                 Disabled="@(_otpBusy || _resendCooldown > 0)"
+                                 OnClick="ResendEmailOtp" TestId="btn-resend-otp">
+                        @(_resendCooldown > 0 ? $"Gửi lại mã ({_resendCooldown}s)" : "Gửi lại mã")
+                    </VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Ghost" CssClass="p-0"
+                                 OnClick="BackToChoice" TestId="btn-otp-back-2">
+                        ← Đổi email
+                    </VanAnButton>
+                </div>
             }
             else if (_step == LoginStep.Success)
             {
@@ -105,12 +196,23 @@
 
 @code {
     // CC-S1-T0c (v1.5): LoginStep.Otp removed — SMS OTP no longer in primary flow.
-    private enum LoginStep { Choice, Success }
+    // 2026-11-26: EmailEntry/OtpEntry — email OTP login qua Brevo (0đ), thay thế SMS.
+    private enum LoginStep { Choice, EmailEntry, OtpEntry, Success }
     private LoginStep _step = LoginStep.Choice;
     private string? _error;
+    private string? _info;
     private bool _webauthnSupported;
     private bool _passkeyBusy;
     private bool _passkeyJustRegistered;
+
+    // Email OTP state
+    private string _otpEmail = string.Empty;
+    private string _otpCode = string.Empty;
+    private string _otpChannel = "email";
+    private string _otpContactSuffix = string.Empty;
+    private bool _otpBusy;
+    private int _resendCooldown;
+    private CancellationTokenSource? _resendCts;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -213,6 +315,135 @@
         // No API call, no token stored. User goes to home page to browse + checkout.
         // Order history via CustomerDeviceId (localStorage). Loyalty points via DeviceId fallback (Bug 6 fix).
         Navigation.NavigateTo("/");
+    }
+
+    // ===== 2026-11-26: Email OTP login (Brevo) =====
+
+    private void StartEmailOtp()
+    {
+        _error = null;
+        _info = null;
+        _otpCode = string.Empty;
+        _step = LoginStep.EmailEntry;
+    }
+
+    private void BackToChoice()
+    {
+        _error = null;
+        _info = null;
+        _otpBusy = false;
+        _step = LoginStep.Choice;
+    }
+
+    private async Task OnEmailKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendEmailOtp();
+    }
+
+    private async Task OnOtpKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _otpCode.Trim().Length == 6) await VerifyEmailOtp();
+    }
+
+    private async Task SendEmailOtp()
+    {
+        _error = null;
+        _info = null;
+        var email = _otpEmail.Trim();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        {
+            _error = "Vui lòng nhập địa chỉ email hợp lệ.";
+            return;
+        }
+
+        _otpBusy = true;
+        try
+        {
+            var result = await CustomerAuth.SendOtpAsync(email);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+            _otpEmail = email;
+            _otpChannel = result.Channel;
+            _otpContactSuffix = result.ContactSuffix;
+            _otpCode = string.Empty;
+            _step = LoginStep.OtpEntry;
+            _info = result.Message;
+            StartResendCooldown(60);
+        }
+        finally
+        {
+            _otpBusy = false;
+        }
+    }
+
+    private async Task ResendEmailOtp()
+    {
+        if (_resendCooldown > 0) return;
+        await SendEmailOtp();
+        if (_step == LoginStep.OtpEntry && _error == null)
+            _info = "Mã mới đã được gửi.";
+    }
+
+    private async Task VerifyEmailOtp()
+    {
+        _error = null;
+        var otp = _otpCode.Trim();
+        if (otp.Length != 6)
+        {
+            _error = "Mã xác minh gồm 6 chữ số.";
+            return;
+        }
+
+        _otpBusy = true;
+        try
+        {
+            // customer_device_id → merge guest stubs + gắn DeviceId cho customer mới
+            var deviceIdRaw = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            Guid? deviceId = Guid.TryParse(deviceIdRaw, out var d) ? d : null;
+
+            var result = await CustomerAuth.VerifyOtpAsync(_otpEmail, otp, _otpChannel, deviceId);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", result.CustomerToken);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "login_provider", "email-otp");
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", result.CustomerId.ToString());
+            _ = RegisterDeviceFingerprintAsync(result.CustomerToken);
+
+            _step = LoginStep.Success;
+            StateHasChanged();
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/profile");
+        }
+        finally
+        {
+            _otpBusy = false;
+        }
+    }
+
+    private void StartResendCooldown(int seconds)
+    {
+        _resendCts?.Cancel();
+        _resendCts = new CancellationTokenSource();
+        var ct = _resendCts.Token;
+        _ = Task.Run(async () =>
+        {
+            for (var i = seconds; i > 0; i--)
+            {
+                if (ct.IsCancellationRequested) return;
+                _resendCooldown = i;
+                try { await InvokeAsync(StateHasChanged); } catch { return; }
+                try { await Task.Delay(1000, ct); } catch { return; }
+            }
+            _resendCooldown = 0;
+            try { await InvokeAsync(StateHasChanged); } catch { }
+        }, ct);
     }
 
     /// <summary>

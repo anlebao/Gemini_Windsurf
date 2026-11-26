@@ -105,6 +105,15 @@ public class OtpServiceTests
     }
 
     [Fact]
+    public void Verify_EmailContact_WorksSameAsPhone()
+    {
+        // 2026-11-26: email OTP login — OtpService nhận mọi contact string (email hoặc SĐT).
+        var (svc, _) = Create();
+        var otp = svc.GenerateAndStoreOtp("khach@email.com");
+        svc.VerifyOtp("khach@email.com", otp).Should().BeTrue();
+    }
+
+    [Fact]
     public void Verify_ExpiredOrMissingOtp_CountsAsAttempt()
     {
         var (svc, _) = Create(maxAttempts: 2);
