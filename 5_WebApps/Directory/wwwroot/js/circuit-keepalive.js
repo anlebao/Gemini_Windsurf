@@ -3,27 +3,56 @@
 // Chỉ chạy khi Blazor circuit active (DotNet.invokeMethodAsync available).
 // Fixes: circuit bị proxy/host idle kill khi user đọc directory không tương tác lâu
 // → "Could not reconnect to the server" (Blazor Server reconnect modal).
+//
+// 2026-11-26 (issue #200): hardening — KHÔNG ping khi circuit chưa connect hoặc đang
+// reconnect/failed/rejected. Trước đây ping mù mỗi 10s → "Circuit not initialized" +
+// "Cannot send data if the connection is not in the 'Connected' State" spam console.
+// Backoff: fail → giãn nhịp lên 60s; success → về 10s (tự resume sau reconnect).
 window.vananCircuitKeepalive = (function () {
-    var intervalId = null;
+    var timerId = null;
+    var failStreak = 0;
+    var INTERVAL_OK_MS = 10000;
+    var INTERVAL_FAIL_MS = 60000;
+
+    // Circuit chết hẳn (rejected/failed → user phải reload) → ngừng ping hoàn toàn.
+    // "components-reconnect-show" (đang auto-reconnect) vẫn thử ping — backoff lo phần còn lại.
+    function isCircuitDead() {
+        var m = document.getElementById('components-reconnect-modal');
+        return !!(m && (m.classList.contains('components-reconnect-rejected') ||
+                        m.classList.contains('components-reconnect-failed')));
+    }
+
+    function schedule() {
+        var delay = failStreak > 0 ? INTERVAL_FAIL_MS : INTERVAL_OK_MS;
+        timerId = setTimeout(tick, delay);
+    }
+
+    function tick() {
+        timerId = null;
+        if (isCircuitDead()) { schedule(); return; }
+        try {
+            if (window.DotNet && DotNet.invokeMethodAsync) {
+                DotNet.invokeMethodAsync('VanAn.Directory', 'CircuitKeepalivePing')
+                    .then(function () { failStreak = 0; })
+                    .catch(function () {
+                        // Circuit disposed hoặc đang reconnect — backoff, không log, không throw
+                        failStreak++;
+                    });
+            }
+        } catch (e) {
+            // Blazor chưa load — bỏ qua
+            failStreak++;
+        }
+        schedule();
+    }
 
     function start() {
-        if (intervalId) return;
-        intervalId = setInterval(function () {
-            try {
-                if (window.DotNet && DotNet.invokeMethodAsync) {
-                    DotNet.invokeMethodAsync('VanAn.Directory', 'CircuitKeepalivePing')
-                        .catch(function () {
-                            // Circuit disposed hoặc đang reconnect — không log, không throw
-                        });
-                }
-            } catch (e) {
-                // Blazor chưa load — bỏ qua
-            }
-        }, 10000); // 10s — nhỏ hơn proxy idle timeout điển hình (60s+)
+        if (timerId !== null) return;
+        schedule();
     }
 
     function stop() {
-        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        if (timerId !== null) { clearTimeout(timerId); timerId = null; }
     }
 
     // Auto-start khi script load
