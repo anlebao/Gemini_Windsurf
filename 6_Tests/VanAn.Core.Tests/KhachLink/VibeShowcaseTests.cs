@@ -65,4 +65,52 @@ public class VibeShowcaseTests : TestContext
         var act = () => cut.Find(".vibe-qv").Click();
         act.Should().NotThrow();
     }
+
+    // ---------- 2026-11-26: pagination — 8 sản phẩm/trang + prev/next ----------
+
+    private static List<ProductDto> Samples(int count)
+        => Enumerable.Range(1, count).Select(i => Sample($"SP {i:D2}")).ToList();
+
+    [Fact]
+    public void Pagination_RendersMax8PerPage()
+    {
+        var cut = RenderComponent<VibeShowcase>(p => p
+            .Add(c => c.Products, Samples(10)));
+
+        cut.FindAll(".vibe-qv").Count.Should().Be(8, "chỉ 8 sản phẩm mỗi trang");
+        cut.FindAll(".vibe-pager").Count.Should().Be(1, "pager hiện khi >8 sản phẩm");
+    }
+
+    [Fact]
+    public void Pagination_NextAndPrev_NavigatePages()
+    {
+        var cut = RenderComponent<VibeShowcase>(p => p
+            .Add(c => c.Products, Samples(10)));
+
+        cut.Find(".vibe-pager-next").Click();
+        cut.FindAll(".vibe-qv").Count.Should().Be(2, "trang 2 còn 2 sản phẩm");
+        cut.Markup.Should().Contain("SP 09");
+
+        cut.Find(".vibe-pager-prev").Click();
+        cut.Markup.Should().Contain("SP 01").And.NotContain("SP 09");
+    }
+
+    [Fact]
+    public void Pagination_Hidden_WhenUnder8()
+    {
+        var cut = RenderComponent<VibeShowcase>(p => p
+            .Add(c => c.Products, Samples(5)));
+
+        cut.FindAll(".vibe-pager").Count.Should().Be(0, "≤8 sản phẩm không cần pager");
+    }
+
+    [Fact]
+    public void Pagination_PrevDisabled_OnFirstPage()
+    {
+        var cut = RenderComponent<VibeShowcase>(p => p
+            .Add(c => c.Products, Samples(10)));
+
+        cut.Find(".vibe-pager-prev").HasAttribute("disabled").Should().BeTrue();
+        cut.Find(".vibe-pager-next").HasAttribute("disabled").Should().BeFalse();
+    }
 }

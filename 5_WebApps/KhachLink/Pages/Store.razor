@@ -738,8 +738,8 @@ else
     .store-call-fab i { font-size: 1.05rem; }
     .store-call-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(21,115,71,0.5); }
     .store-call-fab:active { transform: translateY(0); }
-    .store-call-fab-video { background: #1a1a2e; box-shadow: 0 6px 20px rgba(26,26,46,0.35); }
-    .store-call-fab-video:hover { box-shadow: 0 10px 26px rgba(26,26,46,0.45); }
+    .store-call-fab-video { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 45%, #4fc3f7 100%); box-shadow: 0 6px 20px rgba(30,60,114,0.45), inset 0 1px 0 rgba(255,255,255,0.35); }
+    .store-call-fab-video:hover { box-shadow: 0 10px 26px rgba(30,60,114,0.55), inset 0 1px 0 rgba(255,255,255,0.45); }
     .store-call-fabs-note {
         color: #6b7280; font-size: 0.72rem;
         background: rgba(255,255,255,0.9);
@@ -1688,7 +1688,11 @@ else
     {
         await CartService.AddItemAsync(product, 1);
         // Shared toast (vananShowCartToast delegates to vananShowToast — same as Home.razor + ProductSearchResults.razor)
-        try { await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {product.Name} vào giỏ hàng!"); }
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {product.Name} vào giỏ hàng!");
+            await JSRuntime.InvokeVoidAsync("vananCartCelebrate"); // pháo hoa + cảm ơn (2026-11-26)
+        }
         catch { /* ignore JS errors during prerender */ }
     }
 

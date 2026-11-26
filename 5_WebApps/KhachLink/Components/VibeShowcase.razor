@@ -19,13 +19,13 @@
                 case ThemeType.Teen:
                     <div class="teen-vibe">
                         <div class="row g-4">
-                            @foreach (var product in Products ?? new List<ProductDto>())
+                            @foreach (var product in VisibleProducts)
                             {
                                 <div class="col-6 col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="teen-card" Shadow="true" Hoverable="true">
                                         <div class="teen-image">
-                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <img src="@(product?.ImageUrl ?? "/images/teen-product.jpg")" alt="@(product?.Name ?? "Sản phẩm")" loading="lazy" />
                                             <div class="teen-overlay">
                                                 <span class="teen-badge">HOT</span>
                                             </div>
@@ -53,11 +53,15 @@
                 case ThemeType.Lady:
                     <div class="lady-vibe">
                         <div class="row g-4">
-                            @foreach (var product in Products ?? new List<ProductDto>())
+                            @foreach (var product in VisibleProducts)
                             {
                                 <div class="col-6 col-md-6 col-lg-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="lady-card" Shadow="true">
+                                        @if (!string.IsNullOrEmpty(product?.ImageUrl))
+                                        {
+                                            <img class="vibe-thumb" src="@product!.ImageUrl" alt="@product.Name" loading="lazy" />
+                                        }
                                         <div class="lady-header">
                                             <h4 class="elegant-title">@(product?.Name ?? "Sản phẩm")</h4>
                                             <div class="lady-icon">🌸</div>
@@ -83,12 +87,16 @@
                 case ThemeType.Classic:
                     <div class="classic-vibe">
                         <div class="row">
-                            @foreach (var product in Products ?? new List<ProductDto>())
+                            @foreach (var product in VisibleProducts)
                             {
                                 <div class="col-6 col-md-6 mb-3 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                      @onclick="() => NotifyProductClick(product)">
                                     <VanAnCard CssClass="classic-card" Shadow="true">
                                         <div class="classic-row">
+                                            @if (!string.IsNullOrEmpty(product?.ImageUrl))
+                                            {
+                                                <img class="vibe-thumb-classic" src="@product!.ImageUrl" alt="@product.Name" loading="lazy" />
+                                            }
                                             <div class="classic-info">
                                                 <h4>@(product?.Name ?? "Sản phẩm")</h4>
                                                 <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
@@ -111,14 +119,14 @@
 
                 case ThemeType.Premium:
                     <div class="premium-vibe">
-                        @foreach (var product in Products ?? new List<ProductDto>())
+                        @foreach (var product in VisibleProducts)
                         {
                             <div class="premium-card-wrapper mb-4 vibe-qv reveal-on-scroll" key="@product.ProductId"
                                  @onclick="() => NotifyProductClick(product)">
                                 <VanAnCard CssClass="premium-card" Shadow="true">
                                     <div class="premium-layout">
                                         <div class="premium-image">
-                                            <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <img src="@(product?.ImageUrl ?? "/images/premium-product.jpg")" alt="@(product?.Name ?? "Sản phẩm")" loading="lazy" />
                                         </div>
                                         <div class="premium-content">
                                             <div class="premium-header">
@@ -150,12 +158,16 @@
             // Default fallback using UI Platform
             <div class="default-vibe">
                 <div class="row">
-                    @foreach (var product in Products ?? new List<ProductDto>())
+                    @foreach (var product in VisibleProducts)
                     {
                         <div class="col-6 col-md-4 mb-3 vibe-qv reveal-on-scroll" key="@product.ProductId"
                              @onclick="() => NotifyProductClick(product)">
                             <VanAnCard CssClass="product-card" Shadow="true">
                                 <div class="product-info">
+                                    @if (!string.IsNullOrEmpty(product?.ImageUrl))
+                                    {
+                                        <img class="vibe-thumb" src="@product!.ImageUrl" alt="@product.Name" loading="lazy" />
+                                    }
                                     <h5>@(product?.Name ?? "Sản phẩm")</h5>
                                     <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
                                     <p class="product-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</p>
@@ -174,10 +186,109 @@
                 </div>
             </div>
         }
+
+        @* 2026-11-26: 8 sản phẩm/trang — tenant vài trăm SP không load hết một lần. *@
+        @if (TotalPages > 1)
+        {
+            <div class="vibe-pager">
+                <button type="button" class="vibe-pager-btn vibe-pager-prev" aria-label="Trang trước"
+                        disabled="@(_page == 0)" @onclick="PrevPage">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <span class="vibe-pager-info">@(_page + 1) / @TotalPages</span>
+                <button type="button" class="vibe-pager-btn vibe-pager-next" aria-label="Trang sau"
+                        disabled="@(_page >= TotalPages - 1)" @onclick="NextPage">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        }
     </div>
 </VanAnCard>
 
 <style>
+    /* 2026-11-26: thumbnail + truncation + slim borders + pager */
+    .vibe-thumb {
+        width: 100%;
+        height: 130px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: .5rem;
+    }
+
+    .vibe-thumb-classic {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
+        align-self: center;
+    }
+
+    /* Truncate tên/mô tả dài — không tràn bể khung */
+    .teen-card .neon-text, .lady-card .elegant-title, .classic-card h4,
+    .premium-card .premium-title, .product-card h5 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .teen-card .teen-desc, .lady-card .lady-desc, .classic-card p,
+    .premium-card .premium-desc, .product-card p:not(.product-price) {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Viền mảnh hơn, tinh tế hơn */
+    .teen-card { border-width: 1px; }
+    .classic-card { border-left-width: 2px; }
+    .premium-card { border-color: rgba(255, 215, 0, .4); }
+    .lady-card { box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    .product-card { border: 1px solid #e9ecef; }
+
+    /* Pager */
+    .vibe-pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .75rem;
+        margin-top: 1rem;
+    }
+
+    .vibe-pager-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid rgba(0,0,0,.15);
+        background: rgba(255,255,255,.9);
+        color: #333;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .vibe-pager-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(0,0,0,.15);
+    }
+
+    .vibe-pager-btn:disabled {
+        opacity: .35;
+        cursor: not-allowed;
+    }
+
+    .vibe-pager-info {
+        font-size: .875rem;
+        font-weight: 600;
+        color: rgba(0,0,0,.65);
+        min-width: 3.5rem;
+        text-align: center;
+    }
+
     /* Teen Theme Styles */
     .teen-vibe {
         background: linear-gradient(45deg, #ff006e, #8338ec, #3a86ff);
@@ -364,6 +475,26 @@
     /// <summary>Storefront vertical (Phương án A): CTA label trên product card. Mặc định trung lập.</summary>
     [Parameter]
     public string ProductCardCta { get; set; } = "Thêm vào giỏ";
+
+    // ---- 2026-11-26: pagination — 8 sản phẩm/trang ----
+    private const int PageSize = 8;
+    private int _page;
+
+    private int TotalPages => Products is { Count: > 0 } p
+        ? (int)Math.Ceiling(p.Count / (double)PageSize)
+        : 0;
+
+    private IEnumerable<ProductDto> VisibleProducts =>
+        (Products ?? new List<ProductDto>()).Skip(_page * PageSize).Take(PageSize);
+
+    protected override void OnParametersSet()
+    {
+        // Đổi dataset (search/filter) → về trang 1; clamp khi list thu nhỏ.
+        if (_page >= TotalPages) _page = Math.Max(0, TotalPages - 1);
+    }
+
+    private void NextPage() { if (_page < TotalPages - 1) _page++; }
+    private void PrevPage() { if (_page > 0) _page--; }
 
     private Task NotifyProductClick(ProductDto? product)
         => product is not null && OnProductClick.HasDelegate
