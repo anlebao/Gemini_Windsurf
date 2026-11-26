@@ -152,7 +152,8 @@ server {
     }
 
     # Layer 3: Login form — strict rate limit (brute-force protection)
-    # 5r/m + burst=5: max 5 login attempts per minute per IP.
+    # POST-only via $limit_auth_key (nginx.conf): GET page loads không trừ quota
+    # — owner chuyển tenant (logout→login→POST) không bị 503 oan. 10r/m + burst=5.
     location = /Login {
         limit_req zone=auth burst=5 nodelay;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -392,6 +393,7 @@ server {
     }
 
     # Layer 3: Login form — strict rate limit (brute-force protection)
+    # POST-only via $limit_auth_key — GET page loads không trừ quota.
     location = /Login {
         limit_req zone=auth burst=5 nodelay;
         proxy_pass         http://${SHOPERP_REMOTE_HOST}:80;
@@ -470,7 +472,7 @@ server {
     location = /504.html { root /usr/share/nginx/html; internal; }
 
     # Auth endpoints — strict rate limit (brute-force protection)
-    # /api/platform/login, /api/auth/* — 5r/m + burst=5 per IP
+    # /api/platform/login, /api/auth/* — POST-only 10r/m + burst=5 per IP
     location /api/platform/login {
         limit_req zone=auth burst=5 nodelay;
         limit_conn perip_conn 3;
