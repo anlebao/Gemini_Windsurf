@@ -458,7 +458,8 @@ public class TenantBookingController(
         {
             var offering = await _offeringService.CreateOfferingAsync(tenantId, new CreateOfferingCommand(
                 request.DisplayName.Trim(), type, request.DurationMinutes, request.Price,
-                request.CategoryId, request.RequiredSkillCode, request.Description, request.NeedsReview), ct);
+                request.CategoryId, request.RequiredSkillCode, request.Description, request.NeedsReview,
+                request.IsSellable), ct);
             return StatusCode(StatusCodes.Status201Created, ToOfferingDto(offering));
         }
         catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
@@ -478,7 +479,7 @@ public class TenantBookingController(
         {
             var offering = await _offeringService.UpdateOfferingAsync(tenantId, offeringId, new CreateOfferingCommand(
                 request.DisplayName.Trim(), type, request.DurationMinutes, request.Price,
-                request.CategoryId, request.RequiredSkillCode, request.Description), request.IsActive, ct);
+                request.CategoryId, request.RequiredSkillCode, request.Description, IsSellable: request.IsSellable), request.IsActive, ct);
             return Ok(ToOfferingDto(offering));
         }
         catch (ValidationException ex) { return BadRequest(new { message = ex.Message }); }
@@ -519,7 +520,7 @@ public class TenantBookingController(
     }
 
     private static BookingOfferingDto ToOfferingDto(AppointmentOffering o)
-        => new(o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description, o.NeedsReview);
+        => new(o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName, o.DurationMinutes, o.Price, o.Description, o.NeedsReview, o.IsSellable);
 
     /// <summary>Bulk-approve AI-imported offerings (NeedsReview → active).</summary>
     [HttpPost("offerings/bulk-review")]
@@ -1001,7 +1002,7 @@ public record UpsertCategoryRequest(string Name, int DisplayOrder = 0, bool IsAc
 public record UpsertOfferingRequest(
     string DisplayName, string OfferingType, int DurationMinutes, decimal Price,
     Guid? CategoryId = null, string? RequiredSkillCode = null, string? Description = null, bool IsActive = true,
-    bool NeedsReview = false);
+    bool NeedsReview = false, bool IsSellable = false);
 
 public record BulkReviewOfferingsRequest(List<Guid> OfferingIds);
 

@@ -49,6 +49,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.RequiredSkillCode).HasMaxLength(64);
             _ = builder.Property(e => e.Description).HasMaxLength(1000);
             _ = builder.Property(e => e.NeedsReview).HasDefaultValue(false);
+            _ = builder.Property(e => e.IsSellable).HasDefaultValue(false);
             _ = builder.HasIndex(e => new { e.TenantId, e.IsActive });
             _ = builder.HasIndex(e => e.CategoryId);
         }

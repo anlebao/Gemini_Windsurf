@@ -55,6 +55,9 @@ public class BookingOfferingDto
     public decimal Price { get; set; }
     public string? Description { get; set; }
 
+    /// <summary>Direct-sell (2026-11-26): offering bán trực tiếp qua giỏ hàng — storefront hiện nút "Đặt mua".</summary>
+    public bool IsSellable { get; set; }
+
     [JsonIgnore]
     public bool IsPackage => OfferingType == "Package";
 }

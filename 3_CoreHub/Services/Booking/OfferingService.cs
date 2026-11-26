@@ -50,7 +50,8 @@ namespace VanAn.CoreHub.Services.Booking
 
             var offering = new AppointmentOffering(
                 tenantId, command.DisplayName, command.OfferingType, command.DurationMinutes,
-                command.Price, command.CategoryId, command.RequiredSkillCode, command.Description);
+                command.Price, command.CategoryId, command.RequiredSkillCode, command.Description,
+                command.IsSellable);
             if (command.NeedsReview)
                 offering.MarkNeedsReview();
             _context.AppointmentOfferings.Add(offering);
@@ -68,7 +69,8 @@ namespace VanAn.CoreHub.Services.Booking
             await ValidateCategoryAsync(tenantId, command.CategoryId, ct);
 
             offering.Update(command.DisplayName, command.OfferingType, command.DurationMinutes,
-                command.Price, command.CategoryId, command.RequiredSkillCode, command.Description, isActive);
+                command.Price, command.CategoryId, command.RequiredSkillCode, command.Description, isActive,
+                command.IsSellable);
             _ = await _context.SaveChangesAsync(ct);
             return offering;
         }

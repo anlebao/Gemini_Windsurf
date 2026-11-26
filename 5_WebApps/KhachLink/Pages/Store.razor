@@ -278,9 +278,17 @@ else
                                     <span class="booking-offering-name">@o.DisplayName</span>
                                     <span class="booking-offering-sub">@o.DurationMinutes phút · @o.Price.ToString("N0")đ</span>
                                 </div>
-                                <a class="booking-offering-cta"
-                                   href="@BookingOfferingLink(o.Id)"
-                                   data-testid="@($"store-offering-cta-{o.Id}")">Đặt lịch</a>
+                                <div class="booking-offering-actions">
+                                    @if (o.IsSellable)
+                                    {
+                                        <button type="button" class="booking-offering-buy"
+                                                @onclick="() => AddOfferingToCartAsync(o)"
+                                                data-testid="@($"store-offering-buy-{o.Id}")">Đặt mua</button>
+                                    }
+                                    <a class="booking-offering-cta"
+                                       href="@BookingOfferingLink(o.Id)"
+                                       data-testid="@($"store-offering-cta-{o.Id}")">Đặt lịch</a>
+                                </div>
                             </div>
                         }
                     </div>
@@ -1086,6 +1094,13 @@ else
     .booking-offering-meta { display: flex; flex-direction: column; min-width: 0; }
     .booking-offering-name { font-weight: 600; font-size: 0.95rem; }
     .booking-offering-sub { font-size: 0.8rem; color: #64748b; }
+    .booking-offering-actions { display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; }
+    .booking-offering-buy {
+        border: 1px solid #0d6efd; color: #0d6efd; background: #fff;
+        border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; white-space: nowrap;
+    }
+    .booking-offering-buy:hover { background: #0d6efd; color: #fff; }
     .booking-offering-cta {
         flex-shrink: 0;
         padding: 0.45rem 1rem;
@@ -1719,6 +1734,34 @@ else
     }
 
     private void AddToCartSync(ProductDto product) => _ = AddToCart(product);
+
+    /// <summary>Direct-sell offering (IsSellable): mua ngay qua giỏ hàng — order line dùng
+    /// ProductId = offering.Id (snapshot name+price; OrderSyncSubscriber auto-stub product,
+    /// cùng cơ chế booking→order). VatRate mặc định 10% như booking→order hook.</summary>
+    private async Task AddOfferingToCartAsync(BookingOfferingDto offering)
+    {
+        if (_store is null) return;
+        Guid tenantId = _store.TenantId != Guid.Empty ? _store.TenantId : _store.Id;
+        var item = new CartItem
+        {
+            Id = Guid.NewGuid(),
+            ProductId = offering.Id,
+            ProductName = offering.DisplayName,
+            Description = offering.Description ?? string.Empty,
+            Quantity = 1,
+            UnitPrice = offering.Price,
+            VatRate = 0.10m,
+            TenantId = tenantId,
+            TenantName = _store.Name ?? string.Empty,
+        };
+        await CartService.AddItemAsync(item);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananShowCartToast", $"Đã thêm {offering.DisplayName} vào giỏ hàng!");
+            await JSRuntime.InvokeVoidAsync("vananCartCelebrate");
+        }
+        catch { /* ignore JS errors during prerender */ }
+    }
 
     private void OpenCampaign(string trackingCode)
     {

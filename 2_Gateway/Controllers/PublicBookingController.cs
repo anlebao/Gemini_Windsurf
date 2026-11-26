@@ -174,7 +174,7 @@ public class PublicBookingController(
             Categories = categories.Select(c => new BookingCategoryDto(c.Id, c.Name, c.DisplayOrder)).ToList(),
             Offerings = offerings.Select(o => new BookingOfferingDto(
                 o.Id, o.CategoryId, o.OfferingType.ToString(), o.DisplayName,
-                o.DurationMinutes, o.Price, o.Description)).ToList(),
+                o.DurationMinutes, o.Price, o.Description, IsSellable: o.IsSellable)).ToList(),
             AddOns = addOns.Select(a => new BookingAddOnDto(a.Id, a.Name, a.Price)).ToList(),
             DepositPolicy = new BookingDepositPolicyDto(
                 config.DepositPolicy.ToString(),
@@ -403,7 +403,8 @@ public record BookingOfferingDto(
     int DurationMinutes,
     decimal Price,
     string? Description,
-    bool NeedsReview = false);
+    bool NeedsReview = false,
+    bool IsSellable = false);
 
 public record BookingAddOnDto(Guid Id, string Name, decimal Price);
 

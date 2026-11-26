@@ -11,7 +11,8 @@ public sealed record CreateOfferingCommand(
     Guid? CategoryId = null,
     string? RequiredSkillCode = null,
     string? Description = null,
-    bool NeedsReview = false);
+    bool NeedsReview = false,
+    bool IsSellable = false);
 
 /// <summary>1 dòng package (SRS §8.2 — package duration đã cấu hình trước; child name + giá là snapshot).</summary>
 public sealed record PackageItemCommand(Guid? ChildOfferingId, string ChildName, int Quantity, decimal UnitPriceSnapshot);

@@ -99,6 +99,36 @@ namespace VanAn.Core.Tests.BookingScheduling
         }
 
         [Fact]
+        public async Task Offering_IsSellable_Create_Persists_And_Update_Toggles()
+        {
+            using var scope = VanAnDbContextTestFactory.Create();
+            scope.TenantProvider!.SetTenant(BookingTestData.TenantId.Value);
+            var svc = BuildService(scope.Context);
+
+            // Default = false (không phá vỡ offering cũ / AI import).
+            var plain = await svc.CreateOfferingAsync(BookingTestData.TenantId,
+                new CreateOfferingCommand("Massage 60m", OfferingType.Service, 60, 300_000m));
+            Assert.False(plain.IsSellable);
+
+            var giftCard = await svc.CreateOfferingAsync(BookingTestData.TenantId,
+                new CreateOfferingCommand("Voucher 500k", OfferingType.Service, 60, 500_000m, IsSellable: true));
+            Assert.True(giftCard.IsSellable);
+
+            var loaded = await svc.GetOfferingAsync(BookingTestData.TenantId, giftCard.Id);
+            Assert.NotNull(loaded);
+            Assert.True(loaded!.IsSellable);
+
+            // Update tắt → false; update bật lại → true (command luôn mang giá trị mới nhất).
+            await svc.UpdateOfferingAsync(BookingTestData.TenantId, giftCard.Id,
+                new CreateOfferingCommand("Voucher 500k", OfferingType.Service, 60, 500_000m, IsSellable: false), isActive: true);
+            Assert.False((await svc.GetOfferingAsync(BookingTestData.TenantId, giftCard.Id))!.IsSellable);
+
+            await svc.UpdateOfferingAsync(BookingTestData.TenantId, giftCard.Id,
+                new CreateOfferingCommand("Voucher 500k", OfferingType.Service, 60, 500_000m, IsSellable: true), isActive: true);
+            Assert.True((await svc.GetOfferingAsync(BookingTestData.TenantId, giftCard.Id))!.IsSellable);
+        }
+
+        [Fact]
         public async Task Offering_InvalidCategory_ThrowsValidation()
         {
             using var scope = VanAnDbContextTestFactory.Create();

@@ -6310,13 +6310,16 @@ namespace VanAn.Shared.Domain
         public string? Description { get; protected set; }
         public bool IsActive { get; protected set; } = true;
         public bool NeedsReview { get; protected set; }             // AI-import chưa duyệt — ẩn khỏi public catalog
+        /// <summary>Direct-sell (2026-11-26): offering bán trực tiếp qua giỏ hàng (order ngay, không chiếm slot).
+        /// Storefront hiện nút "Đặt mua" cạnh "Đặt lịch"; false = chỉ đặt lịch như cũ.</summary>
+        public bool IsSellable { get; protected set; } = false;
 
         protected AppointmentOffering() { }
 
         public AppointmentOffering(
             TenantId tenantId, string displayName, OfferingType offeringType,
             int durationMinutes, decimal price, Guid? categoryId = null,
-            string? requiredSkillCode = null, string? description = null)
+            string? requiredSkillCode = null, string? description = null, bool isSellable = false)
             : base(tenantId)
         {
             if (string.IsNullOrWhiteSpace(displayName))
@@ -6333,11 +6336,13 @@ namespace VanAn.Shared.Domain
             CategoryId = categoryId;
             RequiredSkillCode = requiredSkillCode;
             Description = description;
+            IsSellable = isSellable;
         }
 
         public void Update(
             string displayName, OfferingType offeringType, int durationMinutes, decimal price,
-            Guid? categoryId, string? requiredSkillCode, string? description, bool isActive)
+            Guid? categoryId, string? requiredSkillCode, string? description, bool isActive,
+            bool isSellable)
         {
             if (string.IsNullOrWhiteSpace(displayName))
                 throw new ArgumentException("Offering name required.", nameof(displayName));
@@ -6353,6 +6358,7 @@ namespace VanAn.Shared.Domain
             RequiredSkillCode = requiredSkillCode;
             Description = description;
             IsActive = isActive;
+            IsSellable = isSellable;
             UpdateAudit();
         }
 

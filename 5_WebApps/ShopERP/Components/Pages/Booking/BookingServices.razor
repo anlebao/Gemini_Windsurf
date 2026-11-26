@@ -64,6 +64,10 @@
                                     {
                                         <span class="badge bg-info ms-1">Gói</span>
                                     }
+                                    @if (o.IsSellable)
+                                    {
+                                        <span class="badge bg-success ms-1" title="Khách mua trực tiếp qua giỏ hàng, không cần đặt lịch">Bán trực tiếp</span>
+                                    }
                                 </Template>
                             </VanAnColumn>
                             <VanAnColumn TItem="BookingOfferingDto" Title="Thời lượng" Width="2">
@@ -186,6 +190,13 @@
         <label class="form-label">Mô tả</label>
         <textarea class="form-control" rows="2" @bind="_offeringDescription" placeholder="Mô tả ngắn (tùy chọn)"></textarea>
     </div>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="offering-sellable" @bind="_offeringIsSellable" data-testid="offering-sellable" />
+        <label class="form-check-label" for="offering-sellable">
+            Bán trực tiếp — khách mua qua giỏ hàng, không cần đặt lịch
+            <small class="text-muted d-block">VD: voucher, gói dịch vụ trả trước. Storefront hiện thêm nút "Đặt mua".</small>
+        </label>
+    </div>
     @if (!string.IsNullOrEmpty(_offeringError))
     {
         <VanAAlert Variant="error" Message="@_offeringError" Dismissible="true" OnDismiss="() => _offeringError = null" />
@@ -262,6 +273,7 @@
     private int _offeringDuration = 60;
     private decimal _offeringPrice;
     private string _offeringDescription = string.Empty;
+    private bool _offeringIsSellable;
 
     // Category form
     private bool _isCategoryEditing;
@@ -330,6 +342,7 @@
         _offeringDuration = 60;
         _offeringPrice = 0;
         _offeringDescription = string.Empty;
+        _offeringIsSellable = false;
         _offeringError = null;
         _isOfferingEditing = true;
     }
@@ -343,6 +356,7 @@
         _offeringDuration = offering.DurationMinutes;
         _offeringPrice = offering.Price;
         _offeringDescription = offering.Description ?? string.Empty;
+        _offeringIsSellable = offering.IsSellable;
         _offeringError = null;
         _isOfferingEditing = true;
     }
@@ -363,7 +377,8 @@
             {
                 var result = await BookingApi.CreateOfferingAsync(
                     _offeringName.Trim(), _offeringType, _offeringDuration, _offeringPrice, categoryId,
-                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim());
+                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim(),
+                    isSellable: _offeringIsSellable);
                 if (!result.Ok) { _offeringError = result.Error; return; }
                 _successMessage = $"Đã thêm dịch vụ \"{result.Data!.DisplayName}\".";
             }
@@ -371,7 +386,8 @@
             {
                 var result = await BookingApi.UpdateOfferingAsync(
                     _offeringEditingId, _offeringName.Trim(), _offeringType, _offeringDuration, _offeringPrice, categoryId,
-                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim(), isActive: true);
+                    string.IsNullOrWhiteSpace(_offeringDescription) ? null : _offeringDescription.Trim(), isActive: true,
+                    isSellable: _offeringIsSellable);
                 if (!result.Ok) { _offeringError = result.Error; return; }
                 _successMessage = $"Đã cập nhật dịch vụ \"{result.Data!.DisplayName}\".";
             }
@@ -394,7 +410,7 @@
         {
             var result = await BookingApi.UpdateOfferingAsync(
                 offering.Id, offering.DisplayName, offering.OfferingType, offering.DurationMinutes, offering.Price,
-                offering.CategoryId, offering.Description, nextActive);
+                offering.CategoryId, offering.Description, nextActive, offering.IsSellable);
             if (!result.Ok) { _actionError = result.Error; return; }
             if (nextActive) _inactiveOfferings.Remove(offering.Id); else _inactiveOfferings.Add(offering.Id);
             _successMessage = nextActive
