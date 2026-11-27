@@ -110,6 +110,26 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
             return db.SaveChangesAsync();
         });
 
+    /// <summary>W3f-b — per-tenant opt-in flag (ShopFeature:{tenant}:{toggle} convention,
+    /// absent = OFF). Seed trước khi mong đợi job xử lý tenant đó.</summary>
+    private async Task SeedLearningFlagAsync(Guid tenant, bool enabled)
+        => await Scoped(db =>
+        {
+            db.SystemSettings.Add(SystemSetting.Create(
+                ChatLearningSuggestService.TenantSettingKey(tenant),
+                enabled ? "true" : "false", "test"));
+            return db.SaveChangesAsync();
+        });
+
+    private async Task SeedGlobalFlagAsync(bool enabled)
+        => await Scoped(db =>
+        {
+            db.SystemSettings.Add(SystemSetting.Create(
+                ChatLearningSuggestService.GlobalSettingKey,
+                enabled ? "true" : "false", "test"));
+            return db.SaveChangesAsync();
+        });
+
     private Task<List<KnowledgeDocument>> ChatLearnDocsAsync(Guid tenant)
         => Scoped(db => db.KnowledgeDocuments.AsNoTracking()
             .Where(d => d.TenantId == tenant
@@ -126,6 +146,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_CreatesPendingDoc_ForFrequentUnansweredQuestion()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -146,6 +167,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_BelowMinClusterSize_NoDoc()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
 
@@ -158,6 +180,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_Idempotent_SecondRun_NoDuplicate()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -172,6 +195,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_RespectsMaxSuggestionsPerTenant()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -192,6 +216,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_RespectsMaxPendingPerTenant()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         for (var i = 0; i < 10; i++)
             await SeedPendingChatLearnDocAsync(TenantA, "p" + i);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
@@ -208,6 +233,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     public async Task Run_LlmDisabled_NoDocs_NoCrash()
     {
         _llm.Enabled = false;
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -222,6 +248,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     public async Task Run_LlmFailure_NoCrash_Skips()
     {
         _llm.Responder = (_, _) => null; // provider failed → no draft
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -235,6 +262,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_ExcludesChitChat_AndRefusedTurns()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "xin chào", intent: ChatIntents.ChitChat);
         await SeedNoDataTurnAsync(TenantA, "s2", "xin chào", intent: ChatIntents.ChitChat);
         await SeedNoDataTurnAsync(TenantA, "s3", "xin chào", intent: ChatIntents.ChitChat);
@@ -251,6 +279,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_ExcludesPreviewChannel()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?", channel: "preview");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ", channel: "preview");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ", channel: "preview");
@@ -264,6 +293,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_FiltersGarbageQuestions()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "abc");
         await SeedNoDataTurnAsync(TenantA, "s2", "abc");
         await SeedNoDataTurnAsync(TenantA, "s3", "abc");
@@ -277,6 +307,8 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_PerTenantIsolation_BothGetOwnDocs()
     {
+        await SeedLearningFlagAsync(TenantA, true);
+        await SeedLearningFlagAsync(TenantB, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -300,6 +332,7 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
     [Fact]
     public async Task Run_Disabled_ReturnsZero()
     {
+        await SeedLearningFlagAsync(TenantA, true);
         await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
         await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
         await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
@@ -308,6 +341,74 @@ public sealed class ChatLearningSuggestServiceTests : IDisposable
             .RunAsync(TenantA);
 
         result.SuggestedCreated.Should().Be(0);
+        (await ChatLearnDocCountAsync(TenantA)).Should().Be(0);
+    }
+
+    // ---------- W3f-b: 2-layer control (global runtime switch + per-tenant opt-in) ----------
+
+    [Fact]
+    public async Task Run_TenantNotOptedIn_Skipped()
+    {
+        // No TenantAiLearningSetting flag row — absent = OFF (opt-in mặc định TẮT).
+        await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
+        await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
+        await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
+
+        var result = await Service().RunAsync(TenantA);
+
+        result.SuggestedCreated.Should().Be(0);
+        result.SkippedTenantOptOut.Should().Be(1);
+        (await ChatLearnDocCountAsync(TenantA)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Run_TenantOptedOut_Skipped()
+    {
+        await SeedLearningFlagAsync(TenantA, false);
+        await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
+        await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
+        await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
+
+        var result = await Service().RunAsync(TenantA);
+
+        result.SuggestedCreated.Should().Be(0);
+        result.SkippedTenantOptOut.Should().Be(1);
+        (await ChatLearnDocCountAsync(TenantA)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Run_OnlyOptedInTenant_Processed()
+    {
+        await SeedLearningFlagAsync(TenantA, true);
+        // TenantB: có NoData nhưng KHÔNG opt-in → bị bỏ qua.
+        await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
+        await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
+        await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
+        await SeedNoDataTurnAsync(TenantB, "s1", "Quán có giao hàng không?");
+        await SeedNoDataTurnAsync(TenantB, "s2", "quán có giao hàng không");
+        await SeedNoDataTurnAsync(TenantB, "s3", "quán có giao hàng không ạ");
+
+        var result = await Service().RunAsync(tenantId: null);
+
+        result.SkippedTenantOptOut.Should().Be(1);
+        (await ChatLearnDocsAsync(TenantA)).Should().ContainSingle();
+        (await ChatLearnDocCountAsync(TenantB)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Run_GlobalDbSwitchOff_SkipsAll()
+    {
+        // Global runtime switch (ops, SQL-managed) OFF thắng cả env + tenant opt-in.
+        await SeedGlobalFlagAsync(false);
+        await SeedLearningFlagAsync(TenantA, true);
+        await SeedNoDataTurnAsync(TenantA, "s1", "Quán mở cửa mấy giờ?");
+        await SeedNoDataTurnAsync(TenantA, "s2", "quán mở cửa mấy giờ");
+        await SeedNoDataTurnAsync(TenantA, "s3", "quán mở cửa mấy giờ ạ");
+
+        var result = await Service().RunAsync(TenantA);
+
+        result.SuggestedCreated.Should().Be(0);
+        result.TenantsScanned.Should().Be(0);
         (await ChatLearnDocCountAsync(TenantA)).Should().Be(0);
     }
 }

@@ -236,7 +236,8 @@ public sealed class KnowledgeIngestService(
             .ToListAsync(ct);
         var items = rows.Select(d => new DocumentListItemDto(
             d.Id, d.Type, d.Title, ToSnake(d.Classification), ToSnake(d.ApprovalStatus),
-            d.ApprovedBy, d.ApprovedAtUtc, d.RejectionReason, d.CreatedAtUtc, d.Sanitized, d.Content)).ToList();
+            d.ApprovedBy, d.ApprovedAtUtc, d.RejectionReason, d.CreatedAtUtc, d.Sanitized,
+            d.Content, d.SourceRef)).ToList();
         return new DocumentListResponse(page, size, total, items);
     }
 

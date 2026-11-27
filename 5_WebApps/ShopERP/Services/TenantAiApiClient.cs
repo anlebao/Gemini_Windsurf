@@ -56,6 +56,10 @@ public sealed record TenantAiPublishResult(
 public sealed record TenantAiPolicyResponse(
     int? ConfigVersion, string IntentScopesJson, string ExternalAllowJson, string RefusedTopicsJson);
 
+/// <summary>W3f-b — per-tenant learning suggest opt-in (system_settings phía vanan-ai,
+/// version-agnostic — không gắn config version như policy).</summary>
+public sealed record TenantAiLearningSetting(bool Enabled, DateTime? UpdatedAtUtc, string? UpdatedBy);
+
 public sealed record TenantAiChatProduct(Guid ProductId, string Name, decimal Price, string? ImageUrl);
 
 public sealed record TenantAiChatResult(
@@ -65,7 +69,9 @@ public sealed record TenantAiChatResult(
 public sealed record TenantAiDocItem(
     Guid Id, string Type, string Title, string Classification, string ApprovalStatus,
     string? ApprovedBy, DateTime? ApprovedAtUtc, string? RejectionReason,
-    DateTime CreatedAtUtc, bool Sanitized, string Content);
+    DateTime CreatedAtUtc, bool Sanitized, string Content,
+    /// <summary>W3f-b — provenance; "chat-learn:…" = bản nháp do AI tự đề xuất.</summary>
+    string? SourceRef = null);
 
 public sealed record TenantAiDocList(
     int Page, int Size, int Total, IReadOnlyList<TenantAiDocItem> Items);
@@ -102,6 +108,9 @@ public interface ITenantAiClient
     /// <summary>Policy bound to the current config version (draft preferred). Null on failure.</summary>
     Task<TenantAiPolicyResponse?> GetPolicyAsync(Guid tenantId, CancellationToken ct = default);
     Task<TenantAiPolicyResponse?> PutPolicyAsync(Guid tenantId, string? intentScopesJson, string? externalAllowJson, string? refusedTopicsJson, CancellationToken ct = default);
+    /// <summary>W3f-b — learning suggest opt-in (absent/OFF mặc định). Null on failure.</summary>
+    Task<TenantAiLearningSetting?> GetLearningSettingAsync(Guid tenantId, CancellationToken ct = default);
+    Task<bool> PutLearningSettingAsync(Guid tenantId, bool enabled, CancellationToken ct = default);
     /// <summary>Draft-config preview chat (30s LLM timeout) — never persists/meters. Null on failure.</summary>
     Task<TenantAiChatResult?> PreviewChatAsync(Guid tenantId, string sessionId, string messageId, string text, CancellationToken ct = default);
     /// <summary>Paged knowledge documents; status = pending_review|approved|rejected (null = all active).</summary>
@@ -224,6 +233,14 @@ public sealed class TenantAiApiClient : ITenantAiClient
         string? externalAllowJson, string? refusedTopicsJson, CancellationToken ct = default)
         => Send<TenantAiPolicyResponse>(tenantId, HttpMethod.Put, $"v1/admin/tenants/{tenantId}/policy",
             new { intentScopesJson, externalAllowJson, refusedTopicsJson }, AdminTimeout, ct);
+
+    public Task<TenantAiLearningSetting?> GetLearningSettingAsync(Guid tenantId, CancellationToken ct = default)
+        => Send<TenantAiLearningSetting>(tenantId, HttpMethod.Get,
+            $"v1/admin/tenants/{tenantId}/learning", null, AdminTimeout, ct);
+
+    public Task<bool> PutLearningSettingAsync(Guid tenantId, bool enabled, CancellationToken ct = default)
+        => SendVoid(tenantId, HttpMethod.Put, $"v1/admin/tenants/{tenantId}/learning",
+            new { enabled }, AdminTimeout, ct);
 
     public Task<TenantAiChatResult?> PreviewChatAsync(Guid tenantId, string sessionId,
         string messageId, string text, CancellationToken ct = default)

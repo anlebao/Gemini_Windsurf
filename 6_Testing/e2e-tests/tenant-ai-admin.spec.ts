@@ -49,6 +49,28 @@ test.describe('Tenant AI admin — flag-gated (TenantAiEnabled + vanan-ai)', () 
     await expect(page.getByTestId('link-ai-policy')).toBeVisible();
   });
 
+  // W3f-b — card opt-in "Tự học có kiểm soát" (default OFF) trên trang policy.
+  test('policy: card Tự học có kiểm soát hiển thị + toggle roundtrip', async ({ page }) => {
+    test.skip(!(await isAiEnabled(page)), 'TenantAiEnabled OFF hoặc vanan-ai unreachable');
+
+    await page.goto('/admin/tenant-ai/policy');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('card-learning-suggest')).toBeVisible({ timeout: 15000 });
+
+    const toggle = page.getByTestId('toggle-learning-suggest').locator('input[type="checkbox"]');
+    await expect(toggle).toBeVisible();
+
+    // Toggle roundtrip: đổi → verify → khôi phục (không để lại trạng thái trên prod).
+    // Nếu vanan-ai chưa deploy bản có endpoint /learning thì toggle bị disabled — skip phần này.
+    if (await toggle.isEnabled()) {
+      const was = await toggle.isChecked();
+      await toggle.click();
+      await expect(toggle).toBeChecked({ checked: !was, timeout: 10000 });
+      await toggle.click();
+      await expect(toggle).toBeChecked({ checked: was, timeout: 10000 });
+    }
+  });
+
   test('upload doc → xuất hiện ở tab Chờ duyệt → duyệt thành công', async ({ page }) => {
     test.skip(!(await isAiEnabled(page)), 'TenantAiEnabled OFF hoặc vanan-ai unreachable');
 

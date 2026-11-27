@@ -57,7 +57,9 @@ public sealed record DocumentListItemDto(
     string? RejectionReason,
     DateTime CreatedAtUtc,
     bool Sanitized,
-    string Content);
+    string Content,
+    /// <summary>W3f-b — provenance ("chat-learn:…" = AI đề xuất); UI đánh badge từ đây.</summary>
+    string? SourceRef = null);
 
 public sealed record DocumentListResponse(
     int Page,

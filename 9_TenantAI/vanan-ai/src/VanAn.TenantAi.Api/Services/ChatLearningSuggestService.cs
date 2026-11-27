@@ -15,7 +15,8 @@ public sealed record LearningRunResult(
     int SuggestedCreated,
     int SkippedExisting,
     int SkippedNoLlm,
-    int SkippedLimit);
+    int SkippedLimit,
+    int SkippedTenantOptOut);
 
 /// <summary>
 /// W3f — Giải pháp 1 "chat learning suggest" (tự học có kiểm soát):
@@ -41,6 +42,14 @@ public sealed class ChatLearningSuggestService(
     public const string SourceRefPrefix = "chat-learn:";
     private const string ReplySuffix = ":reply";
     private const string PreviewChannel = "preview";
+
+    /// <summary>W3f-b — global runtime switch trong system_settings (ops, SQL-managed).
+    /// Absent = theo env Learning:Enabled; "false" = tắt toàn cục không cần restart.</summary>
+    public const string GlobalSettingKey = "LearningSuggest:Enabled";
+
+    /// <summary>W3f-b — key opt-in per tenant (convention ShopFeature:{tenant}:{toggle}).
+    /// Absent/"false" = tenant chưa tham gia.</summary>
+    public static string TenantSettingKey(Guid tenantId) => $"LearningSuggest:{tenantId}:Enabled";
 
     public const string EnabledKey = "Learning:Enabled";
     public const string MinClusterSizeKey = "Learning:MinClusterSize";
@@ -69,7 +78,7 @@ public sealed class ChatLearningSuggestService(
         if (!Enabled)
         {
             logger.LogInformation("learning suggest disabled — skip");
-            return new LearningRunResult(0, 0, 0, 0, 0, 0);
+            return new LearningRunResult(0, 0, 0, 0, 0, 0, 0);
         }
 
         var now = DateTime.UtcNow;
@@ -79,6 +88,15 @@ public sealed class ChatLearningSuggestService(
         var db = scope.ServiceProvider.GetRequiredService<TenantAiDbContext>();
         var llm = scope.ServiceProvider.GetRequiredService<ILlmChatClient>();
         var ingest = scope.ServiceProvider.GetRequiredService<KnowledgeIngestService>();
+
+        // W3f-b lớp 1 — global runtime switch (ops-managed row; absent = env default).
+        var globalVal = await db.SystemSettings.AsNoTracking()
+            .Where(s => s.Key == GlobalSettingKey).Select(s => s.Value).FirstOrDefaultAsync(ct);
+        if (string.Equals(globalVal, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("learning suggest globally disabled (system_settings) — skip");
+            return new LearningRunResult(0, 0, 0, 0, 0, 0, 0);
+        }
 
         // Candidate assistant turns: NoData answer, trong window, chưa hết hạn retention,
         // không refused, intent đáng học.
@@ -96,7 +114,7 @@ public sealed class ChatLearningSuggestService(
             .Where(m => m.MessageId.EndsWith(ReplySuffix, StringComparison.Ordinal))
             .ToList();
         if (rows.Count == 0)
-            return new LearningRunResult(0, 0, 0, 0, 0, 0);
+            return new LearningRunResult(0, 0, 0, 0, 0, 0, 0);
 
         // Pair user question với assistant turn (assistant.MessageId = user.MessageId + ":reply").
         var userKeys = rows.Select(m => (m.TenantId, UserId: m.MessageId[..^ReplySuffix.Length])).ToHashSet();
@@ -123,6 +141,7 @@ public sealed class ChatLearningSuggestService(
         var skippedExisting = 0;
         var skippedNoLlm = 0;
         var skippedLimit = 0;
+        var skippedOptOut = 0;
 
         var minClusterSize = config.GetValue(MinClusterSizeKey, 3);
         var similarityThreshold = config.GetValue(SimilarityThresholdKey, 0.85);
@@ -132,6 +151,15 @@ public sealed class ChatLearningSuggestService(
         foreach (var group in byTenant)
         {
             var t = group.Key;
+
+            // W3f-b lớp 2 — per-tenant opt-in: row absent/"false" = chưa tham gia → bỏ qua.
+            var optedIn = await db.SystemSettings.AsNoTracking()
+                .AnyAsync(s => s.Key == TenantSettingKey(t) && s.Value == "true", ct);
+            if (!optedIn)
+            {
+                skippedOptOut++;
+                continue;
+            }
             tenantsScanned++;
 
             var questions = group
@@ -214,7 +242,7 @@ public sealed class ChatLearningSuggestService(
         }
 
         return new LearningRunResult(tenantsScanned, clustersFound, created,
-            skippedExisting, skippedNoLlm, skippedLimit);
+            skippedExisting, skippedNoLlm, skippedLimit, skippedOptOut);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -228,8 +256,8 @@ public sealed class ChatLearningSuggestService(
             {
                 var r = await RunAsync(ct: stoppingToken);
                 logger.LogInformation(
-                    "learning suggest pass done tenants={Tenants} clusters={Clusters} created={Created}",
-                    r.TenantsScanned, r.ClustersFound, r.SuggestedCreated);
+                    "learning suggest pass done tenants={Tenants} clusters={Clusters} created={Created} optOut={OptOut}",
+                    r.TenantsScanned, r.ClustersFound, r.SuggestedCreated, r.SkippedTenantOptOut);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

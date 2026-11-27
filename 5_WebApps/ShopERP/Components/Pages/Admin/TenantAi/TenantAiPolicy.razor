@@ -131,6 +131,33 @@
         {
             <VanAAlert Variant="warning" Message="Không tải được chính sách — dịch vụ AI có thể đang tạm nghỉ." />
         }
+
+        @* W3f-b — learning suggest opt-in: version-agnostic (không gắn config version
+           như policy) nên render độc lập _policy. Mặc định TẮT — chủ shop chủ động bật. *@
+        <VanACard Header="Tự học có kiểm soát (AI đề xuất FAQ)" CssClass="mt-3" data-testid="card-learning-suggest">
+            <p class="text-muted small">
+                Hằng đêm AI gom các câu hỏi khách mà trợ lý chưa trả lời được (xuất hiện ≥ 3 lần/7 ngày)
+                → soạn bản nháp FAQ → đưa vào hàng chờ duyệt. <strong>Không tự đăng</strong> —
+                bạn duyệt ở <a href="/admin/tenant-ai/knowledge">Tri thức</a> trước khi AI được dùng.
+                Mặc định TẮT.
+            </p>
+            <div class="form-check form-switch" data-testid="toggle-learning-suggest">
+                <input class="form-check-input" type="checkbox" role="switch" id="learning-suggest"
+                       checked="@(_learning?.Enabled == true)" disabled="@(_learningSaving || _learning == null)"
+                       @onchange="(e) => ToggleLearningAsync(e.Value is true)" />
+                <label class="form-check-label" for="learning-suggest">
+                    Cho phép AI đề xuất FAQ từ câu hỏi khách
+                </label>
+            </div>
+            @if (_learning == null)
+            {
+                <small class="text-muted">Không đọc được trạng thái — dịch vụ AI có thể đang tạm nghỉ.</small>
+            }
+            else if (_learning.UpdatedAtUtc.HasValue)
+            {
+                <small class="text-muted">Cập nhật: @_learning.UpdatedAtUtc.Value.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</small>
+            }
+        </VanACard>
     }
 </div>
 
@@ -160,6 +187,8 @@
     private string _alertVariant = "info";
 
     private TenantAiPolicyResponse? _policy;
+    private TenantAiLearningSetting? _learning;
+    private bool _learningSaving;
     private readonly List<string> _refusedTopics = new();
     private readonly HashSet<string> _disabledIntents = new(StringComparer.Ordinal);
     private string _newTopic = string.Empty;
@@ -177,8 +206,40 @@
             _flagOn = false;
         }
         _flagChecked = true;
-        if (_flagOn) await LoadAsync();
+        if (_flagOn)
+        {
+            await LoadAsync();
+            _learning = await AiClient.GetLearningSettingAsync(TenantProvider.TenantId);
+        }
         else _loading = false;
+    }
+
+    /// <summary>W3f-b — toggle learning suggest opt-in; lưu ngay (không qua nút Lưu chính sách
+    /// vì flag này không gắn config version).</summary>
+    private async Task ToggleLearningAsync(bool enabled)
+    {
+        _learningSaving = true;
+        try
+        {
+            var ok = await AiClient.PutLearningSettingAsync(TenantProvider.TenantId, enabled);
+            if (ok)
+            {
+                _learning = new TenantAiLearningSetting(enabled, DateTime.UtcNow, null);
+                _alert = enabled
+                    ? "Đã bật tự học có kiểm soát — bản nháp FAQ sẽ xuất hiện ở Tri thức → Chờ duyệt."
+                    : "Đã tắt tự học — AI ngừng đề xuất FAQ mới.";
+                _alertVariant = "success";
+            }
+            else
+            {
+                _alert = "Không lưu được cài đặt — dịch vụ AI có thể đang tạm nghỉ.";
+                _alertVariant = "error";
+            }
+        }
+        finally
+        {
+            _learningSaving = false;
+        }
     }
 
     private async Task LoadAsync()

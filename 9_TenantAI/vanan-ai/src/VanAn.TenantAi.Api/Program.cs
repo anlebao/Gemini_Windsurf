@@ -510,6 +510,25 @@ app.MapPut("/v1/admin/tenants/{tenantId:guid}/policy", async (
     .RequireScope(ScopeNames.Admin)
     .RequireTenantContext();
 
+// W3f-b — learning suggest opt-in per tenant (version-agnostic system_settings;
+// UI: card "Tự học có kiểm soát" trên /admin/tenant-ai/policy).
+app.MapGet("/v1/admin/tenants/{tenantId:guid}/learning", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        CancellationToken ct) =>
+        WrongTenant(ctx, tenantId) ? Forbidden() : Results.Ok(await svc.GetLearningSettingAsync(tenantId, ct)))
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
+app.MapPut("/v1/admin/tenants/{tenantId:guid}/learning", async (
+        HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
+        VanAn.TenantAi.Contracts.PutLearningSettingRequest body, CancellationToken ct) =>
+    {
+        if (WrongTenant(ctx, tenantId)) return Forbidden();
+        return Results.Ok(await svc.PutLearningSettingAsync(tenantId, body, CallerOf(ctx), ct));
+    })
+    .RequireScope(ScopeNames.Admin)
+    .RequireTenantContext();
+
 app.MapGet("/v1/admin/tenants/{tenantId:guid}/conversations", async (
         HttpContext ctx, VanAn.TenantAi.Api.Services.TenantAdminService svc, Guid tenantId,
         int? page, int? size, string? sessionId, CancellationToken ct) =>

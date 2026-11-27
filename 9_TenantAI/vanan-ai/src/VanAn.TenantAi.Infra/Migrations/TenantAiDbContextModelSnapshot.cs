@@ -622,6 +622,34 @@ namespace VanAn.TenantAi.Infra.Migrations
                     b.ToTable("product_knowledge", (string)null);
                 });
 
+            modelBuilder.Entity("VanAn.TenantAi.Domain.SystemSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("key");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Key")
+                        .HasName("pk_system_settings");
+
+                    b.ToTable("system_settings", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.TenantAi.Domain.TenantAiConfig", b =>
                 {
                     b.Property<Guid>("Id")

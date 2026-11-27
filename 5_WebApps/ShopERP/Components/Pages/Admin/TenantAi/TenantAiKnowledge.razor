@@ -96,6 +96,14 @@
                                     <strong>@d.Title</strong>
                                     <span class="badge bg-secondary ms-2">@d.Type</span>
                                     <span class="badge bg-light text-dark ms-1">@d.Classification</span>
+                                    @if (d.SourceRef?.StartsWith("chat-learn:") == true)
+                                    {
+                                        @* W3f-b — bản nháp do AI tự đề xuất từ câu khách hay hỏi (opt-in). *@
+                                        <span class="badge bg-info text-dark ms-1" data-testid="badge-ai-draft"
+                                              title="AI tự soạn từ câu hỏi lặp lại của khách — đọc kỹ trước khi duyệt">
+                                            <i class="bi bi-robot me-1"></i>AI đề xuất
+                                        </span>
+                                    }
                                     <div class="small text-muted mt-1">@d.CreatedAtUtc.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</div>
                                 </div>
                                 <div class="d-flex gap-2 align-items-center flex-wrap">

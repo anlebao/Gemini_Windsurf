@@ -29,6 +29,7 @@ public sealed class TenantAiDbContext(DbContextOptions<TenantAiDbContext> option
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
     public DbSet<IngestLog> IngestLogs => Set<IngestLog>();
     public DbSet<IntentRoute> IntentRoutes => Set<IntentRoute>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -172,6 +173,15 @@ public sealed class TenantAiDbContext(DbContextOptions<TenantAiDbContext> option
             b.Property(e => e.Intent).HasMaxLength(64);
             b.Property(e => e.AllowedSourceFlags).HasConversion<long>();
             b.Property(e => e.RefuseTemplate).HasMaxLength(1024);
+        });
+
+        // W3f-b — runtime K/V settings (mirror CoreHub SystemSetting aggregate).
+        modelBuilder.Entity<SystemSetting>(b =>
+        {
+            b.HasKey(e => e.Key);
+            b.Property(e => e.Key).HasMaxLength(160);
+            b.Property(e => e.Value).HasMaxLength(256);
+            b.Property(e => e.UpdatedBy).HasMaxLength(128);
         });
     }
 }

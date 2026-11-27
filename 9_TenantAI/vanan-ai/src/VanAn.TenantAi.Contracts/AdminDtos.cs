@@ -42,6 +42,12 @@ public sealed record PutPolicyRequest(
     string? ExternalAllowJson,
     string? RefusedTopicsJson);
 
+/// <summary>W3f-b — per-tenant learning suggest opt-in (version-agnostic; lưu trong
+/// system_settings key "LearningSuggest:{tenantId}:Enabled", absent = OFF).</summary>
+public sealed record LearningSettingResponse(bool Enabled, DateTime? UpdatedAtUtc, string? UpdatedBy);
+
+public sealed record PutLearningSettingRequest(bool Enabled);
+
 public sealed record ConversationSummaryDto(
     string SessionId,
     string Channel,
@@ -92,4 +98,6 @@ public sealed record PurgeResponse(
     int Sessions,
     int Messages,
     int IngestLogs,
-    int IntentRoutes);
+    int IntentRoutes,
+    /// <summary>W3f-b — tenant-keyed system_settings rows (learning opt-in).</summary>
+    int SystemSettings = 0);

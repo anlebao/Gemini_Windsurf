@@ -191,6 +191,44 @@ public sealed class AdminApiTests : IDisposable
         res.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
+    // ---------- W3f-b: learning suggest opt-in per tenant ----------
+
+    [Fact]
+    public async Task LearningSetting_GetPut_RoundTrip_DefaultOff()
+    {
+        var def = await (await _client.SendAsync(
+            Req(HttpMethod.Get, AdminPath(suffix: "/learning"))))
+            .Content.ReadFromJsonAsync<LearningSettingResponse>();
+        def!.Enabled.Should().BeFalse(); // opt-in — mặc định TẮT
+        def.UpdatedAtUtc.Should().BeNull();
+
+        var put = await _client.SendAsync(Req(HttpMethod.Put, AdminPath(suffix: "/learning"),
+            new PutLearningSettingRequest(true)));
+        put.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var got = await (await _client.SendAsync(
+            Req(HttpMethod.Get, AdminPath(suffix: "/learning"))))
+            .Content.ReadFromJsonAsync<LearningSettingResponse>();
+        got!.Enabled.Should().BeTrue();
+        got.UpdatedAtUtc.Should().NotBeNull();
+        got.UpdatedBy.Should().Be("shoperp-a");
+
+        // toggle off → row update (không xóa)
+        (await _client.SendAsync(Req(HttpMethod.Put, AdminPath(suffix: "/learning"),
+            new PutLearningSettingRequest(false)))).StatusCode.Should().Be(HttpStatusCode.OK);
+        var off = await (await _client.SendAsync(
+            Req(HttpMethod.Get, AdminPath(suffix: "/learning"))))
+            .Content.ReadFromJsonAsync<LearningSettingResponse>();
+        off!.Enabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LearningSetting_WrongTenant_403()
+    {
+        var res = await _client.SendAsync(Req(HttpMethod.Get, AdminPath(TenantB, "/learning")));
+        res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     // ---------- conversations + usage ----------
 
     private async Task SeedConversationAsync(Guid tenant, string sessionId, string channel,
@@ -334,10 +372,10 @@ public sealed class AdminApiTests : IDisposable
 
     // ---------- task_ai_p10: docs list + profile version history ----------
 
-    private async Task<Guid> SeedDocAsync(string title, string content)
+    private async Task<Guid> SeedDocAsync(string title, string content, string? sourceRef = null)
     {
         var res = await _client.SendAsync(Req(HttpMethod.Post, "/v1/knowledge/documents",
-            new DocumentIngestRequest("faq", title, content, "public")));
+            new DocumentIngestRequest("faq", title, content, "public", sourceRef)));
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         var created = await res.Content.ReadFromJsonAsync<DocumentIngestResponse>();
         return created!.Id;
@@ -384,6 +422,25 @@ public sealed class AdminApiTests : IDisposable
             .Content.ReadFromJsonAsync<DocumentListResponse>();
         all!.Total.Should().Be(2);
         _ = other;
+    }
+
+    /// <summary>W3f-b — docs list phải trả sourceRef để UI đánh dấu bản nháp do AI đề xuất
+    /// (badge "AI đề xuất" trên tab Chờ duyệt).</summary>
+    [Fact]
+    public async Task Documents_List_ReturnsSourceRef_ForChatLearnDrafts()
+    {
+        await SeedDocAsync("Quán mở cửa mấy giờ?", "Cần chủ shop xác nhận giờ mở cửa.",
+            sourceRef: "chat-learn:" + TenantA.ToString("N") + ":0123456789abcdef");
+        await SeedDocAsync("FAQ tay", "Nội dung chủ shop tự gõ.");
+
+        var pending = await (await _client.SendAsync(
+            Req(HttpMethod.Get, "/v1/admin/knowledge/documents?status=pending_review")))
+            .Content.ReadFromJsonAsync<DocumentListResponse>();
+
+        pending!.Items.Should().HaveCount(2);
+        var aiDraft = pending.Items.Single(i => i.Title == "Quán mở cửa mấy giờ?");
+        aiDraft.SourceRef.Should().StartWith("chat-learn:");
+        pending.Items.Single(i => i.Title == "FAQ tay").SourceRef.Should().BeNull();
     }
 
     [Fact]

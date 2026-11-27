@@ -137,6 +137,30 @@ public sealed class TenantAdminService(TenantAiDbContext db)
         return new(new PolicyResponse(cfg.Version, scopes, external, topics), null);
     }
 
+    // ---------- W3f-b: learning suggest opt-in per tenant (ShopFeature:{tenant}:{toggle}
+    // convention — version-agnostic, không gắn config version như AiPolicy) ----------
+
+    public async Task<LearningSettingResponse> GetLearningSettingAsync(Guid tenantId, CancellationToken ct)
+    {
+        var row = await db.SystemSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == ChatLearningSuggestService.TenantSettingKey(tenantId), ct);
+        return new LearningSettingResponse(row?.Value == "true", row?.UpdatedAtUtc, row?.UpdatedBy);
+    }
+
+    public async Task<LearningSettingResponse> PutLearningSettingAsync(
+        Guid tenantId, PutLearningSettingRequest req, string updatedBy, CancellationToken ct)
+    {
+        var key = ChatLearningSuggestService.TenantSettingKey(tenantId);
+        var value = req.Enabled ? "true" : "false";
+        var row = await db.SystemSettings.FirstOrDefaultAsync(s => s.Key == key, ct);
+        if (row == null)
+            db.SystemSettings.Add(SystemSetting.Create(key, value, updatedBy));
+        else
+            row.Update(value, updatedBy);
+        await db.SaveChangesAsync(ct);
+        return new LearningSettingResponse(req.Enabled, DateTime.UtcNow, updatedBy);
+    }
+
     // ---------- Conversations (review, read-only) ----------
 
     public async Task<ConversationListResponse> GetConversationsAsync(
@@ -248,11 +272,16 @@ public sealed class TenantAdminService(TenantAiDbContext db)
         db.IngestLogs.RemoveRange(logs);
         var routes = await db.IntentRoutes.Where(r => r.TenantId == tenantId).ToListAsync(ct);
         db.IntentRoutes.RemoveRange(routes);
+        // W3f-b — tenant-keyed settings (learning opt-in) xóa theo prefix "LearningSuggest:{tenantId}:".
+        var tenantSettings = await db.SystemSettings
+            .Where(s => s.Key.StartsWith($"LearningSuggest:{tenantId}:")).ToListAsync(ct);
+        db.SystemSettings.RemoveRange(tenantSettings);
 
         await db.SaveChangesAsync(ct);
         return new PurgeResponse(
             configs.Count, policies.Count, perms.Count, products.Count, docs.Count,
-            chunks.Count, sessions.Count, messages.Count, logs.Count, routes.Count);
+            chunks.Count, sessions.Count, messages.Count, logs.Count, routes.Count,
+            tenantSettings.Count);
     }
 
     private static ProfileVersionDto? ToDto(TenantAiConfig? c)
