@@ -58,6 +58,8 @@ public class OcrMenuKnowledgeServiceTests
         public Task<TenantAiPublishResult?> RollbackConfigAsync(Guid tenantId, int version, CancellationToken ct = default) => Task.FromResult<TenantAiPublishResult?>(null);
         public Task<TenantAiPolicyResponse?> GetPolicyAsync(Guid tenantId, CancellationToken ct = default) => Task.FromResult<TenantAiPolicyResponse?>(null);
         public Task<TenantAiPolicyResponse?> PutPolicyAsync(Guid tenantId, string? intentScopesJson, string? externalAllowJson, string? refusedTopicsJson, CancellationToken ct = default) => Task.FromResult<TenantAiPolicyResponse?>(null);
+        public Task<TenantAiLearningSetting?> GetLearningSettingAsync(Guid tenantId, CancellationToken ct = default) => Task.FromResult<TenantAiLearningSetting?>(null);
+        public Task<bool> PutLearningSettingAsync(Guid tenantId, bool enabled, CancellationToken ct = default) => Task.FromResult(false);
         public Task<TenantAiChatResult?> PreviewChatAsync(Guid tenantId, string sessionId, string messageId, string text, CancellationToken ct = default) => Task.FromResult<TenantAiChatResult?>(null);
         public Task<TenantAiDocList?> GetDocumentsAsync(Guid tenantId, string? status, int page, int size, CancellationToken ct = default) => Task.FromResult<TenantAiDocList?>(null);
         public Task<bool> DeleteDocumentAsync(Guid tenantId, Guid docId, CancellationToken ct = default) => Task.FromResult(false);
