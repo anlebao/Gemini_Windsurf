@@ -201,7 +201,7 @@ AI giờ **tự học có kiểm soát**: hằng ngày, AI gom những câu khá
 
 - **Per-tenant:** `AIChat_Enabled` + `TenantAiEnabled` trong `/settings/shop-features` (per shop).
 - **Toàn cục:** `TenantAi:Enabled=false` trong env của vanan-ai → AI off mọi nơi (widget ẩn, chat trả lời "tạm ngưng").
-- **Chat Learning Suggest — 3 lớp AND** (tất cả phải ON): ① env `Learning:Enabled` (default `true`, kill-switch deploy-time) ② cờ toàn cục `system_settings["LearningSuggest:Enabled"]` (ops set bằng SQL, absent = ON) ③ opt-in per-tenant `system_settings["LearningSuggest:Tenant:{tenantId}:Enabled"]` (absent = **OFF** — chủ shop/sysadmin bật qua card trên `/admin/tenant-ai/policy`).
+- **Chat Learning Suggest — 3 lớp AND** (tất cả phải ON): ① env `Learning:Enabled` (default `true`, kill-switch deploy-time) ② cờ toàn cục `system_settings["LearningSuggest:Enabled"]` (ops set bằng SQL, absent = ON) ③ opt-in per-tenant `system_settings["LearningSuggest:{tenantId}:Enabled"]` (absent = **OFF** — chủ shop/sysadmin bật qua card trên `/admin/tenant-ai/policy`).
 
 ### 4.2. Widget & giới hạn
 
@@ -245,7 +245,7 @@ AI giờ **tự học có kiểm soát**: hằng ngày, AI gom những câu khá
 | Key | Lớp | Ý nghĩa | Default khi absent |
 |---|---|---|---|
 | `LearningSuggest:Enabled` | Toàn cục | Master switch runtime — ops tắt nhanh không cần redeploy | ON (`!= "false"` = ON) |
-| `LearningSuggest:Tenant:{tenantId}:Enabled` | Per-tenant | Opt-in của từng cửa hàng | **OFF** (phải set `"true"`) |
+| `LearningSuggest:{tenantId}:Enabled` | Per-tenant | Opt-in của từng cửa hàng | **OFF** (phải set `"true"`) |
 
 ```bash
 # Bật/tắt toàn cục (không cần redeploy):
@@ -254,7 +254,7 @@ sudo docker exec -e PGPASSWORD=<pg-pw> vanan-ai-pg-1 psql -U vanan_ai -d vanan_a
    ON CONFLICT (key) DO UPDATE SET value='false', updated_at_utc=now();"
 
 # Bật opt-in cho 1 tenant (thường chủ shop tự bật qua UI /admin/tenant-ai/policy):
-... VALUES ('LearningSuggest:Tenant:<tenant-id>:Enabled','true', now()) ...
+... VALUES ('LearningSuggest:<tenant-id>:Enabled','true', now()) ...
 ```
 
 API nội bộ (scope `admin`, tenant ctx): `GET/PUT /v1/admin/tenants/{id}/learning` — body `{ "enabled": bool }`. UI: card **"Tự học có kiểm soát"** trên `/admin/tenant-ai/policy` (ShopERP → `TenantAiApiClient.Get/PutLearningSettingAsync`).
@@ -369,7 +369,7 @@ message → kill-switch (TenantAi:Enabled) → replay dedupe (messageId, G8)
 **Gate — 3 lớp AND** (mọi pass đọc lại mỗi lần chạy, không cache):
 1. Env `Learning:Enabled` — kill-switch deploy-time (default `true`).
 2. `system_settings["LearningSuggest:Enabled"]` — master switch runtime toàn cục (absent = ON; ops set `"false"` qua SQL, không cần redeploy).
-3. `system_settings["LearningSuggest:Tenant:{tenantId}:Enabled"]` — opt-in per-tenant (absent = **OFF**; set qua `PUT /v1/admin/tenants/{id}/learning` hoặc SQL). Pattern `InstanceFeatureGate`: global OFF thắng; purge tenant xóa luôn key opt-in.
+3. `system_settings["LearningSuggest:{tenantId}:Enabled"]` — opt-in per-tenant (absent = **OFF**; set qua `PUT /v1/admin/tenants/{id}/learning` hoặc SQL). Pattern `InstanceFeatureGate`: global OFF thắng; purge tenant xóa luôn key opt-in.
 
 **Input:** assistant turns trả lời bắt đầu bằng `ChatTemplates.NoData`, trong window `LookbackDays`, intent ∈ {Faq, Menu, Price, Availability, Recipe, Nutrition, BrandStory}, không refused, channel ≠ `preview`.
 
