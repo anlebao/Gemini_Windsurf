@@ -21,10 +21,12 @@ namespace VanAn.Gateway.Controllers
     public class TenantStoreController(
         ITenantSearchService tenantSearch,
         IShopFeatureSettingsService featureSettingsService,
+        VanAn.CoreHub.Services.IInstanceFeatureGate instanceGate,
         ILogger<TenantStoreController> logger) : ControllerBase
     {
         private readonly ITenantSearchService _tenantSearch = tenantSearch;
         private readonly IShopFeatureSettingsService _featureSettingsService = featureSettingsService;
+        private readonly VanAn.CoreHub.Services.IInstanceFeatureGate _instanceGate = instanceGate;
         private readonly ILogger<TenantStoreController> _logger = logger;
 
         /// <summary>
@@ -76,15 +78,18 @@ namespace VanAn.Gateway.Controllers
         /// Tenant Profile Page (2026-07-21): Get public feature settings for a tenant.
         /// Returns which sections (Campaign, VibeShowcase, GoogleMap, SocialHub, AIChat) are enabled.
         /// Anonymous — KhachLink needs this to render /store/{slug} page.
+        /// Instance Feature Gate (2026-11-27): returns EFFECTIVE flags — SysAdmin NavFlags
+        /// (X-KhachLink-Domain → portal instance) kill-switch ANDed onto tenant settings.
         /// </summary>
         [HttpGet("{tenantId:guid}/feature-settings")]
         [AllowAnonymous]
-        public async Task<ActionResult<ShopFeatureSettingsDto>> GetFeatureSettings(Guid tenantId)
+        public async Task<ActionResult<ShopFeatureSettingsDto>> GetFeatureSettings(Guid tenantId, CancellationToken ct)
         {
             try
             {
-                var settings = await _featureSettingsService.GetSettingsAsync(tenantId);
-                return Ok(settings);
+                var settings = await _featureSettingsService.GetSettingsAsync(tenantId, ct);
+                var flags = await _instanceGate.GetNavFlagsAsync(ct);
+                return Ok(_instanceGate.ApplyOverrides(settings, flags));
             }
             catch (Exception ex)
             {

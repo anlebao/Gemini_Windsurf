@@ -79,10 +79,13 @@ namespace VanAn.KhachLink
             // WASM: use AddHttpClient (supports IHttpClientFactory pattern matching Server code)
             var gatewayBaseUrl = builder.Configuration["Gateway:BaseUrl"]
                 ?? builder.HostEnvironment.BaseAddress;
+            // Instance Feature Gate (2026-11-27): mọi request → Gateway kèm X-KhachLink-Domain
+            // (hostname hiện tại) để server resolve NavFlags kill-switch của portal này.
+            _ = builder.Services.AddTransient<Services.Http.InstanceDomainHeaderHandler>();
             _ = builder.Services.AddHttpClient("gateway", client =>
             {
                 client.BaseAddress = new Uri(gatewayBaseUrl);
-            });
+            }).AddHttpMessageHandler<Services.Http.InstanceDomainHeaderHandler>();
 
             // Register Product Catalog Service
             _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();

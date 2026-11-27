@@ -15,10 +15,12 @@ namespace VanAn.ShopERP.Controllers;
 public class ShopSettingsController : ControllerBase
 {
     private readonly IShopFeatureSettingsService _settingsService;
+    private readonly IInstanceFeatureGate _instanceGate;
 
-    public ShopSettingsController(IShopFeatureSettingsService settingsService)
+    public ShopSettingsController(IShopFeatureSettingsService settingsService, IInstanceFeatureGate instanceGate)
     {
         _settingsService = settingsService;
+        _instanceGate = instanceGate;
     }
 
     /// <summary>Get feature settings for the current tenant.</summary>
@@ -26,6 +28,9 @@ public class ShopSettingsController : ControllerBase
     /// ISSUE #4 FIX: AllowAnonymous — KhachLink (Customer PWA) calls this endpoint without
     /// staff auth to determine which shop features are enabled (Kitchen display, QR table
     /// number, voice note). Feature settings are public shop configuration, not sensitive.
+    /// Instance Feature Gate (2026-11-27): EFFECTIVE flags — SysAdmin NavFlags kill-switch
+    /// (X-KhachLink-Domain) ANDed onto tenant settings. Owner UI dùng in-proc service nên
+    /// không bị ảnh hưởng (không mất giá trị gốc khi save).
     /// </remarks>
     [HttpGet("features")]
     [AllowAnonymous]
@@ -36,7 +41,8 @@ public class ShopSettingsController : ControllerBase
             return BadRequest("TenantId is required.");
 
         ShopFeatureSettingsDto settings = await _settingsService.GetSettingsAsync(tid, ct);
-        return Ok(settings);
+        var flags = await _instanceGate.GetNavFlagsAsync(ct);
+        return Ok(_instanceGate.ApplyOverrides(settings, flags));
     }
 
     /// <summary>Update feature settings for the current tenant.</summary>

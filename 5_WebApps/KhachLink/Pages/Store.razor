@@ -259,7 +259,7 @@ else
                         <p>Đặt lịch hẹn trước tại <strong>@_store.Name</strong> — chọn dịch vụ và khung giờ phù hợp, không phải chờ đợi.</p>
                         <a class="btn-cta" href="@_bookingEntry.BookingLink" data-testid="store-booking-cta">📅 Đặt lịch hẹn ngay</a>
                     </div>
-                    @if (!string.IsNullOrEmpty(_bookingEntry.QrCodePngBase64))
+                    @if (!string.IsNullOrEmpty(_bookingEntry.QrCodePngBase64) && _navFlags.ShowQrClaim)
                     {
                         <div class="booking-entry-qr">
                             <img src="@_bookingEntry.QrCodePngBase64" alt="Mã QR đặt lịch hẹn" width="110" height="110" data-testid="store-booking-qr" />
@@ -1174,6 +1174,12 @@ else
     private bool _suspended;
     private ShopDto? _store;
     private ShopConfig? _shopConfig;
+    // Instance Feature Gate (2026-11-27): portal NavFlags cascade — QR sections hide when
+    // SysAdmin tắt "Quét QR" (ShowQrClaim) trên instance. Server đã AND vào _features;
+    // booking QR không nằm trong ShopFeatureSettingsDto nên check trực tiếp ở đây.
+    [CascadingParameter(Name = "NavFlags")]
+    private Models.KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
     private TenantFeatureSettingsDto _features = new();
     // W2-5 (FR-V6/V7): tenant context cho flagship features — explicit = _store.Id.
     private bool _hasTenantContext;

@@ -12,10 +12,12 @@ namespace VanAn.Gateway.Controllers
     public class CampaignsController(
         ISocialCampaignService socialCampaignService,
         IHttpClientFactory httpClientFactory,
+        IInstanceFeatureGate instanceGate,
         ILogger<CampaignsController> logger) : ControllerBase
     {
         private readonly ISocialCampaignService _socialCampaignService = socialCampaignService;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly IInstanceFeatureGate _instanceGate = instanceGate;
         private readonly ILogger<CampaignsController> _logger = logger;
 
         [HttpGet]
@@ -101,12 +103,16 @@ namespace VanAn.Gateway.Controllers
 
         [HttpGet("by-shop/{shopId:guid}")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<SocialCampaign>>> GetByShop(Guid shopId)
+        public async Task<ActionResult<List<SocialCampaign>>> GetByShop(Guid shopId, CancellationToken ct)
         {
             // Shop entity removed 2026-07-21 — redirect to by-tenant endpoint.
             // shopId parameter is now interpreted as tenantId for backward compat.
             try
             {
+                var flags = await _instanceGate.GetNavFlagsAsync(ct);
+                if (flags is { ShowCampaigns: false })
+                    return Ok(new List<SocialCampaign>());
+
                 List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByTenantAsync(shopId);
                 return Ok(campaigns);
             }
@@ -118,9 +124,11 @@ namespace VanAn.Gateway.Controllers
         }
 
         // Home page personalization: fetch active campaigns by tenantId.
+        // Instance Feature Gate (2026-11-27): portal ShowCampaigns=false → empty list
+        // (kill-switch — data-level, not just UI hiding).
         [HttpGet("by-tenant/{tenantId:guid}")]
         [AllowAnonymous]
-        public async Task<ActionResult<List<SocialCampaign>>> GetByTenant(Guid tenantId)
+        public async Task<ActionResult<List<SocialCampaign>>> GetByTenant(Guid tenantId, CancellationToken ct)
         {
             try
             {
@@ -128,6 +136,10 @@ namespace VanAn.Gateway.Controllers
                 {
                     return Ok(new List<SocialCampaign>());
                 }
+
+                var flags = await _instanceGate.GetNavFlagsAsync(ct);
+                if (flags is { ShowCampaigns: false })
+                    return Ok(new List<SocialCampaign>());
 
                 List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByTenantAsync(tenantId);
                 return Ok(campaigns);

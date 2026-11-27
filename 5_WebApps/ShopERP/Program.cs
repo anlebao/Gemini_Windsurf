@@ -517,6 +517,8 @@ namespace VanAn.ShopERP
 
             // Add Memory Cache for ShopConfigService + W17-T1 OTP
             _ = builder.Services.AddMemoryCache();
+            // Instance Feature Gate (2026-11-27): X-KhachLink-Domain → NavFlags kill-switch over tenant flags.
+            _ = builder.Services.AddScoped<CoreHub.Services.IInstanceFeatureGate, CoreHub.Services.InstanceFeatureGate>();
 
             // Wave 8: HKD Book generation engine — required by /accounting/hkd-books UI page.
             // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider

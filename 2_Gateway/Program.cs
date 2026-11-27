@@ -1582,6 +1582,8 @@ namespace VanAn.Gateway
             // KhachLink Multi-Profile R1: KhachLink instance management (no HttpClient needed — DbContext only)
 
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IKhachLinkInstanceService, VanAn.CoreHub.Services.KhachLinkInstanceService>();
+            // Instance Feature Gate (2026-11-27): X-KhachLink-Domain → NavFlags kill-switch over tenant flags.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IInstanceFeatureGate, VanAn.CoreHub.Services.InstanceFeatureGate>();
 
             // Domain Reseller R1: GoDaddy registrar service (HttpClient internally — no IHttpClientFactory needed for v1 MVP)
 
