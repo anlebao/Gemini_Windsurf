@@ -67,14 +67,7 @@ test.describe('VanAn Ecosystem - Dịch vụ bán trực tiếp (IsSellable)', (
   });
 
   test('Storefront: offering sellable hiện nút Đặt mua → thêm vào giỏ', async ({ page }) => {
-    // Cần tenant storefront có booking enabled + offering IsSellable — best-effort.
-    // Lấy danh sách store qua API public? Không có directory endpoint chắc chắn →
-    // thử storefront của tenant dev-login trước; skip khi không có booking section.
-    await page.goto(`${shopErpBase}/dashboard`);
-    await page.waitForLoadState('networkidle');
-
-    // Resolve tenant storefront slug qua store-info (tenant hiện tại sau dev login).
-    // Fallback: dùng env BOOKING_TEST_STORE_URL nếu RV seed sẵn.
+    // Cần tenant storefront có booking enabled + offering IsSellable — env-gated.
     const storeUrl = process.env.BOOKING_TEST_STORE_URL;
     if (!storeUrl) {
       test.skip(true, 'BOOKING_TEST_STORE_URL chưa set — cần storefront tenant có offering sellable (RV setup)');
