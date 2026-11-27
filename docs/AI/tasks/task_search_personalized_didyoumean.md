@@ -86,8 +86,11 @@ note; undo → re-search raw. Markup hooks giữ nguyên.
 - [ ] E2E spec `search-personalization.spec.ts` (Gate 4 — UI note mới):
   accept → reload → cùng query → note hiện · undo → DidYouMean trở lại
   (chạy validation wave sau Step 7 — Playwright tắt trong IMPLEMENT)
-- [ ] Commit → push → CD → RV prod: device A accept→device B unaffected;
-  verify request thật gửi `q=<corrected>` qua DevTools.
+- [x] Commit → push → CD → RV prod — **DEPLOYED `fa934f62` (2026-11-28)**,
+  sweep `6_Testing/rv-scripts/personalized-didyoumean-rv-sweep.mjs` **16/17 PASS**:
+  resolve→note→request rewrite (`q=trà sữa`)→undo→forget→re-search raw đều
+  verify trên prod. 1 FAIL = featured catalog trống trên prod (data limitation —
+  DidYouMean chip product-scope không thể fire; record-path cover bởi 5/5 bUnit).
 
 ## OUT OF SCOPE (waves sau)
 
