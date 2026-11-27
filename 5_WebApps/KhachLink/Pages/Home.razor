@@ -64,8 +64,8 @@
                as e2e/style hooks via component params. *@
             <div class="home-search-box">
                 <VanAnPublicSearchBar @bind-Value="_homeSearchKeyword"
+                                      Pill="true"
                                       InputId="home-search-input"
-                                      GroupCssClass="input-group-lg"
                                       SearchText=""
                                       SearchButtonCssClass="home-search-go-btn"
                                       VoiceButtonCssClass="@(_homeVoiceRecording ? "home-voice-mic-btn recording" : "home-voice-mic-btn")"
@@ -513,14 +513,10 @@
     .campaign-video-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: linear-gradient(135deg, #e9ecef, #dee2e6); }
     .campaign-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fff3f3; border-radius: 8px; }
     .store-finder-cta { border-radius: 16px; }
-    /* Issue #142: Home search box — Google Maps style */
+    /* Issue #142: Home search box — centered. Search Unification v2: pill shell
+       moved into VanAnPublicSearchBar (Pill=true); .home-voice-mic-btn /
+       .home-search-go-btn / #home-search-input kept as e2e hooks only. */
     .home-search-box-wrapper { max-width: 640px; margin: 0 auto; }
-    .home-search-box { border-radius: 9999px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .home-search-box .form-control:focus { box-shadow: none; }
-    .home-voice-mic-btn { border-radius: 0; }
-    .home-voice-mic-btn.recording { animation: mic-pulse 1s infinite; }
-    .home-search-go-btn { border-radius: 0 9999px 9999px 0; }
-    @@keyframes mic-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
     /* FR-L4: compact product card — mobile 2-col grid (col-6), desktop giữ nguyên */
     .product-card-img { height: 200px; object-fit: cover; }
     .product-card-img-sm { height: 180px; object-fit: cover; }

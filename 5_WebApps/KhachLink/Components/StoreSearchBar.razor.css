@@ -1,146 +1,15 @@
-/* SF-W2 (A2): semantic search bar — glassy pill input, centered result block. */
+/* SF-W2 (A2): semantic search bar — centered block.
+   Search Unification v2: pill shell moved into VanAnPublicSearchBar (Pill=true)
+   — this file only maps per-tenant accent vars + owns the result block. */
 .store-search {
     max-width: 720px;
     margin: 0 auto 3rem;
 }
 
+/* Accent mapping: storefront tenant theme → shared pill vars. */
 .store-search-box {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: #fff;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 999px;
-    padding: 0.35rem 0.35rem 0.35rem 0.6rem;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.store-search-box:focus-within {
-    border-color: var(--store-accent-color, #ff5e62);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
-}
-
-/* Search unification: child component internals need ::deep (scoped CSS
-   does not cross component boundary). Strip bootstrap chrome so the
-   shared input-group renders inside the pill. */
-.store-search-box ::deep .input-group {
-    flex: 1 1 auto;
-    align-items: center;
-    gap: 0.4rem;
-    flex-wrap: nowrap;
-}
-
-.store-search-box ::deep .input-group-text {
-    border: none;
-    background: transparent;
-    padding: 0 0 0 0.5rem;
-    color: #9ca3af;
-    font-size: 1.05rem;
-}
-
-.store-search-box ::deep .input-group-text .bi-search {
-    color: #9ca3af;
-}
-
-.store-search-box ::deep .store-search-input {
-    flex: 1 1 auto;
-    min-width: 0;
-    border: none;
-    outline: none;
-    font-size: 1rem;
-    background: transparent;
-    color: #1f2937;
-    padding-left: 0.25rem;
-}
-
-.store-search-box ::deep .store-search-input:focus {
-    box-shadow: none;
-    border: none;
-}
-
-.store-search-box ::deep .store-search-input::placeholder {
-    color: #9ca3af;
-}
-
-.store-search-box ::deep .store-search-btn {
-    flex: 0 0 auto;
-    border: none;
-    border-radius: 999px !important;
-    padding: 0.55rem 1.4rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #fff;
-    background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
-    cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 68px;
-    min-height: 38px;
-}
-
-.store-search-box ::deep .store-search-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-}
-
-.store-search-box ::deep .store-search-btn:disabled {
-    opacity: 0.55;
-    cursor: default;
-}
-
-/* clear-X button inside the pill */
-.store-search-box ::deep .btn-outline-secondary {
-    flex: 0 0 auto;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: #9ca3af;
-    padding: 0.25rem 0.4rem;
-}
-
-.store-search-box ::deep .btn-outline-secondary:hover {
-    background: #f3f4f6;
-    color: #6b7280;
-}
-
-/* ── SF-W3: voice mic ───────────────────────────────────────────────── */
-.store-search-box ::deep .store-search-mic {
-    flex: 0 0 auto;
-    width: 38px;
-    height: 38px;
-    border: none;
-    border-radius: 50%;
-    background: #f3f4f6;
-    color: #6b7280;
-    font-size: 1rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.store-search-box ::deep .store-search-mic:hover:not(:disabled) {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.store-search-box ::deep .store-search-mic:disabled {
-    opacity: 0.55;
-    cursor: default;
-}
-
-.store-search-box ::deep .store-search-mic.listening {
-    background: #fee2e2;
-    color: #dc2626;
-    animation: store-mic-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes store-mic-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
-    50% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
+    --vanan-search-accent: var(--store-accent-color, #ff5e62);
+    --vanan-search-accent-gradient: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
 }
 
 .store-search-voice-error {
@@ -148,10 +17,6 @@
     padding: 0 1.1rem;
     color: #dc2626;
     font-size: 0.85rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .store-search-mic.listening { animation: none; }
 }
 
 /* ── Result block ─────────────────────────────────────────────────── */

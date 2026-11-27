@@ -36,6 +36,7 @@
             @* W3-2d: VanAnPublicSearchBar (UI.Platform) — Pattern A mobile-first.
                Nút search trong input-group, enterkeyhint=search, icon mic/clear. *@
             <VanAnPublicSearchBar @bind-Value="_searchKeyword"
+                                  Pill="true"
                                   Placeholder="@(_listening ? "Đang nghe..." : (_searchMode == "product" ? "Tên sản phẩm, dịch vụ..." : "Tên cửa hàng, sản phẩm..."))"
                                   AriaLabel="@(_searchMode == "product" ? "Tìm sản phẩm" : "Tìm cửa hàng")"
                                   InputCssClass="dir-search-input"
@@ -421,13 +422,14 @@
         _hasSearched = true;
         if (_searchMode == "product")
         {
-            // Product search — calls /api/catalog/search?q=
+            // Product search — calls /api/catalog/search?q= (Search Unification v2:
+            // fuzzy + DidYouMean giống tenant search — chip consume bên dưới)
             var result = await CatalogService.SearchProductsAsync(_searchKeyword);
             _products = result?.Products ?? new();
             _stores = new();
             _suggestedKeywords = new();
-            _didYouMean = null;
-            _matchStrategy = "all";
+            _didYouMean = result?.DidYouMean;
+            _matchStrategy = result?.MatchStrategy ?? "all";
         }
         else
         {

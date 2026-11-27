@@ -1,0 +1,141 @@
+/* Search Unification v2 — Pill variant.
+   Ported from StoreSearchBar.razor.css (.store-search-box ::deep rules) so the
+   glassy pill shell lives in the shared component — consumers set Pill="true"
+   and theme via --vanan-search-accent / --vanan-search-accent-gradient vars.
+   All selectors target this component's own markup — no ::deep needed. */
+
+.vanan-search-pill {
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 0.35rem 0.35rem 0.35rem 0.6rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vanan-search-pill:focus-within {
+    border-color: var(--vanan-search-accent, #0d6efd);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+}
+
+/* leading search icon */
+.vanan-search-pill .input-group-text {
+    border: none;
+    background: transparent;
+    padding: 0 0 0 0.5rem;
+    color: #9ca3af;
+    font-size: 1.05rem;
+}
+
+.vanan-search-pill .input-group-text .bi-search {
+    color: #9ca3af;
+}
+
+/* keyword input — strip bootstrap chrome, pill provides the shell */
+.vanan-search-pill .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    background: transparent;
+    color: #1f2937;
+    padding-left: 0.25rem;
+}
+
+.vanan-search-pill .form-control:focus {
+    box-shadow: none;
+    border: none;
+}
+
+.vanan-search-pill .form-control::placeholder {
+    color: #9ca3af;
+}
+
+/* submit (VanAnButton root carries this scope) — gradient accent pill */
+.vanan-search-pill > .btn-primary {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px !important;
+    padding: 0.55rem 1.4rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+    background: var(--vanan-search-accent-gradient, var(--vanan-search-accent, #0d6efd));
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    min-height: 38px;
+}
+
+.vanan-search-pill > .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.vanan-search-pill > .btn-primary:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+/* clear-X ghost button */
+.vanan-search-pill > .btn-outline-secondary {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #9ca3af;
+    padding: 0.25rem 0.4rem;
+}
+
+.vanan-search-pill > .btn-outline-secondary:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* voice mic — neutral round, red pulse while listening */
+.vanan-search-pill > .btn-outline-primary {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.vanan-search-pill > .btn-outline-primary:hover:not(:disabled) {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.vanan-search-pill > .btn-outline-primary:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.vanan-search-pill > .btn-outline-primary.listening {
+    background: #fee2e2;
+    color: #dc2626;
+    animation: vanan-search-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vanan-search-mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+    50% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vanan-search-pill > .btn-outline-primary.listening { animation: none; }
+}

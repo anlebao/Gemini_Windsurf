@@ -115,6 +115,23 @@ public class VanAnPublicSearchBarTests : TestContext
     }
 
     [Fact]
+    public void Pill_True_AddsPillClassToRootInputGroup()
+    {
+        var cut = RenderComponent<VanAnPublicSearchBar>(p => p
+            .Add(c => c.Pill, true));
+
+        cut.Find(".input-group").ClassList.Should().Contain("vanan-search-pill");
+    }
+
+    [Fact]
+    public void Pill_Default_NoPillClass()
+    {
+        var cut = RenderComponent<VanAnPublicSearchBar>();
+
+        cut.Find(".input-group").ClassList.Should().NotContain("vanan-search-pill");
+    }
+
+    [Fact]
     public void EnterKeyHint_DefaultsToSearch()
     {
         var cut = RenderComponent<VanAnPublicSearchBar>();

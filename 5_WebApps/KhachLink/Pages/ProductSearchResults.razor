@@ -1,5 +1,6 @@
 ﻿@page "/products"
 @using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
@@ -19,31 +20,24 @@
             <i class="bi bi-bag-search text-primary"></i> Tìm sản phẩm / dịch vụ
         </h3>
 
-        <!-- Search box -->
+        <!-- Search box — Search Unification v2: VanAnPublicSearchBar (Pattern A pill,
+             enterkeyhint=search, mic/clear trong group) + DidYouMean chip (Pattern B). -->
         <VanAnCard CssClass="mb-3 p-3">
-            <div class="input-group input-group-lg">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-primary"></i>
-                </span>
-                <input type="text" class="form-control border-start-0 border-end-0"
-                       @bind="_keyword"
-                       @onkeyup="OnSearchKeyUp"
-                       placeholder="@(_listening ? "Đang nghe..." : "Nhập tên sản phẩm, dịch vụ...")"
-                       aria-label="Tìm sản phẩm" />
-                @* SF-W3 (2026-11-08): voice input — nói thay vì gõ (vananVoiceInput, flag + browser gated). *@
-                @if (_voiceEnabled && _speechSupported)
-                {
-                    <button type="button" class="btn btn-outline-primary @(_listening ? "text-danger" : "")"
-                            @onclick="ToggleVoiceAsync" disabled="@_loading"
-                            title="@(_listening ? "Dừng nói" : "Nói để tìm kiếm")"
-                            aria-label="Tìm kiếm bằng giọng nói">
-                        <i class="bi @(_listening ? "bi-mic-fill" : "bi-mic")"></i>
-                    </button>
-                }
-                <button type="button" class="btn btn-primary" @onclick="Search">
-                    <i class="bi bi-arrow-right"></i>
-                </button>
+            <div class="product-search-box">
+                <VanAnPublicSearchBar @bind-Value="_keyword"
+                                      Pill="true"
+                                      InputId="product-search-input"
+                                      Placeholder="@(_listening ? "Đang nghe..." : "Nhập tên sản phẩm, dịch vụ...")"
+                                      AriaLabel="Tìm sản phẩm"
+                                      SearchText="Tìm"
+                                      Loading="_loading"
+                                      ShowVoiceButton="@(_voiceEnabled && _speechSupported)"
+                                      IsListening="_listening"
+                                      OnVoiceToggle="ToggleVoiceAsync"
+                                      OnSearch="Search" />
             </div>
+            @* Search Unification v2 (Pattern B): fuzzy → "Ý bạn là: X?" 1-tap *@
+            <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="ApplyDidYouMean" />
             @if (_listening)
             {
                 <div class="text-danger small mt-2">
@@ -144,6 +138,8 @@
     private bool _hasSearched = false;
     private string _errorMessage = "";
     private List<RecommendedCatalogItem> _products = new();
+    // Search Unification v2 (Pattern B): fuzzy "Ý bạn là: X?" — null khi không gợi ý.
+    private string? _didYouMean;
 
     // SF-W3 (2026-11-08): voice input state (vananVoiceInput — script đã load qua index.html).
     private bool _voiceEnabled;
@@ -255,6 +251,7 @@
         {
             _products = new();
             _hasSearched = false;
+            _didYouMean = null;
             return;
         }
 
@@ -267,11 +264,13 @@
         {
             var result = await CatalogHttp.SearchProductsAsync(keyword);
             _products = result?.Products ?? new();
+            _didYouMean = result?.DidYouMean;
         }
         catch (Exception ex)
         {
             _errorMessage = $"Lỗi tìm kiếm: {ex.Message}";
             _products = new();
+            _didYouMean = null;
         }
         finally
         {
@@ -280,10 +279,12 @@
         }
     }
 
-    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    /// <summary>Search Unification v2 (Pattern B): chip "Ý bạn là: X?" → re-search 1-tap.</summary>
+    private async Task ApplyDidYouMean(string suggestion)
     {
-        if (e.Key == "Enter")
-            await Search();
+        _keyword = suggestion;
+        _didYouMean = null;
+        await Search();
     }
 
     private async Task AddToCart(RecommendedCatalogItem item, string? imgElementId = null)

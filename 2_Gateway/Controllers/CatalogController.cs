@@ -22,10 +22,12 @@ namespace VanAn.Gateway.Controllers
     public class CatalogController(
         IVanAnDbContext dbContext,
         ITenantSearchService tenantSearch,
+        IFeaturedProductSearchService productSearch,
         ILogger<CatalogController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ITenantSearchService _tenantSearch = tenantSearch;
+        private readonly IFeaturedProductSearchService _productSearch = productSearch;
         private readonly ILogger<CatalogController> _logger = logger;
 
         /// <summary>
@@ -166,87 +168,25 @@ namespace VanAn.Gateway.Controllers
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-            var baseQuery = _dbContext.FeaturedProducts
-                .AsNoTracking()
-                .IgnoreQueryFilters()
-                .Where(f => f.IsActive);
-
-            List<RecommendedProductDto> results;
-            int totalCount;
-
-            if (string.IsNullOrWhiteSpace(q))
-            {
-                // No keyword — return all active featured products (Take pageSize)
-                var all = await baseQuery
-                    .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
-                    .Select(f => new RecommendedProductDto
-                    {
-                        ProductId = f.ProductId,
-                        TenantId = f.TenantId.Value,
-                        DisplayName = f.DisplayName,
-                        DisplayPrice = f.DisplayPrice,
-                        VatRate = f.VatRate,
-                        ImageUrl = f.ImageUrl,
-                        Description = f.DisplayDescription,
-                        ProductType = f.ProductType,
-                        Source = "Featured",
-                        LastOrderedAt = (DateTime?)null
-                    })
-                    .ToListAsync(ct);
-                results = all;
-                totalCount = all.Count;
-            }
-            else
-            {
-                var keyword = q.Trim();
-                // Level 1: ILIKE contains on DisplayName
-                var matched = await baseQuery
-                    .Where(f => EF.Functions.ILike(f.DisplayName, $"%{keyword}%"))
-                    .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
-                    .Select(f => new RecommendedProductDto
-                    {
-                        ProductId = f.ProductId,
-                        TenantId = f.TenantId.Value,
-                        DisplayName = f.DisplayName,
-                        DisplayPrice = f.DisplayPrice,
-                        VatRate = f.VatRate,
-                        ImageUrl = f.ImageUrl,
-                        Description = f.DisplayDescription,
-                        ProductType = f.ProductType,
-                        Source = "Featured",
-                        LastOrderedAt = (DateTime?)null
-                    })
-                    .ToListAsync(ct);
-
-                // Level 2: token-split if no contains match
-                if (matched.Count == 0)
+            // Search Unification v2: matching pipeline ở service (ILIKE → normalized
+            // contains → token → fuzzy + DidYouMean) — controller chỉ shape DTO.
+            var search = await _productSearch.SearchAsync(q, ct);
+            var results = search.Products
+                .Select(f => new RecommendedProductDto
                 {
-                    var tokens = keyword.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (tokens.Length > 1)
-                    {
-                        matched = await baseQuery
-                            .Where(f => tokens.Any(tok => EF.Functions.ILike(f.DisplayName, $"%{tok}%")))
-                            .OrderBy(f => f.SortOrder).ThenBy(f => f.DisplayName)
-                            .Select(f => new RecommendedProductDto
-                            {
-                                ProductId = f.ProductId,
-                                TenantId = f.TenantId.Value,
-                                DisplayName = f.DisplayName,
-                                DisplayPrice = f.DisplayPrice,
-                                VatRate = f.VatRate,
-                                ImageUrl = f.ImageUrl,
-                                Description = f.DisplayDescription,
-                                ProductType = f.ProductType,
-                                Source = "Featured",
-                                LastOrderedAt = (DateTime?)null
-                            })
-                            .ToListAsync(ct);
-                    }
-                }
-
-                results = matched;
-                totalCount = matched.Count;
-            }
+                    ProductId = f.ProductId,
+                    TenantId = f.TenantId.Value,
+                    DisplayName = f.DisplayName,
+                    DisplayPrice = f.DisplayPrice,
+                    VatRate = f.VatRate,
+                    ImageUrl = f.ImageUrl,
+                    Description = f.DisplayDescription,
+                    ProductType = f.ProductType,
+                    Source = "Featured",
+                    LastOrderedAt = (DateTime?)null
+                })
+                .ToList();
+            var totalCount = results.Count;
 
             // Resolve TenantName (single batch query)
             var tenantIds = results.Select(r => r.TenantId).Where(t => t != Guid.Empty).Distinct().ToHashSet();
@@ -282,14 +222,17 @@ namespace VanAn.Gateway.Controllers
                 .Take(pageSize)
                 .ToList();
 
-            _logger.LogDebug("Catalog search '{Query}': {Total} total, {Paged} returned", q, totalCount, paged.Count);
+            _logger.LogDebug("Catalog search '{Query}': strategy={Strategy}, {Total} total, {Paged} returned",
+                q, search.MatchStrategy, totalCount, paged.Count);
 
             return Ok(new RecommendedCatalogResponse
             {
                 Products = paged,
                 TotalCount = totalCount,
                 Page = page,
-                PageSize = pageSize
+                PageSize = pageSize,
+                MatchStrategy = search.MatchStrategy,
+                DidYouMean = search.DidYouMean
             });
         }
     }
@@ -322,5 +265,10 @@ namespace VanAn.Gateway.Controllers
         public int TotalCount { get; set; }
         public int Page { get; set; }
         public int PageSize { get; set; }
+        /// <summary>Search Unification v2: matching level — all | contains | token | fuzzy | suggested.</summary>
+        public string MatchStrategy { get; set; } = "all";
+        /// <summary>Search Unification v2 (Pattern B): fuzzy suggestion — UI hiện chip
+        /// "Ý bạn là: X?" 1-tap. Chỉ set khi fuzzy match chưa chắc (&lt;0.9).</summary>
+        public string? DidYouMean { get; set; }
     }
 }

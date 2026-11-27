@@ -11,7 +11,7 @@
    (không bị bàn phím ảo che), enterkeyhint=search, icon actions mic/clear.
    Business logic KHÔNG nằm đây — parent truyền OnSearch. *@
 
-<div class="input-group @GroupCssClass">
+<div class="input-group @(Pill ? "vanan-search-pill" : null) @GroupCssClass">
     <span class="input-group-text bg-white border-end-0">
         <i class="bi bi-search text-primary"></i>
     </span>
@@ -61,6 +61,11 @@
     [Parameter] public string? InputCssClass { get; set; }
     /// <summary>Extra class trên root .input-group (vd "input-group-lg" của Home).</summary>
     [Parameter] public string? GroupCssClass { get; set; }
+    /// <summary>Search Unification v2: pill style (glassy rounded shell, gradient submit,
+    /// mic/clear trong pill). Accent qua CSS vars --vanan-search-accent(-gradient) —
+    /// surface đặt var này trên ancestor để theme (vd storefront map --store-accent-*).
+    /// Style nằm trong VanAnPublicSearchBar.razor.css — KHÔNG copy ::deep CSS ra page.</summary>
+    [Parameter] public bool Pill { get; set; }
     /// <summary>Extra class trên nút submit — hook style/e2e (vd "store-search-btn").</summary>
     [Parameter] public string? SearchButtonCssClass { get; set; }
     /// <summary>Extra class trên nút mic — hook style/e2e (vd "store-search-mic").</summary>

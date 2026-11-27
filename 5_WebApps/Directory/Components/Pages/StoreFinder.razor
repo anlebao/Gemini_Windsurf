@@ -23,6 +23,7 @@
     <VanAnCard CssClass="mb-4 py-4">
         @* W3-2d: VanAnPublicSearchBar (UI.Platform) — mic voice + clear + enterkeyhint=search *@
         <VanAnPublicSearchBar @bind-Value="_keyword"
+                              Pill="true"
                               Placeholder="@(_listening ? "Đang nghe..." : "Tên cửa hàng, sản phẩm, dịch vụ...")"
                               AriaLabel="Tìm cửa hàng"
                               SearchText="Tìm kiếm"

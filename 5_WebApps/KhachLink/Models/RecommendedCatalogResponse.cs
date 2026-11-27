@@ -12,6 +12,10 @@ public class RecommendedCatalogResponse
     public int TotalCount { get; set; }
     public int Page { get; set; }
     public int PageSize { get; set; }
+    /// <summary>Search Unification v2: all | contains | token | fuzzy | suggested.</summary>
+    public string MatchStrategy { get; set; } = "all";
+    /// <summary>Search Unification v2: fuzzy "Ý bạn là: X?" — chỉ set khi match chưa chắc.</summary>
+    public string? DidYouMean { get; set; }
 }
 
 /// <summary>
