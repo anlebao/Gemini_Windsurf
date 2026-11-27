@@ -67,6 +67,11 @@ builder.Services.AddHostedService(
 builder.Services.AddScoped<VanAn.TenantAi.Api.Services.TenantAdminService>();
 builder.Services.AddHostedService<VanAn.TenantAi.Api.Services.RetentionCleanupService>();
 
+// W3f — chat learning suggest (hằng ngày, chủ shop duyệt — human-in-the-loop giữ [G14]).
+// Tự tạo scope nội bộ nên đăng ký singleton-hosted; mọi knob đều có default bảo thủ
+// (Learning:MinClusterSize=3, MaxSuggestionsPerTenant=5, MaxPendingPerTenant=10, LookbackDays=7).
+builder.Services.AddHostedService<VanAn.TenantAi.Api.Services.ChatLearningSuggestService>();
+
 var app = builder.Build();
 
 // ---- Bootstrap: pgvector extension + schema + seed callers (idempotent) ----
