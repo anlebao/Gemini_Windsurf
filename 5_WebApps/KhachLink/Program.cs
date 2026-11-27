@@ -64,6 +64,10 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.CartService>();
             _ = builder.Services.AddScoped<Services.CheckoutFlowState>();
 
+            // Personalized DidYouMean (SRS v1.1): self-learning search corrections
+            // trong localStorage — record-on-accept, resolve-before-search, undo.
+            _ = builder.Services.AddScoped<Services.SearchCorrectionStore>();
+
             // Booking P4 (SRS v1.1 MVP): scoped flow state 4 màn hình + Gateway public API client.
             _ = builder.Services.AddScoped<Services.BookingFlowState>();
             _ = builder.Services.AddScoped<Services.Http.BookingPublicHttpService>();

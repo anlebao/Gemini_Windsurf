@@ -1,10 +1,10 @@
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.KhachLinkAggregate;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Helpers;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.Gateway.Services
@@ -419,90 +419,24 @@ namespace VanAn.Gateway.Services
         }
 
         // ── W3-2c: fuzzy search helpers (Pattern B — mobile-search-ux-pattern.md) ──
+        // Logic đã move sang VanAn.Shared.Helpers.SearchTextNormalizer (2026-11-28)
+        // để client WASM/Directory reuse (Personalized DidYouMean). Static methods
+        // dưới đây là thin-wrapper delegate — signature giữ nguyên cho callers/tests.
 
         private const int FuzzyCandidateLimit = 500;
         private const double FuzzyThreshold = 0.55;
 
-        /// <summary>Bỏ dấu tiếng Việt + lowercase + collapse spaces.
-        /// LƯU Ý: runtime prod bật System.Globalization.Invariant → Normalize(FormD) là NO-OP,
-        /// nên PHẢI fold thủ công qua bảng map — KHÔNG dùng FormD/CharUnicodeInfo.</summary>
-        private static readonly IReadOnlyDictionary<char, char> DiacriticFold = BuildDiacriticFold();
-
-        private static Dictionary<char, char> BuildDiacriticFold()
-        {
-            var map = new Dictionary<char, char>();
-            void Add(string accented, char basis)
-            {
-                foreach (var c in accented)
-                    map[c] = basis;
-                foreach (var c in accented.ToUpperInvariant())
-                    map[c] = basis;
-            }
-            Add("àáảãạăằắẳẵặâầấẩẫậ", 'a');
-            Add("èéẻẽẹêềếểễệ", 'e');
-            Add("ìíỉĩị", 'i');
-            Add("òóỏõọôồốổỗộơờớởỡợ", 'o');
-            Add("ùúủũụưừứửữự", 'u');
-            Add("ỳýỷỹỵ", 'y');
-            Add("đ", 'd');
-            // Latin-1 bổ sung — search robust cho tên không phải tiếng Việt.
-            Add("äå", 'a'); Add("ç", 'c'); Add("ë", 'e'); Add("îï", 'i'); Add("ñ", 'n');
-            Add("öø", 'o'); Add("üû", 'u'); Add("ÿ", 'y');
-            return map;
-        }
-
         /// <summary>Public: normalize helper dùng chung cho mọi search surface (anti-drift).</summary>
         public static string NormalizeSearchText(string? s)
-        {
-            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-            var sb = new StringBuilder(s.Length);
-            foreach (var c in s)
-            {
-                var lower = char.ToLowerInvariant(c);
-                sb.Append(DiacriticFold.TryGetValue(lower, out var basis) ? basis : lower);
-            }
-            // null separator → split mọi whitespace (space/tab/newline), collapse về 1 space
-            return string.Join(' ', sb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        }
+            => SearchTextNormalizer.Normalize(s);
 
         /// <summary>Similarity 0..1 = max(levenshtein ratio full-string, token Dice coefficient).</summary>
         public static double SearchSimilarity(string qNorm, string nameNorm)
-        {
-            if (qNorm.Length == 0 || nameNorm.Length == 0) return 0;
-
-            var maxLen = Math.Max(qNorm.Length, nameNorm.Length);
-            var levRatio = 1.0 - (double)LevenshteinDistance(qNorm, nameNorm) / maxLen;
-
-            var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-            var nTokens = nameNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-            var intersection = qTokens.Count(nTokens.Contains);
-            var dice = qTokens.Count + nTokens.Count == 0
-                ? 0
-                : 2.0 * intersection / (qTokens.Count + nTokens.Count);
-
-            return Math.Max(levRatio, dice);
-        }
+            => SearchTextNormalizer.Similarity(qNorm, nameNorm);
 
         /// <summary>Levenshtein distance (DP, 2 rows) — strings ngắn nên đủ nhanh.</summary>
         public static int LevenshteinDistance(string a, string b)
-        {
-            if (a.Length == 0) return b.Length;
-            if (b.Length == 0) return a.Length;
-            var prev = new int[b.Length + 1];
-            var curr = new int[b.Length + 1];
-            for (var j = 0; j <= b.Length; j++) prev[j] = j;
-            for (var i = 1; i <= a.Length; i++)
-            {
-                curr[0] = i;
-                for (var j = 1; j <= b.Length; j++)
-                {
-                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
-                    curr[j] = Math.Min(Math.Min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
-                }
-                (prev, curr) = (curr, prev);
-            }
-            return prev[b.Length];
-        }
+            => SearchTextNormalizer.Levenshtein(a, b);
     }
 
     public record TenantStoreDto

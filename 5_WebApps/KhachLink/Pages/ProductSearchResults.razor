@@ -10,6 +10,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject SearchCorrectionStore Corrections
 @implements IAsyncDisposable
 
 <PageTitle>Tìm sản phẩm</PageTitle>
@@ -38,6 +39,15 @@
             </div>
             @* Search Unification v2 (Pattern B): fuzzy → "Ý bạn là: X?" 1-tap *@
             <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="ApplyDidYouMean" />
+            @* Personalized DidYouMean (SRS v1.1): Level 0 auto-resolve — báo rõ + Hoàn tác *@
+            @if (_resolvedFrom is not null)
+            {
+                <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3 search-learned-note">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Đang tìm "<b>@_keyword</b>" — đã học từ cách bạn nhập "<i>@_resolvedFrom</i>"
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2 search-learned-undo" @onclick="UndoResolvedAsync">Hoàn tác</button>
+                </VanAnAlert>
+            }
             @if (_listening)
             {
                 <div class="text-danger small mt-2">
@@ -140,6 +150,11 @@
     private List<RecommendedCatalogItem> _products = new();
     // Search Unification v2 (Pattern B): fuzzy "Ý bạn là: X?" — null khi không gợi ý.
     private string? _didYouMean;
+    // Personalized DidYouMean (SRS v1.1): Level 0 — correction đã học rewrite query.
+    private string? _resolvedFrom;    // câu gốc user nhập khi auto-resolve đang active
+    private string? _didYouMeanRaw;   // câu gốc của search gần nhất — raw để record accept
+    private bool _lastInputWasVoice;  // query trong ô input đến từ voice
+    private bool _lastSearchWasVoice; // query của search gần nhất đến từ voice
 
     // SF-W3 (2026-11-08): voice input state (vananVoiceInput — script đã load qua index.html).
     private bool _voiceEnabled;
@@ -216,6 +231,7 @@
     {
         _keyword = text;
         _listening = false;
+        _lastInputWasVoice = true; // Personalized DidYouMean: tag source=voice cho record
         await Search();
     }
 
@@ -252,8 +268,31 @@
             _products = new();
             _hasSearched = false;
             _didYouMean = null;
+            _resolvedFrom = null;
             return;
         }
+
+        // Personalized DidYouMean (SRS v1.1): Level 0 — correction đã học rewrite
+        // query trước khi gọi API (client-side localStorage, backend không đổi).
+        _didYouMeanRaw = keyword;
+        _lastSearchWasVoice = _lastInputWasVoice;
+        _lastInputWasVoice = false;
+        try
+        {
+            var learned = await Corrections.ResolveAsync(SearchCorrectionStore.ScopeProduct, keyword);
+            if (!string.IsNullOrWhiteSpace(learned)
+                && !string.Equals(learned, keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                _resolvedFrom = keyword;
+                keyword = learned.Trim();
+                _keyword = learned.Trim();
+            }
+            else
+            {
+                _resolvedFrom = null;
+            }
+        }
+        catch { _resolvedFrom = null; }
 
         _loading = true;
         _hasSearched = true;
@@ -279,11 +318,32 @@
         }
     }
 
-    /// <summary>Search Unification v2 (Pattern B): chip "Ý bạn là: X?" → re-search 1-tap.</summary>
+    /// <summary>Search Unification v2 (Pattern B): chip "Ý bạn là: X?" → re-search 1-tap.
+    /// Personalized (SRS v1.1): học cặp (câu gốc → suggestion) trước khi re-search —
+    /// fail-open, lỗi storage không chặn re-search.</summary>
     private async Task ApplyDidYouMean(string suggestion)
     {
+        try
+        {
+            await Corrections.RecordAsync(SearchCorrectionStore.ScopeProduct,
+                _didYouMeanRaw ?? _keyword, suggestion, _lastSearchWasVoice ? "voice" : "typed");
+        }
+        catch { /* storage lỗi → vẫn re-search bình thường */ }
         _keyword = suggestion;
         _didYouMean = null;
+        await Search();
+    }
+
+    /// <summary>SRS v1.1: undo auto-resolve — xóa correction đã học → re-search câu gốc
+    /// (rơi lại flow DidYouMean thường).</summary>
+    private async Task UndoResolvedAsync()
+    {
+        var raw = _resolvedFrom;
+        if (raw is null) return;
+        _resolvedFrom = null;
+        try { await Corrections.ForgetAsync(SearchCorrectionStore.ScopeProduct, raw); }
+        catch { /* fail-open */ }
+        _keyword = raw;
         await Search();
     }
 
