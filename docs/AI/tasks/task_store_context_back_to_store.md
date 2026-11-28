@@ -1,5 +1,6 @@
 # TASK CARD: Store Context — "Cửa hàng của bạn" hiệu lực + Back-to-Store (GP-A + GP-B)
 
+> **DONE — 41b394e9 + 818fe26a DEPLOYED - guard ALL PASSED - RV prod sweep 14/14 PASS (2026-11-28).**
 > Created: 2026-11-28 · Mode: IMPLEMENT · TDD · Sweep-first
 > Nguồn: review session 2026-11-28 (2 findings cùng 1 root cause — tenant context
 > không được persist trong luồng storefront → checkout).
@@ -77,15 +78,15 @@
 
 ### Phase A — `LastStoreVisit` + `LastInteractionService` upgrade (TDD — test trước)
 
-- [ ] `LastStoreVisit` record (KhachLink `Services/` hoặc `Models/`):
+- [x] `LastStoreVisit` record (KhachLink `Services/` hoặc `Models/`):
   `{ Guid TenantId; string? Slug; string? Name; DateTimeOffset VisitedAt }`.
-- [ ] `RecordInteractionAsync(Guid tenantId, string? slug = null, string? name = null)`
+- [x] `RecordInteractionAsync(Guid tenantId, string? slug = null, string? name = null)`
   — ghi 2 key: `khachlink_last_store` (JSON `{t,s,n,v}`) + `khachlink_last_tenant_id`
   (bare GUID, giữ reader cũ). `Guid.Empty` → no-op.
-- [ ] `GetLastStoreVisitAsync()` → `LastStoreVisit?` — parse key mới; fallback build
+- [x] `GetLastStoreVisitAsync()` → `LastStoreVisit?` — parse key mới; fallback build
   từ legacy key (tenantId only). Corrupt JSON/JS throw → null.
-- [ ] `GetLastTenantIdAsync()` — đọc key mới `.t` trước, fallback legacy (giữ behavior).
-- [ ] `ClearAsync()` — xóa CẢ 2 key.
+- [x] `GetLastTenantIdAsync()` — đọc key mới `.t` trước, fallback legacy (giữ behavior).
+- [x] `ClearAsync()` — xóa CẢ 2 key.
 
 **Gate A (TDD):** `6_Tests/VanAn.Core.Tests/KhachLink/LastInteractionServiceTests.cs`
 (FakeJsRuntime mirror SearchCorrectionStoreTests) — ≥8 tests: record ghi cả 2 key ·
@@ -95,35 +96,35 @@ Clear xóa cả 2.
 
 ### Phase B — Record touchpoints
 
-- [ ] `Store.razor`: inject `LastInteractionService`; sau khi `_store` load thành công
+- [x] `Store.razor`: inject `LastInteractionService`; sau khi `_store` load thành công
   (cả 2 route slug + by-id, ~line 1546) →
   `RecordInteractionAsync(_store.TenantId, _store.Slug ?? Slug, _store.Name)`
   (fire-and-forget có thể; KHÔNG chặn render).
-- [ ] `Checkout.razor`: sau `_createdOrders` success (~line 1592) → loop
+- [x] `Checkout.razor`: sau `_createdOrders` success (~line 1592) → loop
   `RecordInteractionAsync(o.TenantId, null, o.TenantName)` — multi-tenant cart:
   last-write-wins = tenant cuối (đúng "ghi đè lần cuối").
-- [ ] `OrderTracking.razor`: sau load order DTO có `_orderTenantId` (~line 384) →
+- [x] `OrderTracking.razor`: sau load order DTO có `_orderTenantId` (~line 384) →
   `RecordInteractionAsync(_orderTenantId, null, _tenantName)` — cover re-entry
   từ `/my-orders`/deep-link.
-- [ ] `Scan.razor` + `Home.AddFeaturedToCart` — GIỮ nguyên (slug/name null OK,
+- [x] `Scan.razor` + `Home.AddFeaturedToCart` — GIỮ nguyên (slug/name null OK,
   fallback by-id).
 
 ### Phase C — Consumers: back-to-store (GP-A + GP-B)
 
-- [ ] Component mới `Components/Shared/BackToStoreChip.razor`: inject
+- [x] Component mới `Components/Shared/BackToStoreChip.razor`: inject
   `LastInteractionService` + `Navigation`; render `VanAnButton` Outline
   "Quay lại {Name}" (Name null → "Quay lại cửa hàng") → `/store/{slug}` nếu có
   slug, else `/store/by-id/{tenantId}`; render NOTHING khi không có context.
   Param optional `CssClass`.
-- [ ] `OrderTracking.razor` (GP-A): nút "Tiếp tục mua tại {_tenantName}" —
+- [x] `OrderTracking.razor` (GP-A): nút "Tiếp tục mua tại {_tenantName}" —
   `VanAnButton` → `/store/by-id/{_orderTenantId}`, đặt cạnh/duoi loyalty banner
   + cuối trang. Dùng `_orderTenantId` trực tiếp (đã có, không chờ service).
-- [ ] `LoyaltyCard.razor` (GP-B): `<BackToStoreChip />` đầu container (trong vùng
+- [x] `LoyaltyCard.razor` (GP-B): `<BackToStoreChip />` đầu container (trong vùng
   `_isLoggedIn` hoặc luôn hiện khi có context — chọn luôn hiện để cover guest
   vừa mua xong).
-- [ ] `Home.razor` store section: trong `_store` card thêm `VanAnButton` Primary
+- [x] `Home.razor` store section: trong `_store` card thêm `VanAnButton` Primary
   "Vào cửa hàng" → `LastStoreVisit.Slug != null ? /store/{slug} : /store/by-id/{_lastTenantId}`.
-- [ ] Optional (same pattern, 1 dòng mỗi page): `<BackToStoreChip />` trên
+- [x] Optional (same pattern, 1 dòng mỗi page): `<BackToStoreChip />` trên
   `OrderHistory` (/my-orders), `RedemptionCatalog` (/rewards), `Cart` (/cart).
 
 **Gate C:** bUnit/light tests nếu có harness cho BackToStoreChip (render-null khi
@@ -131,19 +132,19 @@ no context · href đúng slug vs by-id). Markup hooks: `data-testid="back-to-st
 
 ### Phase D — Gate consistency
 
-- [ ] `InstanceFeatureGate` += `ApplyHomeOverrides(bool campaignEnabled,
+- [x] `InstanceFeatureGate` += `ApplyHomeOverrides(bool campaignEnabled,
   bool storeEnabled, KhachLinkNavFlags? flags) → (bool campaign, bool store)`:
   null → trả nguyên; else `campaign && flags.ShowCampaigns`,
   `store && flags.ShowStores`. **Dùng primitives — KHÔNG nhận
   `KhachLinkHomeSettingsDto`** vì DTO này đang duplicate 3 nơi (Gateway
   controller / ShopERP client / KhachLink service), không nằm trong Shared —
   CoreHub không tham chiếu được. (Verified 2026-11-28.)
-- [ ] `KhachLinkHomeSettingsController` inject `IInstanceFeatureGate`; `GetSettings`
+- [x] `KhachLinkHomeSettingsController` inject `IInstanceFeatureGate`; `GetSettings`
   sau khi load (cả nhánh DB row lẫn default dto) →
   `(dto.Home_CampaignSection_Enabled, dto.Home_StoreSection_Enabled) =
   _gate.ApplyHomeOverrides(dto.Home_CampaignSection_Enabled,
   dto.Home_StoreSection_Enabled, await _gate.GetNavFlagsAsync())`.
-- [ ] `KhachLinkHomeSettingsHttpService` (KhachLink) — không đổi (header
+- [x] `KhachLinkHomeSettingsHttpService` (KhachLink) — không đổi (header
   `X-KhachLink-Domain` đã gắn bởi `InstanceDomainHeaderHandler`).
 
 **Gate D (TDD):** `InstanceFeatureGateTests` += ≥3 tests: ShowStores=false →
@@ -152,13 +153,13 @@ flags=null → unchanged · các field khác (Featured/SocialHub/ShowNavMenu) kh
 
 ### Phase E — Ship
 
-- [ ] `dotnet build VanAn.sln` 0 err · `dotnet test` Core.Tests · guard-check.ps1 ALL PASSED
-- [ ] E2E spec `6_Testing/e2e-tests/store-context.spec.ts` (Gate 4 — UI mới):
+- [x] `dotnet build VanAn.sln` 0 err · `dotnet test` Core.Tests · guard-check.ps1 ALL PASSED
+- [x] E2E spec `6_Testing/e2e-tests/store-context.spec.ts` (Gate 4 — UI mới):
   visit `/store/{slug}` → `localStorage.khachlink_last_store` có JSON → Home hiện
   "Cửa Hàng Của Bạn" + nút "Vào cửa hàng" → `/my-loyalty` hiện chip →
   `/order-tracking` hiện "Tiếp tục mua" (validation wave sau implement —
   Playwright tắt trong IMPLEMENT).
-- [ ] Commit → push → CD → **RV prod sweep** `6_Testing/rv-scripts/store-context-rv-sweep.mjs`:
+- [x] Commit → push → CD → **RV prod sweep** `6_Testing/rv-scripts/store-context-rv-sweep.mjs`:
   L1 `api/platform/khachlink-home-settings` có/không header `X-KhachLink-Domain`
   (gate AND đúng) · L2 WASM marker `khachlink_last_store` · L4 UI flow trên
   1 tenant thật (visit → home section → back chip → order-tracking button).
