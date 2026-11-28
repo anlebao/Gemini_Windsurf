@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-28T07:40:49.558Z",
+  "when": "2026-11-28T08:19:07.956Z",
   "results": [
     {
       "n": "S1 mic button render (KL /stores)",
@@ -29,7 +29,7 @@
     {
       "n": "S3 V2a adaptive silence: request <2400ms sau isFinal",
       "p": true,
-      "d": "reqMs=2551 sinceFinal=1051ms"
+      "d": "reqMs=2524 sinceFinal=1024ms"
     },
     {
       "n": "S4 isRecording/listening reset sau final",
@@ -49,7 +49,7 @@
     {
       "n": "S5 lazy-race: vananVoiceInput.isSupported callable ≤8s",
       "p": true,
-      "d": "waited=1136ms"
+      "d": "waited=995ms"
     },
     {
       "n": "S5 vananWhenLazyReady function exists",
@@ -95,6 +95,281 @@
       "n": "S8 Home final → SubmitHomeSearch nav với q=an tam",
       "p": true,
       "d": "https://commienphi.timlathay.com/products?q=an%20tam"
+    },
+    {
+      "n": "S9 noend: transcript vẫn submit (dead-man finalize)",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "S9 noend: listening off sau fallback",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/stores mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/stores interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/stores submit name=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "commienphi/stores listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/products mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/products interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/products submit catalog q=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=an%20tam"
+    },
+    {
+      "n": "commienphi/products listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/ mic render (Home)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/ interim→DOM-fill #home-search-input",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/ final→nav q=an tam",
+      "p": true,
+      "d": "https://commienphi.timlathay.com/products?q=an%20tam"
+    },
+    {
+      "n": "shopai/stores mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/stores interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/stores submit name=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "shopai/stores listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/products mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/products interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/products submit catalog q=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=an%20tam"
+    },
+    {
+      "n": "shopai/products listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/ mic render (Home)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/ interim→DOM-fill #home-search-input",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/ final→nav q=an tam",
+      "p": true,
+      "d": "https://shopai.timlathay.com/products?q=an%20tam"
+    },
+    {
+      "n": "vanan/stores mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/stores interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/stores submit name=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "vanan/stores listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/products mic render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/products interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/products submit catalog q=an tam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=an%20tam"
+    },
+    {
+      "n": "vanan/products listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/ mic render (Home)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/ interim→DOM-fill #home-search-input",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/ final→nav q=an tam",
+      "p": true,
+      "d": "https://vanan.timlathay.com/products?q=an%20tam"
+    },
+    {
+      "n": "hoptacxa/ mic ẩn đúng (portal không voice)",
+      "p": true,
+      "d": "count=0"
+    },
+    {
+      "n": "Dir/ mic render (Home)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "Dir/ interim→DOM-fill sớm",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "Dir/ voice submit → search chạy (SSR, user-reported page)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "Dir/ listening off sau submit",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "API fuzzy: name=antaam → didYouMean \"An Tâm\"",
+      "p": true,
+      "d": "{\"results\":[{\"id\":\"e2d91cdf-d3c4-4399-b96e-e772a7a41630\",\"name\":\"An Tâm\",\"address\":\"\",\"phone\":\"\",\"email\":\"\",\"latitude\":1"
+    },
+    {
+      "n": "API search: name=cafe → có kết quả",
+      "p": true,
+      "d": "n=4"
+    },
+    {
+      "n": "commienphi/stores typed \"antaam\" → fuzzy/DidYouMean \"An Tâm\"",
+      "p": true,
+      "d": "Shop AI\n Tìm cửa hàng gần bạn\n\nKhám phá các cửa hàng trong khu vực của bạn\n\nTìm kiếm\n Dùng vị trí của tôi\n Tất cả cửa hà"
+    },
+    {
+      "n": "commienphi/stores voice \"antaam\" mic",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/stores voice \"antaam\" → request name=antaam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=antaam"
+    },
+    {
+      "n": "commienphi/stores voice \"antaam\" → \"An Tâm\" trong DOM (fuzzy/DYM)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/stores typed \"antaam\" → fuzzy/DidYouMean \"An Tâm\"",
+      "p": true,
+      "d": "Shop AI\n Tìm cửa hàng gần bạn\n\nKhám phá các cửa hàng trong khu vực của bạn\n\nTìm kiếm\n Dùng vị trí của tôi\n Tất cả cửa hà"
+    },
+    {
+      "n": "shopai/stores voice \"antaam\" mic",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "shopai/stores voice \"antaam\" → request name=antaam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=antaam"
+    },
+    {
+      "n": "shopai/stores voice \"antaam\" → \"An Tâm\" trong DOM (fuzzy/DYM)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/stores typed \"antaam\" → fuzzy/DidYouMean \"An Tâm\"",
+      "p": true,
+      "d": "Shop AI\n Tìm cửa hàng gần bạn\n\nKhám phá các cửa hàng trong khu vực của bạn\n\nTìm kiếm\n Dùng vị trí của tôi\n Tất cả cửa hà"
+    },
+    {
+      "n": "vanan/stores voice \"antaam\" mic",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "vanan/stores voice \"antaam\" → request name=antaam",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=antaam"
+    },
+    {
+      "n": "vanan/stores voice \"antaam\" → \"An Tâm\" trong DOM (fuzzy/DYM)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "Dir/stores typed \"antaam\" → fuzzy/DidYouMean \"An Tâm\"",
+      "p": true,
+      "d": "Tìm cửa hàng & sản phẩm gần bạn\n\nNhập tên, nói bằng giọng nói, hoặc bật vị trí để xem cửa hàng trong bán kính 5–20 km\n\nT"
     },
     {
       "n": "no pageerror",
