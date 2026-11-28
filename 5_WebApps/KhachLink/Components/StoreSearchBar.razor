@@ -157,7 +157,8 @@
             else
             {
                 _voiceRef ??= DotNetObjectReference.Create(this);
-                var started = await JS.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+                var started = await JS.InvokeAsync<bool>(
+                    "vananVoiceInput.start", _voiceRef, "store-search-input");
                 _listening = started;
             }
         }
@@ -182,6 +183,7 @@
         _query = text;
         _listening = false;
         await SearchAsync();
+        StateHasChanged(); // JSInvokable không auto-render — xem Dir Home.OnVoiceFinal
     }
 
     [JSInvokable]

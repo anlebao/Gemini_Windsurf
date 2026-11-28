@@ -748,6 +748,7 @@
         _messageInput = text;
         _listening = false;
         await SendMessage();
+        StateHasChanged(); // JSInvokable không auto-render — xem Dir Home.OnVoiceFinal
     }
 
     [JSInvokable]

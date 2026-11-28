@@ -588,8 +588,9 @@
     // Issue #142: Home voice search box — Google Maps style
     private string _homeSearchKeyword = "";
 
-    /// <summary>Search mode tab toggle: "product" (default — nhu cầu tìm sản phẩm cao hơn) | "store".
-    /// Open-closed: existing store search behavior unchanged when user toggles to mode="store".</summary>
+    /// <summary>Search mode tab toggle: "product" (default) | "store".
+    /// shopai.timlathay.com → default "store" (tìm tên tenant) — set trong
+    /// OnInitializedAsync; các instance khác giữ "product". Toggle vẫn đổi được.</summary>
     private string _searchMode = "product";
     private bool _homeVoiceEnabled = false;
     private bool _homeSpeechSupported = false;
@@ -609,6 +610,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // shopai.timlathay.com → default search mode = "store" (tìm tên tenant).
+        // Host-check scoped per user requirement 2026-11-28; instance khác giữ "product".
+        if (new Uri(Navigation.BaseUri).Host.StartsWith("shopai.", StringComparison.OrdinalIgnoreCase))
+            _searchMode = "store";
+
         // W2-2: resolve instance profile trước — Hoptacxa portal bỏ qua commerce data loads
         await InstanceContext.GetConfigAsync();
         _isHoptacxa = InstanceContext.IsHoptacxa;

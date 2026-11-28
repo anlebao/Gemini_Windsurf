@@ -434,6 +434,10 @@ for (const host of KL_HOSTS) {
     if (hm.mic) {
         check(`${tag}/ interim→DOM-fill #home-search-input`, hm.earlyFill);
         check(`${tag}/ final→nav q=an tam`, /products|stores/.test(hm.navUrl) && hm.navUrl.includes('q='), hm.navUrl);
+        // shopai default _searchMode="store" (host-check) → nav /stores;
+        // instance khác giữ default "product" → nav /products
+        const want = tag === 'shopai' ? '/stores' : '/products';
+        check(`${tag}/ Home default mode → nav ${want}`, hm.navUrl.includes(want + '?'), hm.navUrl);
     }
 }
 
@@ -549,6 +553,31 @@ for (const host of KL_HOSTS) {
 {
     const dy = await typedMisspellFlow({ host: DIRECTORY, path: '/stores', inputSel: '#vanan-public-search-input' });
     check('Dir/stores typed "antaam" → fuzzy/DidYouMean "An Tâm"', dy.found && dy.dom, dy.body);
+}
+
+// ═══ Storefront /store/{slug} — StoreSearchBar semantic search — OnVoiceFinal
+// cũng từng thiếu StateHasChanged (user report "storefront page fail") ═══
+{
+    const { ctx, page } = await newPageWithSR('speech');
+    await page.goto(`${KHACHLINK}/store/an-tam`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(8000); // storefront nặng — features/flags + products
+    const mic = page.locator('.store-search-mic, button[aria-label*="giọng nói"]').first();
+    try { await mic.waitFor({ timeout: 30000 }); } catch {}
+    check('storefront mic render (StoreSearchBar)', await mic.count() > 0);
+    if (await mic.count() > 0) {
+        await mic.click();
+        // AI semantic search chậm — cho 15s; assert .store-search-result render
+        let earlyFill = false, result = false;
+        for (let i = 0; i < 30; i++) {
+            await page.waitForTimeout(500);
+            const inp = await page.locator('#store-search-input').inputValue().catch(() => '');
+            if (inp.includes('an tam') && i <= 5) earlyFill = true;
+            if (await page.locator('.store-search-result').count() > 0) { result = true; break; }
+        }
+        check('storefront interim→DOM-fill #store-search-input', earlyFill);
+        check('storefront voice → search RENDER (.store-search-result)', result);
+    }
+    await ctx.close();
 }
 
 check('no pageerror', pageErrors.length === 0, pageErrors[0]);

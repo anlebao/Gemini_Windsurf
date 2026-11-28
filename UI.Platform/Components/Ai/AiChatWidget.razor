@@ -704,6 +704,7 @@
         _input = text;
         _listening = false;
         await SendAsync();
+        StateHasChanged(); // JSInvokable không auto-render — xem Dir Home.OnVoiceFinal
     }
 
     [JSInvokable]
