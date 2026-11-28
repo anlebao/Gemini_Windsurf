@@ -1,6 +1,6 @@
 # TASK CARD: Store Context — "Cửa hàng của bạn" hiệu lực + Back-to-Store (GP-A + GP-B)
 
-> **DONE — 41b394e9 + 818fe26a DEPLOYED - guard ALL PASSED - RV prod sweep 14/14 PASS (2026-11-28).**
+> **DONE — 41b394e9 + 818fe26a + follow-up 120e30b3 DEPLOYED - guard ALL PASSED - RV prod sweep 14/14 PASS (2026-11-28).**
 > Created: 2026-11-28 · Mode: IMPLEMENT · TDD · Sweep-first
 > Nguồn: review session 2026-11-28 (2 findings cùng 1 root cause — tenant context
 > không được persist trong luồng storefront → checkout).
@@ -182,3 +182,43 @@ flags=null → unchanged · các field khác (Featured/SocialHub/ShowNavMenu) kh
 - D3: shared component `BackToStoreChip` thay vì rải logic mỗi page.
 - D4: home-settings GET áp InstanceFeatureGate AND-semantics (không force-on).
 - D5: KHÔNG đụng Domain/DB/migration — pure client + read-path.
+
+## FOLLOW-UP 2026-11-28 (commit `120e30b3`) — Fix-1 + Fix-3
+
+**Bug report (user):** khách search → bấm vào storefront tenant → về Home,
+"Cửa Hàng Của Bạn" vẫn không hiện dù feature đã deploy.
+
+**Root cause (verified): cross-origin localStorage.** Các entry search link thẳng
+tới `KhachLinkDomain` riêng của tenant → `khachlink_last_store` ghi trên origin
+khác với portal khách xem Home → section không bao giờ thấy context
+(localStorage là per-origin).
+
+**Fix-1 — same-origin là đường chính:**
+
+- `StoreFinder.razor`: "Xem trang cửa hàng" luôn same-origin `/store/{slug|id}`
+  (Primary); nút cross-domain đổi thành "Portal riêng" (Outline, phụ).
+- `HoptacxaPortal.razor`: `.htx-member-main` → same-origin store path (bỏ
+  `_blank`); `KhachLinkDomain` hiện như link phụ `.htx-member-domain`
+  (target=_blank). `MemberStoreBaseUrl` luôn trả same-origin path.
+- E2E `w3-2b-storefront.spec.ts`: assert member-main `^/store/`; domain link
+  (nếu có) vẫn `^https://`.
+
+**Fix-3 — ShowStores KHÔNG được giấu "Cửa Hàng Của Bạn":**
+
+- `ApplyHomeOverrides(bool,bool,flags) → (bool,bool)` đổi thành
+  `bool ApplyHomeOverrides(bool campaignEnabled, flags)` — chỉ Campaign
+  AND-gate; storeEnabled không còn trong signature (passthrough tại controller).
+- Rationale: kill-switch ShowStores chặn DISCOVERY (/stores page, featured) —
+  nhưng section "Cửa Hàng Của Bạn" phản ánh quan hệ khách↔shop ĐÃ tồn tại;
+  giấu nó là quá tay (chính là giả thuyết N2 gây bug user report).
+- TDD bắt bug impl: `flags is null || ...` short-circuit trả `true` khi flags
+  null (bỏ qua campaignEnabled=false) → sửa
+  `campaignEnabled && (flags?.ShowCampaigns ?? true)`.
+- `InstanceFeatureGateTests` 3 HomeGate tests viết lại — 10/10 PASS.
+
+**RV sweep bổ sung:** check `timlathay.com` (ShowStores=false) →
+`home_StoreSection_Enabled` phải vẫn `true`.
+
+**Deferred — Fix-2 (server-side visit tracking):** POST visit theo
+`customer_device_id` để context hiện trên mọi portal/thiết bị — cần task card
+riêng (mới chạm backend write-path).
