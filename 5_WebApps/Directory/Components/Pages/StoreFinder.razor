@@ -2,10 +2,12 @@
 @page "/store-finder"
 @using VanAn.Directory.Services
 @using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Services
 @inject CatalogService CatalogService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject IConfiguration Configuration
+@inject SearchCorrectionStore Corrections
 
 @* W2-3 (FR-U4, 2026-11-14): on-domain store finder — thay redirect sang khachvip.online.
    Port tối thiểu: keyword search + nearby theo vị trí + Leaflet map (directory-map.js)
@@ -45,6 +47,15 @@
             <div class="text-danger small mt-2">@_voiceError</div>
         }
         <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="SearchWithKeyword" />
+        @* Personalized DidYouMean W2 (tenant scope): auto-resolve — báo rõ + Hoàn tác *@
+        @if (_resolvedFrom is not null)
+        {
+            <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3 search-learned-note">
+                <i class="bi bi-lightbulb me-1"></i>
+                Đang tìm "<b>@_resolvedName</b>" — đã học từ cách bạn nhập "<i>@_resolvedFrom</i>"
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 search-learned-undo" @onclick="UndoResolvedAsync">Hoàn tác</button>
+            </VanAnAlert>
+        }
 
         <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
             <VanAnButton Variant="ButtonVariant.Outline" OnClick="UseMyLocationAsync" Disabled="@_loading">
@@ -201,6 +212,11 @@
     private bool _mapRendered;
     private int _radiusKm = 10;
     private string? _didYouMean;
+    private string? _resolvedFrom;      // câu gốc user nhập khi auto-resolve active
+    private string? _resolvedName;      // tên đã học (display) — render note
+    private string? _didYouMeanRaw;     // câu gốc tại thời điểm search (record khi accept)
+    private bool _lastInputWasVoice;    // OnVoiceFinal → tag source cho record
+    private bool _lastSearchWasVoice;
 
     // Voice input state (vananVoiceInput — script loaded via App.razor, giống Home.razor)
     private bool _speechSupported;
@@ -237,17 +253,63 @@
         _loading = true;
         _searched = true;
         _searchedByLocation = false;
-        var result = await CatalogService.SearchStoresAsync(_keyword);
+        // Personalized DidYouMean W2 (tenant scope): Level 0 — correction đã học
+        // rewrite query trước khi gọi API (localStorage, backend không đổi).
+        var keyword = _keyword?.Trim() ?? "";
+        _didYouMeanRaw = keyword;
+        _lastSearchWasVoice = _lastInputWasVoice;
+        _lastInputWasVoice = false;
+        if (keyword.Length > 0)
+        {
+            try
+            {
+                var learned = await Corrections.ResolveAsync(SearchCorrectionStore.ScopeTenant, keyword);
+                if (!string.IsNullOrWhiteSpace(learned)
+                    && !string.Equals(learned, keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    _resolvedFrom = keyword;
+                    _resolvedName = learned.Trim();
+                    keyword = _resolvedName;
+                    _keyword = keyword;
+                }
+                else
+                {
+                    _resolvedFrom = null;
+                    _resolvedName = null;
+                }
+            }
+            catch { _resolvedFrom = null; _resolvedName = null; }
+        }
+        var result = await CatalogService.SearchStoresAsync(keyword);
         _stores = result.Results;
         _didYouMean = result.DidYouMean;
         _loading = false;
         await RenderMapAsync();
     }
 
-    /// <summary>Issue #166 comment: search với gợi ý "Ý bạn là: X?".</summary>
+    /// <summary>Issue #166 comment: search với gợi ý "Ý bạn là: X?".
+    /// W2: học cặp (câu gốc → suggestion) trước khi re-search — fail-open.</summary>
     private async Task SearchWithKeyword(string keyword)
     {
+        try
+        {
+            await Corrections.RecordAsync(SearchCorrectionStore.ScopeTenant,
+                _didYouMeanRaw ?? _keyword, keyword, _lastSearchWasVoice ? "voice" : "typed");
+        }
+        catch { /* storage lỗi → vẫn re-search bình thường */ }
         _keyword = keyword;
+        await SearchAsync();
+    }
+
+    /// <summary>Undo auto-resolve: xóa correction đã học + re-search câu gốc.</summary>
+    private async Task UndoResolvedAsync()
+    {
+        var raw = _resolvedFrom;
+        _resolvedFrom = null;
+        _resolvedName = null;
+        try { await Corrections.ForgetAsync(SearchCorrectionStore.ScopeTenant, raw); }
+        catch { /* fail-open */ }
+        _keyword = raw ?? _keyword;
         await SearchAsync();
     }
 
@@ -303,6 +365,8 @@
         _stores = new();
         _mapRendered = false;
         _didYouMean = null;
+        _resolvedFrom = null;
+        _resolvedName = null;
     }
 
     // ── Voice input (port từ Home.razor — vananVoiceInput vi-VN) ──────────────
@@ -342,6 +406,7 @@
     public async Task OnVoiceFinal(string text)
     {
         _keyword = text;
+        _lastInputWasVoice = true;
         _listening = false;
         await SearchAsync();
     }

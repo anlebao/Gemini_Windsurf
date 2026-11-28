@@ -5,10 +5,13 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.Http
+@using VanAn.UI.Platform.Services
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject SearchCorrectionStore Corrections
+@inject SearchResultCache ResultCache
 @implements IDisposable
 
 <PageTitle>Tìm cửa hàng gần bạn — KhachLink</PageTitle>
@@ -69,6 +72,15 @@
             </div>
             @* W3-2d (Pattern B): fuzzy suggestion chip — backend /api/tenants/search trả didYouMean *@
             <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="ApplyDidYouMean" />
+            @* Personalized DidYouMean W2 (tenant scope): auto-resolve — báo rõ + Hoàn tác *@
+            @if (_resolvedFrom is not null)
+            {
+                <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3 search-learned-note">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Đang tìm "<b>@_resolvedName</b>" — đã học từ cách bạn nhập "<i>@_resolvedFrom</i>"
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2 search-learned-undo" @onclick="UndoResolvedAsync">Hoàn tác</button>
+                </VanAnAlert>
+            }
         </div>
 
         @if (_loading)
@@ -281,7 +293,13 @@
     private double? _userLng;
     private string _searchKeyword = "";
     private string? _didYouMean;
+    private string? _resolvedFrom;      // câu gốc user nhập khi auto-resolve tenant active
+    private string? _resolvedName;      // tên đã học (display) — chỉ để render note
+    private string? _didYouMeanRaw;     // câu gốc tại thời điểm search (record khi accept)
+    private bool _lastInputWasVoice;    // set khi bắt đầu ghi âm → tag source cho record
+    private bool _lastSearchWasVoice;
     private System.Threading.CancellationTokenSource? _searchDebounce;
+    private System.Threading.CancellationTokenSource? _loadCts;
     // Voice search — reuses wwwroot/js/voice-note.js (loaded via index.html)
     private bool _voiceSearchEnabled = false;
     private bool _speechSupported = false;
@@ -370,6 +388,7 @@
         {
             // Clear previous keyword before recording so transcript starts fresh
             _searchKeyword = "";
+            _lastInputWasVoice = true;
             isRecording = true;
             await JSRuntime.InvokeVoidAsync("startRecording");
         }
@@ -396,19 +415,22 @@
     public void Dispose()
     {
         _voiceDotNetRef?.Dispose();
+        _searchDebounce?.Dispose();
+        _loadCts?.Dispose();
     }
 
     // W3-2d: OnValueChanged = debounce gõ phím (giữ behavior cũ 300ms);
     // OnSearch = Enter/button → search ngay (cancel debounce).
-    private async Task OnSearchValueChanged(string? value)
+    public async Task OnSearchValueChanged(string? value)
     {
         _searchKeyword = value ?? "";
         _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
         _searchDebounce = new System.Threading.CancellationTokenSource();
         try
         {
             await Task.Delay(300, _searchDebounce.Token);
-            await LoadStores();
+            await LoadStores(_searchDebounce.Token);
         }
         catch (TaskCanceledException) { /* debounce */ }
     }
@@ -419,11 +441,31 @@
         await LoadStores();
     }
 
-    /// <summary>W3-2d (Pattern B): 1-tap "Ý bạn là?" → re-search với suggestion.</summary>
+    /// <summary>W3-2d (Pattern B): 1-tap "Ý bạn là?" → re-search với suggestion.
+    /// W2: học cặp (câu gốc → suggestion) trước khi re-search — fail-open.</summary>
     private async Task ApplyDidYouMean(string suggestion)
     {
+        try
+        {
+            await Corrections.RecordAsync(SearchCorrectionStore.ScopeTenant,
+                _didYouMeanRaw ?? _searchKeyword, suggestion, _lastSearchWasVoice ? "voice" : "typed");
+        }
+        catch { /* storage lỗi → vẫn re-search bình thường */ }
         _searchKeyword = suggestion;
         _didYouMean = null;
+        await LoadStores();
+    }
+
+    /// <summary>Undo auto-resolve: xóa correction đã học + re-search câu gốc →
+    /// rơi lại DidYouMean thường.</summary>
+    private async Task UndoResolvedAsync()
+    {
+        var raw = _resolvedFrom;
+        _resolvedFrom = null;
+        _resolvedName = null;
+        try { await Corrections.ForgetAsync(SearchCorrectionStore.ScopeTenant, raw); }
+        catch { /* fail-open */ }
+        _searchKeyword = raw ?? _searchKeyword;
         await LoadStores();
     }
 
@@ -431,6 +473,8 @@
     {
         _searchKeyword = "";
         _didYouMean = null;
+        _resolvedFrom = null;
+        _resolvedName = null;
         await LoadStores();
     }
 
@@ -461,42 +505,99 @@
         }
     }
 
-    private async Task LoadStores()
+    private async Task LoadStores() => await LoadStores(CancellationToken.None);
+
+    private async Task LoadStores(CancellationToken callerCt)
     {
+        // A1 (load hardening): request mới cancel in-flight request cũ; caller CT
+        // (debounce) linked vào — keystroke mới abort cả HTTP đang chạy.
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = CancellationTokenSource.CreateLinkedTokenSource(callerCt);
+        var ct = _loadCts.Token;
+        _lastSearchWasVoice = _lastInputWasVoice;
+        _lastInputWasVoice = false;
         _loading = true;
         _error = null;
         try
         {
             var client = HttpClientFactory.CreateClient("gateway");
             string url;
-            if (!string.IsNullOrWhiteSpace(_searchKeyword))
+            var keyword = _searchKeyword.Trim();
+            if (keyword.Length == 1)
             {
-                // Keyword search — calls /api/tenants/search?name={keyword}
-                url = $"/api/tenants/search?name={Uri.EscapeDataString(_searchKeyword)}";
+                // A2: min-length ≥2 — 1 ký tự không đáng 1 round-trip; giữ list hiện tại.
+                _loading = false;
+                return;
+            }
+            if (keyword.Length > 0)
+            {
+                // Personalized DidYouMean W2 (tenant scope): Level 0 — correction đã
+                // học rewrite query trước khi gọi API (localStorage, backend không đổi).
+                _didYouMeanRaw = keyword;
+                try
+                {
+                    var learned = await Corrections.ResolveAsync(SearchCorrectionStore.ScopeTenant, keyword, ct);
+                    if (!string.IsNullOrWhiteSpace(learned)
+                        && !string.Equals(learned, keyword, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _resolvedFrom = keyword;
+                        _resolvedName = learned.Trim();
+                        keyword = _resolvedName;
+                        _searchKeyword = keyword;
+                    }
+                    else
+                    {
+                        _resolvedFrom = null;
+                        _resolvedName = null;
+                    }
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                catch { _resolvedFrom = null; _resolvedName = null; }
+
+                // A3: client cache 60s — gõ rồi xóa rồi gõ lại không gọi API lần 2.
+                if (ResultCache.TryGet<SearchResultDto>("tenant", keyword, out var cached) && cached is not null)
+                {
+                    _stores = cached.Results;
+                    _didYouMean = cached.DidYouMean;
+                    _loading = false;
+                    return;
+                }
+                url = $"/api/tenants/search?name={Uri.EscapeDataString(keyword)}";
             }
             else if (_userLat.HasValue && _userLng.HasValue)
             {
+                _resolvedFrom = null;
+                _resolvedName = null;
                 url = $"/api/tenants/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}";
             }
             else
             {
+                _resolvedFrom = null;
+                _resolvedName = null;
                 // No location + no keyword — list all active tenants via search with empty name
                 url = "/api/tenants/search";
             }
 
-            var response = await client.GetAsync(url);
+            var response = await client.GetAsync(url, ct);
             if (response.IsSuccessStatusCode)
             {
                 // Issue #166 comment: Gateway now returns TenantSearchResultDto wrapper
                 // (Results + SuggestedKeywords + MatchStrategy) instead of bare List<StoreDto>.
-                var result = await response.Content.ReadFromJsonAsync<SearchResultDto>();
+                var result = await response.Content.ReadFromJsonAsync<SearchResultDto>(ct);
                 _stores = result?.Results ?? new();
                 _didYouMean = result?.DidYouMean;
+                if (result is not null && keyword.Length > 0)
+                    ResultCache.Set("tenant", keyword, result);
             }
             else
             {
                 _error = "Không thể tải danh sách cửa hàng. Vui lòng thử lại.";
             }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Stale request bị abort — không set _error, không động list.
         }
         catch (Exception ex)
         {
@@ -505,6 +606,7 @@
         finally
         {
             _loading = false;
+            StateHasChanged();
         }
     }
 

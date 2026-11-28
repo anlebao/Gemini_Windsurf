@@ -8,6 +8,7 @@
 @inject IJSRuntime JSRuntime
 @inject IConfiguration Configuration
 @inject IMeteringClient Metering
+@inject VanAn.UI.Platform.Services.SearchCorrectionStore Corrections
 @implements IAsyncDisposable
 
 <PageTitle>Danh bạ Vạn An — Tìm cửa hàng gần bạn</PageTitle>
@@ -75,6 +76,15 @@
 
         @* W3-2d (Pattern B): fuzzy match → "Ý bạn là: X?" chip 1-tap (VanAnDidYouMeanChip) *@
         <VanAnDidYouMeanChip Suggestion="@_didYouMean" OnApply="SearchWithKeyword" />
+        @* Personalized DidYouMean W2: auto-resolve — báo rõ + Hoàn tác (scope theo mode) *@
+        @if (_resolvedFrom is not null)
+        {
+            <VanAnAlert Variant="AlertVariant.Info" CssClass="mb-3 search-learned-note">
+                <i class="bi bi-lightbulb me-1"></i>
+                Đang tìm "<b>@_resolvedName</b>" — đã học từ cách bạn nhập "<i>@_resolvedFrom</i>"
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 search-learned-undo" @onclick="UndoResolvedAsync">Hoàn tác</button>
+            </VanAnAlert>
+        }
 
         <!-- Issue #166 comment: Suggested keywords when no direct match -->
         @if (_hasSearched && !_loading && _suggestedKeywords.Count > 0)
@@ -368,6 +378,11 @@
 
 @code {
     private string _searchKeyword = "";
+    private string? _resolvedFrom;      // câu gốc user nhập khi auto-resolve active
+    private string? _resolvedName;      // tên đã học (display) — render note
+    private string? _didYouMeanRaw;     // câu gốc tại thời điểm search (record khi accept)
+    private bool _lastInputWasVoice;    // OnVoiceFinal → tag source cho record
+    private bool _lastSearchWasVoice;
     private string _searchMode = "store"; // "store" (default, existing) | "product" (new)
     private List<TenantStoreDto> _stores = new();
     private List<ProductSearchItem> _products = new();
@@ -420,11 +435,41 @@
     {
         _loading = true;
         _hasSearched = true;
+        // Personalized DidYouMean W2: Level 0 — correction đã học rewrite query
+        // trước khi gọi API (localStorage, backend không đổi). Scope theo mode.
+        var keyword = _searchKeyword?.Trim() ?? "";
+        var scope = _searchMode == "product"
+            ? VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeProduct
+            : VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeTenant;
+        _didYouMeanRaw = keyword;
+        _lastSearchWasVoice = _lastInputWasVoice;
+        _lastInputWasVoice = false;
+        if (keyword.Length > 0)
+        {
+            try
+            {
+                var learned = await Corrections.ResolveAsync(scope, keyword);
+                if (!string.IsNullOrWhiteSpace(learned)
+                    && !string.Equals(learned, keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    _resolvedFrom = keyword;
+                    _resolvedName = learned.Trim();
+                    keyword = _resolvedName;
+                    _searchKeyword = keyword;
+                }
+                else
+                {
+                    _resolvedFrom = null;
+                    _resolvedName = null;
+                }
+            }
+            catch { _resolvedFrom = null; _resolvedName = null; }
+        }
         if (_searchMode == "product")
         {
             // Product search — calls /api/catalog/search?q= (Search Unification v2:
             // fuzzy + DidYouMean giống tenant search — chip consume bên dưới)
-            var result = await CatalogService.SearchProductsAsync(_searchKeyword);
+            var result = await CatalogService.SearchProductsAsync(keyword);
             _products = result?.Products ?? new();
             _stores = new();
             _suggestedKeywords = new();
@@ -434,7 +479,7 @@
         else
         {
             // Store search — existing behavior (unchanged)
-            var result = await CatalogService.SearchStoresAsync(_searchKeyword);
+            var result = await CatalogService.SearchStoresAsync(keyword);
             _stores = result.Results;
             _suggestedKeywords = result.SuggestedKeywords;
             _matchStrategy = result.MatchStrategy;
@@ -469,12 +514,39 @@
         _products = new();
         _suggestedKeywords = new();
         _didYouMean = null;
+        _resolvedFrom = null;
+        _resolvedName = null;
     }
 
-    /// <summary>Issue #166 comment: search with a suggested keyword (clicking "Did you mean...?").</summary>
+    /// <summary>Issue #166 comment: search with a suggested keyword (clicking "Did you mean...?").
+    /// W2: accept chip/suggestion → học cặp (câu gốc → keyword) theo scope của mode — fail-open.</summary>
     private async Task SearchWithKeyword(string keyword)
     {
+        try
+        {
+            var scope = _searchMode == "product"
+                ? VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeProduct
+                : VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeTenant;
+            await Corrections.RecordAsync(scope,
+                _didYouMeanRaw ?? _searchKeyword, keyword, _lastSearchWasVoice ? "voice" : "typed");
+        }
+        catch { /* storage lỗi → vẫn re-search bình thường */ }
         _searchKeyword = keyword;
+        await SearchStores();
+    }
+
+    /// <summary>Undo auto-resolve: xóa correction đã học + re-search câu gốc.</summary>
+    private async Task UndoResolvedAsync()
+    {
+        var raw = _resolvedFrom;
+        var scope = _searchMode == "product"
+            ? VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeProduct
+            : VanAn.UI.Platform.Services.SearchCorrectionStore.ScopeTenant;
+        _resolvedFrom = null;
+        _resolvedName = null;
+        try { await Corrections.ForgetAsync(scope, raw); }
+        catch { /* fail-open */ }
+        _searchKeyword = raw ?? _searchKeyword;
         await SearchStores();
     }
 
@@ -522,6 +594,8 @@
         _suggestedKeywords = new();
         _didYouMean = null;
         _matchStrategy = "all";
+        _resolvedFrom = null;
+        _resolvedName = null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -580,6 +654,7 @@
     public async Task OnVoiceFinal(string text)
     {
         _searchKeyword = text;
+        _lastInputWasVoice = true;
         _listening = false;
         await SearchStores();
     }

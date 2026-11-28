@@ -22,6 +22,11 @@ builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
 // (host-agnostic RCL registration — the 3rd host referencing UI.Platform).
 builder.Services.AddRealtimePlatform();
 
+// Personalized DidYouMean W2: shared client-side correction store (localStorage,
+// post-render only — Directory SSR gọi trong interactive handlers, an toàn).
+builder.Services.AddScoped<VanAn.UI.Platform.Services.SearchCorrectionStore>();
+builder.Services.AddScoped<VanAn.UI.Platform.Services.SearchResultCache>();
+
 // JSON options — Gateway API returns enums as strings (e.g. "theme":"Classic")
 // System.Text.Json default uses numbers for enums → JsonException
 var gatewayJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);

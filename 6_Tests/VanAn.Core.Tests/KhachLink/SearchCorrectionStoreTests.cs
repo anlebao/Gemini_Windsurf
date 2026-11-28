@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.JSInterop;
-using VanAn.KhachLink.Services;
+using VanAn.UI.Platform.Services;
 using Xunit;
 
 namespace VanAn.Core.Tests.KhachLink;

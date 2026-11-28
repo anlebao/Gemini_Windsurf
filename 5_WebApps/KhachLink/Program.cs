@@ -66,7 +66,8 @@ namespace VanAn.KhachLink
 
             // Personalized DidYouMean (SRS v1.1): self-learning search corrections
             // trong localStorage — record-on-accept, resolve-before-search, undo.
-            _ = builder.Services.AddScoped<Services.SearchCorrectionStore>();
+            _ = builder.Services.AddScoped<VanAn.UI.Platform.Services.SearchCorrectionStore>();
+            _ = builder.Services.AddScoped<VanAn.UI.Platform.Services.SearchResultCache>();
 
             // Booking P4 (SRS v1.1 MVP): scoped flow state 4 màn hình + Gateway public API client.
             _ = builder.Services.AddScoped<Services.BookingFlowState>();

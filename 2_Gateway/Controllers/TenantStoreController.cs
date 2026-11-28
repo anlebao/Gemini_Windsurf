@@ -144,6 +144,11 @@ namespace VanAn.Gateway.Controllers
         /// </summary>
         [HttpGet("search")]
         [AllowAnonymous]
+        // W2-B1 (search load hardening): anonymous endpoint không có cache → mỗi
+        // debounce burst chạm DB. Tenant list đổi ít → 60s theo VaryByQueryKeys,
+        // giống pattern /api/catalog/search (CatalogController:161).
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any,
+            VaryByQueryKeys = new[] { "name", "lat", "lng" })]
         public async Task<ActionResult<TenantSearchResultDto>> Search(
             [FromQuery] string? name,
             [FromQuery] double? lat,

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.JSInterop;
 using VanAn.Shared.Helpers;
 
-namespace VanAn.KhachLink.Services
+namespace VanAn.UI.Platform.Services
 {
     /// <summary>
     /// Personalized DidYouMean (SRS v1.1 — client-side self-learning):
