@@ -1,6 +1,6 @@
 # TASK CARD: "Cửa hàng của tôi" — Profile list tenant đã mua + điểm thưởng per-tenant
 
-> **DRAFT — chờ user approve trước khi IMPLEMENT.**
+> **DONE — `374acb16`** (approved + implemented 2026-11-28 · TDD 12/12 · guard ALL PASSED)
 > Created: 2026-11-28 · Mode: IMPLEMENT (sau approve) · TDD · Sweep-first (đã xong trong review)
 > Nguồn: review session 2026-11-28 — khách mua ở nhiều tenant muốn thấy list
 > tenant + số điểm còn lại từng tenant để chủ động đổi điểm.
@@ -79,13 +79,13 @@
 
 ### Phase A — `MyStoresService` + `ITenantSearchService.GetStoreInfoMapAsync` (TDD — test trước)
 
-- [ ] `ITenantSearchService` += `Task<Dictionary<Guid, TenantStoreDto>>
+- [x] `ITenantSearchService` += `Task<Dictionary<Guid, TenantStoreDto>>
   GetStoreInfoMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken)`:
   single query `Tenants.Where(t => ids.Contains(t.Id)).Include(Settings)` →
   map `TenantStoreDto` (reuse logic `GetStoreInfoAsync` — gồm logo presign
   nếu đang có). Id không match → vắng trong dict (caller fallback name
   "Cửa hàng {id8}").
-- [ ] `2_Gateway/Services/MyStoresService.cs` (namespace `VanAn.Gateway.Services`,
+- [x] `2_Gateway/Services/MyStoresService.cs` (namespace `VanAn.Gateway.Services`,
   mirror `InstanceFeatureGate` style — primary ctor + XML doc):
   `Task<IReadOnlyList<MyStoreDto>> GetMyStoresAsync(Guid deviceId, CancellationToken)`.
   - `Guid.Empty` → empty list.
@@ -105,7 +105,7 @@
   - Enrich: `GetStoreInfoMapAsync(unionIds)` → name/slug/logo; tenant thiếu
     → fallback `Name = $"Cửa hàng {id8}"`.
   - Sort: `LastOrderAt desc` (nulls last) → `PointBalance desc`; `Take(50)`.
-- [ ] DI `Program.cs`: `AddScoped<IMyStoresService, MyStoresService>()` —
+- [x] DI `Program.cs`: `AddScoped<IMyStoresService, MyStoresService>()` —
   đặt cạnh block loyalty (~line 1740).
 
 **Gate A (TDD):** `6_Tests/VanAn.Core.Tests/Services/MyStoresServiceTests.cs`
@@ -126,7 +126,7 @@ trong test file). ≥8 tests:
 
 ### Phase B — `CustomerStoresController` (Gateway)
 
-- [ ] `2_Gateway/Controllers/CustomerStoresController.cs` `[ApiController]
+- [x] `2_Gateway/Controllers/CustomerStoresController.cs` `[ApiController]
   [Route("api/customers")] [AllowAnonymous]` — `GET my-stores`:
   - deviceId resolve: (a) `X-Customer-Token` → forward `GET
     /api/loyalty/my-identity` (shoperp client) → `deviceId` (copy block từ
@@ -134,7 +134,7 @@ trong test file). ≥8 tests:
   - Cả 2 vắng/invalid → `401 { error }`.
   - `Ok(await _myStores.GetMyStoresAsync(deviceId, ct))`.
   - try/catch → 500 `{ error }` (pattern controller hiện hữu).
-- [ ] DTO `MyStoreDto` trong file service: `TenantId, Name, Slug?, LogoUrl?,
+- [x] DTO `MyStoreDto` trong file service: `TenantId, Name, Slug?, LogoUrl?,
   OrderCount, TotalSpent, LastOrderAt?, PointBalance, Mode`.
 
 **Gate B:** controller test nhẹ trong `MyStoresServiceTests` hoặc file riêng —
@@ -143,37 +143,37 @@ hợp lệ → identity resolve → 200 list; không gì → 401; header-only gu
 
 ### Phase C — KhachLink UI
 
-- [ ] `Services/Http/MyStoresHttpService.cs` (mirror `AllianceWalletHttpService`):
+- [x] `Services/Http/MyStoresHttpService.cs` (mirror `AllianceWalletHttpService`):
   `GetMyStoresAsync(token, deviceId)` → `MyStoreDto[]` — gửi CẢ
   `X-Customer-Token` + `X-Customer-Device-Id`; non-200 → empty + log.
-- [ ] `Profile.razor` zone mới sau "Việc cần làm", trước "Truy cập nhanh":
+- [x] `Profile.razor` zone mới sau "Việc cần làm", trước "Truy cập nhanh":
   `VanAnCard` "Cửa hàng của tôi" — render khi `_myStores.Count > 0`.
   Row (mirror breakdown markup `AllianceWallet.razor:89-98`): logo/`bi-shop`
   + `fw-semibold` name + sub `N đơn · dd/MM/yyyy` + `badge bg-primary`
   "N điểm" + `VanAnButton` Outline sm "Vào cửa hàng" →
   `Slug != null ? /store/{slug} : /store/by-id/{tenantId}`.
   `data-testid="my-store-{tenantId}"` / `my-store-points-{tenantId}`.
-- [ ] Load trong `OnAfterRenderAsync(firstRender)` — đọc `customer_token` +
+- [x] Load trong `OnAfterRenderAsync(firstRender)` — đọc `customer_token` +
   `customer_device_id` (đã có sẵn pattern); không cần đăng nhập (guest có
   deviceId vẫn hiện nếu server trả rows).
-- [ ] `_navFlags.ShowStores` gate section? **Không** — giống Fix-3: quan hệ
+- [x] `_navFlags.ShowStores` gate section? **Không** — giống Fix-3: quan hệ
   đã tồn tại không bị discovery kill-switch giấu. Gate `ShowLoyaltyHistory`?
   Điểm = dữ liệu loyalty → section ẩn điểm-badge khi `ShowLoyaltyHistory=false`
   (vẫn hiện list tenant + nút vào store).
 
 ### Phase D — Ship
 
-- [ ] `dotnet build` affected projects (Gateway + KhachLink + Core.Tests) 0 err
-- [ ] `dotnet test` filter MyStores + InstanceFeatureGate (regression) PASS
-- [ ] `guard-check.ps1` ALL PASSED
-- [ ] E2E spec `6_Testing/e2e-tests/my-stores.spec.ts` (Gate 4): profile →
+- [x] `dotnet build` affected projects (Gateway + KhachLink + Core.Tests) 0 err
+- [x] `dotnet test` filter MyStores + InstanceFeatureGate (regression) PASS
+- [x] `guard-check.ps1` ALL PASSED
+- [x] E2E spec `6_Testing/e2e-tests/my-stores.spec.ts` (Gate 4): profile →
   section hiện khi có data · row có tên tenant + badge điểm + link `/store/`.
-- [ ] RV probe `6_Testing/rv-scripts/my-stores-probe.mjs`: L1 `GET
+- [x] RV probe `6_Testing/rv-scripts/my-stores-probe.mjs`: L1 `GET
   /api/customers/my-stores` với `X-Customer-Device-Id` của device RV có sẵn
   (dùng deviceId từ `store-context-rv-sweep` run — nó tạo order? nếu không:
   tạo deviceId giả → expect `[]` 200 chứ không 401) + assert shape DTO.
-- [ ] Commit → push → CD → re-run probe prod.
-- [ ] Update card + `project_state.md` (Python — KHÔNG PowerShell cho .md tiếng Việt).
+- [x] Commit → push → CD → re-run probe prod.
+- [x] Update card + `project_state.md` (Python — KHÔNG PowerShell cho .md tiếng Việt).
 
 ## OUT OF SCOPE
 
