@@ -1,7 +1,7 @@
 # TASK CARD: Personalized DidYouMean — Self-Learning Search Correction (W1 ✅ → W2)
 
-> Created: 2026-11-28 · Updated: 2026-11-28 (v1.2 — W2 task card + sweep, chờ review)
-> Mode: W1 done+deployed `fa934f62` · W2 chờ approve → IMPLEMENT · TDD · sweep-first RV
+> Created: 2026-11-28 · Updated: 2026-11-28 (v1.3 — W2 done + deployed + RV 24/24)
+> Mode: W1 ✅ deployed `fa934f62` · W2 ✅ deployed `8ba617bb` RV 24/24 · TDD · sweep-first RV
 > SRS: `docs/specs/SRS_Search_Personalized_DidYouMean_v1.0.md` (v1.1)
 > Rule: governance "Public Search (anti-drift, W3-2d)" — tái dùng `NormalizeSearchText`,
 > `VanAnPublicSearchBar`, `VanAnDidYouMeanChip`; **KHÔNG chạm Domain — không cần Gate 5**
@@ -92,7 +92,7 @@ note; undo → re-search raw. Markup hooks giữ nguyên.
   verify trên prod. 1 FAIL = featured catalog trống trên prod (data limitation —
   DidYouMean chip product-scope không thể fire; record-path cover bởi 5/5 bUnit).
 
-## W2 — Tenant-scope wiring + Search Load Hardening (đã duyệt 2026-11-28, chờ implement)
+## W2 — Tenant-scope wiring + Search Load Hardening ✅ DONE — deployed `8ba617bb`, RV 24/24
 
 ### Sweep findings (verified 2026-11-28)
 
@@ -118,22 +118,31 @@ note; undo → re-search raw. Markup hooks giữ nguyên.
 
 ### W2 Implementation checklist (TDD — test trước)
 
-- [ ] **W2a. Move store:** `SearchCorrectionStore` → `UI.Platform/Services/` +
+- [x] **W2a. Move store:** `SearchCorrectionStore` → `UI.Platform/Services/` +
   update 14 `SearchCorrectionStoreTests` (namespace only) + DI `AddScoped` cả
   KhachLink `Program.cs` + Directory `Program.cs`. Tests vẫn 14/14.
-- [ ] **W2b. Client guards (`StoreFinder` KhachLink):**
+- [x] **W2b. Client guards (`StoreFinder` KhachLink):**
   - A1 CT: `LoadStores(ct)` — `_searchDebounce` CT truyền vào `GetAsync`/`ReadFromJsonAsync`
     (cancel in-flight khi gõ tiếp); dispose CTS cũ.
   - A2 min-length ≥2 mới trigger keyword search (1 ký tự → giữ list, không call).
   - A3 `SearchResultCache` scoped service — map `normQuery → (dto, ts)` TTL 60s,
     cap 50; StoreFinder check cache trước HTTP (mirror server ResponseCache).
-- [ ] **W2c. Tenant-scope wiring:** `StoreFinder` (KhachLink + Directory) +
+  - Fix thêm: `LoadStores` thiếu `StateHasChanged()` (bUnit bắt được — caller qua
+    dispatcher/JSInvokable không re-render) → thêm trong `finally`.
+- [x] **W2c. Tenant-scope wiring:** `StoreFinder` (KhachLink + Directory) +
   `Home` (Directory — cả 2 mode: `scope="tenant"` cho store mode, `"product"` cho
   product mode) — resolve-before-search + record-on-accept + note + undo (copy
   pattern `ProductSearchResults`).
-- [ ] **W2d. B1:** `[ResponseCache(Duration=60, Location=Any, VaryByQueryKeys=
+- [x] **W2d. B1:** `[ResponseCache(Duration=60, Location=Any, VaryByQueryKeys=
   {"name","lat","lng"})]` trên `TenantStoreController.Search`.
-- [ ] **W2e. Ship:** build 0 err · Core.Tests ALL PASS · guard-check ALL PASSED.
+- [x] **W2e. Ship:** build 0 err · Core.Tests 3136 PASS / 0 FAIL · guard-check ALL
+  PASSED · commit `8ba617bb` → push → CD Multi-VPS success (Gateway+KhachLink+Dir).
+- [x] **W2 RV prod (2026-11-28):** sweep **24/24 PASS** — record-path tenant scope
+  verify được trên prod (`antaam` → chip "An Tâm" → accept → `scopes.tenant` entry);
+  seeded pair `xyzq`→"Cafe Tân Quy" → rewrite `name=Cafe Tân Quy` ra network; undo
+  → forget + raw re-search; A2 1-char→0 req · A1 debounce 1 req/burst ≤2 · A3 repeat
+  →0 req · B1 `cache-control: public,max-age=60`; Dir StoreFinder note+rewrite+undo
+  (SSR: assert DOM vì API call server-side); 0 console/page errors.
 
 ### W2 TDD test list (viết trước khi sửa page)
 
