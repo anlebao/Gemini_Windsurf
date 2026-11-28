@@ -10,6 +10,16 @@ let silenceTimer = null;
 let finalTranscript = '';
 const SILENCE_DELAY_MS = 2500; // 2.5s silence → auto-submit
 
+// V1c (2026-11-28): invokeMethodAsync vào ref đã dispose (SPA nav) → reject
+// ArgumentException → unhandled pageerror. Nuốt lặng — component chết rồi.
+function voiceSafeInvoke(name, arg) {
+    if (!voiceDotNetRef) return;
+    try {
+        const p = voiceDotNetRef.invokeMethodAsync(name, arg);
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) { /* ref disposed / circuit dead */ }
+}
+
 // Initialize speech recognition
 window.initializeSpeechRecognition = function (dotNetReference, targetId) {
     voiceDotNetRef = dotNetReference;
@@ -74,7 +84,7 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
 
             // Fill home search textbox via Blazor (real-time as user speaks)
             if (voiceDotNetRef && displayText) {
-                voiceDotNetRef.invokeMethodAsync('UpdateVoiceTranscript', displayText);
+                voiceSafeInvoke('UpdateVoiceTranscript', displayText);
             }
 
             // Silence → end the session; onend submits the transcript ONCE.
@@ -102,9 +112,7 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
                 }
             }
 
-            if (voiceDotNetRef) {
-                voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
-            }
+            voiceSafeInvoke('SetTranscriptionText', transcript);
         }
     };
 
@@ -117,9 +125,7 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
             case 'not-allowed': errorMessage = 'Quyền truy cập micro bị từ chối.'; break;
             case 'network': errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối.'; break;
         }
-        if (voiceDotNetRef) {
-            voiceDotNetRef.invokeMethodAsync('OnVoiceError', errorMessage);
-        }
+        voiceSafeInvoke('OnVoiceError', errorMessage);
     };
 
     recognition.onend = function () {
@@ -134,11 +140,9 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
             const submitText = finalTranscript.trim();
             finalTranscript = '';
             console.log('[voice] Auto-submitting on recognition end:', submitText);
-            voiceDotNetRef.invokeMethodAsync('SetTranscriptionText', submitText);
+            voiceSafeInvoke('SetTranscriptionText', submitText);
         }
-        if (voiceDotNetRef) {
-            voiceDotNetRef.invokeMethodAsync('OnRecordingEnd');
-        }
+        voiceSafeInvoke('OnRecordingEnd');
     };
 
     return true;

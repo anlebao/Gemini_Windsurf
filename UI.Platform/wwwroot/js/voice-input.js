@@ -63,13 +63,25 @@ window.vananVoiceInput = (function () {
         }
     }
 
+    // V1c: mọi callback vào .NET phải fail-safe — DotNetObjectReference có thể đã
+    // disposed (SPA nav/dispose trong khi session còn chạy) → invokeMethodAsync
+    // reject với ArgumentException → unhandled pageerror. Nuốt lặng: component
+    // chết rồi thì transcript đến cũng vô nghĩa.
+    function safeInvoke(name, arg) {
+        if (!dotNetRef) return;
+        try {
+            const p = dotNetRef.invokeMethodAsync(name, arg);
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (e) { /* ref disposed / circuit dead */ }
+    }
+
     // Deliver the transcript to Blazor exactly once per session.
     function finalize() {
         if (finalSent) return;
         finalSent = true;
         const text = latestDisplay.trim();
-        if (text && dotNetRef) {
-            dotNetRef.invokeMethodAsync('OnVoiceFinal', text);
+        if (text) {
+            safeInvoke('OnVoiceFinal', text);
         }
     }
 
@@ -139,8 +151,8 @@ window.vananVoiceInput = (function () {
                 }
             }
             latestDisplay = (finals.join(' ') + ' ' + interim).replace(/\s+/g, ' ').trim();
-            if (dotNetRef && latestDisplay) {
-                dotNetRef.invokeMethodAsync('OnVoiceInterim', latestDisplay);
+            if (latestDisplay) {
+                safeInvoke('OnVoiceInterim', latestDisplay);
             }
 
             // Silence → end the session; onend delivers OnVoiceFinal.
@@ -166,7 +178,7 @@ window.vananVoiceInput = (function () {
                 case 'network': message = 'Lỗi mạng — kiểm tra kết nối rồi thử lại.'; break;
             }
             if (dotNetRef) {
-                dotNetRef.invokeMethodAsync('OnVoiceError', message);
+                safeInvoke('OnVoiceError', message);
             }
         };
 
@@ -175,7 +187,7 @@ window.vananVoiceInput = (function () {
             clearTimers();
             finalize(); // flush whatever transcript we have (manual stop / browser end)
             if (dotNetRef) {
-                dotNetRef.invokeMethodAsync('OnVoiceEnd');
+                safeInvoke('OnVoiceEnd');
             }
         };
 
@@ -185,13 +197,10 @@ window.vananVoiceInput = (function () {
             // V1b watchdog: không result nào trong 8s → báo lỗi + abort (thay vì
             // nghe vô hạn); hard cap 30s chặn mọi session sống mãi.
             firstResultTimer = setTimeout(function () {
-                const ref = dotNetRef;
                 abortInternal();
-                if (ref) {
-                    ref.invokeMethodAsync('OnVoiceError',
-                        'Không nghe thấy gì — thử nói lại nhé.');
-                    ref.invokeMethodAsync('OnVoiceEnd');
-                }
+                safeInvoke('OnVoiceError',
+                    'Không nghe thấy gì — thử nói lại nhé.');
+                safeInvoke('OnVoiceEnd');
             }, FIRST_RESULT_TIMEOUT_MS);
             maxSessionTimer = setTimeout(stop, MAX_SESSION_MS);
             return true;
