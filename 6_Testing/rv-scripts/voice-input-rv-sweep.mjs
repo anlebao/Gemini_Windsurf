@@ -59,9 +59,13 @@ window.SpeechRecognition = window.webkitSpeechRecognition = class {
         this._timers.push(setTimeout(() => emit('an ta', false), 700));
         this._timers.push(setTimeout(() => emit('an tam', false), 1100));
         this._timers.push(setTimeout(() => emit('an tam', true), 1500));
+        // noend: quirk Chrome thật — final đến nhưng 'end' không bao giờ fire
+        // (kể cả sau stop()) — dead-man finalize fallback phải cover
+        if (this._mode === 'noend') this._noend = true;
     }
     stop() {
         this._timers.forEach(clearTimeout);
+        if (this._noend) return; // end không fire — mô phỏng Chrome stuck
         const self = this;
         setTimeout(() => self.onend && self.onend(), 50);
     }
@@ -281,6 +285,39 @@ const isListening = async (page) =>
         check('S8 Home interim → DOM-fill #home-search-input', earlyFill);
         check('S8 Home final → SubmitHomeSearch nav với q=an tam',
             navUrl.includes('q=') && /products|stores/.test(navUrl), navUrl);
+    }
+    await ctx.close();
+}
+
+// ═══ S9: noend — Chrome 'end' không fire (manual-test failure mode): final
+// đến, nhưng session không đóng + stop() không sinh onend → dead-man
+// finalize fallback (400ms) phải vẫn submit transcript ══════════════════════
+{
+    const { ctx, page } = await newPageWithSR('noend');
+    const tenantReqs = [];
+    page.on('request', r => {
+        if (r.url().includes('/api/tenants/search')) tenantReqs.push(r.url());
+    });
+    await page.goto(`${KHACHLINK}/stores`, { waitUntil: 'domcontentloaded' });
+    const mic = await micButton(page);
+    if (await mic.count() === 0) {
+        check('S9 mic button render', false, 'mic không hiện');
+    } else {
+        await mic.click();
+        // final ở ~1400ms → finalCommit 800ms → stop() → fake không fire end →
+        // dead-man 400ms → finalize → request ≈ 2.6-3.5s. Đợi ≤8s.
+        let found = false, off = false;
+        for (let i = 0; i < 16; i++) {
+            await page.waitForTimeout(500);
+            if (tenantReqs.some(u => u.includes('name=an%20tam') || u.includes('name=an+tam'))) {
+                found = true;
+            }
+            off = !(await isListening(page));
+            if (found && off) break;
+        }
+        check('S9 noend: transcript vẫn submit (dead-man finalize)', found,
+            tenantReqs[tenantReqs.length - 1] || 'no request');
+        check('S9 noend: listening off sau fallback', off);
     }
     await ctx.close();
 }

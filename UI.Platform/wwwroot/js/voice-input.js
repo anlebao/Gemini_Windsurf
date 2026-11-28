@@ -35,12 +35,28 @@ window.vananVoiceInput = (function () {
     let silenceTimer = null;
     let firstResultTimer = null;
     let maxSessionTimer = null;
+    let finalCommitTimer = null; // V2-fix: deadline sau final/speechend — noise KHÔNG re-arm được
     let latestDisplay = ''; // complete transcript — final segments + current interim
     let prevDisplay = '';   // noise-guard: silence chỉ re-arm khi transcript đổi
     let prevFinalsCount = 0; // noise-guard: interim→final cùng text cũng re-arm (V2a)
     let active = false;
     let finalSent = false;
     let targetElId = null;  // V2b: interim fill DOM trực tiếp, 0 .NET roundtrip
+    let sessionT0 = 0;      // vlog timestamp base
+
+    // Debug ring-buffer (2026-11-28): Chrome thật có failure mode fake-SR không
+    // cover (noise giữ session mở, isFinal không bao giờ set). Đọc qua
+    // console: copy(JSON.stringify(window.__vananVoiceLog)).
+    window.__vananVoiceLog = window.__vananVoiceLog || [];
+    function vlog(ev, data) {
+        try {
+            window.__vananVoiceLog.push({
+                t: sessionT0 ? Date.now() - sessionT0 : 0,
+                ev: ev, data: String(data || '').slice(0, 80)
+            });
+            if (window.__vananVoiceLog.length > 300) window.__vananVoiceLog.splice(0, 100);
+        } catch (e) { /* debug only */ }
+    }
 
     function isSupported() {
         return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -67,6 +83,10 @@ window.vananVoiceInput = (function () {
             clearTimeout(maxSessionTimer);
             maxSessionTimer = null;
         }
+        if (finalCommitTimer) {
+            clearTimeout(finalCommitTimer);
+            finalCommitTimer = null;
+        }
     }
 
     // V1c: mọi callback vào .NET phải fail-safe — DotNetObjectReference có thể đã
@@ -86,6 +106,7 @@ window.vananVoiceInput = (function () {
         if (finalSent) return;
         finalSent = true;
         const text = latestDisplay.trim();
+        vlog('finalize', text);
         if (text) {
             safeInvoke('OnVoiceFinal', text);
         }
@@ -120,6 +141,8 @@ window.vananVoiceInput = (function () {
         prevDisplay = '';
         prevFinalsCount = 0;
         finalSent = false;
+        sessionT0 = Date.now();
+        vlog('start', targetId);
 
         recognition = new SR();
         recognition.lang = 'vi-VN';
@@ -163,6 +186,7 @@ window.vananVoiceInput = (function () {
                 }
             }
             latestDisplay = (finals.join(' ') + ' ' + interim).replace(/\s+/g, ' ').trim();
+            vlog('result', `f${finals.length} ${latestDisplay.slice(0, 50)}`);
             if (latestDisplay) {
                 // V2b (2026-11-28): interim fill input qua DOM trực tiếp khi caller
                 // truyền targetId — mỗi interim ~3-5/s trước đây là 1 JS→.NET
@@ -180,21 +204,46 @@ window.vananVoiceInput = (function () {
             // Silence → end the session; onend delivers OnVoiceFinal.
             // V1b noise-guard: chỉ re-arm khi transcript ĐỔI — ambient noise sinh
             // interim giống hệt nhau không kéo dài session vô hạn (A3).
-            // V2a: interim→final CÙNG text (Chrome upgrade segment) vẫn phải
-            // re-arm — nếu không timer 2.5s cũ nuốt mất commit nhanh 800ms.
-            if (latestDisplay !== prevDisplay || finals.length !== prevFinalsCount) {
+            const newFinalArrived = finals.length !== prevFinalsCount;
+            if (latestDisplay !== prevDisplay || newFinalArrived) {
                 prevDisplay = latestDisplay;
                 prevFinalsCount = finals.length;
                 clearSilence();
-                // V2a adaptive: đuôi event là FINAL (không còn interim) → câu
-                // trọn vẹn → commit 800ms; interim lẫn → vẫn đang nói → 2.5s.
-                const delay = (interim.trim() === '' && finals.length > 0)
-                    ? FINAL_COMMIT_DELAY_MS : SILENCE_DELAY_MS;
-                silenceTimer = setTimeout(stop, delay);
+                silenceTimer = setTimeout(function () { stop('silence'); }, SILENCE_DELAY_MS);
+            }
+            // V2-fix (2026-11-28 manual-test RCA): FINAL_COMMIT timer độc lập —
+            // re-arm CHỈ khi có final MỚI; interim noise KHÔNG chạm được. Chrome
+            // thật: noise giữ VAD mở → 'end'/'speechend' không fire + interim
+            // đổi liên tục → silence cũ bị re-arm mãi → session không commit
+            // (transcript hiện nhưng search không chạy = "treo" trên mọi trang
+            // in-page search; Home nav không bị vì flow khác).
+            if (newFinalArrived && finals.length > 0) {
+                if (finalCommitTimer) clearTimeout(finalCommitTimer);
+                finalCommitTimer = setTimeout(function () { stop('final-commit'); }, FINAL_COMMIT_DELAY_MS);
             }
         };
 
+        // V2-fix: Chrome VAD tự báo "user ngừng nói" — commit ngay kể cả khi
+        // isFinal không bao giờ set (quirk Chrome continuous=false) và kể cả
+        // khi 'end' không fire. stop() → Chrome flush → onend → finalize.
+        recognition.onspeechend = function () {
+            vlog('speechend');
+            if (finalCommitTimer) clearTimeout(finalCommitTimer);
+            finalCommitTimer = setTimeout(function () { stop('speechend'); }, FINAL_COMMIT_DELAY_MS);
+        };
+        recognition.onaudiostart = function () { vlog('audiostart'); };
+        recognition.onsoundstart = function () { vlog('soundstart'); };
+        recognition.onspeechstart = function () { vlog('speechstart'); };
+        recognition.onsoundend = function () { vlog('soundend'); };
+        recognition.onaudioend = function () {
+            vlog('audioend');
+            // audioend = mic đã ngắt → user xong — commit như speechend
+            if (finalCommitTimer) clearTimeout(finalCommitTimer);
+            finalCommitTimer = setTimeout(function () { stop('audioend'); }, FINAL_COMMIT_DELAY_MS);
+        };
+
         recognition.onerror = function (event) {
+            vlog('error', event.error);
             // Don't auto-submit partial text on failure — surface the error instead.
             latestDisplay = '';
             let message = 'Lỗi nhận dạng giọng nói.';
@@ -212,6 +261,7 @@ window.vananVoiceInput = (function () {
         };
 
         recognition.onend = function () {
+            vlog('end');
             active = false;
             clearTimers();
             finalize(); // flush whatever transcript we have (manual stop / browser end)
@@ -241,7 +291,11 @@ window.vananVoiceInput = (function () {
         }
     }
 
-    function stop() {
+    function stop(cause) {
+        // V2-fix: nếu Chrome không fire 'end' sau stop() (quirk một số build /
+        // session đã chết ngầm) → finalize trực tiếp sau 400ms — đảm bảo
+        // transcript tới .NET trong mọi trường hợp, không phụ thuộc onend.
+        vlog('stop', cause);
         // Manual/silence/max-cap stop → không cần first-result watchdog nữa
         // (edge: nếu onend không fire, tránh error giả bắn ra sau).
         if (firstResultTimer) {
@@ -258,6 +312,14 @@ window.vananVoiceInput = (function () {
             }
         }
         active = false;
+        // Dead-man finalize: onend không fire (Chrome 'end' stuck) → vẫn submit.
+        setTimeout(function () {
+            if (!finalSent && dotNetRef) {
+                vlog('end-missing-fallback');
+                finalize();
+                safeInvoke('OnVoiceEnd');
+            }
+        }, 400);
     }
 
     // V1c (2026-11-28): session phải chết khi rời page — trước đây navigate giữa
