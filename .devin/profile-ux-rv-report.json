@@ -1,0 +1,42 @@
+{
+  "when": "2026-11-28T13:26:56.792Z",
+  "pass": 7,
+  "total": 7,
+  "results": [
+    {
+      "n": "L2 WASM contains loyalty-hero testid (UTF-16LE)",
+      "p": true,
+      "d": "2068245 bytes"
+    },
+    {
+      "n": "L2 WASM contains profile-skel-card + hero-redeem markers",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L2 WASM contains Mua sắm / Tài khoản group headers",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 guest /profile → guest card rendered",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 guest: KHÔNG hiện Fraud Flags (cleanup B)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 auth profile-ux",
+      "p": true,
+      "d": "SKIPPED — PROFILE_CUSTOMER_TOKEN not set"
+    },
+    {
+      "n": "L4 no page errors during flow",
+      "p": true,
+      "d": ""
+    }
+  ]
+}
