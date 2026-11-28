@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPORT = join(HERE, '..', '..', '.devin', 'store-context-rv-report.json');
-const KHACHLINK = process.env.KHACHLINK_URL || 'https://timlathay.com';
+const KHACHLINK = process.env.KHACHLINK_URL || 'https://commienphi.timlathay.com';
 const API = process.env.API_URL || 'https://api2.khachvip.online';
 const TENANT = (process.env.STORE_TENANT_ID || 'e2d91cdf-d3c4-4399-b96e-e772a7a41630').toLowerCase();
 const GATED_DOMAIN = process.env.GATED_DOMAIN || 'shopai.timlathay.com'; // ShowCampaigns=false
@@ -37,22 +37,24 @@ try {
     check('L1 home-settings gated: home campaign OFF under gated domain', gated.ok &&
         (eff.home_CampaignSection_Enabled ?? eff.Home_CampaignSection_Enabled) === false,
         `domain=${GATED_DOMAIN} resp=${JSON.stringify(eff)}`);
-    check('L1 home-settings gated: featured/social untouched', gated.ok &&
-        (eff.home_FeaturedSection_Enabled ?? eff.Home_FeaturedSection_Enabled) === true);
+    // Untouched fields must equal base row (gate chỉ AND campaign+store).
+    check('L1 home-settings gated: featured/social/nav unchanged vs base', gated.ok &&
+        (eff.home_FeaturedSection_Enabled ?? eff.Home_FeaturedSection_Enabled) ===
+            (base.home_FeaturedSection_Enabled ?? base.Home_FeaturedSection_Enabled) &&
+        (eff.home_SocialHub_Enabled ?? eff.Home_SocialHub_Enabled) ===
+            (base.home_SocialHub_Enabled ?? base.Home_SocialHub_Enabled) &&
+        (eff.showNavMenu ?? eff.ShowNavMenu) === (base.showNavMenu ?? base.ShowNavMenu));
 } catch (e) { check('L1 home-settings fetch', false, e.message); }
 
-// ── L2: WASM markers ───────────────────────────────────────────────────────
+// ── L2: WASM markers — string literals trong .NET asm là UTF-16LE; type names là ASCII
 try {
-    const res = await fetch(`${KHACHLINK}/_framework/blazor.boot.json`);
-    const boot = await res.json();
-    const asm = boot?.resources?.assembly || {};
-    const name = Object.keys(asm).find(k => k.includes('VanAn.KhachLink'));
-    const buf = await (await fetch(`${KHACHLINK}/_framework/${name}`)).arrayBuffer();
-    const text = Buffer.from(buf).toString('latin1');
-    check('L2 WASM contains khachlink_last_store marker',
-        name && text.includes('khachlink_last_store'), `${buf.length} bytes`);
-    check('L2 WASM contains BackToStoreChip path marker',
-        text.includes('Quay l') || text.includes('back-to-store'));
+    const r = await fetch(`${KHACHLINK}/_framework/VanAn.KhachLink.wasm`);
+    const buf = Buffer.from(await r.arrayBuffer());
+    const utf16 = s => Buffer.from(s, 'utf16le');
+    check('L2 WASM contains khachlink_last_store marker (UTF-16LE)',
+        r.ok && buf.includes(utf16('khachlink_last_store')), `${buf.length} bytes`);
+    check('L2 WASM contains BackToStoreChip type marker',
+        buf.includes('BackToStoreChip') || buf.includes(utf16('Quay l')));
 } catch (e) { check('L2 WASM fetch', false, e.message); }
 
 // ── L4: UI flow (Playwright) ───────────────────────────────────────────────
@@ -81,7 +83,9 @@ await page.goto(`${KHACHLINK}/`, { waitUntil: 'domcontentloaded' });
 const section = page.locator('.store-section');
 try { await section.waitFor({ timeout: 60000 }); } catch {}
 check('L4 home shows "Cửa Hàng Của Bạn" after store visit', await section.count() > 0);
+// Chờ loading store-info xong — nút chỉ render sau khi _storeLoading=false
 const enterBtn = section.locator('text=Vào cửa hàng');
+try { await enterBtn.first().waitFor({ timeout: 60000 }); } catch {}
 check('L4 "Vào cửa hàng" button present', await enterBtn.count() > 0);
 if (await enterBtn.count() > 0) {
     await enterBtn.first().click();

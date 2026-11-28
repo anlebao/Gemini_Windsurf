@@ -320,7 +320,11 @@
                 else
                 {
                     <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
-                    <div class="text-center mt-2">
+                    <div class="text-center mt-2 d-flex justify-content-center gap-2 flex-wrap">
+                        @* Store-context wave: deep-link vẫn dùng được khi store-info endpoint lỗi *@
+                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="GoToStore">
+                            <i class="bi bi-shop me-1"></i> Vào cửa hàng
+                        </VanAnButton>
                         <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/stores"))">
                             <i class="bi bi-shop me-1"></i> Tìm cửa hàng khác
                         </VanAnButton>
