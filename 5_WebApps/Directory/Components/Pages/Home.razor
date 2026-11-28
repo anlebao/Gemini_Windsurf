@@ -675,6 +675,10 @@
         _lastInputWasVoice = true;
         _listening = false;
         await SearchStores();
+        // JSInvokable KHÔNG auto-render (khác EventCallback) — thiếu dòng này
+        // search chạy server-side xong nhưng UI không bao giờ update → triệu
+        // chứng "transcript fill được nhưng search không chạy" trên prod.
+        StateHasChanged();
     }
 
     [JSInvokable]

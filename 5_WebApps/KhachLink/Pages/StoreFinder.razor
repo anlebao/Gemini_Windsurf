@@ -416,6 +416,7 @@
         _lastInputWasVoice = true;
         _listening = false;
         await OnSearchSubmit();
+        StateHasChanged(); // JSInvokable không auto-render — xem Dir Home.OnVoiceFinal
     }
 
     [JSInvokable]

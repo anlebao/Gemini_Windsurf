@@ -244,6 +244,7 @@
         _listening = false;
         _lastInputWasVoice = true; // Personalized DidYouMean: tag source=voice cho record
         await Search();
+        StateHasChanged(); // JSInvokable không auto-render — xem Dir Home.OnVoiceFinal
     }
 
     [JSInvokable]
