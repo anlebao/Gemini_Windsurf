@@ -1,6 +1,7 @@
 ﻿@page "/profile"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Services.PWA
 @using VanAn.KhachLink.Services.Http
 @using VanAn.KhachLink.Services.ProfileContext
@@ -17,11 +18,12 @@
     <div class="container py-4">
         @if (_loading)
         {
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Đang tải...</span>
-                </div>
-            </div>
+            @* Skeleton loading — mirror vls-shimmer (index.html FR-L6), giảm
+               perceived wait thay spinner trơ *@
+            <div class="profile-skel-card mb-3" style="height:120px;" data-testid="profile-skeleton"></div>
+            <div class="profile-skel-card mb-2" style="height:64px;"></div>
+            <div class="profile-skel-card mb-2" style="height:64px;"></div>
+            <div class="profile-skel-card mb-3" style="height:96px;"></div>
         }
         else if (!_isLoggedIn)
         {
@@ -31,19 +33,23 @@
                 <p class="text-muted">Đăng nhập để xem điểm thưởng và lịch sử đơn hàng.</p>
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập ngay</VanAnButton>
             </VanAnCard>
+            @* Guest mode: "Tiếp tục mua tại {last store}" — chip tự ẩn khi không có visit *@
+            <BackToStoreChip CssClass="mb-3" />
             <MyStoresSection />
         }
         else
         {
-            @* === ZONE 1: Compact identity header === *@
-            <VanAnCard Shadow="true" CssClass="mb-3">
+            @* === ZONE 1: Loyalty Hero — điểm là tài sản retention lớn nhất, làm hero
+                  (số to + progress tới tier kế + CTA). Data progress từ /api/loyalty/my;
+                  fail-open → chỉ hiện số điểm (fallback /api/customers/me). === *@
+            <VanAnCard Shadow="true" CssClass="mb-3" data-testid="loyalty-hero">
                 <div class="d-flex align-items-center gap-3 p-2">
-                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                         style="width:64px;height:64px;font-size:1.8rem;">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                         style="width:64px;height:64px;font-size:1.8rem;border:3px solid @GetTierRingColor();">
                         @(_customerName?.FirstOrDefault() ?? 'K')
                     </div>
-                    <div>
-                        <h5 class="mb-0">@_customerName</h5>
+                    <div class="flex-grow-1" style="min-width:0;">
+                        <h5 class="mb-0 text-truncate">@_customerName</h5>
                         @if (!string.IsNullOrWhiteSpace(_phoneNumber))
                         {
                             <div class="text-muted small mt-1">
@@ -52,12 +58,48 @@
                         }
                         <div class="mt-1">
                             <span class="badge @GetTierBadgeClass()">@_tier</span>
-                            <span class="ms-2 text-muted small">@_pointBalance điểm</span>
                             @* Tiered Auth Phase 3: IdentityLevel badge *@
                             <span class="ms-2 badge @GetIdentityLevelBadgeClass()" data-testid="identity-level-badge">
                                 <i class="@GetIdentityLevelIcon() me-1"></i>@GetIdentityLevelLabel()
                             </span>
                         </div>
+                    </div>
+                </div>
+                <div class="px-2 pb-2">
+                    <div class="d-flex align-items-end justify-content-between">
+                        <div>
+                            <span class="display-6 fw-bold text-primary" data-testid="hero-points">@_pointBalance</span>
+                            <span class="text-muted ms-1">điểm</span>
+                        </div>
+                        @if (_loyaltyProgress != null && _loyaltyProgress.NextTierThreshold > _pointBalance)
+                        {
+                            <span class="text-muted small text-end" data-testid="hero-next-tier">
+                                còn @(_loyaltyProgress.NextTierThreshold - _pointBalance) điểm lên @GetNextTierName()
+                            </span>
+                        }
+                    </div>
+                    @if (_loyaltyProgress != null && _loyaltyProgress.NextTierThreshold > _pointBalance)
+                    {
+                        <div class="progress mt-1" style="height:8px;" data-testid="tier-progress">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width:@Math.Clamp(_loyaltyProgress.ProgressPercent, 0, 100)%"
+                                 aria-valuenow="@_loyaltyProgress.ProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    }
+                    <div class="d-flex gap-2 mt-2">
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     data-testid="hero-redeem"
+                                     OnClick='() => Navigation.NavigateTo("/rewards")'>
+                            <i class="bi bi-gift me-1"></i> Đổi điểm
+                        </VanAnButton>
+                        @if (_navFlags.ShowLoyaltyHistory)
+                        {
+                            <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                         data-testid="hero-history"
+                                         OnClick='() => Navigation.NavigateTo("/my-loyalty")'>
+                                <i class="bi bi-clock-history me-1"></i> Lịch sử
+                            </VanAnButton>
+                        }
                     </div>
                 </div>
             </VanAnCard>
@@ -107,18 +149,9 @@
             @* === "Cửa hàng của tôi" — tenants đã mua + điểm/tenant (component self-loads) === *@
             <MyStoresSection />
 
-            @* === ZONE 3: Quick access grid === *@
-            <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3">Truy cập nhanh</h6>
+            @* === ZONE 3: Quick access — grouped "Mua sắm" / "Tài khoản" (profile-ux-upgrade) === *@
+            <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3">Mua sắm</h6>
             <div class="row row-cols-2 row-cols-sm-3 g-2 mb-3">
-                @if (_navFlags.ShowLoyaltyHistory)
-                {
-                    <div class="col">
-                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
-                                     OnClick='() => Navigation.NavigateTo("/my-loyalty")'>
-                            <i class="bi bi-clock-history text-warning me-1"></i> Lịch sử tích điểm
-                        </VanAnButton>
-                    </div>
-                }
                 @if (_navFlags.ShowOrders)
                 {
                     <div class="col">
@@ -128,12 +161,12 @@
                         </VanAnButton>
                     </div>
                 }
-                @if (_navFlags.ShowMissions)
+                @if (_navFlags.ShowLoyaltyHistory)
                 {
                     <div class="col">
                         <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
-                                     OnClick='() => Navigation.NavigateTo("/missions")'>
-                            <i class="bi bi-trophy text-warning me-1"></i> Nhiệm vụ
+                                     OnClick='() => Navigation.NavigateTo("/my-loyalty")'>
+                            <i class="bi bi-clock-history text-warning me-1"></i> Lịch sử tích điểm
                         </VanAnButton>
                     </div>
                 }
@@ -143,6 +176,18 @@
                         <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
                                      OnClick='() => Navigation.NavigateTo("/stores")'>
                             <i class="bi bi-geo-alt text-success me-1"></i> Cửa hàng
+                        </VanAnButton>
+                    </div>
+                }
+            </div>
+            <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3">Tài khoản</h6>
+            <div class="row row-cols-2 row-cols-sm-3 g-2 mb-3">
+                @if (_navFlags.ShowMissions)
+                {
+                    <div class="col">
+                        <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="text-start"
+                                     OnClick='() => Navigation.NavigateTo("/missions")'>
+                            <i class="bi bi-trophy text-warning me-1"></i> Nhiệm vụ
                         </VanAnButton>
                     </div>
                 }
@@ -289,22 +334,11 @@
                         </div>
                     </VanAnCard>
 
-                    @* Tiered Auth Phase 3: Upgrade button for Social customers *@
-                    @if (NeedsUpgrade)
-                    {
-                        <VanAnAlert Variant="AlertVariant.Info"
-                                    Message="Tài khoản Social — nâng cấp qua OTP để đổi điểm thưởng."
-                                    CssClass="mb-3" />
-                        <VanAnButton Variant="ButtonVariant.Primary"
-                                     FullWidth="true"
-                                     CssClass="mb-3"
-                                     OnClick="NavigateToLoyaltyUpgrade"
-                                     TestId="btn-upgrade-identity">
-                            <i class="fas fa-shield-alt me-1"></i> Nâng cấp xác thực
-                        </VanAnButton>
-                    }
+                    @* Upgrade CTA → single-source = identity-upgrade context card
+                       (ProfileContextCardBuilder priority 20) — Zone 4 duplicate removed
+                       (Profile UX upgrade 2026-11-28). *@
 
-                    @* CC-S6 (Sprint 6): Community roles + fraud flags section *@
+                    @* CC-S6 (Sprint 6): Community roles section *@
                     @if (_communityRoles.Count > 0)
                     {
                         <VanAnCard CssClass="mb-3">
@@ -324,32 +358,30 @@
                         </VanAnCard>
                     }
 
-                    @if (_myFraudFlags.Count > 0)
+                    @* Referral card — collaborator thấy mã giới thiệu + copy (profile-ux-upgrade).
+                       Data đã load sẵn trong _communityRoles, 0 request thêm. *@
+                    @if (_communityRoles.Any(r => r.IsActive && !string.IsNullOrEmpty(r.SalesmanCode)))
                     {
-                        <VanAnCard CssClass="mb-3">
-                            <h5 class="mb-3"><i class="bi bi-shield-exclamation me-2"></i>Fraud Flags</h5>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Loại</th>
-                                            <th>Risk Score</th>
-                                            <th>Trạng thái</th>
-                                            <th>Ngày tạo</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var flag in _myFraudFlags)
-                                        {
-                                            <tr>
-                                                <td>@flag.EntityType</td>
-                                                <td>@flag.RiskScore</td>
-                                                <td><span class="badge bg-@(flag.Status == "Confirmed" ? "danger" : flag.Status == "Pending" ? "warning" : "secondary")">@flag.Status</span></td>
-                                                <td>@flag.CreatedAt.ToString("yyyy-MM-dd")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                        <VanAnCard CssClass="mb-3" data-testid="referral-card">
+                            <div class="d-flex align-items-center justify-content-between p-2 gap-2">
+                                <div>
+                                    <div class="fw-semibold">
+                                        <i class="bi bi-share me-1 text-primary"></i>Mã giới thiệu của bạn
+                                    </div>
+                                    <div class="text-muted small">Chia sẻ mã này để nhận hoa hồng giới thiệu.</div>
+                                </div>
+                                <div class="text-end">
+                                    <code class="fs-6 fw-bold text-primary" data-testid="referral-code">
+                                        @_communityRoles.First(r => r.IsActive && !string.IsNullOrEmpty(r.SalesmanCode)).SalesmanCode
+                                    </code>
+                                    <div class="mt-1">
+                                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                                     data-testid="referral-copy"
+                                                     OnClick="CopyReferralCodeAsync">
+                                            <i class="bi bi-clipboard me-1"></i> @_referralCopyLabel
+                                        </VanAnButton>
+                                    </div>
+                                </div>
                             </div>
                         </VanAnCard>
                     }
@@ -367,7 +399,7 @@
                             @if (!string.IsNullOrEmpty(_deviceToken))
                             {
                                 <div class="text-muted small">
-                                    <i class="bi bi-key me-1"></i> Device Token: <code>@_deviceToken[..12]...</code>
+                                    <i class="bi bi-check-circle text-success me-1"></i> Thiết bị này · đã đăng ký
                                 </div>
                             }
                             else
@@ -391,6 +423,17 @@
 </KhachLinkLayout>
 
 <style>
+    /* Skeleton loading — mirror vls-shimmer (index.html FR-L6). */
+    .profile-skel-card {
+        border-radius: 10px;
+        background: linear-gradient(100deg, #ececec 40%, #f5f5f5 50%, #ececec 60%);
+        background-size: 200% 100%;
+        animation: profile-skel-shimmer 1.4s linear infinite;
+    }
+    @@keyframes profile-skel-shimmer {
+        to { background-position: -200% 0; }
+    }
+
     /* UX fix: "Việc cần làm" cards — flex row thiếu min-width:0 → text/CTA
        nowrap đẩy nội dung tràn khỏi card trên màn hẹp. */
     .profile-context-card .flex-grow-1 {
@@ -425,6 +468,9 @@
 
     // Contextual profile cards
     private IReadOnlyList<ProfileContextCard> _contextCards = Array.Empty<ProfileContextCard>();
+
+    // Loyalty hero: /api/loyalty/my progress data (null → ẩn progress bar, fail-open)
+    private LoyaltyProgressDto? _loyaltyProgress;
 
     // Settings section collapse state (Zone 4)
     private bool _settingsOpen;
@@ -464,12 +510,28 @@
     private string? _birthdayError;
     private string? _birthdaySuccess;
 
-    // Tiered Auth Phase 3: IdentityLevel helpers
-    private bool NeedsUpgrade => _identityLevel is "Social" or "Guest";
+    // Tiered Auth Phase 3: IdentityLevel helpers (upgrade CTA = context card identity-upgrade)
 
-    // CC-S6 (Sprint 6): Community roles + fraud flags
+    // CC-S6 (Sprint 6): Community roles
     private List<CommunityRoleDto> _communityRoles = new();
-    private List<MyFraudFlagDto> _myFraudFlags = new();
+    private string _referralCopyLabel = "Sao chép";
+
+    /// <summary>Referral card: copy SalesmanCode — navigator.clipboard.writeText
+    /// (pattern pwa.js L405). Fail-open → label đổi "Sao chép lỗi".</summary>
+    private async Task CopyReferralCodeAsync()
+    {
+        var code = _communityRoles.FirstOrDefault(r => r.IsActive && !string.IsNullOrEmpty(r.SalesmanCode))?.SalesmanCode;
+        if (string.IsNullOrEmpty(code)) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", code);
+            _referralCopyLabel = "Đã chép!";
+            StateHasChanged();
+            await Task.Delay(2000);
+            _referralCopyLabel = "Sao chép";
+        }
+        catch { _referralCopyLabel = "Sao chép"; }
+    }
 
     // Sprint 7 gap fix: Device info
     private string? _deviceToken;
@@ -555,18 +617,19 @@
                         // (1 call replaces push+orders+missions). Fallback: legacy parallel calls.
                         var prefsTask = LoadNotificationPrefsAsync();
                         var communityTask = LoadCommunityAsync(token);
+                        var loyaltyTask = LoadLoyaltyProgressAsync(client, token);
                         var ctx = await TryLoadContextAsync(client, token);
                         if (ctx != null)
                         {
                             ApplyContext(ctx);
-                            await Task.WhenAll(prefsTask, communityTask);
+                            await Task.WhenAll(prefsTask, communityTask, loyaltyTask);
                         }
                         else
                         {
                             var pushTask = LoadPushStatusAsync(client, token);
                             var ordersTask = LoadActiveOrderCountAsync(client, token);
                             var missionsTask = LoadMissionSignalsAsync(client, token);
-                            await Task.WhenAll(pushTask, prefsTask, communityTask, ordersTask, missionsTask);
+                            await Task.WhenAll(pushTask, prefsTask, communityTask, ordersTask, missionsTask, loyaltyTask);
                             BuildContextCards(ordersTask.Result, missionsTask.Result);
                         }
                     }
@@ -587,6 +650,42 @@
         }
         finally { _loading = false; }
     }
+
+    /// <summary>
+    /// Loyalty hero: /api/loyalty/my → NextTierThreshold + ProgressPercent cho
+    /// progress bar. Fail-open — lỗi → null → hero chỉ hiện số điểm (fallback
+    /// profile fields), KHÔNG block page.
+    /// </summary>
+    private async Task LoadLoyaltyProgressAsync(HttpClient client, string token)
+    {
+        try
+        {
+            var req = new HttpRequestMessage(HttpMethod.Get, "/api/loyalty/my");
+            req.Headers.Add("X-Customer-Token", token);
+            var resp = await client.SendAsync(req);
+            if (resp.IsSuccessStatusCode)
+                _loyaltyProgress = await resp.Content.ReadFromJsonAsync<LoyaltyProgressDto>();
+        }
+        catch { /* non-critical — hero falls back to plain points */ }
+    }
+
+    private string GetTierRingColor() => _tier switch
+    {
+        "Platinum" => "#38bdf8",
+        "Gold"     => "#eab308",
+        "Silver"   => "#94a3b8",
+        _          => "#cd7f32"  // Bronze
+    };
+
+    /// <summary>Next tier từ NextTierThreshold — mirror TierLadder trong
+    /// ProfileContextCardBuilder (Silver 1000 / Gold 5000 / Platinum 20000 —
+    /// keep-in-sync như builder).</summary>
+    private string GetNextTierName() => _loyaltyProgress?.NextTierThreshold switch
+    {
+        <= 1000  => "Silver",
+        <= 5000  => "Gold",
+        _        => "Platinum"
+    };
 
     // Bug 3 fix: Load push notification toggle state from server
     private async Task LoadPushStatusAsync(HttpClient client, string token)
@@ -624,7 +723,8 @@
         try
         {
             _communityRoles = await CommunityHttp.GetMyRolesAsync(token);
-            _myFraudFlags = await CommunityHttp.GetMyFraudFlagsAsync(token);
+            // Profile UX upgrade (2026-11-28): KHÔNG fetch fraud flags nữa — anti-fraud
+            // internals (risk score) không phơi ra cho customer-facing UI (security).
         }
         catch { /* non-critical — hide community sections */ }
     }
@@ -755,8 +855,6 @@
     private void GoTo(string href) => Navigation.NavigateTo(href);
 
     private void GoToLogin() => Navigation.NavigateTo("/login");
-
-    private void NavigateToLoyaltyUpgrade() => Navigation.NavigateTo("/my-loyalty");
 
     // Phase 5: Push notification toggle
     private async Task TogglePushAsync(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -998,6 +1096,13 @@
     {
         public bool Enabled { get; set; }
         public int Count { get; set; }
+    }
+
+    // Mirrors LoyaltyData in LoyaltyCard.razor — chỉ fields hero cần.
+    private class LoyaltyProgressDto
+    {
+        public int NextTierThreshold { get; set; }
+        public int ProgressPercent { get; set; }
     }
 
     // Minimal DTO for /api/customerorders — only Status is needed for context cards.
