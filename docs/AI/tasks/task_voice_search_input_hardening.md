@@ -1,7 +1,7 @@
 # TASK CARD: Voice Search Input Hardening V1 — "Treo" fixes (P0)
 
-> Created: 2026-11-28 · Status: DRAFT — chờ review
-> Mode: IMPLEMENT khi approve · TDD · sweep-first RV
+> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — deployed `b2ca71ed`+`6bef02f4`, RV 14/14 PASS**
+> Mode: IMPLEMENT · TDD · sweep-first RV
 > Master plan: `docs/AI/plans/voice-search-input-hardening-master-plan.md`
 > RCA: 2026-11-28 — A1 JSInvokable mismatch · A2 no watchdog · A3 noise keep-alive
 > · C1 lazy-load race · C2 global-state leak
@@ -42,9 +42,9 @@ reset đúng, mic luôn hiện/khởi động được sau khi page sẵn sàng.
   — vẫn pass sau migrate.
 - `SILENCE_DELAY_MS=2500` — V1 GIỮ (tuning ở V2a).
 
-## V1 Implementation checklist
+## V1 Implementation checklist ✅ ALL DONE (`b2ca71ed` + `6bef02f4`)
 
-- [ ] **V1a. Migrate StoreFinder KL → `vananVoiceInput`** (kill A1):
+- [x] **V1a. Migrate StoreFinder KL → `vananVoiceInput`** (kill A1):
   - `OnAfterRenderAsync`: thay `isSpeechRecognitionSupported`/`initializeSpeechRecognition`
     bằng `vananVoiceInput.isSupported` (giữ flag `Voice_Note_Enabled` gate).
   - `ToggleVoiceSearch` → pattern `ToggleVoiceAsync` của ProductSearchResults
@@ -55,24 +55,24 @@ reset đúng, mic luôn hiện/khởi động được sau khi page sẵn sàng.
     `LoadStores`/`OnSearchSubmit`).
   - `Dispose`: `_voiceDotNetRef?.Dispose()` + `vananVoiceInput.stop` nếu `_listening`.
   - Markup: `IsListening="isRecording"` → `_listening`; hint text giữ.
-- [ ] **V1b. Watchdog trong `voice-input.js`** (A2+A3 — 1 chỗ, cover mọi consumer):
+- [x] **V1b. Watchdog trong `voice-input.js`** (A2+A3 — 1 chỗ, cover mọi consumer):
   - `FIRST_RESULT_TIMEOUT_MS = 8000`: sau `start()` không có `onresult` nào →
     `OnVoiceError('Không nghe thấy gì — thử nói lại nhé.')` + `abortInternal()`.
   - `MAX_SESSION_MS = 30000`: hard cap → `stop()` (onend → finalize đường thường).
   - Silence re-arm chỉ khi `latestDisplay` thay đổi so với lần trước (noise-guard)
     — vẫn giữ 2.5s silence semantics cho speech thật.
-- [ ] **V1c. Navigation cleanup** (C2):
+- [x] **V1c. Navigation cleanup** (C2):
   - `voice-input.js`: `window.addEventListener('pagehide', abortInternal)` (SPA-safe,
     không cần hook từng page).
   - `voice-note.js`: `initializeSpeechRecognition` đặt `window.isVoiceRecording=false`
     + abort `recognition` cũ nếu còn (đỡ leak từ page trước) — KHÔNG đổi contract.
-- [ ] **V1d. Lazy-race guard** (C1):
+- [x] **V1d. Lazy-race guard** (C1):
   - `index.html`: sau khi inject `voice-input.js`/`voice-note.js` resolve
     `window.__vananVoiceReady` (Promise tạo sẵn trước `vananLoadLazyJs`).
   - Pages check support: `await vananVoiceReady` (timeout ~3s, fail → mic hidden)
     rồi mới gọi `isSupported` — thay check-1-lần. Áp StoreFinder KL +
     ProductSearchResults (+ Home KL dùng voice-note.js).
-- [ ] **V1e. Ship:** build 0 err · Core.Tests ALL PASS · guard-check ALL PASSED ·
+- [x] **V1e. Ship:** build 0 err · Core.Tests ALL PASS · guard-check ALL PASSED ·
   commit → push → CD → RV sweep.
 
 ## V1 TDD test list (viết trước)
@@ -112,7 +112,13 @@ Inject `FakeSpeechRecognition` qua `page.addInitScript` trước khi page load:
 4. Lazy-race guard — mic check đợi script sẵn sàng (≤3s timeout)
 5. TDD tests V1 (5 mới) + toàn bộ regression Core.Tests xanh
 6. guard-check ALL PASSED → push → CD success
-7. RV sweep `voice-input-rv-sweep.mjs` S1–S6 PASS trên prod
+7. RV sweep `voice-input-rv-sweep.mjs` S1–S6 PASS trên prod — **DONE 2026-11-28:
+   14/14 PASS** (S1 watchdog no-result → error+abort ≤12s ✅ · S2 noise hard-cap
+   end ≤36s ✅ · S3 silence→submit `name=an tam` ✅ · S4 listening reset + re-tap
+   ngay ✅ · S5 lazy-race `vananWhenLazyReady` + isSupported ~1s ✅ · S6 SPA nav
+   → isActive=false ✅ · Dir SSR mic + submit ✅ · 0 pageerror).
+   **Bug phụ bắt được qua RV:** DotNetRef disposed vẫn bị JS invoke →
+   `safeInvoke`/`voiceSafeInvoke` wrapper (commit `6bef02f4`).
 
 ## OUT OF SCOPE (V2/V3 — ghi để không quên)
 
