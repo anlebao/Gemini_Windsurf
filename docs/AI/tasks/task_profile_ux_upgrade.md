@@ -1,6 +1,6 @@
 # TASK CARD: Profile UX Upgrade — Loyalty Hero + dọn Zone 4 + retention surfaces
 
-> **DRAFT — chờ user approve trước khi IMPLEMENT.**
+> **DONE — `c478e8e0`** (approved + implemented 2026-11-28 · guard ALL PASSED)
 > Created: 2026-11-28 · Mode: IMPLEMENT (sau approve) · TDD · Sweep-first (đã xong trong review)
 > Nguồn: review UX `Profile.razor` cùng session — tách riêng khỏi
 > `task_my_stores_profile.md` theo yêu cầu user (card kia giữ nguyên scope
@@ -71,64 +71,64 @@
 
 ### Phase A — Loyalty Hero (Zone 1 redesign)
 
-- [ ] `LoadProfile`: sau `/api/customers/me` OK → fire parallel
+- [x] `LoadProfile`: sau `/api/customers/me` OK → fire parallel
   `client.GetAsync("/api/loyalty/my")` (cùng client đã gắn X-Customer-Token)
   → `_loyaltyProgress` {NextTierThreshold, ProgressPercent} (DTO private
   trong file — mirror `LoyaltyData` của LoyaltyCard).
-- [ ] Zone 1 markup mới: avatar initial (giữ) + **viền màu theo tier**
+- [x] Zone 1 markup mới: avatar initial (giữ) + **viền màu theo tier**
   (`bronze: #cd7f32 · silver: #94a3b8 · gold: #eab308 · platinum: #38bdf8`
   — border 3px trên `.rounded-circle`) · tên + SĐT (giữ) · badge tier +
   IdentityLevel (giữ) · **hàng hero**: `display-6` số điểm + "điểm" ·
   progress bar (`div.progress` + `progress-bar` Bootstrap, width
   `ProgressPercent%`) + caption "còn {threshold - balance} điểm lên {nextTier}"
   (ẩn khi `_loyaltyProgress == null` — fallback state).
-- [ ] CTA row trong hero: `VanAnButton` Outline sm "Đổi điểm" → `/rewards` ·
+- [x] CTA row trong hero: `VanAnButton` Outline sm "Đổi điểm" → `/rewards` ·
   "Lịch sử" → `/my-loyalty` (gate `_navFlags.ShowLoyaltyHistory`).
-- [ ] Next tier name: từ `NextTierThreshold` map ngược ladder
+- [x] Next tier name: từ `NextTierThreshold` map ngược ladder
   {1000→Silver, 5000→Gold, 20000→Platinum} — mirror `TierLadder` trong
   `ProfileContextCardBuilder` (comment keep-in-sync như builder đang làm).
 
 ### Phase B — Dọn Zone 4
 
-- [ ] Xóa block `@if (_myFraudFlags.Count > 0)` (bảng fraud) + xóa field
+- [x] Xóa block `@if (_myFraudFlags.Count > 0)` (bảng fraud) + xóa field
   `_myFraudFlags` + nhánh fetch trong `LoadCommunityAsync` — **security
   fix**: không expose risk-score/anti-fraud internals cho customer.
-- [ ] Card "Thiết bị đang sử dụng": bỏ `<code>@_deviceToken[..12]</code>`
+- [x] Card "Thiết bị đang sử dụng": bỏ `<code>@_deviceToken[..12]</code>`
   → text "Thiết bị này · đã đăng ký" (giữ note "tối đa 3 thiết bị").
-- [ ] Xóa `@if (NeedsUpgrade)` alert + `VanAnButton` upgrade ở Zone 4
+- [x] Xóa `@if (NeedsUpgrade)` alert + `VanAnButton` upgrade ở Zone 4
   (duplicate `identity-upgrade` context card); GIỮ method
   `NavigateToLoyaltyUpgrade` chỉ nếu context card dùng chung — kiểm tra call
   site trước khi xóa.
-- [ ] `GetIdentityLevelBadgeClass/Icon/Label` + badge hero: GIỮ.
+- [x] `GetIdentityLevelBadgeClass/Icon/Label` + badge hero: GIỮ.
 
 ### Phase C — Retention surfaces (P2)
 
-- [ ] **Referral card**: `@if (_communityRoles.Any(r => r.IsActive &&
+- [x] **Referral card**: `@if (_communityRoles.Any(r => r.IsActive &&
   !string.IsNullOrEmpty(r.SalesmanCode)))` → `VanAnCard` trong Zone 4
   "Mã giới thiệu của bạn" + code + nút copy (`JSRuntime` clipboard —
   pattern `navigator.clipboard` đã dùng trong codebase?) — check trước,
   nếu không có pattern thì hiện code thôi.
-- [ ] **Guest branch**: thêm `<BackToStoreChip />` dưới nút Đăng nhập
+- [x] **Guest branch**: thêm `<BackToStoreChip />` dưới nút Đăng nhập
   ("Tiếp tục mua tại {last store}") — component đã tồn tại, 1 dòng.
-- [ ] **Quick-access grouping**: 6 nút chia 2 nhóm có header nhỏ —
+- [x] **Quick-access grouping**: 6 nút chia 2 nhóm có header nhỏ —
   "Mua sắm" (Đơn hàng · Lịch sử tích điểm · Cửa hàng) / "Tài khoản"
   (Nhiệm vụ · Bảo mật · Khiếu nại) — chỉ markup, không đổi flags.
-- [ ] Skeleton: `_loading` branch → 3 `placeholder-glow` skeleton cards
+- [x] Skeleton: `_loading` branch → 3 `placeholder-glow` skeleton cards
   (Bootstrap `placeholder` class — check pattern skeleton hiện có trong
   Home/index.html để mirror, không tự chế CSS).
 
 ### Phase D — Ship
 
-- [ ] `dotnet build` KhachLink 0 err · bUnit relevant tests PASS
-- [ ] Cập nhật/viết test: `ProfileContextCardBuilderTests` không đổi;
+- [x] `dotnet build` KhachLink 0 err · bUnit relevant tests PASS
+- [x] Cập nhật/viết test: `ProfileContextCardBuilderTests` không đổi;
   thêm bUnit nhẹ nếu có harness render Profile (check `StoreFinderTests`
   pattern — nếu không có, note "UI-only, verify bằng E2E").
-- [ ] E2E spec `6_Testing/e2e-tests/profile-ux.spec.ts` (Gate 4 — UI layout
+- [x] E2E spec `6_Testing/e2e-tests/profile-ux.spec.ts` (Gate 4 — UI layout
   thay đổi): hero có số điểm + progress · không còn bảng fraud · guest có
   chip · referral card khi có code.
-- [ ] guard-check ALL PASSED → commit → push → CD → RV probe (screenshot
+- [x] guard-check ALL PASSED → commit → push → CD → RV probe (screenshot
   profile logged-in + guest trên `commienphi.timlathay.com`).
-- [ ] Update card + `project_state.md` (Python — KHÔNG PowerShell).
+- [x] Update card + `project_state.md` (Python — KHÔNG PowerShell).
 
 ## OUT OF SCOPE
 
