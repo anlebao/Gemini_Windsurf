@@ -207,6 +207,27 @@ cycle → poll 3s.
 
 Run trước đó (S1–S9 cơ bản): 20/20 PASS — report `.devin/voice-v1-rv-report.json`.
 
+## Wave 2 — StateHasChanged cho consumer còn lại + shopai default ✅ `12470f56`
+
+User retest sau `e37a5343`: timlathay.com home PASS nhưng **storefront fail**
+(`/store/{slug}` dùng `StoreSearchBar` — cùng bug, `OnVoiceFinal` thiếu
+StateHasChanged). Audit lại tất cả consumer `vananVoiceInput`:
+
+- `StoreSearchBar` (storefront semantic search) — +StateHasChanged, +targetId
+  `store-search-input` cho interim DOM-fill
+- `AiChatWidget` + `RealtimeChatPanel` (UI.Platform chat voice) — +StateHasChanged
+  (voice send không render cùng bug)
+- `Store.razor`/`ProductSearchResults.razor` (KL products) đã fix wave 1.
+
+**shopai default = tìm tenant:** user yêu cầu shopai.timlathay.com mặc định
+search "cửa hàng" thay "sản phẩm". `KL Home.OnInitializedAsync`: host check
+`BaseUri.Contains("shopai.timlathay.com")` → `_searchMode="store"`. Instance
+khác giữ "product"; toggle vẫn đổi được. (Chọn host-check hardcode vì
+HomeSettings là global admin-config, không per-domain — user approve.)
+
+Sweep +2 check mới: storefront mic + DOM-fill + `.store-search-result` render;
+per-instance Home nav assert (shopai→`/stores`, others→`/products`).
+
 ## OUT OF SCOPE (V3 — ghi để không quên)
 
 - V3: fuzzy-path deep fix (Gate 5 — card DidYouMean B2/B3) · metrics voice
