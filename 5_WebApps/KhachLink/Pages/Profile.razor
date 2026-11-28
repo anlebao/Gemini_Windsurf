@@ -31,6 +31,7 @@
                 <p class="text-muted">Đăng nhập để xem điểm thưởng và lịch sử đơn hàng.</p>
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập ngay</VanAnButton>
             </VanAnCard>
+            <MyStoresSection />
         }
         else
         {
@@ -102,6 +103,9 @@
                     </VanAnCard>
                 }
             }
+
+            @* === "Cửa hàng của tôi" — tenants đã mua + điểm/tenant (component self-loads) === *@
+            <MyStoresSection />
 
             @* === ZONE 3: Quick access grid === *@
             <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3">Truy cập nhanh</h6>

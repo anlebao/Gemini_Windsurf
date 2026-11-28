@@ -27,6 +27,12 @@ namespace VanAn.Gateway.Services
         Task<Dictionary<Guid, TenantFeatureFlags>> GetFeatureFlagMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
         /// <summary>TenantId → KhachLink CustomDomain (active non-Directory, prefer FullCommerce).</summary>
         Task<Dictionary<Guid, string>> GetKhachLinkDomainMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
+        /// <summary>
+        /// "Cửa hàng của tôi" (2026-11-28): batch store-info cho list tenant của khách —
+        /// TenantId → TenantStoreDto (name/slug/logo). Bỏ Suspended/Inactive/Converted
+        /// (consistent GetBySlug); Pending giữ nguyên rules ẩn PII của MapToStoreDto.
+        /// </summary>
+        Task<Dictionary<Guid, TenantStoreDto>> GetStoreInfoMapAsync(IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default);
     }
 
     public class TenantSearchService(IVanAnDbContext dbContext, IR2StorageService? r2Storage = null) : ITenantSearchService
@@ -358,6 +364,29 @@ namespace VanAn.Gateway.Services
                 .ToListAsync(ct))
                 .GroupBy(i => i.OwnerTenantId!.Value)
                 .ToDictionary(g => g.Key, g => g.First().CustomDomain);
+        }
+
+        public async Task<Dictionary<Guid, TenantStoreDto>> GetStoreInfoMapAsync(
+            IReadOnlyCollection<Guid> tenantIds, CancellationToken ct = default)
+        {
+            if (tenantIds.Count == 0)
+                return new Dictionary<Guid, TenantStoreDto>();
+
+            var idVos = tenantIds.Distinct().Select(id => new TenantId(id)).ToList();
+            var tenants = await _dbContext.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => idVos.Contains(t.Id)
+                    && t.Status != TenantStatus.Suspended
+                    && t.Status != TenantStatus.Inactive
+                    && t.Status != TenantStatus.Converted)
+                .ToListAsync(ct);
+
+            return tenants.ToDictionary(
+                t => t.Id.Value,
+                t => MapToStoreDto(t,
+                    storefrontBannerUrl: ResolveStorefrontImageUrl(t.Settings?.StorefrontBannerUrl),
+                    storefrontBackdropUrl: ResolveStorefrontImageUrl(t.Settings?.StorefrontBackdropUrl)));
         }
 
         private static TenantStoreDto MapToStoreDto(Tenant t, double? distanceKm = null,

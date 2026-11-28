@@ -1181,6 +1181,7 @@ namespace VanAn.Gateway
             // W3-2d: public tenant-read single source (search/nearby/store-info/by-slug + flag/domain maps)
 
             _ = builder.Services.AddScoped<VanAn.Gateway.Services.ITenantSearchService, VanAn.Gateway.Services.TenantSearchService>();
+            _ = builder.Services.AddScoped<VanAn.Gateway.Services.IMyStoresService, VanAn.Gateway.Services.MyStoresService>();
             _ = builder.Services.AddScoped<VanAn.Gateway.Services.IFeaturedProductSearchService, VanAn.Gateway.Services.FeaturedProductSearchService>();
 
 

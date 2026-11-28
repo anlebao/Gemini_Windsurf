@@ -1,0 +1,92 @@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Models
+@inject MyStoresHttpService MyStoresHttp
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+@* "Cửa hàng của tôi" (2026-11-28): tenants khách đã mua/tích điểm + điểm/tenant.
+   Data: GET /api/customers/my-stores (token ưu tiên, deviceId fallback — guest cũng xem được).
+   Gating: section KHÔNG bị ShowStores giấu (Fix-3 — quan hệ đã tồn tại); chỉ badge
+   điểm theo ShowLoyaltyHistory. Ẩn hẳn khi list rỗng. *@
+
+@if (_stores.Count > 0)
+{
+    <h6 class="text-muted text-uppercase small fw-semibold mb-2 mt-3" data-testid="my-stores-title">
+        <i class="bi bi-shop me-1"></i> Cửa hàng của tôi
+    </h6>
+    <VanAnCard Shadow="true" CssClass="mb-3" data-testid="my-stores-section">
+        @foreach (var s in _stores)
+        {
+            <div class="d-flex align-items-center gap-3 py-2 border-bottom" data-testid="@($"my-store-{s.TenantId}")">
+                @if (!string.IsNullOrEmpty(s.LogoUrl))
+                {
+                    <img src="@s.LogoUrl" alt="@s.Name" class="rounded-circle flex-shrink-0"
+                         style="width:40px;height:40px;object-fit:cover;" />
+                }
+                else
+                {
+                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0"
+                         style="width:40px;height:40px;">
+                        <i class="bi bi-shop"></i>
+                    </div>
+                }
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="fw-semibold text-truncate">@s.Name</div>
+                    <div class="text-muted small">
+                        @if (s.OrderCount > 0)
+                        {
+                            @:@s.OrderCount đơn
+                            @if (s.LastOrderAt.HasValue)
+                            {
+                                @:· mua cuối @s.LastOrderAt.Value.ToLocalTime().ToString("dd/MM/yyyy")
+                            }
+                        }
+                        else
+                        {
+                            @:Chỉ có điểm thưởng
+                        }
+                    </div>
+                </div>
+                @if (_navFlags.ShowLoyaltyHistory && s.PointBalance > 0)
+                {
+                    <span class="badge bg-primary text-nowrap" data-testid="@($"my-store-points-{s.TenantId}")">
+                        @s.PointBalance.ToString("N0") điểm
+                    </span>
+                }
+                <VanAnButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small" CssClass="text-nowrap"
+                             data-testid="@($"my-store-go-{s.TenantId}")"
+                             OnClick="() => GoToStore(s)">Vào cửa hàng</VanAnButton>
+            </div>
+        }
+    </VanAnCard>
+}
+
+@code {
+    private List<MyStoresHttpService.MyStoreItem> _stores = new();
+
+    /// <summary>Nav flags — chỉ gate badge điểm (ShowLoyaltyHistory); section luôn hiện (Fix-3).</summary>
+    [CascadingParameter(Name = "NavFlags")]
+    private KhachLinkNavFlagsDto _navFlags { get; set; } = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            _stores = await MyStoresHttp.GetMyStoresAsync(token, deviceId);
+            if (_stores.Count > 0) StateHasChanged();
+        }
+        catch { /* fail-open — section ẩn */ }
+    }
+
+    private void GoToStore(MyStoresHttpService.MyStoreItem s)
+    {
+        // Same-origin storefront (Fix-1) — slug khi có, fallback by-id.
+        Navigation.NavigateTo(!string.IsNullOrEmpty(s.Slug)
+            ? $"/store/{s.Slug}"
+            : $"/store/by-id/{s.TenantId}");
+    }
+}

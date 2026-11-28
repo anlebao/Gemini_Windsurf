@@ -152,6 +152,10 @@ public class AuthorizationEnforcementTests
             // Profile Contextual UX v2: customer context aggregation + card dismiss —
             // [AllowAnonymous] + X-Customer-Token header auth (same Wave 17 pattern)
             "CustomerContextController",
+            // "Cửa hàng của tôi" (2026-11-28): CustomerStoresController — customer-facing
+            // my-stores (X-Customer-Token → my-identity validated, X-Customer-Device-Id
+            // guest fallback — same Wave 17 pattern as CustomerOrdersController)
+            "CustomerStoresController",
             // CC-S0-T3 (Sprint 0.5): DeviceRegistrationController — customer-facing (X-Customer-Token header auth, validated via ShopERP /me forward)
             "DeviceRegistrationController",
             // CC-S1-T1/T2 (Sprint 1): CommunityController — shipper-facing (X-Customer-Token header auth + CommunityRole check)
