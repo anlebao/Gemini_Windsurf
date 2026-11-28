@@ -6,7 +6,8 @@
 //
 // Blazor contract (JSInvokable on the calling component):
 //   OnVoiceInterim(text) — live transcript while speaking (fill input)
-//   OnVoiceFinal(text)   — silence (~2.5s) or manual stop → auto-submit
+//   OnVoiceFinal(text)   — silence (800ms sau isFinal / 2.5s interim) hoặc
+//                          browser endpoint (continuous=false) / manual stop
 //   OnVoiceError(msg)    — localized Vietnamese error message
 //   OnVoiceEnd()         — recognition ended (reset listening state)
 //
@@ -19,7 +20,10 @@
 // plain script (not module) so any host (WASM/Server/SSR) can include it.
 
 window.vananVoiceInput = (function () {
-    const SILENCE_DELAY_MS = 2500; // 2.5s without new results → auto-submit
+    const SILENCE_DELAY_MS = 2500;      // interim còn đuôi → user vẫn đang nói
+    // V2a adaptive silence (2026-11-28): event kết thúc bằng isFinal (không còn
+    // interim) = câu đã trọn vẹn → commit sau 800ms thay vì floor 2.5s.
+    const FINAL_COMMIT_DELAY_MS = 800;
     // V1b watchdog (2026-11-28): mọi session phải có đường thoát — trước đây
     // silenceTimer chỉ arm trong onresult → nếu onresult không bao giờ fire
     // (service stall, lỗi network không trả) thì session nghe VÔ HẠN → "treo".
@@ -33,6 +37,7 @@ window.vananVoiceInput = (function () {
     let maxSessionTimer = null;
     let latestDisplay = ''; // complete transcript — final segments + current interim
     let prevDisplay = '';   // noise-guard: silence chỉ re-arm khi transcript đổi
+    let prevFinalsCount = 0; // noise-guard: interim→final cùng text cũng re-arm (V2a)
     let active = false;
     let finalSent = false;
     let targetElId = null;  // V2b: interim fill DOM trực tiếp, 0 .NET roundtrip
@@ -113,11 +118,16 @@ window.vananVoiceInput = (function () {
         targetElId = targetId || null;
         latestDisplay = '';
         prevDisplay = '';
+        prevFinalsCount = 0;
         finalSent = false;
 
         recognition = new SR();
         recognition.lang = 'vi-VN';
-        recognition.continuous = true;
+        // V2c (2026-11-28): continuous=false — Chrome tự end ở endpoint câu nói
+        // (search query ngắn, 1 utterance = 1 query) thay vì nghe liên tục →
+        // onend/finalize đến sớm, không còn phụ thuộc hoàn toàn silence timer.
+        // Timers vẫn giữ làm fallback (noise-guard + watchdog).
+        recognition.continuous = false;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
@@ -170,10 +180,17 @@ window.vananVoiceInput = (function () {
             // Silence → end the session; onend delivers OnVoiceFinal.
             // V1b noise-guard: chỉ re-arm khi transcript ĐỔI — ambient noise sinh
             // interim giống hệt nhau không kéo dài session vô hạn (A3).
-            if (latestDisplay !== prevDisplay) {
+            // V2a: interim→final CÙNG text (Chrome upgrade segment) vẫn phải
+            // re-arm — nếu không timer 2.5s cũ nuốt mất commit nhanh 800ms.
+            if (latestDisplay !== prevDisplay || finals.length !== prevFinalsCount) {
                 prevDisplay = latestDisplay;
+                prevFinalsCount = finals.length;
                 clearSilence();
-                silenceTimer = setTimeout(stop, SILENCE_DELAY_MS);
+                // V2a adaptive: đuôi event là FINAL (không còn interim) → câu
+                // trọn vẹn → commit 800ms; interim lẫn → vẫn đang nói → 2.5s.
+                const delay = (interim.trim() === '' && finals.length > 0)
+                    ? FINAL_COMMIT_DELAY_MS : SILENCE_DELAY_MS;
+                silenceTimer = setTimeout(stop, delay);
             }
         };
 

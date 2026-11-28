@@ -681,8 +681,8 @@
 
     /// <summary>
     /// Issue #142: Initialize voice search for the home search box.
-    /// Reuses voice-note.js (loaded via index.html). targetId = null → JS won't fill
-    /// any element; transcript is delivered via SetTranscriptionText JSInvokable.
+    /// V2c unify (2026-11-28): chuyển voice-note.js → vananVoiceInput — cùng
+    /// contract với StoreFinder/ProductSearchResults (watchdog + DOM-fill).
     /// </summary>
     private async Task InitHomeVoiceSearchAsync()
     {
@@ -693,7 +693,7 @@
                 nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.Voice_Note_Enabled));
             if (_homeVoiceEnabled)
             {
-                // V1d lazy-race: voice-note.js inject sau window.load — đợi script
+                // V1d lazy-race: voice JS inject sau window.load — đợi script
                 // sẵn sàng (≤4s) trước khi check support; fail-open → check luôn.
                 try
                 {
@@ -701,13 +701,7 @@
                     await JSRuntime.InvokeAsync<bool>("vananWhenLazyReady", lazyCts.Token);
                 }
                 catch { /* script chưa sẵn sàng — isSupported vẫn fail-open */ }
-                _homeSpeechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
-                if (_homeSpeechSupported)
-                {
-                    _homeVoiceDotNetRef = DotNetObjectReference.Create(this);
-                    // targetId = null: JS dispatches transcript via SetTranscriptionText only
-                    await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _homeVoiceDotNetRef, null);
-                }
+                _homeSpeechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
             }
         }
         catch
@@ -740,40 +734,42 @@
         if (_homeVoiceRecording)
         {
             _homeVoiceRecording = false;
-            await JSRuntime.InvokeVoidAsync("stopRecording");
+            await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
         }
         else
         {
             _homeSearchKeyword = "";
-            _homeVoiceRecording = true;
-            await JSRuntime.InvokeVoidAsync("startRecording");
+            _homeVoiceDotNetRef ??= DotNetObjectReference.Create(this);
+            // V2b: targetId → interim fill DOM trực tiếp (0 .NET roundtrip)
+            _homeVoiceRecording = await JSRuntime.InvokeAsync<bool>(
+                "vananVoiceInput.start", _homeVoiceDotNetRef, "home-search-input");
         }
         StateHasChanged();
     }
 
-    /// <summary>Issue #142: JSInvokable — receives voice transcript → navigate to /stores</summary>
+    /// <summary>V2c: JSInvokable — interim fallback khi DOM-fill không dùng được</summary>
     [JSInvokable]
-    public void SetTranscriptionText(string transcript)
-    {
-        _homeSearchKeyword = transcript ?? "";
-        _homeVoiceRecording = false;
-        StateHasChanged(); // #142-comment-fix: let user see the text before redirect
-        var keyword = _homeSearchKeyword.Trim();
-        var url = string.IsNullOrWhiteSpace(keyword) ? "/stores" : $"/stores?q={Uri.EscapeDataString(keyword)}";
-        Navigation.NavigateTo(url);
-    }
-
-    /// <summary>#142-comment-fix: JSInvokable — real-time interim transcript → fill textbox (no redirect)</summary>
-    [JSInvokable]
-    public void UpdateVoiceTranscript(string interimText)
+    public void OnVoiceInterim(string interimText)
     {
         _homeSearchKeyword = interimText ?? "";
         StateHasChanged();
     }
 
-    /// <summary>Issue #142: JSInvokable — recording ended (matches voice-note.js callback)</summary>
+    /// <summary>V2c unify: JSInvokable — final transcript → SubmitHomeSearch.
+    /// Trước đây voice path hardcode /stores, bỏ qua _searchMode — giờ đi cùng
+    /// đường với Enter/typed submit (respects product|store mode).</summary>
     [JSInvokable]
-    public void OnRecordingEnd()
+    public void OnVoiceFinal(string transcript)
+    {
+        _homeSearchKeyword = transcript ?? "";
+        _homeVoiceRecording = false;
+        StateHasChanged(); // #142-comment-fix: let user see the text before redirect
+        SubmitHomeSearch();
+    }
+
+    /// <summary>JSInvokable — recognition ended → reset listening state</summary>
+    [JSInvokable]
+    public void OnVoiceEnd()
     {
         _homeVoiceRecording = false;
         StateHasChanged();
@@ -1044,6 +1040,11 @@
 
     public void Dispose()
     {
+        try
+        {
+            if (_homeVoiceRecording) _ = JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
         _homeVoiceDotNetRef?.Dispose();
     }
 }

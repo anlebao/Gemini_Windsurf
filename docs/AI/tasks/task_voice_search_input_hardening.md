@@ -1,6 +1,10 @@
-# TASK CARD: Voice Search Input Hardening V1 — "Treo" fixes (P0)
+# TASK CARD: Voice Search Input Hardening — "Treo" fixes (P0) + V2b hotfix
 
-> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — deployed `b2ca71ed`+`6bef02f4`, RV 14/14 PASS**
+> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **V1 DONE (RV 14/14) · V2b hotfix pushed `9e9c7a43` — chờ CD+RV**
+> **Manual-test RCA (2026-11-28):** timlathay.com SSR treo sau V1 — mỗi interim
+> `onresult` (~3–5/s) = 1 JS→.NET invoke + full page render qua websocket
+> (Blazor Server) → render backlog → hang. WASM invoke là local nên KhachLink
+> không bị. Fix = V2b interim DOM-fill (kéo trước lịch).
 > Mode: IMPLEMENT · TDD · sweep-first RV
 > Master plan: `docs/AI/plans/voice-search-input-hardening-master-plan.md`
 > RCA: 2026-11-28 — A1 JSInvokable mismatch · A2 no watchdog · A3 noise keep-alive
@@ -120,10 +124,23 @@ Inject `FakeSpeechRecognition` qua `page.addInitScript` trước khi page load:
    **Bug phụ bắt được qua RV:** DotNetRef disposed vẫn bị JS invoke →
    `safeInvoke`/`voiceSafeInvoke` wrapper (commit `6bef02f4`).
 
+## V2b hotfix — interim DOM-fill (kéo trước lịch do manual-test fail) ✅ `9e9c7a43`
+
+- [x] `voice-input.js`: `start(ref, targetId)` — có `targetId` → interim ghi
+  `input.value` trực tiếp (không dispatch `input` event → không trigger
+  binding/debounce); không truyền → fallback `OnVoiceInterim` .NET
+  (backward-compat: AiChatWidget, RealtimeChatPanel).
+- [x] 4 page truyền InputId: KL StoreFinder `search-input`, ProductSearchResults
+  `product-search-input`, Dir StoreFinder + Home `vanan-public-search-input`.
+- [x] sweep: +check interim fill sớm ≤2.5s (chứng minh 0 SSR roundtrip).
+- [ ] **Chờ:** CD `46118999762` → re-run sweep → user manual retest timlathay.
+- Lưu ý commit `9e9c7a43` cuốn theo untracked files từ session song song
+  (`git add -A`): docs/strategy, twin-portal-site, probe scripts,
+  `.devin/core_full_run.txt` 64MB — không rewrite history, lần sau stage chọn lọc.
+
 ## OUT OF SCOPE (V2/V3 — ghi để không quên)
 
 - V2a adaptive silence (floor 1.2s + submit 800ms sau isFinal + "Đang xử lý" UI)
-- V2b interim DOM-fill (0 .NET roundtrip khi nói — kill SSR flood)
 - V2c `continuous=false` option + unify Home KL sang vananVoiceInput
 - V3: fuzzy-path deep fix (Gate 5 — card DidYouMean B2/B3) · SSR reconnect UI · metrics
 - voice-NOTE feature (Cart/BookingNote/VoiceNote) — giữ voice-note.js

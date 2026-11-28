@@ -1,9 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// RV SWEEP — Voice Search Input Hardening V1 (2026-11-28) — PRODUCTION
-// Verify "treo" fixes: watchdog first-result (S1) · noise hard-cap (S2) ·
-// silence→submit (S3) · isRecording reset + re-tap (S4) · lazy-race (S5) ·
-// navigation abort (S6). FakeSpeechRecognition inject qua addInitScript —
-// scripted events, KHÔNG cần mic thật.
+// RV SWEEP — Voice Search Input Hardening V1+V2 (2026-11-28) — PRODUCTION
+// V1 "treo": watchdog first-result (S1) · noise hard-cap (S2) · silence→submit
+// (S3) · isRecording reset + re-tap (S4) · lazy-race (S5) · nav abort (S6).
+// V2 "chậm": adaptive silence timing (S3b) · continuous=false flag (S7) ·
+// interim DOM-fill SSR (Dir) · Home KL unify → vananVoiceInput (S8).
+// FakeSpeechRecognition inject qua addInitScript — scripted events, KHÔNG cần
+// mic thật.
 // Env: KHACHLINK_URL (default commienphi), DIRECTORY_URL (timlathay),
 //      API_URL (api2.khachvip.online)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -114,7 +116,7 @@ const isListening = async (page) =>
     await ctx.close();
 }
 
-// ═══ S3+S4: speech → silence → submit; isRecording reset; re-tap ═════════════
+// ═══ S3+S4+S7: speech → adaptive silence → submit; reset; re-tap; flags ════
 {
     const { ctx, page } = await newPageWithSR('speech');
     const tenantReqs = [];
@@ -126,18 +128,28 @@ const isListening = async (page) =>
     if (await mic.count() === 0) {
         check('S3 mic button render', false, 'mic không hiện');
     } else {
+        const t0 = Date.now();
         await mic.click();
-        // interim transcripts fill input ~1.5s; silence 2.5s → stop → onend →
-        // OnVoiceFinal → search. Đợi ≤10s cho request name=an tam.
-        let found = false;
+        // V2c: continuous phải là false (Chrome endpointing tự end)
+        await page.waitForTimeout(300);
+        const cont = await page.evaluate(() =>
+            window.__fakeSRInstances.length ? window.__fakeSRInstances[0].continuous : 'NONE');
+        check('S7 V2c: recognition.continuous === false', cont === false, String(cont));
+        // interim ~1.5s; final event ở ~1500ms → V2a arm 800ms → stop ~2300ms →
+        // onend → OnVoiceFinal → request. Old path (2.5s floor) ≈ +3.9s.
+        let found = false, reqMs = -1;
         for (let i = 0; i < 20; i++) {
             await page.waitForTimeout(500);
             if (tenantReqs.some(u => u.includes('name=an%20tam') || u.includes('name=an+tam'))) {
-                found = true; break;
+                found = true; reqMs = Date.now() - t0; break;
             }
         }
         check('S3 silence → submit transcript "an tam"', found,
             tenantReqs[tenantReqs.length - 1] || 'no request');
+        // V2a adaptive: final emit ~1500ms → request phải đến <1500+2400=3900ms.
+        // (2.5s floor cũ → ~4000-4500ms → fail check này)
+        check('S3 V2a adaptive silence: request <2400ms sau isFinal',
+            found && (reqMs - 1500) < 2400, `reqMs=${reqMs} sinceFinal=${reqMs - 1500}ms`);
         // S4: sau submit — "Đang ghi âm" phải TẮT (A1 fix — trước đây kẹt mãi)
         await page.waitForTimeout(1500);
         check('S4 isRecording/listening reset sau final', !(await isListening(page)));
@@ -242,6 +254,33 @@ const isListening = async (page) =>
         }
         check('Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)', earlyFill);
         check('Dir voice submit → transcript/search chạy (SSR)', found);
+    }
+    await ctx.close();
+}
+
+// ═══ S8: Home KL unify — vananVoiceInput → DOM-fill → SubmitHomeSearch nav ══
+{
+    const { ctx, page } = await newPageWithSR('speech');
+    await page.goto(`${KHACHLINK}/`, { waitUntil: 'domcontentloaded' });
+    // Home nặng — lazy JS + feature flag Voice_Note_Enabled gate
+    const mic = page.locator('.home-voice-mic-btn, button[aria-label*="giọng nói"]').first();
+    try { await mic.waitFor({ timeout: 45000 }); } catch {}
+    check('S8 Home KL mic render (V2c unify)', await mic.count() > 0);
+    if (await mic.count() > 0) {
+        await mic.click();
+        // interim → DOM-fill #home-search-input; final → SubmitHomeSearch →
+        // navigate /products?q=an tam (mode mặc định product — trước đây voice
+        // hardcode /stores bỏ qua mode, unify fix đi cùng đường typed submit)
+        let earlyFill = false, navUrl = '';
+        for (let i = 0; i < 20; i++) {
+            await page.waitForTimeout(500);
+            const inp = await page.locator('#home-search-input').inputValue().catch(() => '');
+            if (inp.includes('an tam') && i <= 4) earlyFill = true;
+            if (page.url().includes('q=')) { navUrl = page.url(); break; }
+        }
+        check('S8 Home interim → DOM-fill #home-search-input', earlyFill);
+        check('S8 Home final → SubmitHomeSearch nav với q=an tam',
+            navUrl.includes('q=') && /products|stores/.test(navUrl), navUrl);
     }
     await ctx.close();
 }
