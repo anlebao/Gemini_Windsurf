@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-28T06:44:25.974Z",
+  "when": "2026-11-28T07:40:49.558Z",
   "results": [
     {
       "n": "S1 mic button render (KL /stores)",
@@ -17,9 +17,19 @@
       "d": ""
     },
     {
+      "n": "S7 V2c: recognition.continuous === false",
+      "p": true,
+      "d": "false"
+    },
+    {
       "n": "S3 silence → submit transcript \"an tam\"",
       "p": true,
       "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "S3 V2a adaptive silence: request <2400ms sau isFinal",
+      "p": true,
+      "d": "reqMs=2551 sinceFinal=1051ms"
     },
     {
       "n": "S4 isRecording/listening reset sau final",
@@ -39,7 +49,7 @@
     {
       "n": "S5 lazy-race: vananVoiceInput.isSupported callable ≤8s",
       "p": true,
-      "d": "waited=990ms"
+      "d": "waited=1136ms"
     },
     {
       "n": "S5 vananWhenLazyReady function exists",
@@ -62,9 +72,29 @@
       "d": ""
     },
     {
-      "n": "Dir voice submit → transcript/search chạy (SSR roundtrip)",
+      "n": "Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)",
       "p": true,
       "d": ""
+    },
+    {
+      "n": "Dir voice submit → transcript/search chạy (SSR)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S8 Home KL mic render (V2c unify)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S8 Home interim → DOM-fill #home-search-input",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S8 Home final → SubmitHomeSearch nav với q=an tam",
+      "p": true,
+      "d": "https://commienphi.timlathay.com/products?q=an%20tam"
     },
     {
       "n": "no pageerror",

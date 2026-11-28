@@ -1,6 +1,6 @@
-# TASK CARD: Voice Search Input Hardening — "Treo" fixes (P0) + V2b hotfix
+# TASK CARD: Voice Search Input Hardening — "Treo" (V1) + "Chậm" (V2) ✅ DONE
 
-> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **V1 DONE (RV 14/14) · V2b hotfix pushed `9e9c7a43` — chờ CD+RV**
+> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — V1 `b2ca71ed`+`6bef02f4` · V2b `9e9c7a43` · V2a/c `abd82648` — RV prod 20/20 PASS**
 > **Manual-test RCA (2026-11-28):** timlathay.com SSR treo sau V1 — mỗi interim
 > `onresult` (~3–5/s) = 1 JS→.NET invoke + full page render qua websocket
 > (Blazor Server) → render backlog → hang. WASM invoke là local nên KhachLink
@@ -124,23 +124,37 @@ Inject `FakeSpeechRecognition` qua `page.addInitScript` trước khi page load:
    **Bug phụ bắt được qua RV:** DotNetRef disposed vẫn bị JS invoke →
    `safeInvoke`/`voiceSafeInvoke` wrapper (commit `6bef02f4`).
 
-## V2b hotfix — interim DOM-fill (kéo trước lịch do manual-test fail) ✅ `9e9c7a43`
+## V2 — "Chậm" fixes ✅ DONE (`9e9c7a43` V2b + `abd82648` V2a/c) — RV 20/20
 
-- [x] `voice-input.js`: `start(ref, targetId)` — có `targetId` → interim ghi
-  `input.value` trực tiếp (không dispatch `input` event → không trigger
-  binding/debounce); không truyền → fallback `OnVoiceInterim` .NET
-  (backward-compat: AiChatWidget, RealtimeChatPanel).
-- [x] 4 page truyền InputId: KL StoreFinder `search-input`, ProductSearchResults
-  `product-search-input`, Dir StoreFinder + Home `vanan-public-search-input`.
-- [x] sweep: +check interim fill sớm ≤2.5s (chứng minh 0 SSR roundtrip).
-- [ ] **Chờ:** CD `46118999762` → re-run sweep → user manual retest timlathay.
-- Lưu ý commit `9e9c7a43` cuốn theo untracked files từ session song song
-  (`git add -A`): docs/strategy, twin-portal-site, probe scripts,
-  `.devin/core_full_run.txt` 64MB — không rewrite history, lần sau stage chọn lọc.
+- [x] **V2b interim DOM-fill** — `start(ref, targetId)`: interim ghi `input.value`
+  trực tiếp (0 .NET roundtrip, kill SSR SignalR flood = root cause timlathay
+  treo); không truyền targetId → fallback `OnVoiceInterim` .NET (AiChatWidget,
+  RealtimeChatPanel backward-compat). 4 page truyền InputId.
+- [x] **V2a adaptive silence** — `FINAL_COMMIT_DELAY_MS=800`: event đuôi FINAL
+  (không interim) → commit 800ms thay floor 2.5s. Fix noise-guard: re-arm cả
+  khi interim→final CÙNG text (`prevFinalsCount` — nếu không timer cũ nuốt
+  commit nhanh; trường hợp phổ biến nhất). Verify prod: request đến
+  **1051ms sau isFinal** (S3b).
+- [x] **V2c continuous=false** — Chrome endpointing tự end session; timers giữ
+  fallback. Verify: `__fakeSRInstances[0].continuous === false` trên prod (S7).
+- [x] **V2c unify Home KL → vananVoiceInput** — bỏ voice-note.js hoàn toàn trên
+  Home; `OnVoiceFinal` → `SubmitHomeSearch` respect `_searchMode` (fix bug
+  pre-existing: voice hardcode `/stores` bỏ qua product|store toggle).
+  Verify: nav `/products?q=an%20tam` (S8).
+- Lưu ý: commit `9e9c7a43` cuốn theo untracked files từ session song song
+  (`git add -A`) — không rewrite history; lần sau stage chọn lọc (đã áp dụng
+  cho `abd82648`).
 
-## OUT OF SCOPE (V2/V3 — ghi để không quên)
+## RV kết quả (2026-11-28, prod)
 
-- V2a adaptive silence (floor 1.2s + submit 800ms sau isFinal + "Đang xử lý" UI)
-- V2c `continuous=false` option + unify Home KL sang vananVoiceInput
-- V3: fuzzy-path deep fix (Gate 5 — card DidYouMean B2/B3) · SSR reconnect UI · metrics
+**20/20 PASS** — S1 watchdog ≤12s · S2 noise cap ≤36s · S3 submit `an tam` +
+adaptive 1051ms sau isFinal · S4 reset+re-tap · S5 lazy ~1.1s · S6 SPA abort ·
+S7 continuous=false · Dir DOM-fill sớm + submit SSR · S8 Home unify nav ·
+0 pageerror. Report `.devin/voice-v1-rv-report.json`.
+
+## OUT OF SCOPE (V3 — ghi để không quên)
+
+- V3: fuzzy-path deep fix (Gate 5 — card DidYouMean B2/B3) · metrics voice
 - voice-NOTE feature (Cart/BookingNote/VoiceNote) — giữ voice-note.js
+- "Đang xử lý" indicator tách riêng — hiện search-loading state đã cover
+  gap finalize→results (adaptive 800ms khiến gap ~1s, chấp nhận được)
