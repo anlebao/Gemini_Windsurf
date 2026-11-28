@@ -1,0 +1,70 @@
+# KPI Registry — prefix KPI-xxx
+# KPIs incl. per-activity KPI links (SRS 5.2).
+# Schema: schema/kpis.schema.json · validate: scripts/validate-twin.py
+registry: kpis
+idPrefix: KPI
+schemaVersion: 1
+entries:
+- id: KPI-001
+  name: Automation rate per process
+  description: '% AUTOMATED activities per PROC (target: measure, not maximize)'
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs: []
+  evidence:
+  - none:twin-derived
+- id: KPI-002
+  name: Order delivery latency PG→SQLite
+  description: time order.created → replica visible on POS
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs:
+  - ACTV-204
+  - ACTV-205
+  evidence:
+  - none:needs-monitoring
+- id: KPI-003
+  name: Onboarding cycle time
+  description: application Submitted → tenant Active
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs:
+  - ACTV-104
+  - ACTV-110
+  evidence:
+  - none:needs-monitoring
+- id: KPI-004
+  name: AI grounded answer rate
+  description: '% answers fully grounded in approved knowledge'
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs: []
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: KPI-005
+  name: Sync drift incidents
+  description: count of PG↔SQLite divergence events
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs:
+  - ACTV-209
+  evidence:
+  - none:needs-monitoring
+- id: KPI-006
+  name: Degraded answer rate
+  description: '% ai.chat.degraded vs total — cost/quota health signal'
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs:
+  - ACTV-403
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: KPI-007
+  name: Knowledge approval latency
+  description: pending_review -> approved time per tenant
+  status: ACTIVE
+  confidence: INFERRED
+  activityRefs:
+  - ACTV-409
+  evidence:
+  - none:needs-monitoring

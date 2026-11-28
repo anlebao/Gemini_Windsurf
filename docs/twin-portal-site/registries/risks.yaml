@@ -1,0 +1,233 @@
+# Risk Registry — prefix RISK-xxx
+# Risks — every RISK should link CTRL or flag 'no control'.
+# Schema: schema/risks.schema.json · validate: scripts/validate-twin.py
+registry: risks
+idPrefix: RISK
+schemaVersion: 1
+entries:
+- id: RISK-001
+  name: Tenant routing miss (no ShopInstance)
+  category: OPERATIONAL
+  severity: HIGH
+  description: order created in PG but never delivered — needs monitoring/alerting
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs:
+  - CTRL-009
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: RISK-002
+  name: Cross-tenant AI knowledge leak
+  category: TENANT_ISOLATION
+  severity: CRITICAL
+  description: signed ctx spoof or scope misconfig exposes tenant knowledge
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-005
+  - CTRL-004
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RISK-003
+  name: Metering fail-open on caller
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: caller clients fail-open; deny only enforced service-side
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-003
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: RISK-004
+  name: SQLite/PG drift on sync failure
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: replica lag/failure → POS shows stale orders
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs: []
+  evidence:
+  - 3_CoreHub/Services/NatsSyncWorker.cs@64789992
+- id: RISK-005
+  name: KYC PII retention exposure
+  category: COMPLIANCE
+  severity: HIGH
+  description: identity documents retained w/o evidenced policy
+  status: ACTIVE
+  confidence: INFERRED
+  ctrlRefs:
+  - CTRL-010
+  evidence:
+  - none:unverified
+- id: RISK-006
+  name: Doc conflation causes wrong-endpoint integration
+  category: OPERATIONAL
+  severity: LOW
+  description: consumers may call products/recommended expecting PG data
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs: []
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: RISK-007
+  name: Deliberate cross-tenant community queries
+  category: TENANT_ISOLATION
+  severity: HIGH
+  description: CommunityOrder/Admin/CommerceMode services run IgnoreQueryFilters over Orders/DeliveryTasks/Customers/Tenants
+    by design — predicate bugs would leak data platform-wide
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-016
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RISK-008
+  name: Community fund spend — single approver (no maker-checker)
+  category: FRAUD
+  severity: MEDIUM
+  description: one SystemAdmin (approvedBy) authorizes disbursement; only mitigation is
+    immutable audit record
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-017
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@69496de4
+- id: RISK-009
+  name: Ephemeral Data Protection key ring breaks PII decrypt
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: ciphertext written by previous container instance undecryptable after restart
+    — already caused admin 500s (2026-09-21 fix avoids projection, root cause unfixed)
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-018
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RISK-010
+  name: Reseller accounting drift on snapshot-rate changes
+  category: COMPLIANCE
+  severity: MEDIUM
+  description: 3 booksets derive from order-creation snapshot rates; mid-flight rate edits
+    or fix attempts need reversal discipline (AccountingEntry immutable)
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-019
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: RISK-011
+  name: Orphaned DeliveryTask on order-completion delegate failure
+  category: OPERATIONAL
+  severity: LOW
+  description: DeliveryTask marked Delivered even when OrderWorkflowService returns null
+    — warn-log only, no compensating action
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs: []
+  evidence:
+  - 3_CoreHub/Services/DeliveryWorkflowService.cs@69496de4
+- id: RISK-012
+  name: Short-code claim guessable / cross-tenant collision
+  category: SECURITY
+  severity: MEDIUM
+  description: 6-digit ShortCode unique per tenant per day only; claim resolves tenant via
+    first match cross-tenant — brute-force + misrouting exposure
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-021
+  - CTRL-022
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+  - 3_CoreHub/Services/IGuardService.cs@4f3c7ea3
+- id: RISK-013
+  name: ManualOverride scan bypass
+  category: FRAUD
+  severity: LOW
+  description: guard can record ManualOverride on mismatch — physical-checkout bypass only
+    mitigated by scan-log audit
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-022
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RISK-014
+  name: Legacy unclassified tenants bypass regime lock
+  category: COMPLIANCE
+  severity: MEDIUM
+  description: Tenant.Type=null keeps all 4 standards allowed (backward-compat) — BCTC can
+    be generated under wrong regime until tenant classified
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-023
+  evidence:
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+- id: RISK-015
+  name: Reopen misuse — closing JE reversal on closed books
+  category: COMPLIANCE
+  severity: LOW
+  description: reopen reverses closing entries and reopens books; gated to 3 approver roles
+    + reason + audit — residual is governance, not technical
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-024
+  - CTRL-025
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RISK-016
+  name: Reconcile cross-store/inventory checks silently skipped
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: R11 (PG<->SQLite mirror) and R13 (inventory<->GL) fail-open on provider/HTTP
+    issues — drift can pass unnoticed; pre-close checklist treats reconcile crash as warning
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-025
+  evidence:
+  - 3_CoreHub/Services/Reconcile/ReconcileModels.cs@58d3d3d6
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RISK-017
+  name: Voucher posted but stock not applied (cross-DB)
+  category: OPERATIONAL
+  severity: MEDIUM
+  description: PurchaseReceipt posts on PG while stock lives on tenant SQLite via optional
+    dep — host without IStockMovementService (CoreHub/Gateway) silently skips stock;
+    partial application possible
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-026
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8
+- id: RISK-018
+  name: Negative stock on return path skews valuation
+  category: OPERATIONAL
+  severity: LOW
+  description: purchase return allowed to drive stock negative (consumed before return) —
+    point-in-time valuation can dip below zero
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-028
+  evidence:
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: RISK-019
+  name: Variance alerts in-app only (unseen)
+  category: OPERATIONAL
+  severity: LOW
+  description: ShiftAlert default in-app; Telegram/Zalo notifiers optional — alerts may
+    go unseen by owner
+  status: ACTIVE
+  confidence: VERIFIED
+  ctrlRefs:
+  - CTRL-027
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/TelegramAlertNotifier.cs@f447a1a8

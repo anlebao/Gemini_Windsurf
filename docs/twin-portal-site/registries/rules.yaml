@@ -1,0 +1,458 @@
+# Business Rule Registry — prefix RULE-xxx
+# Business rules and their enforcement point.
+# Schema: schema/rules.schema.json · validate: scripts/validate-twin.py
+registry: rules
+idPrefix: RULE
+schemaVersion: 1
+entries:
+- id: RULE-001
+  name: Order snapshot rule
+  description: Gateway does NOT query Products — client supplies ProductName+VatRate
+    snapshot at checkout (Option C)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-203
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: RULE-002
+  name: Routed delivery by ShopInstanceId
+  description: order.created delivered only to subject vanan.cloud.order.created.{shopInstanceId};
+    wildcard subscription removed
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-204
+  - ACTV-205
+  componentRef: SYS-015
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: RULE-003
+  name: ShopInstance capacity check
+  description: AssignShopInstance throws if tenant count >= MaxTenants or instance
+    inactive
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-108
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@64789992
+- id: RULE-004
+  name: Accounting regime by TenantType
+  description: HTX→TT71, Enterprise_Large→TT99, default→TT133 via AccountingStandardResolver
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-113
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub@64789992
+- id: RULE-005
+  name: Application status machine
+  description: Draft→Submitted→NeedInfo→Approved|Rejected; Rejected terminal
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-102
+  - ACTV-104
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: RULE-006
+  name: KYC escalation levels
+  description: L1 OTP → L2 personal info → L3 KYC → L4 manual; higher level gates
+    stronger privileges
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-105
+  - ACTV-106
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Aggregates/MembershipAggregate/MembershipTypes.cs@64789992
+- id: RULE-007
+  name: Deny only at Enforcement=Deny + insufficient balance
+  description: deny=true chi khi rate head Enforcement=Deny VA balance<required
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-301
+  - ACTV-302
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-008
+  name: Topup confirm = grant + cycle reset, idempotent
+  description: confirm -> grant + alert reset; unique partial index chan double-confirm;
+    lazy expiry TTL 72h
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-304
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-009
+  name: Deduct at ingest same tx applied=min(req,bal)
+  description: deduct cung transaction; du -> UnpaidCredits; unpriced -> no deduct;
+    resolve o occurredAtUtc
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-305
+  componentRef: SYS-007
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: RULE-010
+  name: Voucher type via registry (AddVoucherType)
+  description: phieu moi PHAI dang ky VoucherTypeDefinition + strategy; intent ->
+    ResolveByIntent; cam page copy-paste
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-309
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: RULE-011
+  name: Strategy-per-type posting
+  description: '7+ strategies: Advance, StockIssue, AssetDisposal, Loan, Depreciation,
+    Deposit, ManualJournal'
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-310
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Vouchers/VoucherFramework.cs@64789992
+- id: RULE-012
+  name: AccountingEntry immutability
+  description: append-only; sua sai = reversal; khong UPDATE/DELETE
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-312
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: RULE-013
+  name: Signed tenant context mandatory
+  description: HMAC X-Tenant-Ctx; caller scopes; allowlist; spoof -> 401
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-402
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: RULE-014
+  name: AI degrade policy (stricter than fail-open)
+  description: metering deny/fail -> degrade structured-only, no LLM call; ai.chat.degraded
+    MeterOnly
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-403
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-015
+  name: Knowledge usage permission filter
+  description: post-retrieval context filter (intent x classification x channel) before
+    prompt
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-404
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-016
+  name: Structured data wins over vector
+  description: SQL-first retriever; on conflict structured data is authoritative;
+    stale -> strip volatile claims
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-405
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-017
+  name: AI advisory-only boundary
+  description: AI suggests into existing flows; NEVER creates orders/entries/records;
+    public retrieval only 'approved' knowledge
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-407
+  - ACTV-409
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-018
+  name: Knowledge approval gate
+  description: pending_review -> approved; public chat retrieves approved only; Confidential
+    -> extraction path
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-409
+  componentRef: SYS-008
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: RULE-019
+  name: Loyalty sync via routed+wildcard events
+  description: loyalty.changed.{deviceId} routed events + wildcard sub; config.changed
+    broadcast; outbox fallback
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-501
+  - ACTV-502
+  componentRef: SYS-009
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/LoyaltySyncSubscriber.cs@64789992
+- id: RULE-020
+  name: Commerce mode snapshot at order creation
+  description: CommerceMode + PlatformFeeRate/CommunityFundRate/DeliveryFee snapshot on Order
+    at creation — mode toggle affects future orders only
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-610
+  - ACTV-611
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+  - 1_Shared/Domain/Aggregates/OrderAggregate/CommerceMode.cs@69496de4
+- id: RULE-021
+  name: Rate invariant — platformFeeRate + communityFundRate <= 1
+  description: SetGlobalMode rejects rates outside 0-1 or summing over 100% margin; global
+    mode cannot be Inherit
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-611
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommerceModeService.cs@69496de4
+- id: RULE-022
+  name: Single active DeliveryTask per order
+  description: accept allowed only for confirmed/ready orders with no active DeliveryTask
+    (pre-check + unique constraint — concurrency-safe)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-613
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+- id: RULE-023
+  name: Per-tenant collaborator eligibility thresholds
+  description: eligibility = IdentityLevel >= threshold AND LoyaltyPoints >= per-tenant
+    MinPoints via ShopFeatureSettings (default 1000 pts + Verified); Owner manages tenant-scoped,
+    SystemAdmin cross-tenant
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-619
+  - ACTV-620
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: RULE-024
+  name: Community fund system-wide + overspend blocked
+  description: fund balance lives on CommunityFundWallet (TenantId Guid.Empty); SpendAsync
+    rejects amount > balance; every spend writes immutable CommunityFundSpendRecord
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-616
+  - ACTV-617
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/CommunityFundService.cs@69496de4
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
+- id: RULE-025
+  name: Reseller 3-bookset accounting (idempotent)
+  description: Reseller order generates Supplier + Reseller + Platform booksets (VAT on
+    costPrice/sellPrice; platform revenue = PlatformFee + CommunityFund); skipped when reference
+    suffix exists
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-616
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: RULE-026
+  name: Photo + QR token are primary verifiers
+  description: plate number optional metadata (Phase-1); customer photo optional (#130);
+    plate photo required at issue
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-622
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-027
+  name: Claim idempotency (INV-G05/G06)
+  description: claim only from Issued status; already-claimed session throws — one customer
+    per session
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-624
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-028
+  name: VehicleSession state machine
+  description: Checkout allowed from Issued|Claimed; Flag from Issued|Claimed (reason required);
+    Void never from CheckedOut
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-625
+  - ACTV-626
+  - ACTV-627
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: RULE-029
+  name: Regime-lock allowed standards by TenantType
+  description: default-lock per tenant type (HTX->TT71 hard, Large->TT99, SME->TT133,
+    SuperSmall->TT58 default + TT133 option); HKD allowed=[] until TT58 elected; legacy
+    Type=null keeps all 4 (no lock)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-629
+  - ACTV-630
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/AccountingStandardRules.cs@58d3d3d6
+- id: RULE-030
+  name: Closing entries accrual-only + idempotent
+  description: ket chuyen 911 generated only for TT133/TT99/TT71; HKD (TT152) + DNSN (TT58)
+    skip — so khong ket chuyen; JE purpose 'closing' + period dedupes re-runs
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-636
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RULE-031
+  name: Reopen gated — approver roles + reason + reversal
+  description: reopen allowed only for Owner/ChiefAccountant/SystemAdmin with mandatory
+    reason; closing JEs reversed (append-only preserved); status Reopening->Open
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-638
+  componentRef: SYS-003
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: RULE-032
+  name: Reconcile read-only + fail-open
+  description: tra soat never writes (NFR-1); each check isolated via RunSafe; R11/R13
+    providers fail-open (skip with Info) when unconfigured or HTTP error
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-639
+  - ACTV-640
+  componentRef: SYS-002
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Reconcile/IAccountingReconcileService.cs@58d3d3d6
+  - 3_CoreHub/Services/Reconcile/AccountingReconcileService.cs@58d3d3d6
+- id: RULE-033
+  name: Stock audit-first + ShopERP-host-only writes
+  description: StockMovement is audit SoT — Ingredient.CurrentStock is snapshot/cache;
+    movement writes only at ShopERP host (optional dep, CoreHub/Gateway skip silently);
+    idempotent per (PurchaseReceiptId, PurchaseReceiptLineId, MovementType)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  - ACTV-643
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Infrastructure/Entities/StockMovementEntity.cs@f447a1a8
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: RULE-034
+  name: Inventory count edit lock (NFR-7)
+  description: InventoryCount.Update/AddRestock allowed only while shift Draft/Submitted —
+    blocked after Closed
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-644
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@f447a1a8
+- id: RULE-035
+  name: Stock semantics — baseline + signed movement
+  description: report opening = CurrentStock - Sigma(movements) (pre-table stock safe);
+    manual-out over stock rejected; purchase-return may drive negative stock (consumed
+    before return)
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-643
+  - ACTV-647
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/StockMovementService.cs@f447a1a8
+- id: RULE-036
+  name: Cross-DB voucher-stock link without FK
+  description: PurchaseReceipt lives on PG, StockMovement on tenant SQLite — linked by
+    Ids only, no physical FK; stock applied once via StockAppliedAt flag
+  enforcement: AUTOMATED
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  componentRef: SYS-004
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/Purchase/PurchaseReceiptService.cs@f447a1a8

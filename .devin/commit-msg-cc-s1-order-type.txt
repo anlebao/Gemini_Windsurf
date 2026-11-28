@@ -1,0 +1,26 @@
+feat: OrderType DELIVERY support for community commerce shipper flow
+
+Checkout was hardcoded to TAKEAWAY and CreateOrderCommand had no OrderType
+field, so orders never became DELIVERY — shipper nearby-orders filter
+(OrderType == "DELIVERY") returned 0 results, blocking the entire delivery
+flow. RV had to SQL-INSERT DELIVERY orders to test shipper accept/pickup/
+deliver/complete.
+
+Changes:
+- Domain: Order.SetOrderType() method (DINEIN/TAKEAWAY/DELIVERY validation,
+  sets DeliveryAddress/Lat/Lng/ShippingFee when DELIVERY)
+- CreateOrderCommand: add OrderType + DeliveryAddress/Lat/Lng/ShippingFee
+- PublicOrdersController: pass OrderType + delivery fields to command,
+  add delivery fields to CheckoutOrderRequest DTO
+- OrderService.CreateOrderFromCommandAsync: call order.SetOrderType() after
+  Order.Create() (null/empty keeps default DINEIN — no regression)
+- Checkout.razor: add OrderType selector (DINEIN/TAKEAWAY/DELIVERY radio),
+  DELIVERY requires address, pass OrderType + delivery fields in request
+- Tests: 12 unit tests for SetOrderType (valid/invalid/case-insensitive/
+  null/empty/delivery-fields/audit), 69 regression tests PASS
+
+Task card: docs/AI/tasks/community_commerce_fixes/task_card_01_order_type.md
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

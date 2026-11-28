@@ -1,0 +1,3170 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Digital Twin documentation layer — captured at 64789992">
+      
+      
+      
+      
+        <link rel="prev" href="../digital-twin-schema/">
+      
+      
+        <link rel="next" href="../model-index/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Traceability - Van An Enterprise Operating Model</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#business-to-code-traceability-matrix-draft-p3-finalize-at-p5" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Van An Enterprise Operating Model" class="md-header__button md-logo" aria-label="Van An Enterprise Operating Model" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Van An Enterprise Operating Model
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Traceability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Van An Enterprise Operating Model" class="md-nav__button md-logo" aria-label="Van An Enterprise Operating Model" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Van An Enterprise Operating Model
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Overview
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-overview/ecosystem-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ecosystem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-overview/system-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-overview/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-overview/diagram-conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-overview/existing-docs-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Existing docs index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Actors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Actors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-actors/actor-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Actors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-actors/organization-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Organizations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-actors/responsibility-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RACI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-business-capabilities/capability-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capabilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Processes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Processes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f4-merchant-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F4 Onboarding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f1-order-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F1 Orders
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f2-metering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F2 Metering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f3-voucher-posting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F3 Vouchers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f5-tenant-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F5 Tenant AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/f6-loyalty/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    F6 Loyalty
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/valcn/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VALCN Community
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/guard-parking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guard Parking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/accounting-depth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accounting Depth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/swimlane-diagrams/inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-details/f4-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Details F4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-details/f1-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Details F1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-details/valcn-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Details VALCN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-details/accounting-depth-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Details Accounting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-processes/process-details/inventory-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Details Inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-software-architecture/software-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-software-architecture/component-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-software-architecture/integration-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-data-architecture/data-flow-catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-data-architecture/data-ownership/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ownership
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-data-architecture/data-entity-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Governance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Governance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-governance/authorization-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-governance/approval-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Approvals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-governance/audit-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    States
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    States
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-as-is/current-operating-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AS-IS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-to-be/target-operating-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TO-BE
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gap analysis
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Gap analysis
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-gap-analysis/automation-gap-register/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gaps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-gap-analysis/risk-register/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Risks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-gap-analysis/improvement-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Twin
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Twin
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../digital-twin-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Traceability
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Traceability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#f1-order-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1 — Order lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#f4-onboardingprovisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — Onboarding/provisioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#valcn-community-commerce-d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VALCN — Community commerce (D1)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guard-parking-giu-xe-qr-d1-addendum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guard parking — giữ xe QR (D1 addendum)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accounting-depth-d3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accounting depth (D3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inventory-d2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventory (D2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maintenance-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Validation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-validation/evidence-register/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evidence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-validation/unresolved-questions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Questions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-validation/drift-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-validation/validation-report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#f1-order-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1 — Order lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#f4-onboardingprovisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4 — Onboarding/provisioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#valcn-community-commerce-d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VALCN — Community commerce (D1)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guard-parking-giu-xe-qr-d1-addendum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guard parking — giữ xe QR (D1 addendum)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accounting-depth-d3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accounting depth (D3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inventory-d2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventory (D2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="business-to-code-traceability-matrix-draft-p3-finalize-at-p5">Business-to-Code Traceability Matrix — DRAFT (P3, finalize at P5)<a class="headerlink" href="#business-to-code-traceability-matrix-draft-p3-finalize-at-p5" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Chain per SRS §7.3: Activity → Module → Service/Handler → API/Event → DB Entity → Output.
+Unverifiable links = UNKNOWN/UNVERIFIED — never invented.</p>
+</blockquote>
+<h2 id="f1-order-lifecycle">F1 — Order lifecycle<a class="headerlink" href="#f1-order-lifecycle" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-202</td>
+<td>Submit checkout</td>
+<td>SYS-002</td>
+<td><code>PublicOrdersController.CreateCheckoutOrder</code></td>
+<td>POST /api/public/orders/checkout</td>
+<td>—</td>
+<td>request</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-203</td>
+<td>Create order PG</td>
+<td>SYS-002→003</td>
+<td><code>OrderService.CreateOrderFromCommandAsync</code></td>
+<td>—</td>
+<td><code>Order</code> (DATA-004)</td>
+<td>Order entity</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-204</td>
+<td>Route+publish</td>
+<td>SYS-002/015</td>
+<td>publisher w/ routingKey</td>
+<td><code>vanan.cloud.order.created.{si}</code></td>
+<td>ShopInstance (DATA-002)</td>
+<td>NATS msg</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-205</td>
+<td>Replica persist</td>
+<td>SYS-004</td>
+<td><code>OrderSyncSubscriber</code></td>
+<td>subscribed subject</td>
+<td>order replica (DATA-005)</td>
+<td>SQLite row</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-206</td>
+<td>Notify POS/kitchen</td>
+<td>SYS-004</td>
+<td>UNVERIFIED (SignalR inferred)</td>
+<td>—</td>
+<td>—</td>
+<td>display</td>
+<td>INFERRED</td>
+</tr>
+<tr>
+<td>ACTV-207</td>
+<td>Confirm order</td>
+<td>SYS-004</td>
+<td>UNVERIFIED (UI flow)</td>
+<td>—</td>
+<td>replica status</td>
+<td>status</td>
+<td>INFERRED</td>
+</tr>
+<tr>
+<td>ACTV-208</td>
+<td>Kitchen prepare</td>
+<td>SYS-004</td>
+<td><code>KitchenStatus</code> transitions</td>
+<td>—</td>
+<td>replica</td>
+<td>status</td>
+<td>INFERRED→V (enum exists)</td>
+</tr>
+<tr>
+<td>ACTV-209</td>
+<td>Status sync back</td>
+<td>SYS-009/015</td>
+<td>subscribers + NatsSyncWorker</td>
+<td><code>status.changed.{si}</code>, <code>vanan.shoperp.*</code></td>
+<td>DATA-004/005</td>
+<td>PG update</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-210</td>
+<td>Track order</td>
+<td>SYS-005→002</td>
+<td><code>GetPublicOrder</code></td>
+<td>GET /api/public/orders/{id}</td>
+<td>DATA-004</td>
+<td>DTO</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-211</td>
+<td>Loyalty accrual</td>
+<td>SYS-003</td>
+<td><code>AllianceWalletService</code>/<code>LoyaltyBalanceSyncPublisher</code></td>
+<td><code>loyalty.changed.{deviceId}</code></td>
+<td>wallet/loyalty (TBD DATA)</td>
+<td>points</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-212</td>
+<td>Payment confirmed</td>
+<td>SYS-003</td>
+<td><code>WalletService</code> (comment)</td>
+<td><code>payment.confirmed.{si}</code></td>
+<td>wallet (DATA-010)</td>
+<td>event</td>
+<td>INFERRED</td>
+</tr>
+</tbody>
+</table>
+<h2 id="f4-onboardingprovisioning">F4 — Onboarding/provisioning<a class="headerlink" href="#f4-onboardingprovisioning" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-102</td>
+<td>Submit application</td>
+<td>SYS-002</td>
+<td><code>MembershipApplicationsController</code> (I)</td>
+<td>membership app endpoints</td>
+<td>DATA-007</td>
+<td>Draft→Submitted</td>
+<td>INFERRED (endpoint names)</td>
+</tr>
+<tr>
+<td>ACTV-103</td>
+<td>OCR extract</td>
+<td>SYS-002</td>
+<td><code>OcrOnboardingController</code></td>
+<td>OCR endpoints</td>
+<td>—</td>
+<td>fields</td>
+<td>INFERRED</td>
+</tr>
+<tr>
+<td>ACTV-104</td>
+<td>Review application</td>
+<td>SYS-002</td>
+<td><code>MembershipAdminController</code> (I)</td>
+<td>admin endpoints</td>
+<td>DATA-007</td>
+<td>Approved/NeedInfo/Rejected</td>
+<td>VERIFIED (state machine)</td>
+</tr>
+<tr>
+<td>ACTV-105</td>
+<td>KYC L1 OTP</td>
+<td>SYS-002</td>
+<td>UNVERIFIED handler</td>
+<td>—</td>
+<td>verification level</td>
+<td>flag</td>
+<td>VERIFIED (enum) / I (impl)</td>
+</tr>
+<tr>
+<td>ACTV-107</td>
+<td>Create tenant</td>
+<td>SYS-003</td>
+<td><code>TenantManagementService.CreateTenantAsync</code></td>
+<td>—</td>
+<td><code>Tenant</code> (DATA-001)</td>
+<td>entity</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-108</td>
+<td>Assign ShopInstance</td>
+<td>SYS-003</td>
+<td><code>AssignShopInstanceAsync</code> (+capacity)</td>
+<td>—</td>
+<td>DATA-002</td>
+<td>link</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-109</td>
+<td>Publish verified</td>
+<td>SYS-009/015</td>
+<td><code>TenantEvents</code>/publisher</td>
+<td><code>tenant.verified</code></td>
+<td>—</td>
+<td>event</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-110</td>
+<td>Mirror tenant</td>
+<td>SYS-004</td>
+<td><code>TenantSyncSubscriber</code></td>
+<td>subscribed</td>
+<td>DATA-003</td>
+<td>SQLite row</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-111</td>
+<td>Bind domain/instance</td>
+<td>SYS-002</td>
+<td><code>KhachLinkInstanceController</code>/<code>DomainRegistrarController</code></td>
+<td>endpoints (I)</td>
+<td>—</td>
+<td>binding</td>
+<td>INFERRED</td>
+</tr>
+<tr>
+<td>ACTV-113</td>
+<td>MarkAsHtx</td>
+<td>SYS-003</td>
+<td><code>HtxProfileService</code></td>
+<td><code>tenant.type.changed</code></td>
+<td>DATA-012</td>
+<td>HTX marker</td>
+<td>VERIFIED</td>
+</tr>
+</tbody>
+</table>
+<h2 id="valcn-community-commerce-d1">VALCN — Community commerce (D1)<a class="headerlink" href="#valcn-community-commerce-d1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-610</td>
+<td>Resolve mode + snapshot</td>
+<td>SYS-003</td>
+<td><code>CommerceModeService.ResolveModeForTenantAsync</code></td>
+<td>—</td>
+<td><code>SystemSetting</code>/<code>Tenant</code> (DATA-013)</td>
+<td>Order snapshot</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-611</td>
+<td>Configure mode/rates</td>
+<td>SYS-002</td>
+<td><code>CommerceModeController</code></td>
+<td>POST /api/admin/commerce-mode/*</td>
+<td>DATA-013</td>
+<td>settings</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-612</td>
+<td>Nearby orders</td>
+<td>SYS-002</td>
+<td><code>CommunityOrderService.GetNearbyOrdersAsync</code></td>
+<td>GET /api/community/nearby-orders</td>
+<td>DATA-004/013</td>
+<td>DTO list</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-613</td>
+<td>Accept delivery</td>
+<td>SYS-002/003</td>
+<td><code>CommunityOrderService.AcceptOrderAsync</code></td>
+<td>POST /api/community/orders/{id}/accept</td>
+<td><code>DeliveryTask</code>+<code>Order</code> (DATA-013/004)</td>
+<td>task + delivering</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-614</td>
+<td>Delivery transitions</td>
+<td>SYS-002/003</td>
+<td><code>DeliveryWorkflowService.TransitionStatusAsync</code> → <code>OrderWorkflowService</code></td>
+<td>POST …/pickup|delivering|delivered|failed</td>
+<td>DATA-013</td>
+<td>status + JE</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-615</td>
+<td>GPS ping + push</td>
+<td>SYS-002</td>
+<td><code>DeliveryWorkflowService.RecordLocationAsync</code> + <code>LocationHub</code></td>
+<td>POST /api/community/location/update</td>
+<td><code>DeliveryTracking</code> (DATA-013)</td>
+<td>SignalR push</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-616</td>
+<td>Payment split + fund accrual</td>
+<td>SYS-003</td>
+<td><code>WalletService</code> (COD/external legs) + <code>OrderService.GenerateResellerAccountingEntriesAsync</code></td>
+<td>POST …/wallet/confirm-cod · confirm-external-payment</td>
+<td><code>WalletTransaction</code> (DATA-010) + <code>AccountingEntry</code> (DATA-009)</td>
+<td>wallet legs + 3 booksets</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-617</td>
+<td>Fund spend + audit</td>
+<td>SYS-002/003</td>
+<td><code>CommunityFundService.SpendAsync</code></td>
+<td>POST /api/admin/community-fund/spend</td>
+<td>DATA-010 + <code>CommunityFundSpendRecord</code> (DATA-013)</td>
+<td>spend tx + audit</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-618</td>
+<td>COD remittance</td>
+<td>SYS-002/003</td>
+<td><code>WalletService</code> (Remittance+Settlement pair)</td>
+<td>POST /api/community/wallet/remit</td>
+<td>DATA-010</td>
+<td>settlement</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-619</td>
+<td>Eligibility eval</td>
+<td>SYS-002/003</td>
+<td><code>CommunityAdminService.GetEligibleCustomers{ForTenant}Async</code></td>
+<td>GET …/community/eligible · …/tenant-community/eligible</td>
+<td>DATA-013</td>
+<td>DTO page</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-620</td>
+<td>Role activate/deactivate</td>
+<td>SYS-002/003</td>
+<td><code>CommunityAdminService.ActivateRole{ForTenant}Async</code></td>
+<td>POST …/activate-role|deactivate-role</td>
+<td><code>CommunityRole</code> (DATA-013)</td>
+<td>role state</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-621</td>
+<td>Referral &amp; commission</td>
+<td>SYS-003</td>
+<td><code>SalesmanService</code> + <code>ReferralCommissionCalculator</code></td>
+<td>/api/community/salesman/*, /resolve-referral</td>
+<td><code>SalesReferral</code> (DATA-013)</td>
+<td>commission</td>
+<td>INFERRED (call chain partial)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="guard-parking-giu-xe-qr-d1-addendum">Guard parking — giữ xe QR (D1 addendum)<a class="headerlink" href="#guard-parking-giu-xe-qr-d1-addendum" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-622</td>
+<td>Issue session</td>
+<td>SYS-002/003</td>
+<td><code>GuardService.IssueAsync</code></td>
+<td>POST /api/guard/issue</td>
+<td><code>VehicleSession</code> (DATA-014)</td>
+<td>QR + short code + ticket</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-623</td>
+<td>Photo upload</td>
+<td>SYS-002</td>
+<td><code>GuardService.PresignUploadAsync</code>/<code>UploadPhotoAsync</code></td>
+<td>POST /api/guard/{presign-upload,upload-photo}</td>
+<td>R2 keys (DATA-014)</td>
+<td>photo keys</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-624</td>
+<td>Claim session</td>
+<td>SYS-002/003</td>
+<td><code>GuardController.Claim</code> → <code>GuardService.ClaimAsync</code></td>
+<td>POST /api/guard/claim</td>
+<td>DATA-014</td>
+<td>Claimed</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-625</td>
+<td>Verify scan</td>
+<td>SYS-002/003</td>
+<td><code>GuardService.VerifyAsync</code></td>
+<td>POST /api/guard/verify</td>
+<td>DATA-014 + <code>GuardScanLog</code></td>
+<td>verify result + log</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-626</td>
+<td>Checkout</td>
+<td>SYS-002/003</td>
+<td><code>GuardService.CheckoutAsync</code></td>
+<td>POST /api/guard/checkout/{id}</td>
+<td>DATA-014</td>
+<td>CheckedOut</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-627</td>
+<td>Flag/Void</td>
+<td>SYS-002/003</td>
+<td><code>GuardService.FlagAsync</code>/<code>VoidAsync</code></td>
+<td>POST /api/guard/{flag,void}/{id}</td>
+<td>DATA-014</td>
+<td>Flagged/Voided</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-628</td>
+<td>Board + sync</td>
+<td>SYS-002</td>
+<td><code>GuardService.GetTodaySessionsAsync</code>/<code>GetSessionStatusesAsync</code></td>
+<td>GET …/sessions/today · POST …/my-sessions</td>
+<td>DATA-014</td>
+<td>DTOs</td>
+<td>VERIFIED</td>
+</tr>
+</tbody>
+</table>
+<h2 id="accounting-depth-d3">Accounting depth (D3)<a class="headerlink" href="#accounting-depth-d3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-629</td>
+<td>Resolve standard</td>
+<td>SYS-004</td>
+<td><code>AccountingStandardRules</code>/<code>Resolver</code></td>
+<td>—</td>
+<td><code>Tenant</code> (DATA-001)</td>
+<td>effective std</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-630</td>
+<td>Set standard override</td>
+<td>SYS-003</td>
+<td><code>TenantManagementService.SetAccountingStandardAsync</code></td>
+<td>—</td>
+<td>DATA-001</td>
+<td>override</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-631</td>
+<td>HKD books</td>
+<td>SYS-002/003</td>
+<td><code>HKDBookService</code> + <code>HKDBookGenerationService</code></td>
+<td>GET /api/hkd-books*</td>
+<td>DATA-009</td>
+<td>S1a-S3a books</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-632</td>
+<td>Trial balance</td>
+<td>SYS-003</td>
+<td><code>TrialBalanceService.GenerateAsync</code></td>
+<td>—</td>
+<td>DATA-015</td>
+<td>TB</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-633</td>
+<td>Journal + ledger</td>
+<td>SYS-003</td>
+<td><code>GeneralLedgerService</code></td>
+<td>—</td>
+<td>DATA-015</td>
+<td>reports</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-634</td>
+<td>BCTC B01/02/03 + B09</td>
+<td>SYS-003</td>
+<td><code>BalanceSheet/IncomeStatement/CashFlowStatement/FinancialStatementNotes</code> services</td>
+<td>—</td>
+<td>DATA-015</td>
+<td>statements</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-635</td>
+<td>Validate pre-close</td>
+<td>SYS-003</td>
+<td><code>PeriodClosingService.ValidatePeriodAsync</code></td>
+<td>—</td>
+<td>DATA-009/015</td>
+<td>check result</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-636</td>
+<td>Closing JEs 911</td>
+<td>SYS-003</td>
+<td><code>PeriodClosingService.GenerateClosingEntriesAsync</code></td>
+<td>—</td>
+<td>DATA-015</td>
+<td>closing JEs</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-637</td>
+<td>Close period</td>
+<td>SYS-003/004</td>
+<td><code>PeriodClosingService.ClosePeriodAsync</code> (PeriodClosing.razor)</td>
+<td>—</td>
+<td>DATA-015</td>
+<td>Closed + audit</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-638</td>
+<td>Reopen period</td>
+<td>SYS-003/004</td>
+<td><code>PeriodClosingService.ReopenPeriodAsync</code></td>
+<td>—</td>
+<td>DATA-015</td>
+<td>Open + audit</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-639</td>
+<td>Reconcile R1-R13</td>
+<td>SYS-002/003</td>
+<td><code>AccountingReconcileService.RunAsync</code></td>
+<td>GET /api/admin/accounting/reconcile</td>
+<td>DATA-009/015</td>
+<td>ReconcileResult</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-640</td>
+<td>Mirror/valuation providers</td>
+<td>SYS-002</td>
+<td><code>IMirrorOrderProvider</code>/<code>IInventoryValuationProvider</code> (HTTP→ShopERP)</td>
+<td><code>/api/shoperp/accounting/mirror-orders</code> · <code>/api/shoperp/inventory/valuation</code></td>
+<td>DATA-005</td>
+<td>DTOs</td>
+<td>VERIFIED</td>
+</tr>
+</tbody>
+</table>
+<h2 id="inventory-d2">Inventory (D2)<a class="headerlink" href="#inventory-d2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ACTV</th>
+<th>Activity</th>
+<th>Module</th>
+<th>Handler/Service</th>
+<th>API/Event</th>
+<th>DB</th>
+<th>Output</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACTV-641</td>
+<td>Receipt→stock apply</td>
+<td>SYS-004/003</td>
+<td><code>PurchaseReceiptService</code> → <code>IStockMovementService.ApplyReceiptStockAsync</code></td>
+<td>receipt post</td>
+<td>DATA-016 + PurchaseReceipt (PG)</td>
+<td>PurchaseIn movs</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-642</td>
+<td>Return→stock reversal</td>
+<td>SYS-004</td>
+<td><code>ApplyReturnStockAsync</code></td>
+<td>return post</td>
+<td>DATA-016</td>
+<td>PurchaseReturn movs</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-643</td>
+<td>Manual in/out</td>
+<td>SYS-004</td>
+<td><code>StockMovementService.RecordManualAsync</code></td>
+<td>/inventory/ingredients</td>
+<td>DATA-016</td>
+<td>Manual movs</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-644</td>
+<td>Shift count</td>
+<td>SYS-004</td>
+<td><code>InventoryCount</code> (Draft/Submitted lock)</td>
+<td>shift pages</td>
+<td>DATA-016</td>
+<td>count rows</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-645</td>
+<td>Shift-close alerts</td>
+<td>SYS-004</td>
+<td><code>AlertEngine</code> (10 rules)</td>
+<td>in-app + Telegram/Zalo</td>
+<td><code>ShiftAlert</code> (DATA-016)</td>
+<td>alerts</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-646</td>
+<td>Order deduction check</td>
+<td>SYS-003</td>
+<td><code>InventoryService</code> (recipe→ingredient)</td>
+<td>—</td>
+<td>DATA-016</td>
+<td>deduction map</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-647</td>
+<td>NXT report</td>
+<td>SYS-004</td>
+<td><code>StockMovementService.GetStockReportAsync</code></td>
+<td>/inventory/stock-report</td>
+<td>DATA-016</td>
+<td>report rows</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-648</td>
+<td>Valuation snapshot</td>
+<td>SYS-004</td>
+<td><code>InventoryValuationController</code></td>
+<td>GET /api/shoperp/inventory/valuation</td>
+<td>DATA-016</td>
+<td>valuation DTO</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-649</td>
+<td>Forecast/variance</td>
+<td>SYS-004</td>
+<td><code>ForecastService</code>/<code>VarianceAnalysisService</code>/<code>TheoreticalConsumptionService</code></td>
+<td>/inventory/forecast</td>
+<td>DATA-016</td>
+<td>analysis</td>
+<td>VERIFIED</td>
+</tr>
+<tr>
+<td>ACTV-650</td>
+<td>Ingredient/recipe mgmt</td>
+<td>SYS-004</td>
+<td><code>Ingredients.razor</code> + <code>RecipeService</code></td>
+<td>/inventory/*</td>
+<td>DATA-016</td>
+<td>CRUD</td>
+<td>VERIFIED</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Verified chain links: 16/27 activities fully code-verified; 9 partially (endpoint/handler names inferred); 2 manual (no software — legitimately UNVERIFIED). VALCN D1 (added 2026-11-08): +12 activities — 11 VERIFIED, 1 INFERRED (ACTV-621). Guard parking D1 addendum: +7 activities — all VERIFIED (ACTV-622..628). Accounting depth D3: +12 activities — all VERIFIED (ACTV-629..640). Inventory D2: +10 activities — all VERIFIED (ACTV-641..650).</li>
+<li>UNKNOWN open: exact <code>/api/membership-*</code> routes, OCR pipeline internals, POS notify mechanism, reverse <code>vanan.shoperp.*</code> subject names, <code>PublishDeliveryStatusUpdateAsync</code> channel (SignalR vs NATS), SMS-OTP deposit wallet flow — enumerate at X0 drift run or targeted P3-followup.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.highlight", "content.action.view"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="../../javascripts/mermaid.min.js"></script>
+      
+        <script src="../../javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

@@ -384,7 +384,10 @@
             else
             {
                 _voiceRef ??= DotNetObjectReference.Create(this);
-                _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+                // V2b: targetId → interim fill DOM trực tiếp — mỗi interim qua
+                // SignalR + full render trước đây gây backlog "treo" trên SSR
+                _listening = await JSRuntime.InvokeAsync<bool>(
+                    "vananVoiceInput.start", _voiceRef, "vanan-public-search-input");
             }
         }
         catch

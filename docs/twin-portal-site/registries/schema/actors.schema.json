@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Actor Registry",
+  "idPrefix": "ACTR",
+  "required": [
+    "id",
+    "name",
+    "type",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "type": [
+      "HUMAN",
+      "ORGANIZATION",
+      "SOFTWARE",
+      "AI_AGENT",
+      "EXTERNAL",
+      "HYBRID"
+    ],
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^ACTR-\\d{3,}$",
+  "references": {
+    "orgRef": "ORG",
+    "workflowRefs": "PROC",
+    "componentRefs": "SYS"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

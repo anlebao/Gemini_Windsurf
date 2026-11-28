@@ -1,0 +1,21 @@
+{
+  "ts": "2026-11-21T19:23:17.720Z",
+  "callSeconds": 8,
+  "results": [
+    {
+      "name": "L3 both clients connected to /hubs/voice",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "L3 StartCall accepted",
+      "pass": true,
+      "detail": "callId=0e554b85-5994-4fd7-b313-d4a97523c39c result={\"callId\":\"0e554b85-5994-4fd7-b313-d4a97523c39c\",\"isNew\":true,\"status\":\"FAILED\",\"reason\":\"CONTEXT_REQUIRED\"}"
+    },
+    {
+      "name": "L3 call events flowed (created/accepted/ended)",
+      "pass": false,
+      "detail": "caller= callee="
+    }
+  ]
+}

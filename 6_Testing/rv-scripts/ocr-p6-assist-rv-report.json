@@ -1,0 +1,132 @@
+{
+  "ts": "2026-11-11T05:57:30.218Z",
+  "total": 25,
+  "failed": 0,
+  "results": [
+    {
+      "name": "L1 /health 200",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "L1 ocr-assist sign → 200 gemini + signName",
+      "pass": true,
+      "detail": "status=200 provider=gemini sign=PHO HOA"
+    },
+    {
+      "name": "L1 ocr-assist sign → address/phone extract",
+      "pass": true,
+      "detail": "address=\"12 Nguyen Trai, Ha Noi\" phone=\"0912345678\""
+    },
+    {
+      "name": "L1 ocr-assist menu → 200 gemini + items",
+      "pass": true,
+      "detail": "status=200 items=4"
+    },
+    {
+      "name": "L1 ocr-assist menu → có price",
+      "pass": true,
+      "detail": "priced=4"
+    },
+    {
+      "name": "L1 ocr-assist kind sai → 400",
+      "pass": true,
+      "detail": "status=400"
+    },
+    {
+      "name": "L1 ocr-assist thiếu ảnh → 400",
+      "pass": true,
+      "detail": "status=400"
+    },
+    {
+      "name": "L1 upload kind=sign → 200 + /onboarding/sign/",
+      "pass": true,
+      "detail": "status=200 url=https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com/vanan-guard-photos/onboa"
+    },
+    {
+      "name": "L1 ocr-assist qua ImageUrl (allowlist) → 200",
+      "pass": true,
+      "detail": "status=200 provider=gemini"
+    },
+    {
+      "name": "L1 upload thumb=true → 200 + /onboarding-thumbs/sign/ + .jpg",
+      "pass": true,
+      "detail": "status=200 url=https://18947627801f833aecc202f086d66af5.r2.cloudflarestorage.com/vanan-guard-photos/onboarding-thum"
+    },
+    {
+      "name": "L1 upload kind sai → 400",
+      "pass": true,
+      "detail": "status=400"
+    },
+    {
+      "name": "L1 upload kind + folder không onboarding → 400",
+      "pass": true,
+      "detail": "status=400"
+    },
+    {
+      "name": "L1 upload thumb thiếu kind → 400",
+      "pass": true,
+      "detail": "status=400"
+    },
+    {
+      "name": "L1b merchant-signups/config 200 public",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "L1b submit Case B → 200 + signupId",
+      "pass": true,
+      "detail": "status=200 signupId=58669a5b-de37-4ec5-9302-31385ad3a5b5"
+    },
+    {
+      "name": "L1b status → Pending",
+      "pass": true,
+      "detail": "status=200 body={\"status\":\"Pending\",\"slug\":null,\"message\":\"Đăng ký đang chờ đội ngũ Vạn An xác minh — thường 1-2 ngày làm việc.\"}"
+    },
+    {
+      "name": "L1b admin login",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "L1b pending list → tìm tenant sweep",
+      "pass": true,
+      "detail": "status=200 found=true"
+    },
+    {
+      "name": "L1b cleanup reject-pending → 204",
+      "pass": true,
+      "detail": "status=204"
+    },
+    {
+      "name": "L1b status sau reject → Rejected",
+      "pass": true,
+      "detail": "status=200 body={\"status\":\"Rejected\",\"slug\":null,\"message\":\"Đăng ký không được chấp nhận. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.\"}"
+    },
+    {
+      "name": "L2 ShopERP app2 wizard JS 200 + markers",
+      "pass": true,
+      "detail": "status=200 len=14646"
+    },
+    {
+      "name": "L2 ShopERP app2 ocr JS 200 + markers",
+      "pass": true,
+      "detail": "status=200 len=17619"
+    },
+    {
+      "name": "L2 KhachLink api2 wizard JS 200 + markers",
+      "pass": true,
+      "detail": "status=200 len=12217"
+    },
+    {
+      "name": "L2 KhachLink api2 ocr JS 200 + markers",
+      "pass": true,
+      "detail": "status=200 len=17765"
+    },
+    {
+      "name": "L2 L2 vie.traineddata.gz 200",
+      "pass": true,
+      "detail": "status=200"
+    }
+  ]
+}

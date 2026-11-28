@@ -35,6 +35,7 @@ window.vananVoiceInput = (function () {
     let prevDisplay = '';   // noise-guard: silence chỉ re-arm khi transcript đổi
     let active = false;
     let finalSent = false;
+    let targetElId = null;  // V2b: interim fill DOM trực tiếp, 0 .NET roundtrip
 
     function isSupported() {
         return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -102,13 +103,14 @@ window.vananVoiceInput = (function () {
         }
     }
 
-    function start(ref) {
+    function start(ref, targetId) {
         abortInternal(); // mic hand-off — at most one listener at a time
 
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return false;
 
         dotNetRef = ref || null;
+        targetElId = targetId || null;
         latestDisplay = '';
         prevDisplay = '';
         finalSent = false;
@@ -152,7 +154,17 @@ window.vananVoiceInput = (function () {
             }
             latestDisplay = (finals.join(' ') + ' ' + interim).replace(/\s+/g, ' ').trim();
             if (latestDisplay) {
-                safeInvoke('OnVoiceInterim', latestDisplay);
+                // V2b (2026-11-28): interim fill input qua DOM trực tiếp khi caller
+                // truyền targetId — mỗi interim ~3-5/s trước đây là 1 JS→.NET
+                // invoke + full render; trên Blazor Server (timlathay SSR) đó là
+                // SignalR roundtrip + render toàn trang → backlog → "treo".
+                // Không dispatch 'input' event — tránh trigger binding/debounce.
+                const el = targetElId && document.getElementById(targetElId);
+                if (el) {
+                    el.value = latestDisplay;
+                } else {
+                    safeInvoke('OnVoiceInterim', latestDisplay);
+                }
             }
 
             // Silence → end the session; onend delivers OnVoiceFinal.

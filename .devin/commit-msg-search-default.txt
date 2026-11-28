@@ -1,0 +1,9 @@
+fix: KhachLink Home default search mode = "Tìm sản phẩm"
+
+Nhu cầu tìm sản phẩm cao hơn tìm tên shop/doanh nghiệp nên đổi _searchMode
+default từ "store" sang "product". User vẫn có thể toggle sang "Tìm cửa hàng"
+bất cứ lúc nào. Chỉ áp dụng cho KhachLink — Directory app giữ nguyên.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

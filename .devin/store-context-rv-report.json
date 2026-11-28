@@ -1,0 +1,82 @@
+{
+  "when": "2026-11-28T05:26:07.665Z",
+  "khachlink": "https://commienphi.timlathay.com",
+  "api": "https://api2.khachvip.online",
+  "results": [
+    {
+      "n": "L1 home-settings GET anonymous 200 + campaign on",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L1 home-settings gated: home campaign OFF under gated domain",
+      "p": true,
+      "d": "domain=shopai.timlathay.com resp={\"home_CampaignSection_Enabled\":false,\"home_StoreSection_Enabled\":true,\"home_FeaturedSection_Enabled\":false,\"home_SocialHub_Enabled\":true,\"showNavMenu\":false}"
+    },
+    {
+      "n": "L1 home-settings gated: featured/social/nav unchanged vs base",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L1 Fix-3: ShowStores=false domain → home_StoreSection vẫn true",
+      "p": true,
+      "d": "resp={\"home_CampaignSection_Enabled\":false,\"home_StoreSection_Enabled\":true,\"home_FeaturedSection_Enabled\":false,\"home_SocialHub_Enabled\":true,\"showNavMenu\":false}"
+    },
+    {
+      "n": "L2 WASM contains khachlink_last_store marker (UTF-16LE)",
+      "p": true,
+      "d": "2050837 bytes"
+    },
+    {
+      "n": "L2 WASM contains BackToStoreChip type marker",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 store visit → khachlink_last_store JSON recorded",
+      "p": true,
+      "d": "{\"t\":\"e2d91cdf-d3c4-4399-b96e-e772a7a41630\",\"s\":\"an-tam\",\"n\":\"An Tâm\",\"v\":\"2026-11-28T05:26:01.097+00:00\"}"
+    },
+    {
+      "n": "L4 store visit → legacy khachlink_last_tenant_id still written",
+      "p": true,
+      "d": "e2d91cdf-d3c4-4399-b96e-e772a7a41630"
+    },
+    {
+      "n": "L4 home shows \"Cửa Hàng Của Bạn\" after store visit",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 \"Vào cửa hàng\" button present",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 \"Vào cửa hàng\" navigates to storefront",
+      "p": true,
+      "d": "https://commienphi.timlathay.com/store/an-tam"
+    },
+    {
+      "n": "L4 /my-loyalty shows back-to-store chip",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 back-chip navigates to storefront",
+      "p": true,
+      "d": "https://commienphi.timlathay.com/store/an-tam"
+    },
+    {
+      "n": "L4 order-tracking \"Tiếp tục mua\"",
+      "p": true,
+      "d": "SKIPPED — STORE_CONTEXT_ORDER_ID not set"
+    },
+    {
+      "n": "L4 no page errors during flow",
+      "p": true,
+      "d": ""
+    }
+  ]
+}

@@ -217,7 +217,9 @@
             else
             {
                 _voiceRef ??= DotNetObjectReference.Create(this);
-                _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceRef);
+                // V2b: targetId → interim fill DOM trực tiếp (0 .NET roundtrip/sự kiện)
+                _listening = await JSRuntime.InvokeAsync<bool>(
+                    "vananVoiceInput.start", _voiceRef, "product-search-input");
             }
         }
         catch

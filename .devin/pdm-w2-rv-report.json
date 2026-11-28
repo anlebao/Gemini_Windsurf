@@ -1,0 +1,125 @@
+{
+  "when": "2026-11-28T04:09:24.911Z",
+  "results": [
+    {
+      "n": "L1 tenants search API reachable",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L1 ResponseCache on /api/tenants/search (B1)",
+      "p": true,
+      "d": "cache-control=\"public,max-age=60\""
+    },
+    {
+      "n": "L1 DidYouMean tenant pair discovered",
+      "p": true,
+      "d": "\"antaam\" → \"An Tâm\""
+    },
+    {
+      "n": "L2 WASM contains SearchResultCache type",
+      "p": true,
+      "d": "2051349 bytes"
+    },
+    {
+      "n": "L2 UI.Platform WASM contains SearchCorrectionStore (moved)",
+      "p": true,
+      "d": "358677 bytes"
+    },
+    {
+      "n": "L3 stores page + search input render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 A2 min-length: 1 char → no request",
+      "p": true,
+      "d": "0 requests"
+    },
+    {
+      "n": "L4 debounce: fill \"cafe\" → 1 request",
+      "p": true,
+      "d": "1 requests: [\"https://api2.khachvip.online/api/tenants/search?name=cafe\"]"
+    },
+    {
+      "n": "L4 typing burst coalesced (≤2 extra requests)",
+      "p": true,
+      "d": "2 total name= reqs: [\"https://api2.khachvip.online/api/tenants/search?name=cafe\",\"https://api2.khachvip.online/api/tenants/search?name=cafe%20ta\"]"
+    },
+    {
+      "n": "L4 A3 client cache: repeat \"cafe\" → 0 new request",
+      "p": true,
+      "d": "before=2 after=2"
+    },
+    {
+      "n": "L4 DidYouMean chip shows tenant suggestion",
+      "p": true,
+      "d": "chip \"An Tâm\""
+    },
+    {
+      "n": "L4 record-path: correction in scopes.tenant",
+      "p": true,
+      "d": "key=\"antaam\" entry={\"c\":\"an tam\",\"d\":\"An Tâm\",\"n\":1,\"t\":1795838945065,\"s\":\"typed\"}"
+    },
+    {
+      "n": "L4 learned note on repeat input",
+      "p": true,
+      "d": " Đang tìm \"An Tâm\" — đã học từ cách bạn nhập \"antaam\" Hoàn tác"
+    },
+    {
+      "n": "L4 learned note for seeded pair",
+      "p": true,
+      "d": " Đang tìm \"Cafe Tân Quy\" — đã học từ cách bạn nhập \"xyzq\" Hoàn tác"
+    },
+    {
+      "n": "L4 request rewritten with corrected name",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=Cafe%20T%C3%A2n%20Quy"
+    },
+    {
+      "n": "L4 undo removes correction entry",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 note hidden after undo",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 undo re-searches raw query",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=xyzq"
+    },
+    {
+      "n": "L4 Dir StoreFinder learned note",
+      "p": true,
+      "d": " Đang tìm \"An Tâm\" — đã học từ cách bạn nhập \"antaam\" Hoàn tác"
+    },
+    {
+      "n": "L4 Dir results rewritten to corrected tenant",
+      "p": true,
+      "d": "1 cards với \"An Tâm\""
+    },
+    {
+      "n": "L4 Dir note hidden after undo",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 Dir undo re-searches raw (chip returns)",
+      "p": true,
+      "d": "didYouMean chip sau undo"
+    },
+    {
+      "n": "L3 no pageerror",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L3 no console errors",
+      "p": true,
+      "d": ""
+    }
+  ]
+}

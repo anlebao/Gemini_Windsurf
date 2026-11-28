@@ -1,0 +1,70 @@
+{
+  "ts": "2026-11-12T03:30:00.252Z",
+  "service": "vanan-voice",
+  "total": 12,
+  "pass": 12,
+  "fail": 0,
+  "skipped": 0,
+  "results": [
+    {
+      "name": "L1 health 200",
+      "pass": true,
+      "detail": "status=200 body={\"status\":\"ok\",\"service\":\"vanan-voice\"}"
+    },
+    {
+      "name": "L1 metrics/summary 200 + shape",
+      "pass": true,
+      "detail": "status=200 keys=totalCalls,todayCalls,connectedCalls,rejectedCalls,missedCalls,failedCalls,busyCalls,offlineCalls,meteringDenied,featureDisabled,turnRelayed,avgDurationSeconds,turnPercentage"
+    },
+    {
+      "name": "L2 TURN no-auth → 401",
+      "pass": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "L2 TURN bad-token → 401",
+      "pass": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "L2 TURN valid → 200 + shape",
+      "pass": true,
+      "detail": "status=200 urls=[\"turn:voice.khachvip.online:3478?transport=udp\",\"turn:voice.khachvip.online:3478?transport=tcp\",\"turns:voice.khachvip.online:5349?transport=tcp\"]"
+    },
+    {
+      "name": "L2 missed-calls no-auth → 401",
+      "pass": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "L2 missed-calls cross-user → 403",
+      "pass": true,
+      "detail": "status=403"
+    },
+    {
+      "name": "L2 missed-calls own → 200 (array)",
+      "pass": true,
+      "detail": "status=200 type=array"
+    },
+    {
+      "name": "L2b voice-config GET 200 + shape",
+      "pass": true,
+      "detail": "status=200 body={\"voiceFeatureEnabled\":true,\"voiceOpenCalling\":false}"
+    },
+    {
+      "name": "L5 kill-switch OFF qua admin API → 200",
+      "pass": true,
+      "detail": "status=200 feature=false"
+    },
+    {
+      "name": "L5 voice service đọc OFF (PG-backed)",
+      "pass": true,
+      "detail": "status=200 feature=false"
+    },
+    {
+      "name": "L5 restore ON (cleanup)",
+      "pass": true,
+      "detail": "status=200 feature=true"
+    }
+  ]
+}

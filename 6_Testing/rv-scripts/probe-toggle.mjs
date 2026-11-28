@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+import fs from 'fs';
+const creds = JSON.parse(fs.readFileSync('../.devin/rv_presence_creds.json','utf8'));
+const b = await chromium.launch({headless:true});
+const ctx = await b.newContext();
+ctx.on('console', m => { if (m.type()==='error') console.log('[cerr]', m.text().slice(0,200)); });
+const r = await ctx.request.post('https://app2.khachvip.online/api/platform/login',{data:{Username:creds.username,Password:creds.password}});
+console.log('login', r.status());
+const imp = await ctx.request.post('https://app2.khachvip.online/api/admin/impersonate/e2d91cdf-d3c4-4399-b96e-e772a7a41630');
+console.log('imp', imp.status());
+const p = await ctx.newPage();
+await p.goto('https://app2.khachvip.online/orders',{waitUntil:'domcontentloaded',timeout:60000});
+await p.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
+await new Promise(r=>setTimeout(r,8000));
+console.log('url', p.url());
+console.log('toggle count', await p.locator('[data-testid="voice-presence-toggle"]').count());
+console.log('userheader?', await p.locator('.user-header, header').count());
+// check what UserHeader rendered
+const hdr = await p.locator('header').first().innerHTML().catch(()=>'none');
+console.log('header snippet:', hdr.slice(0,300));
+await b.close();

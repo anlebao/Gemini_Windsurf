@@ -1,0 +1,12 @@
+fix: NearbyProducts GPS error shows friendly message instead of [object GeolocationPositionError]
+
+pwa.js getCurrentPosition now rejects with a proper Error carrying a
+Vietnamese message mapped from GeolocationPositionError.code (permission
+denied / position unavailable / timeout). NearbyProducts.razor guards
+against raw JS object dumps in the error banner. Fixes the
+"Không lấy được vị trí GPS [object GeolocationPositionError]" message on
+/community/nearby-products.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

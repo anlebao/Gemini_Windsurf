@@ -1,0 +1,83 @@
+{
+  "runAt": "2026-10-29T13:45:10.841Z",
+  "tenantId": "6aaf19e4-8b55-48cd-94d7-b61c96a2d66d",
+  "bookingId": "6fe0cd91-d326-4bd2-8c24-8db9f467020d",
+  "orderId": "01a187e8-12ec-75b4-af65-2f57ff231186",
+  "code": "DF4A89B0392C4F3C",
+  "depositBookingId": "01650721-a675-4737-b13d-b76a148a9b85",
+  "depositOrderId": "01a187e8-4cfd-724c-a129-58efbc0d2bb6",
+  "depositAmount": 10000,
+  "results": [
+    {
+      "name": "A1 Login sysadmin → 200 + auth cookie",
+      "ok": true,
+      "detail": "{\"status\":200,\"cookies\":1}"
+    },
+    {
+      "name": "A2 Impersonate Test HKD (cookie) → tenant Owner token",
+      "ok": true,
+      "detail": "{\"status\":200,\"hasToken\":true,\"cookies\":2}"
+    },
+    {
+      "name": "B1 Catalog Test HKD → 200 + offering Massage 60 + depositPolicy",
+      "ok": true,
+      "detail": "[\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"78721ad0-ccf2-4239-85da-4e8de4a15049\"]"
+    },
+    {
+      "name": "B2 Availability staff → có slot tương lai",
+      "ok": true,
+      "detail": "14"
+    },
+    {
+      "name": "C1 Create (tenant API, có staff) → 201 StaffAssigned + code",
+      "ok": true,
+      "detail": "{\"bookingId\":\"6fe0cd91-d326-4bd2-8c24-8db9f467020d\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"DF4A89B0392C4F3C\",\"status\":\"StaffAssigned\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00Z\",\"endAt\":\"2026-10-30T10:00:00Z\",\"estimate"
+    },
+    {
+      "name": "C2 Check-in → CheckedIn",
+      "ok": true,
+      "detail": "{\"bookingId\":\"6fe0cd91-d326-4bd2-8c24-8db9f467020d\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"DF4A89B0392C4F3C\",\"status\":\"CheckedIn\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00\",\"endAt\":\"2026-10-30T10:00:00\",\"estimatedTotal"
+    },
+    {
+      "name": "C3 Start → InService",
+      "ok": true,
+      "detail": "{\"bookingId\":\"6fe0cd91-d326-4bd2-8c24-8db9f467020d\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"DF4A89B0392C4F3C\",\"status\":\"InService\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00\",\"endAt\":\"2026-10-30T10:00:00\",\"estimatedTotal"
+    },
+    {
+      "name": "C4 Complete → Completed + OrderId (D2 hook)",
+      "ok": true,
+      "detail": "{\"bookingId\":\"6fe0cd91-d326-4bd2-8c24-8db9f467020d\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"DF4A89B0392C4F3C\",\"status\":\"Completed\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00\",\"endAt\":\"2026-10-30T10:00:00\",\"estimatedTotal"
+    },
+    {
+      "name": "D1 OrderId có để DB-check",
+      "ok": true,
+      "detail": "01a187e8-12ec-75b4-af65-2f57ff231186"
+    },
+    {
+      "name": "E1 PUT config Fixed 10.000 (deposit policy)",
+      "ok": true,
+      "detail": "{\"isEnabled\":true,\"depositPolicy\":\"Fixed\",\"depositFixedAmount\":10000,\"depositPercentage\":null,\"cancelReschedulePolicy\":\"Hủy trước 2 giờ\",\"einvoiceMode\":\"security_deposit\"}"
+    },
+    {
+      "name": "E2 Create booking (deposit policy) → 201 + DepositPending",
+      "ok": true,
+      "detail": "{\"bookingId\":\"01650721-a675-4737-b13d-b76a148a9b85\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"FFE33E7D1DFB493A\",\"status\":\"StaffAssigned\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00Z\",\"endAt\":\"2026-10-30T10:00:00Z\",\"estimate"
+    },
+    {
+      "name": "E3 Deposit received 10.000 → Paid",
+      "ok": true,
+      "detail": "{\"bookingId\":\"01650721-a675-4737-b13d-b76a148a9b85\",\"depositRequired\":true,\"depositAmount\":10000,\"depositType\":\"SecurityDeposit\",\"depositStatus\":\"Paid\",\"depositTransactionId\":\"d4454264-a4f7-40f4-9e8d-f70ac331d966\",\"paymentStatus\":\"Paid\",\"invoiceStatus\":\"Pending\",\"invoiceTrigger\":\"OnPayment\",\"estimat"
+    },
+    {
+      "name": "E4 Complete → Completed + OrderId (hook DepositPaidAmount)",
+      "ok": true,
+      "detail": "{\"bookingId\":\"01650721-a675-4737-b13d-b76a148a9b85\",\"offeringId\":\"fd69fdfc-fad2-4012-a187-ad24a6901939\",\"publicBookingCode\":\"FFE33E7D1DFB493A\",\"status\":\"Completed\",\"subState\":\"None\",\"offeringNameSnapshot\":\"Massage 60 phút\",\"startAt\":\"2026-10-30T09:00:00\",\"endAt\":\"2026-10-30T10:00:00\",\"estimatedTotal"
+    },
+    {
+      "name": "E5 Config restored",
+      "ok": true,
+      "detail": "{\"isEnabled\":true,\"depositPolicy\":\"Fixed\",\"depositFixedAmount\":100000,\"depositPercentage\":null,\"cancelReschedulePolicy\":\"Hủy trước 2 giờ\",\"einvoiceMode\":\"security_deposit\"}"
+    }
+  ],
+  "errors": []
+}

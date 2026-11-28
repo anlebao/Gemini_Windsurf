@@ -228,17 +228,20 @@ const isListening = async (page) =>
     check('Dir StoreFinder mic render (SSR)', await mic.count() > 0);
     if (await mic.count() > 0) {
         await mic.click();
-        let found = false;
+        let earlyFill = false, found = false;
         for (let i = 0; i < 20; i++) {
             await page.waitForTimeout(500);
             const inp = await page.locator('.vanan-search-pill input, input').first()
                 .inputValue().catch(() => '');
+            // V2b: interim fill qua DOM trực tiếp — input có transcript TRƯỚC khi
+            // silence 2.5s + search + SSR render xong (poll đầu ≤2.5s sau click)
+            if (inp.includes('an tam') && i <= 4) earlyFill = true;
             if (inp.includes('an tam')) { found = true; break; }
-            // SSR: input fill có thể qua .NET roundtrip — check kết quả search
             const body = await page.locator('body').innerText().catch(() => '');
             if (body.includes('An Tâm')) { found = true; break; }
         }
-        check('Dir voice submit → transcript/search chạy (SSR roundtrip)', found);
+        check('Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)', earlyFill);
+        check('Dir voice submit → transcript/search chạy (SSR)', found);
     }
     await ctx.close();
 }

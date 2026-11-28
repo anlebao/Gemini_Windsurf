@@ -9,5 +9,6 @@
 
     // Prevent Vietnamese mojibake: force UTF-8 with BOM for all text files
     "files.encoding": "utf8bom",
-    "files.autoGuessEncoding": false
+    "files.autoGuessEncoding": false,
+    "python.terminal.useEnvFile": true
 }

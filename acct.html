@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c5f2d">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="css/pages.css">
+    <link rel="stylesheet" href="VanAn.ShopERP.styles.css">
+    <link rel="stylesheet" href="_content/VanAn.UI.Platform/VanAn.UI.Platform.bundle.scp.css">
+    
+    <link rel="stylesheet" href="_content/VanAn.UI.Platform/lib/leaflet/leaflet.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    </head>
+
+<body><div class="vanan-layout vanan-layout--default vanan-layout--collapsible" b-1xcnb6uss8><div class="vanan-layout__sidebar" b-1xcnb6uss8><nav class="vanan-navigation vanan-navigation--vertical" b-ewf0q4tkpc><ul class="vanan-navigation__list" b-ewf0q4tkpc><li class="vanan-navigation__item " b-ewf0q4tkpc><a href="/sitemap" class="vanan-navigation__link"><i class="bi bi-house-door-fill vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>Home</span></a></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-bag-fill vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>V&#x1EAD;n h&#xE0;nh</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/pos" class="vanan-navigation__sublink"><i class="bi bi-bag vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>POS</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/create" class="vanan-navigation__sublink"><i class="bi bi-calendar-plus vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#x1EB7;t l&#x1ECB;ch nhanh</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/kitchen" class="vanan-navigation__sublink"><i class="bi bi-fire vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>B&#x1EBF;p</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/orders" class="vanan-navigation__sublink"><i class="bi bi-list-check vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#x1A1;n h&#xE0;ng</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-clipboard-data vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>Ki&#x1EC3;m k&#xEA;</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/shifts" class="vanan-navigation__sublink"><i class="bi bi-journal-check vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>B&#xE1;o c&#xE1;o ca</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/recipes" class="vanan-navigation__sublink"><i class="bi bi-cup-hot vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#xF4;ng th&#x1EE9;c pha ch&#x1EBF;</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/ingredients" class="vanan-navigation__sublink"><i class="bi bi-box2 vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Nguy&#xEA;n li&#x1EC7;u</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/dashboard" class="vanan-navigation__sublink"><i class="bi bi-box-seam vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>T&#x1ED3;n kho</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/alerts" class="vanan-navigation__sublink"><i class="bi bi-bell vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#x1EA3;nh b&#xE1;o</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/inventory/forecast" class="vanan-navigation__sublink"><i class="bi bi-graph-up-arrow vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>D&#x1EF1; b&#xE1;o</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-calendar2-check vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>&#x110;&#x1EB7;t l&#x1ECB;ch h&#x1EB9;n</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/queue" class="vanan-navigation__sublink"><i class="bi bi-inbox vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>H&#xE0;ng &#x111;&#x1EE3;i &#x111;&#x1EB7;t l&#x1ECB;ch</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/availability" class="vanan-navigation__sublink"><i class="bi bi-people vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Ai &#x111;ang r&#x1EA3;nh</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/calendar" class="vanan-navigation__sublink"><i class="bi bi-calendar3 vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>L&#x1ECB;ch h&#x1EB9;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/staff" class="vanan-navigation__sublink"><i class="bi bi-person-badge vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Nh&#xE2;n vi&#xEA;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/schedules" class="vanan-navigation__sublink"><i class="bi bi-calendar-week vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>L&#x1ECB;ch l&#xE0;m vi&#x1EC7;c</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/deposits" class="vanan-navigation__sublink"><i class="bi bi-cash-coin vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#x1EB7;t c&#x1ECD;c</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/qr-channels" class="vanan-navigation__sublink"><i class="bi bi-qr-code vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>M&#xE3; QR &#x111;&#x1EB7;t l&#x1ECB;ch</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/commission" class="vanan-navigation__sublink"><i class="bi bi-cash-stack vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Hoa h&#x1ED3;ng CTV</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/config" class="vanan-navigation__sublink"><i class="bi bi-gear vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#x1EA5;u h&#xEC;nh &#x111;&#x1EB7;t l&#x1ECB;ch</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/booking/services" class="vanan-navigation__sublink"><i class="bi bi-grid vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>D&#x1ECB;ch v&#x1EE5; &#x111;&#x1EB7;t l&#x1ECB;ch</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-box-seam vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>S&#x1EA3;n ph&#x1EA9;m</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/products" class="vanan-navigation__sublink"><i class="bi bi-box-seam vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1EA3;n ph&#x1EA9;m</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" open b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-journal-text vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>K&#x1EBF; To&#xE1;n</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting" class="vanan-navigation__sublink active" aria-current="page"><i class="bi bi-journal-text vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>K&#x1EBF; To&#xE1;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/history" class="vanan-navigation__sublink"><i class="bi bi-clock-history vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>L&#x1ECB;ch S&#x1EED; Giao D&#x1ECB;ch</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/opening-balance" class="vanan-navigation__sublink"><i class="bi bi-flag-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED1; D&#x1B0; &#x110;&#x1EA7;u K&#x1EF3;</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/import" class="vanan-navigation__sublink"><i class="bi bi-file-earmark-arrow-up vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Import Excel</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/cash-payment-review" class="vanan-navigation__sublink"><i class="bi bi-cash-stack vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>R&#xE0; So&#xE1;t Ti&#x1EC1;n M&#x1EB7;t &#x2265; 20tr</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/balance" class="vanan-navigation__sublink"><i class="bi bi-currency-exchange vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED1; D&#x1B0; T&#xE0;i Kho&#x1EA3;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/period-closing" class="vanan-navigation__sublink"><i class="bi bi-lock-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#xF3;ng K&#x1EF3; K&#x1EBF; To&#xE1;n</a></li><li class="vanan-navigation__subitem vanan-navigation__subitem--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-journal-bookmark vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>S&#x1ED5; S&#xE1;ch</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/journal" class="vanan-navigation__sublink"><i class="bi bi-journal-text vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED5; Nh&#x1EAD;t K&#xFD; Chung</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/ledger" class="vanan-navigation__sublink"><i class="bi bi-book vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED5; C&#xE1;i</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/sub-ledger" class="vanan-navigation__sublink"><i class="bi bi-book-half vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED5; Chi Ti&#x1EBF;t</a></li></ul></details></li><li class="vanan-navigation__subitem vanan-navigation__subitem--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-clipboard2-data vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>B&#xE1;o C&#xE1;o Qu&#x1EA3;n Tr&#x1ECB;</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/cong-no" class="vanan-navigation__sublink"><i class="bi bi-people vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#xF4;ng N&#x1EE3;</a></li></ul></details></li><li class="vanan-navigation__subitem vanan-navigation__subitem--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-book vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>S&#x1ED5; HKD</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/accounting/hkd-books" class="vanan-navigation__sublink"><i class="bi bi-book vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>S&#x1ED5; HKD (TT 152)</a></li></ul></details></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-file-earmark-text vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>H&#xF3;a &#x110;&#x1A1;n &#x110;i&#x1EC7;n T&#x1EED;</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice" class="vanan-navigation__sublink"><i class="bi bi-file-earmark-text vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Dashboard</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice/invoices" class="vanan-navigation__sublink"><i class="bi bi-receipt vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n L&#xFD; H&#xF3;a &#x110;&#x1A1;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice/alerts" class="vanan-navigation__sublink"><i class="bi bi-bell vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n L&#xFD; C&#x1EA3;nh B&#xE1;o</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice/health" class="vanan-navigation__sublink"><i class="bi bi-heart-pulse vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Health Monitoring</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice/providers" class="vanan-navigation__sublink"><i class="bi bi-gear-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n L&#xFD; Provider</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/einvoice/configuration" class="vanan-navigation__sublink"><i class="bi bi-sliders vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#x1EA5;u H&#xEC;nh Provider</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-award vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>CRM &amp; Loyalty</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/customers" class="vanan-navigation__sublink"><i class="bi bi-people-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Kh&#xE1;ch h&#xE0;ng (CRM)</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/promo-campaigns" class="vanan-navigation__sublink"><i class="bi bi-megaphone-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Chi&#x1EBF;n d&#x1ECB;ch khuy&#x1EBF;n m&#xE3;i</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/missions" class="vanan-navigation__sublink"><i class="bi bi-trophy-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n l&#xFD; Nhi&#x1EC7;m v&#x1EE5;</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/redemption-catalog" class="vanan-navigation__sublink"><i class="bi bi-gift-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#x1ED5;i &#x111;i&#x1EC3;m (Catalog)</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/redemption-history" class="vanan-navigation__sublink"><i class="bi bi-clock-history vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>L&#x1ECB;ch s&#x1EED; &#x111;&#x1ED5;i &#x111;i&#x1EC3;m</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/loyalty-reconcile" class="vanan-navigation__sublink"><i class="bi bi-arrow-repeat vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>&#x110;&#x1ED1;i so&#xE1;t &#x111;i&#x1EC3;m li&#xEA;n minh</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/community/owner-panel" class="vanan-navigation__sublink"><i class="bi bi-people-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n l&#xFD; c&#x1ED9;ng t&#xE1;c vi&#xEA;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/community/messages" class="vanan-navigation__sublink"><i class="bi bi-chat-dots-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>H&#x1ED9;p th&#x1B0; tin nh&#x1EAF;n</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/settings/shop-features" class="vanan-navigation__sublink"><i class="bi bi-toggles vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#x1EA5;u h&#xEC;nh t&#xED;nh n&#x103;ng</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/loyalty/dashboard" class="vanan-navigation__sublink"><i class="bi bi-bar-chart-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Th&#x1ED1;ng k&#xEA; &#x111;i&#x1EC3;m th&#x1B0;&#x1EDF;ng</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-shield-lock vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>Qu&#x1EA3;n tr&#x1ECB;</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/users" class="vanan-navigation__sublink"><i class="bi bi-people-fill vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Qu&#x1EA3;n l&#xFD; ng&#x1B0;&#x1EDD;i d&#xF9;ng</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/permission-groups" class="vanan-navigation__sublink"><i class="bi bi-person-lock vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Nh&#xF3;m quy&#x1EC1;n</a></li></ul></details></li><li class="vanan-navigation__item " b-ewf0q4tkpc><a href="/notifications" class="vanan-navigation__link"><i class="bi bi-bell vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>Th&#xF4;ng b&#xE1;o</span></a></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-graph-up-arrow vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>T&#xE0;i ch&#xED;nh</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/financial" class="vanan-navigation__sublink"><i class="bi bi-graph-up-arrow vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>Th&#xF4;ng tin t&#xE0;i ch&#xED;nh</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/admin/business-profile" class="vanan-navigation__sublink"><i class="bi bi-building-fill-gear vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>H&#x1ED3; s&#x1A1; doanh nghi&#x1EC7;p</a></li><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/wallet/phi-nen-tang" class="vanan-navigation__sublink"><i class="bi bi-wallet2 vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>V&#xED; ph&#xED; n&#x1EC1;n t&#x1EA3;ng</a></li></ul></details></li><li class="vanan-navigation__item vanan-navigation__item--group" b-ewf0q4tkpc><details class="vanan-navigation__details" b-ewf0q4tkpc><summary class="vanan-navigation__summary" @onclick="() =&gt; ToggleGroup(item)" @onclick:preventDefault="true" b-ewf0q4tkpc><i class="bi bi-gear-fill vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>C&#x1EA5;u h&#xEC;nh &amp; thi&#x1EBF;t l&#x1EAD;p</span>
+                        <i class="bi bi-chevron-down vanan-navigation__chevron" aria-hidden="true" b-ewf0q4tkpc></i></summary>
+                    <ul class="vanan-navigation__submenu" b-ewf0q4tkpc><li class="vanan-navigation__subitem" b-ewf0q4tkpc><a href="/settings/shop-features" class="vanan-navigation__sublink"><i class="bi bi-toggles vanan-navigation__subicon" aria-hidden="true" b-ewf0q4tkpc></i>C&#x1EA5;u h&#xEC;nh t&#xED;nh n&#x103;ng Shop</a></li></ul></details></li><li class="vanan-navigation__item " b-ewf0q4tkpc><a href="/Logout" class="vanan-navigation__link"><i class="bi bi-box-arrow-right vanan-navigation__icon" aria-hidden="true" b-ewf0q4tkpc></i><span class="vanan-navigation__text" b-ewf0q4tkpc>&#x110;&#x103;ng xu&#x1EA5;t</span></a></li></ul></nav></div>
+    
+    <div class="vanan-layout__main" b-1xcnb6uss8><div class="vanan-layout__header" b-1xcnb6uss8><div class="user-header"><div class="user-header__tenant"><i class="bi bi-shop"></i>
+            <span class="user-header__tenant-name">V&#x1EA1;n An Cafe (HKD Group 1)</span></div><a href="/notifications" class="user-header__bell" aria-label="Th&#xF4;ng b&#xE1;o" title="Th&#xF4;ng b&#xE1;o"><i class="bi bi-bell"></i><span class="user-header__bell-badge">2</span></a><div class="user-header__info"><i class="bi bi-person-circle user-header__icon"></i>
+        <span class="user-header__name">System Admin</span><span class="user-header__role-badge">Owner</span></div>
+    <a href="/Logout" class="user-header__logout" aria-label="Đăng xuất"><i class="bi bi-box-arrow-right"></i>
+        <span>Đăng xuất</span></a></div>
+
+<style>
+    .user-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 1rem;
+        padding: 0.5rem 1rem;
+        height: 100%;
+    }
+    .user-header__tenant {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 4px 10px;
+        background: rgba(0, 123, 255, 0.1);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: var(--vanan-primary, #007bff);
+        font-weight: 600;
+    }
+    .user-header__tenant-name {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .user-header__info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .user-header__icon {
+        font-size: 1.25rem;
+        color: var(--vanan-primary, #007bff);
+    }
+    .user-header__name {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .user-header__role-badge {
+        background: var(--vanan-primary, #007bff);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .user-header__bell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        color: var(--vanan-primary, #007bff);
+        font-size: 1.15rem;
+        text-decoration: none;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .user-header__bell:hover {
+        background: rgba(0, 123, 255, 0.1);
+    }
+    .user-header__bell-badge {
+        position: absolute;
+        top: -2px;
+        right: -4px;
+        background: var(--vanan-danger, #dc3545);
+        color: white;
+        font-size: 0.68rem;
+        font-weight: 700;
+        min-width: 17px;
+        height: 17px;
+        line-height: 17px;
+        text-align: center;
+        border-radius: 10px;
+        padding: 0 4px;
+    }
+    .user-header__logout {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: var(--vanan-danger, #dc3545);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .user-header__logout:hover {
+        background: rgba(220, 53, 69, 0.1);
+    }
+    @media (max-width: 768px) {
+        .user-header__tenant-name {
+            max-width: 120px;
+        }
+        .user-header__name {
+            font-size: 0.85rem;
+        }
+    }
+</style></div>
+        
+        <div class="vanan-layout__content" b-1xcnb6uss8><!--Blazor:{"type":"server","prerenderId":"ed5a695eeb234152961260afa1d00cbc","key":{"locationHash":"8FAADD830A0F1CDE0559BA57F0C19DA0745D68D6524B758C232ABE4F155C08FB:0","formattedComponentKey":""},"sequence":0,"descriptor":"CfDJ8G0wXnEIii5Gqd5/S8AU\u002Bd29V6uOZRZmLa\u002BmQNxV2esI7xwuneXUZv4GMdW9pdu9VU8p6\u002Bvrrp/VOd2yWTTXUYTMbD3LQlED5tT9SjeQlx6laoA03IloTaBZhRgP4NE3YC0NFPRvOnMrje1LZUSPHwnpBjoQVvNs8r4IlDqP1ZsYAc7oXknMHO0pEVQzVfM23Rz7YIw2rDq/uXNC32f5Iw2kMPk9FAy8FJXQ5PmBwcnMmgFjohF2uN08pYJ5bpWRHt0eSz2v/CtnIWRU3o6eqNXCV3XzW2qfWH/dB8r2oOFQ6sTORzgNIobQ31iUUu\u002BuPlYZOx4jYKN04NLTN4JCC3JPBgrK5BbdmOk2opJcN\u002B1Lukh6UAzbxfYwa/\u002BgJgDPAyYx9O2H96zWHnDpvtJLc5XinT4IiF36bQfRTe9Gnz3cfF4chqAF8sitqVtEB9wnBYz0tSW7bhewR1vuCFCcc\u002BZpUuwlq8yaxc/MqxDqwsWv4dJnHPWQteG3ZSxd\u002BqHtGu2Ei7VsZzLzF4q/b9yFRRzwqhJymvmw5fcb3SqkRbx01PcMCaDTMILeFM25bqYY7Q=="}--><div class="accounting-dashboard default" b-hw2745f98o><header class="accounting-header" b-hw2745f98o><h1 b-hw2745f98o>Kế Toán Dashboard</h1>
+        <div class="header-actions" b-hw2745f98o><button class="vanan-button vanan-button--secondary vanan-button--small" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                🔄 Refresh
+            </button></div></header>
+
+    
+    <section class="metrics-section" b-hw2745f98o><div class="metrics-grid" b-hw2745f98o><div class="vanan-metrics-card vanan-metrics-card--success"><div class="vanan-metrics-card__header"><div class="vanan-metrics-card__icon">&#x1F4B0;</div>
+        <div class="vanan-metrics-card__title">Doanh Thu Th&#xE1;ng N&#xE0;y</div></div>
+    
+    <div class="vanan-metrics-card__content"><div class="vanan-metrics-card__value">0 &#x20AB;</div><div class="vanan-metrics-card__trend vanan-metrics-card__trend--down"><span class="vanan-metrics-card__trend-icon">&#x1F4C9;</span>
+                <span class="vanan-metrics-card__trend-text">0%</span></div></div></div>
+            <div class="vanan-metrics-card vanan-metrics-card--warning"><div class="vanan-metrics-card__header"><div class="vanan-metrics-card__icon">&#x1F4C9;</div>
+        <div class="vanan-metrics-card__title">Chi Ph&#xED; Th&#xE1;ng N&#xE0;y</div></div>
+    
+    <div class="vanan-metrics-card__content"><div class="vanan-metrics-card__value">0 &#x20AB;</div><div class="vanan-metrics-card__trend vanan-metrics-card__trend--down"><span class="vanan-metrics-card__trend-icon">&#x1F4C9;</span>
+                <span class="vanan-metrics-card__trend-text">0%</span></div></div></div>
+            <div class="vanan-metrics-card vanan-metrics-card--primary"><div class="vanan-metrics-card__header"><div class="vanan-metrics-card__icon">&#x1F4C8;</div>
+        <div class="vanan-metrics-card__title">L&#x1EE3;i Nhu&#x1EAD;n R&#xF2;ng</div></div>
+    
+    <div class="vanan-metrics-card__content"><div class="vanan-metrics-card__value">0 &#x20AB;</div><div class="vanan-metrics-card__trend vanan-metrics-card__trend--down"><span class="vanan-metrics-card__trend-icon">&#x1F4C9;</span>
+                <span class="vanan-metrics-card__trend-text">0%</span></div></div></div>
+            <div class="vanan-metrics-card vanan-metrics-card--info"><div class="vanan-metrics-card__header"><div class="vanan-metrics-card__icon">&#x1F4CB;</div>
+        <div class="vanan-metrics-card__title">S&#x1ED1; B&#xFA;t To&#xE1;n</div></div>
+    
+    <div class="vanan-metrics-card__content"><div class="vanan-metrics-card__value">65</div><div class="vanan-metrics-card__trend vanan-metrics-card__trend--up"><span class="vanan-metrics-card__trend-icon">&#x1F4C8;</span>
+                <span class="vanan-metrics-card__trend-text">&#x2B;0%</span></div></div></div></div></section>
+
+    
+    <section class="quick-actions-section" b-hw2745f98o><div class="vanan-card vanan-card--shadow"><div class="vanan-card__header"><h5 class="vanan-card__title">Thao T&#xE1;c Nhanh</h5></div><div class="vanan-card__body"><div class="action-buttons" b-hw2745f98o><button class="vanan-button vanan-button--primary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                    ➕ Nhập Doanh Thu
+                </button>
+                <button class="vanan-button vanan-button--primary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                    ➖ Nhập Chi Phí
+                </button>
+                <button class="vanan-button vanan-button--secondary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                    📜 Lịch Sử Giao Dịch
+                </button>
+                <button class="vanan-button vanan-button--secondary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                    🤝 Công Nợ
+                </button>
+                <button class="vanan-button vanan-button--secondary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                    💰 Số Dư Tài Khoản
+                </button><button class="vanan-button vanan-button--secondary vanan-button--medium" type="button" b-3mo44bxhj3><span class="vanan-button__text" b-3mo44bxhj3></span>
+                        📚 Sổ HKD (TT 152)
+                    </button></div></div></div></section></div><!--Blazor:{"prerenderId":"ed5a695eeb234152961260afa1d00cbc"}--></div></div></div>
+            
+    
+    <div id="components-reconnect-modal" class="reconnect-toast"><div class="reconnect-toast-content"><span class="reconnect-icon">&#x21BB;</span>
+            <span class="reconnect-status components-reconnect-show">Đang kết nối lại…</span>
+            <span class="reconnect-status components-reconnect-failed">Không thể kết nối lại. <button onclick="location.reload()" class="vanan-button vanan-button--primary vanan-button--small">Tải lại</button></span>
+            <span class="reconnect-status components-reconnect-rejected">Phiên đã hết hạn. <button onclick="location.reload()" class="vanan-button vanan-button--primary vanan-button--small">Tải lại</button></span></div></div>
+    <script src="_framework/blazor.web.js"></script>
+    
+    <script src="js/circuit-keepalive.js"></script>
+    
+    <script src="js/pwa.js"></script>
+    <script>
+        if (window.vananPWA && typeof window.vananPWA.registerServiceWorker === 'function') {
+            window.vananPWA.registerServiceWorker();
+        }
+    </script>
+    <script>
+        // Reads current DOM values for the given element ids. Used as a robust
+        // fallback for collecting form data at submit time, independent of binding timing.
+        window.vananReadElementValue = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return '';
+            if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
+            return el.value ?? '';
+        };
+        // Currency auto-format: strips non-digits, formats with vi-VN thousands separator ("."),
+        // preserves cursor position at end (user always types at end for amount entry).
+        // Called from DynamicFormFields FormatCurrencyField via JS interop to bypass
+        // Blazor @bind + @bind:after DOM-push limitation.
+        window.vananFormatCurrencyInput = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return '';
+            var raw = (el.value || '').replace(/\D/g, '');
+            if (raw === '') {
+                el.value = '';
+                return '';
+            }
+            // Format with vi-VN thousands separator (".")
+            var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+            el.value = formatted;
+            // Move cursor to end — amount entry is always append-at-end
+            el.setSelectionRange(formatted.length, formatted.length);
+            return formatted;
+        };
+        // Attach a client-side input event listener that formats the currency value
+        // instantly on the client (no Blazor Server round-trip delay). The Blazor
+        // @oninput handler still fires server-side to update field.Value, but the DOM
+        // formatting happens here first.
+        window.vananAttachCurrencyFormatter = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (el.dataset.vananCurrencyAttached) return; // idempotent
+            el.dataset.vananCurrencyAttached = 'true';
+            el.addEventListener('input', function () {
+                var raw = (el.value || '').replace(/\D/g, '');
+                if (raw === '') {
+                    el.value = '';
+                    return;
+                }
+                var formatted = parseInt(raw, 10).toLocaleString('vi-VN');
+                el.value = formatted;
+                // Move cursor to end
+                el.setSelectionRange(formatted.length, formatted.length);
+            });
+        };
+        // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
+        window.vanAn = window.vanAn || {};
+        window.vanAn.downloadFile = function (base64, mimeType, fileName) {
+            var byteChars = atob(base64);
+            var byteNumbers = new Array(byteChars.length);
+            for (var i = 0; i < byteChars.length; i++) {
+                byteNumbers[i] = byteChars.charCodeAt(i);
+            }
+            var byteArray = new Uint8Array(byteNumbers);
+            var blob = new Blob([byteArray], { type: mimeType });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+        // #115: Print bill — triggers browser print dialog. "Save as PDF" option
+        // appears if no physical printer is connected.
+        window.vananPrintBill = function () {
+            window.print();
+        };
+    </script>
+    
+    <script src="js/tts-reader.js"></script>
+    
+    <script src="js/tenant-map.js"></script>
+    
+    <script src="js/qr-scanner.js"></script>
+    
+    <script src="js/pos-voice-note.js"></script>
+    
+    <script src="js/guard-camera.js"></script>
+    
+    <script src="js/ocr-hub.js"></script>
+    
+    <script src="js/onboarding-ocr.js"></script>
+    <script src="js/onboarding-wizard.js"></script>
+    
+    <script src="_content/VanAn.UI.Platform/lib/leaflet/leaflet.js"></script>
+    <script src="_content/VanAn.UI.Platform/js/realtime.js"></script>
+    <style>
+        /* Phase 1 Scaling: Blazor circuit reconnect UI — toast (small) for reconnecting/failed,
+           modal (full-screen) only for rejected (session expired, must reload).
+           Was full-screen modal for all states → che hết UI, gây phiền user trên trang không-realtime. */
+
+        /* Toast: góc phải dưới, nhỏ gọn, không che UI */
+        .reconnect-toast { display: none; position: fixed; bottom: 1rem; right: 1rem; z-index: 9999; }
+        .reconnect-toast-content { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 0.75rem 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 0.5rem; max-width: 360px; }
+        .reconnect-icon { font-size: 1.25rem; color: #f59e0b; animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .reconnect-status { display: none; color: #6b7280; font-size: 0.875rem; }
+        .components-reconnect-show .reconnect-status.components-reconnect-show,
+        .components-reconnect-failed .reconnect-status.components-reconnect-failed { display: inline; }
+
+        /* Toast hiển thị cho show + failed (không che UI) */
+        #components-reconnect-modal.components-reconnect-show,
+        #components-reconnect-modal.components-reconnect-failed { display: block; }
+
+        /* Rejected: chuyển sang modal full-screen (phiên hết hạn — cần reload, che UI OK) */
+        #components-reconnect-modal.components-reconnect-rejected {
+            display: flex !important;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 9999;
+            justify-content: center; align-items: center;
+        }
+        #components-reconnect-modal.components-reconnect-rejected .reconnect-toast-content {
+            background: white; border-radius: 12px; padding: 2rem; text-align: center;
+            max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            flex-direction: column; gap: 1rem;
+        }
+        #components-reconnect-modal.components-reconnect-rejected .reconnect-icon { display: none; }
+        #components-reconnect-modal.components-reconnect-rejected .reconnect-status.components-reconnect-rejected {
+            display: block; font-size: 1rem; color: #1f2937;
+        }
+    </style></body></html><!--Blazor-Server-Component-State:CfDJ8G0wXnEIii5Gqd5/S8AU+d1n5uIhxYETFpwyphNz93IsyEQqHv0taSHVd5kCFImcyM6I3eEOVb3FQ4pE1xuUYHa5rhTIgZDt4A//tDP5iVEnwGLXi21OKhE1LHlQBA1aLct/UY+3KL8aBbUTjyhWtPfHg8OHkbtlFQrpkWWClGwZjISSOeIiNjypAanz5RFFXpfX0EkWz5Pcrm5nNXXhyDkhDqTV5niy+a9UA7M3wvOxGoVjtRCrlfVeEYq4eguT1IDzADvmhEq2xOWPHG+OmF4CTrtqBPloBip3jxcHVDezMhs34CuxqdygocaK9Nz9+csIhOIdeChFxDr6pHyyjKpZutz8q3IMMql2JXVlCdYLIGNcDAKXE2ueG0J2BmYg4rgyHXltQEYubr/HC8cQuhX3BCsgTlDEiZWuTC0j5fEktfuTzRauOsEWeTNS2nex7vHuWrGxh5u9bvlBXw9xpTX91ykSd2PTwDK9Da5Mk12B0aYKrzgxlcKtNPtHeCyCXvNsPwgC1eRB3yUFeACDuVAgFejGwGHsSxyiDwBQfCHy1l0NZG1tXqp2jow9dSZOw7l0ICVeyC14AfGh6kjwqvOamWh6E1epRSVzwiET9SCK-->

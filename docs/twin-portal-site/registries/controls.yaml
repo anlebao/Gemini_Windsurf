@@ -1,0 +1,330 @@
+# Control Registry — prefix CTRL-xxx
+# Control mechanisms (SRS 10).
+# Schema: schema/controls.schema.json · validate: scripts/validate-twin.py
+registry: controls
+idPrefix: CTRL
+schemaVersion: 1
+entries:
+- id: CTRL-001
+  name: AccountingEntry immutability
+  type: PREVENTIVE
+  description: append-only; corrections via reversal entries only
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-203
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-002
+  name: Tenant isolation (TenantId)
+  type: PREVENTIVE
+  description: every entity carries TenantId; filter by direct property comparison
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-003
+  name: Metering deny gate
+  type: PREVENTIVE
+  description: quota exhaustion blocks metered operations; AI uses stricter degrade
+    policy
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 8_Metering/vanan-metering@64789992
+- id: CTRL-004
+  name: AI knowledge approval gate
+  type: PREVENTIVE
+  description: pending_review → approved; only approved retrievable publicly
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-005
+  name: Signed tenant context (AI)
+  type: PREVENTIVE
+  description: HMAC-signed X-Tenant-Ctx; caller scopes; allowlist
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+- id: CTRL-006
+  name: Internal API key (cross-VPS)
+  type: PREVENTIVE
+  description: X-Internal-Api-Key on internal endpoints
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Filters/InternalApiKeyAttribute.cs@64789992
+- id: CTRL-007
+  name: DevToken gate
+  type: PREVENTIVE
+  description: DevToken__Secret unset by default; dev-token endpoint 404
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:rules-doc
+- id: CTRL-008
+  name: DevToken/dev endpoints
+  type: DETECTIVE
+  description: RV-window secrets inline-only, removed+verified after
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - none:rules-doc
+- id: CTRL-009
+  name: Order routing dead-letter monitor (PROPOSED)
+  type: DETECTIVE
+  description: alert on orders with no ShopInstance delivery + replay
+  status: APPROVED
+  confidence: INFERRED
+  riskRefs:
+  - RISK-001
+  evidence:
+  - none:proposal
+  approvedBy: owner
+  approvedAt: '2026-11-07'
+- id: CTRL-010
+  name: KYC retention policy (PROPOSED)
+  type: PREVENTIVE
+  description: retention window + access audit for identity docs
+  status: APPROVED
+  confidence: INFERRED
+  riskRefs:
+  - RISK-005
+  evidence:
+  - none:proposal
+  approvedBy: owner
+  approvedAt: '2026-11-07'
+- id: CTRL-011
+  name: Idempotency dedup (metering ingest)
+  type: PREVENTIVE
+  description: unique (CallerId,Key) -> replay tra event cu, khong double-deduct
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-305
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: CTRL-012
+  name: Metering append-only ledger
+  type: PREVENTIVE
+  description: CreditLedgerEntry/AuditLog/UsageEvent/RateCardVersion append-only
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-003
+  evidence:
+  - docs/.devin/rules/metering.md@64789992
+- id: CTRL-013
+  name: Reversal-only correction
+  type: CORRECTIVE
+  description: accounting corrections = reversal entries, original untouched
+  status: ACTIVE
+  confidence: VERIFIED
+  activityRefs:
+  - ACTV-312
+  evidence:
+  - 1_Shared/Domain.cs@64789992
+- id: CTRL-014
+  name: AI usage permission post-filter
+  type: PREVENTIVE
+  description: context filter intent x classification x channel before LLM prompt
+    (defense-in-depth)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-002
+  activityRefs:
+  - ACTV-404
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-015
+  name: Staleness stripping
+  type: CORRECTIVE
+  description: stale knowledge -> strip volatile claims (price/stock), keep stable
+    facts + flag
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-405
+  evidence:
+  - docs/requirements/van_an_tenant_ai_srs_v1.md@64789992
+- id: CTRL-016
+  name: Community endpoint authorization gates
+  type: PREVENTIVE
+  description: X-Customer-Token validation + CheckShipperRole on delivery ops; SystemAdmin
+    policy on admin controllers; RequireOwnerRole on tenant-community
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-007
+  activityRefs:
+  - ACTV-612
+  - ACTV-613
+  - ACTV-614
+  - ACTV-620
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+  - 2_Gateway/Controllers/TenantCommunityAdminController.cs@69496de4
+- id: CTRL-017
+  name: CommunityFundSpendRecord immutable audit
+  type: DETECTIVE
+  description: every fund disbursement writes an immutable spend record (amount/reason/recipient/approvedBy/walletTx)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-008
+  activityRefs:
+  - ACTV-617
+  evidence:
+  - 1_Shared/Domain/Aggregates/CommunityFundAggregate/CommunityFundSpendRecord.cs@69496de4
+- id: CTRL-018
+  name: PII non-projection in eligible-customer lists
+  type: PREVENTIVE
+  description: encrypted PhoneNumber/Email never projected (masked "***") — avoids decrypt
+    failures + limits PII exposure to admin list
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-009
+  activityRefs:
+  - ACTV-619
+  evidence:
+  - 3_CoreHub/Services/CommunityAdminService.cs@69496de4
+- id: CTRL-019
+  name: Reseller accounting idempotency
+  type: PREVENTIVE
+  description: reference-suffix pre-check prevents duplicate 3-bookset generation on re-entry
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-010
+  activityRefs:
+  - ACTV-616
+  evidence:
+  - 3_CoreHub/Services/OrderService.cs@69496de4
+- id: CTRL-020
+  name: Delivery accept concurrency guard
+  type: PREVENTIVE
+  description: active-status pre-check + DeliveryTask unique constraint — only one shipper
+    can hold an order
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-613
+  evidence:
+  - 3_CoreHub/Services/CommunityOrderService.cs@69496de4
+- id: CTRL-021
+  name: QR token hash-only storage
+  type: PREVENTIVE
+  description: VehicleSession.QrTokenHash + GuardScanLog.ScannedQrTokenHash — raw QR token
+    never persisted
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-012
+  activityRefs:
+  - ACTV-622
+  - ACTV-625
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: CTRL-022
+  name: GuardScanLog verify audit trail
+  type: DETECTIVE
+  description: every verify attempt logged (result, scanner, timestamp, notes) incl. mismatch
+    + manual override
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-012
+  - RISK-013
+  activityRefs:
+  - ACTV-625
+  evidence:
+  - 1_Shared/Domain.cs@4f3c7ea3
+- id: CTRL-023
+  name: Write-path regime validation
+  type: PREVENTIVE
+  description: SetAccountingStandardAsync rejects standard outside AllowedStandards for
+    tenant type
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-014
+  activityRefs:
+  - ACTV-630
+  evidence:
+  - 3_CoreHub/Services/TenantManagementService.cs@58d3d3d6
+- id: CTRL-024
+  name: Period-close validation gate
+  type: PREVENTIVE
+  description: close blocked when entries missing / pending Amount=0 / reconcile Error checks
+    — warnings pass with note
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs: []
+  activityRefs:
+  - ACTV-635
+  - ACTV-637
+  evidence:
+  - 3_CoreHub/Services/PeriodClosingService.cs@58d3d3d6
+- id: CTRL-025
+  name: Audit trail — close/reopen/reconcile
+  type: DETECTIVE
+  description: AuditTrailService logs LogPeriodClose / LogPeriodReopen (reason) / reconcile
+    run summary (tenant, period, user)
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-015
+  - RISK-016
+  activityRefs:
+  - ACTV-637
+  - ACTV-638
+  - ACTV-639
+  evidence:
+  - 3_CoreHub/Services/AuditTrailService.cs@58d3d3d6
+- id: CTRL-026
+  name: Stock movement idempotency
+  type: PREVENTIVE
+  description: movement keyed (receiptId, lineId, type) + StockAppliedAt flag — retry
+    Post/Return/ApplyStock never double-applies stock
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-017
+  activityRefs:
+  - ACTV-641
+  - ACTV-642
+  evidence:
+  - 3_CoreHub/Services/Stock/IStockMovementService.cs@f447a1a8
+- id: CTRL-027
+  name: Shift-close alert engine (10 variance rules)
+  type: DETECTIVE
+  description: AlertEngine emits ShiftAlert (ING_VARIANCE_HIGH, STOCK_LOW, ...) on shift
+    close — in-app + optional Telegram/Zalo
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-019
+  activityRefs:
+  - ACTV-644
+  - ACTV-645
+  evidence:
+  - 3_CoreHub/Services/InventoryIntelligence/AlertEngine.cs@f447a1a8
+- id: CTRL-028
+  name: Inventory-GL reconcile feed (R13)
+  type: DETECTIVE
+  description: valuation snapshot Sigma(stock x price) exposed internally for accounting
+    reconcile R13
+  status: ACTIVE
+  confidence: VERIFIED
+  riskRefs:
+  - RISK-018
+  activityRefs:
+  - ACTV-648
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@f447a1a8

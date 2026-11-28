@@ -1,0 +1,234 @@
+# API & Integration Registry — prefix API-xxx
+# APIs, NATS subjects, external integrations.
+# Schema: schema/apis.schema.json · validate: scripts/validate-twin.py
+registry: apis
+idPrefix: API
+schemaVersion: 1
+entries:
+- id: API-101
+  name: Membership applications API
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/membership-applications
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 2_Gateway/Controllers/MembershipApplicationsController.cs@64789992
+- id: API-102
+  name: Catalog recommended/search
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/catalog/recommended; GET /api/catalog/search
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CatalogController.cs@64789992
+- id: API-103
+  name: Public order create/checkout
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: POST /api/public/orders; POST /api/public/orders/checkout
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: API-104
+  name: NATS order.created
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.order.created.{shopInstanceId}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs@64789992
+- id: API-105
+  name: NATS tenant + status events
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.tenant.verified; vanan.cloud.order.status.changed.{si};
+    vanan.shoperp.*
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Services/TenantSyncSubscriber.cs@64789992
+- id: API-106
+  name: Public order tracking
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/public/orders/{id}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/PublicOrdersController.cs@64789992
+- id: API-107
+  name: NATS loyalty.changed
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.loyalty.changed.{deviceId}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 3_CoreHub/Services/AllianceWalletService.cs@64789992
+- id: API-108
+  name: NATS payment.confirmed
+  type: EVENT
+  providerRef: SYS-015
+  routeOrSubject: vanan.cloud.order.payment.confirmed.{si}
+  status: ACTIVE
+  confidence: INFERRED
+  evidence:
+  - 3_CoreHub/Services/WalletService.cs@64789992
+- id: API-109
+  name: Internal cross-VPS API (X-Internal-Api-Key)
+  type: INTERNAL
+  providerRef: SYS-004
+  routeOrSubject: X-Internal-Api-Key header on internal endpoints (reconcile/mirror)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Filters/InternalApiKeyAttribute.cs@64789992
+- id: API-110
+  name: Metering API
+  type: REST
+  providerRef: SYS-007
+  routeOrSubject: /v1/wallets /v1/topups /v1/check /v1/ingest (X-Caller-Id + X-Metering-Key
+    + Idempotency-Key)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 1_Shared/Domain/Common/IMeteringClient.cs@64789992
+  - 8_Metering/vanan-metering@64789992
+- id: API-111
+  name: TenantAI public API
+  type: REST
+  providerRef: SYS-008
+  routeOrSubject: /v1/chat /v1/config/widget + signed X-Tenant-Ctx (HMAC)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Services/TenantAiContextSigner.cs@64789992
+  - 9_TenantAI/vanan-ai@64789992
+- id: API-112
+  name: JWT auth (Gateway+ShopERP)
+  type: INTERNAL
+  providerRef: SYS-002
+  routeOrSubject: JwtBearer secondary scheme; tokens issued by ShopERP
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Program.cs@64789992
+  - 5_WebApps/ShopERP/Program.cs@64789992
+- id: API-113
+  name: YARP forward routes
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: ReverseProxy routes → ShopERP (product browse etc.)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/appsettings.json@64789992
+- id: API-114
+  name: TenantAI knowledge & admin API
+  type: REST
+  providerRef: SYS-008
+  routeOrSubject: /v1/knowledge/products:batch, /v1/knowledge/documents, /v1/admin/knowledge/*
+    (approve/pending), /v1/chat/sessions/{sid}/messages
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 9_TenantAI/vanan-ai/src/VanAn.TenantAi.Api/Program.cs@64789992
+- id: API-115
+  name: Community delivery ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/community/nearby-orders; POST /api/community/orders/{id}/accept|pickup|delivering|delivered|failed;
+    POST /api/community/location/update; GET /api/community/orders/{id}/tracking (X-Customer-Token)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: API-116
+  name: Community fund admin
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/community-fund/balance|history; POST /api/admin/community-fund/spend
+    (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityFundController.cs@69496de4
+- id: API-117
+  name: Commerce mode admin
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/commerce-mode; POST /api/admin/commerce-mode/global;
+    POST /api/admin/commerce-mode/tenant/{id}; GET /api/admin/commerce-mode/resolve/{id}
+    (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommerceModeController.cs@69496de4
+- id: API-118
+  name: Community role admin (system + tenant scope)
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/admin/community/{eligible,activate-role,deactivate-role,pii-repair}
+    (SystemAdmin); /api/v1/tenant-community/{eligible,collaborators,activate-role,deactivate-role,roles}
+    (RequireOwnerRole)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityAdminController.cs@69496de4
+  - 2_Gateway/Controllers/TenantCommunityAdminController.cs@69496de4
+- id: API-119
+  name: Salesman referral + community wallet ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/community/salesman/{qr,commissions,products,products/add,products/remove};
+    /api/community/wallet/{confirm-cod,confirm-advance,remit,pending-remittances,withdraw,withdrawals};
+    /api/community/{resolve-referral,referral/{code},app-install/attributed}
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/CommunityController.cs@69496de4
+- id: API-120
+  name: Guard QR parking ops
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: /api/guard/{presign-upload,upload-photo,issue,verify,checkout/{id},flag/{id},void/{id},sessions/today,sessions/{id}}
+    (JWT Guard role); POST /api/guard/{claim,my-sessions} (X-Customer-Token); gated by
+    Guard:QrVerifyEnabled
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/GuardController.cs@4f3c7ea3
+- id: API-121
+  name: HKD books API
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/hkd-books; GET /api/hkd-books/{templateCode} (RequireTenantAccess)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/HKDBooksController.cs@58d3d3d6
+- id: API-122
+  name: Accounting reconcile admin (tra soat)
+  type: REST
+  providerRef: SYS-002
+  routeOrSubject: GET /api/admin/accounting/reconcile?tenantId&period=YYYY-MM (SystemAdmin)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 2_Gateway/Controllers/AccountingReconcileController.cs@58d3d3d6
+- id: API-124
+  name: Inventory ops + valuation (ShopERP)
+  type: INTERNAL
+  providerRef: SYS-004
+  routeOrSubject: GET /api/shoperp/inventory/valuation?tenantId (internal, feeds R13);
+    purchase-receipt pages /accounting/purchase-receipts*; inventory pages /inventory/*
+    (Blazor Server)
+  status: ACTIVE
+  confidence: VERIFIED
+  evidence:
+  - 5_WebApps/ShopERP/Controllers/InventoryValuationController.cs@f447a1a8
+  - 5_WebApps/ShopERP/Controllers/PurchaseReceiptsController.cs@f447a1a8

@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+import fs from 'fs';
+const creds = JSON.parse(fs.readFileSync('../.devin/rv_presence_creds.json','utf8'));
+const b = await chromium.launch({headless:true});
+const ctx = await b.newContext();
+const r = await ctx.request.post('https://app2.khachvip.online/api/platform/login',{data:{Username:creds.username,Password:creds.password}});
+console.log('login', r.status());
+const imp = await ctx.request.post('https://app2.khachvip.online/api/admin/impersonate/e2d91cdf-d3c4-4399-b96e-e772a7a41630');
+console.log('imp', imp.status());
+const p = await ctx.newPage();
+await p.goto('https://app2.khachvip.online/community/messages',{waitUntil:'domcontentloaded',timeout:60000});
+await p.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
+await new Promise(r=>setTimeout(r,5000));
+const items = await p.locator('.list-group-item').allInnerTexts();
+console.log('count', items.length);
+items.slice(0,10).forEach((t,i)=>console.log(i, JSON.stringify(t.slice(0,120))));
+await b.close();

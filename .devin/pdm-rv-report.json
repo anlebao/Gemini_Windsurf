@@ -1,0 +1,90 @@
+{
+  "when": "2026-11-27T23:34:15.446Z",
+  "results": [
+    {
+      "n": "L1 catalog search API reachable",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L1 response exposes didYouMean field (contract intact)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L1 featured catalog populated",
+      "p": false,
+      "d": "totalCount=0 → DidYouMean chip không thể fire trên prod (data limitation, không phải code bug)"
+    },
+    {
+      "n": "L2 WASM contains SearchCorrectionStore type",
+      "p": true,
+      "d": "2046741 bytes"
+    },
+    {
+      "n": "L3 products page + search input render",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 correction seed persisted in localStorage",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 learned note shows on learned input",
+      "p": true,
+      "d": " Đang tìm \"trà sữa\" — đã học từ cách bạn nhập \"ta sua\" Hoàn tác"
+    },
+    {
+      "n": "L4 request rewritten with corrected q",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=tr%C3%A0%20s%E1%BB%AFa"
+    },
+    {
+      "n": "L4 input shows corrected keyword",
+      "p": true,
+      "d": "input=\"trà sữa\""
+    },
+    {
+      "n": "L4 undo button present",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 undo removes correction entry",
+      "p": true,
+      "d": "after undo: undefined"
+    },
+    {
+      "n": "L4 learned note hidden after undo",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L4 undo re-searches raw query",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=ta%20sua"
+    },
+    {
+      "n": "L4 unlearned query does NOT rewrite",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/catalog/search?page=1&pageSize=20&q=mot%20hai%20ba%20bon%20nam"
+    },
+    {
+      "n": "L4 no learned note on unlearned query",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L3 no pageerror",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "L3 no console errors",
+      "p": true,
+      "d": ""
+    }
+  ]
+}

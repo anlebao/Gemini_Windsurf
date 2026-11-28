@@ -1,0 +1,12 @@
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.goto('https://commienphi.timlathay.com/', { waitUntil: 'domcontentloaded' });
+const btn = page.locator('button', { hasText: 'Cửa hàng' }).first();
+await btn.waitFor({ state: 'visible', timeout: 90000 });
+const before = await btn.getAttribute('class');
+await btn.click();
+await page.waitForTimeout(1500);
+const after = await btn.getAttribute('class');
+console.log('before:', before, '| after:', after, '| changed:', before !== after);
+await browser.close();

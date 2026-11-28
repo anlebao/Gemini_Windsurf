@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Risk Registry",
+  "idPrefix": "RISK",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "category",
+    "severity",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "category": [
+      "OPERATIONAL",
+      "SECURITY",
+      "TENANT_ISOLATION",
+      "FRAUD",
+      "COMPLIANCE",
+      "AI_BOUNDARY",
+      "OTHER"
+    ],
+    "severity": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL"
+    ],
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^RISK-\\d{3,}$",
+  "references": {
+    "ctrlRefs": "CTRL"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

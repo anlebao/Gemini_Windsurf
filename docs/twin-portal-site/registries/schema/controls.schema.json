@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Control Registry",
+  "idPrefix": "CTRL",
+  "required": [
+    "id",
+    "name",
+    "type",
+    "description",
+    "status",
+    "confidence",
+    "evidence"
+  ],
+  "enums": {
+    "type": [
+      "PREVENTIVE",
+      "DETECTIVE",
+      "CORRECTIVE"
+    ],
+    "status": [
+      "ACTIVE",
+      "PROPOSED",
+      "RETIRED",
+      "APPROVED"
+    ],
+    "confidence": [
+      "VERIFIED",
+      "INFERRED",
+      "ASSUMED"
+    ]
+  },
+  "idPattern": "^CTRL-\\d{3,}$",
+  "references": {
+    "riskRefs": "RISK",
+    "activityRefs": "ACTV"
+  },
+  "evidencePattern": "^(.+@([0-9a-fA-F]{7,40}|HEAD)|.+#L\\d+(-\\d+)?|none:.+)$"
+}

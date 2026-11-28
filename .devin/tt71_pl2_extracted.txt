@@ -1,0 +1,1462 @@
+PHỤ LỤC II
+DANH MỤC, BIỂU MẪU VÀ PHƯƠNG PHÁP LẬP CHỨNG TỪ KẾ TOÁN(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 01 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU NHẬP KHONgày….tháng….năm…..Số:………………………
+Nợ………………….Có…………………..
+- Họ và tên người giao:……………………………………………….
+- Theo ……… số …….. ngày ….. tháng ….. năm ….. của ………….
+Nhập tại kho:………………..……địa điểm……………………………
+STT
+Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ sản phẩm, hàng hoá
+Mã số
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+Theo chứng từ
+Thực nhập
+A
+B
+C
+D
+1
+2
+3
+4
+Cộng
+X
+X
+X
+X
+X
+- Tổng số tiền (viết bằng chữ):…………………………………………….
+- Số chứng từ gốc kèm theo:………………………………………………
+NGƯỜI LẬP PHIẾU(Ký, họ tên)
+NGƯỜI GIAO HÀNG(Ký, họ tên)
+THỦ KHO(Ký, họ tên)
+Ngày … tháng … năm…KẾ TOÁN TRƯỞNG(Hoặc bộ phậncó nhu cầu nhập)(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 02 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU XUẤT KHONgày….tháng….năm…..Số:………………………
+Nợ………………….Có…………………..
+- Họ và tên người nhận hàng:……………Địa chỉ (bộ phận)……………
+- Lý do xuất kho:………………………………………………………...
+- Xuất tại kho (ngăn 10):…………………..Địa điểm…………………..
+STT
+Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ, sản phẩm, hàng hoá
+Mã số
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+Yêu cầu
+Thực xuất
+A
+B
+C
+D
+1
+2
+3
+4
+Cộng
+X
+X
+X
+X
+X
+- Tổng số tiền (viết bằng chữ):………………………………………………
+- Số chứng từ gốc kèm theo:………………………………………………...
+Ngày …. tháng …. năm…
+NGƯỜI LẬPPHIẾU(Ký, họ tên)
+NGƯỜI NHẬNHÀNG(Ký, họ tên)
+THỦ KHO(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Hoặc bộ phận có nhu cầu nhập)(Ký, họ tên)
+GIÁM ĐỐC(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 03 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN KIỂM NGHIỆM
+Vật tư, công cụ, sản phẩm, hàng hóa
+Ngày…tháng…năm….
+Số:……………..
+- Căn cứ………..số…..ngày…...tháng…..năm……của……………………
+Ban kiểm nghiệm gồm:
++ Ông/Bà…………………..Chức vụ…………..Đại diện…………….Trưởng ban
++ Ông/Bà…………………..Chức vụ…………..Đại diện…………………Ủy viên
++ Ông/Bà…………………..Chức vụ…………..Đại diện…………………Ủy viên
+Số TT
+Tên nhãn hiệu, quy cách vật tư, công cụ, sản phẩm, hàng hoá
+Mã số
+Phương thức kiểm nghiệm
+Đơn vị tính
+Số lượng theo chứng từ
+Kết quả kiểm nghiệm
+Ghi chú
+Số lượng đúng quy cách, phẩm chất
+Số lượng không đúng quy cách, phẩm chất
+A
+B
+C
+D
+E
+1
+2
+3
+F
+Ý kiến của Ban kiểm nghiệm:……………………………………………
+……………………………………………………………………………
+ĐẠI DIỆN KỸ THUẬT(Ký, họ tên)
+THỦ KHO(Ký, họ tên)
+TRƯỞNG BAN(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 04 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU BÁO VẬT TƯ CÒN LẠI CUỐI KỲ
+Ngày... tháng... năm ...
+Số:…………..
+Bộ phận sử dụng:…………………………………………………………
+Số TT
+Tên, nhãn hiệu, quy cách, phẩm chất vật tư
+Mã số
+Đơn vị tính
+Số lượng
+Lý do: còn sử dụng hay trả lại
+A
+B
+C
+D
+1
+E
+PHỤ TRÁCH BỘ PHẬN SỬ DỤNG(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 05 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN KIỂM KÊ VẬT TƯ, CÔNG CỤ, SẢN PHẨM, HÀNG HOÁ
+- Thời điểm kiểm kê….giờ ...ngày …tháng …năm…..
+- Ban kiểm kê gồm :
+Ông/ Bà: ………………………..Chức vụ…………………Đại diện:………………………Trưởng ban
+Ông/ Bà: ………………………..Chức vụ…………………Đại diện:…………………………...Ủy viên
+Ông/ Bà: ………………………..Chức vụ…………………Đại diện:…………………………...Ủy viên
+- Đã kiểm kê kho có những mặt hàng dưới đây:
+STT
+Tên, nhãn hiệu, quy cách vật tư, dụng cụ,...
+Mã số
+Đơn vị tính
+Đơn giá
+Theo sổ kế toán
+Theo kiểm kê
+Chênh lệch
+Phẩm chất
+Thừa
+Thiếu
+Còn tốt 100%
+Kém phẩm chất
+Mất phẩm chất
+Số lượng
+Thành tiền
+Số lượng
+Thành tiền
+Số lượng
+Thành tiền
+Số lượng
+Thành tiền
+A
+B
+C
+D
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+Cộng
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+GIÁM ĐỐC(Ý kiến giải quyết số chênh lệch)(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+THỦ KHO(Ký, họ tên)
+Ngày … tháng … năm …TRƯỞNG BAN KIỂM KÊ(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 06 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KÊ MUA HÀNGNgày …. tháng …. năm ….
+Quyển số:…………Số:…….……Nợ:…………Có:…………
+- Họ và tên người mua:…………………………………………….
+- Bộ phận (phòng, ban):……………………………………………
+STT
+Tên, quy cách, phẩm chất hàng hoá (vật tư, công cụ...)
+Địa chỉ mua hàng
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+A
+B
+C
+D
+1
+2
+3
+Cộng
+x
+x
+x
+Tổng số tiền (Viết bằng chữ):………………………………………….
+* Ghi chú:………………………………………………………………
+Người mua(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Người duyệt mua(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 07 - VT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG PHÂN BỔ NGUYÊN LIỆU, VẬT LIỆU CÔNG CỤ, DỤNG CỤ
+Tháng…… năm……
+Số:……………..
+TT
+Ghi Có các TK
+Đối tượng sử dụng
+(Ghi Nợ các TK)
+Tài khoản 152
+Tài khoản 2421
+Giá hạch toán
+Giá thực tế
+A
+B
+1
+2
+3
+1
+TK154 - Chi phí sản xuất kinh doanh dở dang
+2
+TK 642 - Chi phí quản lý kinh doanh
+3
+TK 2421- Chi phí trả trước
+4
+……………………………
+Cộng
+Người lập biểu(Ký, họ tên)
+Ngày …. tháng …. năm…..KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 01 - BH(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG THANH TOÁN HÀNG ĐẠI LÝ, KÝ GỬI
+Ngày... tháng... năm ...
+Quyển số:………
+Số:………………
+Nợ:……………...
+Có:……………....
+Căn cứ Hợp đồng số:…….ngày … tháng ... năm ... về việc bán hàng đại lý (ký gửi),
+Chúng tôi gồm:
+- Ông/Bà……….chức vụ……..Đại diện…………………..có hàng đại lý (ký gửi).
+- Ông/Bà……….chức vụ……..Đại diện………………………………………..
+- Ông/Bà……….chức vụ……..Đại diện…………..nhận bán hàng đại lý (ký gửi).
+- Ông/Bà……….chức vụ……..Đại diện đơn vị …….…………………..
+I- Thanh quyết toán số hàng đại lý từ ngày ..../.../... đến ngày .../.../.... như sau:
+Số TT
+Tên, quy cách, phẩm chất sản phẩm (hàng hoá)
+Đơn vị tính
+Số lượng tồn đầu kỳ
+Số lượng nhận trong kỳ
+Tổng số
+Số hàng đã bán trong kỳ
+Số lượng tồn cuối kỳ
+Số lượng
+Đơn giá
+Thành tiền
+A
+B
+C
+1
+2
+3 = 1+2
+4
+5
+6
+7 = 3 - 4
+Cộng
+x
+x
+x
+x
+x
+x
+x
+II- Số tiền còn nợ của các kỳ trước:……………………………………….
+III- Số tiền phải thanh toán đến kỳ này: (III = II + Cột 6)…………………
+IV- Số tiền được nhận lại:…………………………………………………
++ Hoa hồng………………………………………………………………..
++ Thuế nộp hộ……………………………………………………………..
++ Chi phí (nếu có)…………………………………………………………
++ ……………………………………………………………………………
+V- Số tiền thanh toán kỳ này:
++ Tiền mặt:………………………………………………………………….
++ Séc: ...……………………………………………………………………..
+VI- Số tiền nợ lại (VI= III - IV - V)
+* Ghi chú:……………………………………………………………………
+GIÁM ĐỐC ĐƠN VỊ GỬIHÀNG ĐẠI LÝ (KÝ GỬI)(Ký, họ tên, đóng dấu)
+NGƯỜI LẬP BẢNGTHANH TOÁN(Ký, họ tên)
+GIÁM ĐỐC ĐƠN VỊ NHẬNHÀNG ĐẠI LÝ(Ký, họ tên, đóng dấu)
+KẾ TOÁN TRƯỞNG ĐƠN VỊGỬI HÀNG ĐẠI LÝ (KÝ GỬI)(Ký, họ tên)
+KẾ TOÁN TRƯỞNG ĐƠN VỊNHẬN HÀNG ĐẠI LÝ(Ký, họ tên)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 02 - BH(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+THẺ QUẦY HÀNG
+Ngày lập thẻ………………………..Tờ số:…………………..
+- Tên hàng: ………………………………….Quy cách:…………………………
+- Đơn vị tính:…………………………………Đơn giá:………………………….
+Ngày tháng
+Tên người bán hàng
+Tồn đầu ngày (ca)
+Nhập từ kho trong ngày (ca)
+Nhập khác trong ngày (ca)
+Cộng tồn đầu ngày (ca) và nhập trong ngày (ca)
+Xuất bán
+Xuất khác
+Tồn cuối ngày (ca)
+Lượng
+Tiền
+Lượng
+Tiền
+A
+B
+1
+2
+3
+4 = 1+2+3
+5
+6
+7
+8
+9
+Cộng
+NGƯỜI LẬP(Ký, họ và tên)
+Hợp tác xã: ……………….Đơn vị, bộ phận:….
+Mẫu số 03 - BH(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+HỢP ĐỒNG CUNG CẤP HÀNG HÓA VÀ DỊCH VỤ NÔNG NGHIỆP
+Ngày ….. tháng..... năm……                                                   Số:…………
+- Họ tên……..chức vụ.....Đại diện cho Hợp tác xã…………là bên cung cấp hàng hóa, dịch vụ.
+- Họ tên……..Đại diện cho thành viên là bên mua hàng hóa, dịch vụ của Hợp tác xã.
+Cùng thoả thuận ký kết hợp đồng cung cấp và sử dụng hàng hóa, dịch vụ do Hợp tác xã cung cấp trong vụ.... năm... như sau:
+Điều 1: Hợp tác xã ....nhận cung cấp hàng hóa và dịch vụ nông nghiệp cho thành viên.... thuộc đội, tổ theo bảng kê sau:
+STT
+Tên hàng hóa, dịch vụ
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+Số lượng cung cấp theo thời gian
+Yêu cầu kỹ thuật về hàng hóa, dịch vụ và địa điểm cung cấp dịch vụ
+Tháng
+Tháng
+Tháng
+A
+B
+C
+1
+2
+3
+4
+5
+6
+D
+Điều 2: Hợp tác xã đảm bảo cung cấp đầy đủ số lượng hàng hóa và dịch vụ đúng quy cách, phẩm chất, thời gian, địa điểm và đảm bảo các yêu cầu đã ký kết. Thành viên có trách nhiệm thanh toán đầy đủ, kịp thời tiền dịch vụ đã nhận của Hợp tác xã.
+Điều 3: Sau mỗi lần hoàn thành công việc cung cấp hàng hóa, dịch vụ, đại diện Hợp tác xã và thành viên cùng nghiệm thu xác nhận số lượng, chất lượng hàng hóa, dịch vụ để làm căn cứ tính phí.
+Điều 4: Thời gian và hình thức thanh toán
+- Hình thức thanh toán: (Bằng tiền, sản phẩm...)………………
+- Thời hạn thanh toán:……………………
+Điều 5: Hai bên cam kết thực hiện đúng những quy định đã ký kết.
+Hợp đồng được làm thành 3 bản, có giá trị pháp lý như nhau. Hợp tác xã giữ 1 bản, bộ phận thực hiện 1 bản, thành viên 1 bản.
+THÀNH VIÊN(Ký, họ tên)
+GIÁM ĐỐC (TGĐ) HỢP TÁC XÃ(Ký tên, đóng dấu)
+Phần thanh toán khi kết thúc hợp đồng
+Tên vật tư hoặc dịch vụ
+Đơn vị tính
+Số lượng hàng hóa, dịch vụ
+Thành tiền
+Ý kiến nhận xét của thành viên
+A
+B
+1
+2
+C
+Cộng
+x
+x
+x
+THÀNH VIÊN(Ký, họ tên)
+Ngày……tháng…..năm…….GIÁM ĐỐC (TGĐ) HỢP TÁC XÃ(Ký tên, đóng dấu)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 01 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU THUNgày……tháng……năm……
+Quyển số:……..
+Số:……………
+Nợ:…………...
+Có:…………...
+Họ và tên người nộp tiền:………………………………………………..
+Địa chỉ:……………………………………………………………………
+Lý do nộp:…………………………………………………………………
+Số tiền:………………………(Viết bằng chữ):…………………………..
+…………………………………………………………………………….
+Kèm theo:………………………………….Chứng từ gốc:
+Ngày…….tháng……năm……..
+GIÁM ĐỐC(Ký, họ tên, đóng dấu)
+KẾ TOÁNTRƯỞNG(Ký, họ tên)
+Người nộp tiền(Ký, họ tên)
+NGƯỜI LẬPPHIẾU(Ký, họ tên)
+THỦ QUỸ(Ký, họ tên)
+Đã nhận đủ số tiền (viết bằng chữ):………………………………………….
++ Tỷ giá ngoại tệ:…………………………………………………………….
++ Số tiền quy đổi:…………………………………………………………….
+(Liên gửi ra ngoài phải đóng dấu)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 02 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU CHINgày……tháng……năm……
+Quyển số:……..Số:……………Nợ:…………...Có:…………...
+Họ và tên người nhận tiền:…………………………………………………
+Địa chỉ:……………………………………………………………………
+Lý do chi:…………………………………………………………………
+Số tiền:………………………(Viết bằng chữ):…………………………..
+…………………………………………………………………………….
+Kèm theo:………………………………….Chứng từ gốc:
+Ngày…….tháng……năm……..
+GIÁM ĐỐC(Ký, họ tên, đóng dấu)
+KẾ TOÁNTRƯỞNG(Ký, họ tên)
+THỦ QUỸ(Ký, họ tên)
+NGƯỜI LẬPPHIẾU(Ký, họ tên)
+Người nhận tiền(Ký, họ tên)
+Đã nhận đủ số tiền (viết bằng chữ):………………………………………….
++ Tỷ giá ngoại tệ:…………………………………………………………….
++ Số tiền quy đổi:…………………………………………………………….
+(Liên gửi ra ngoài phải đóng dấu)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 03 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+GIẤY ĐỀ NGHỊ TẠM ỨNG
+Ngày…… tháng…… năm ……
+Số :………….
+Kính gửi:………………………………………………………………………………
+Tên tôi là:……………………………………………………………….
+Bộ phận (hoặc Địa chỉ):………………………………………………..
+Đề nghị cho tạm ứng số tiền:…………….(Viết bằng chữ)……………..
+……………………………………………………………………………
+Lý do tạm ứng:…………………………………………………………..
+Thời hạn thanh toán:…………………………………………………….
+GIÁM ĐỐC(Ký, họ tên)
+KẾ TOÁNTRƯỞNG(Ký, họ tên)
+PHỤ TRÁCH BỘPHẬN(Ký, họ tên)
+NGƯỜI ĐỀ NGHỊTẠM ỨNG(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 04 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+GIẤY THANH TOÁN TIỀN TẠM ỨNG
+Ngày…… tháng…… năm……
+Số:………………….
+Nợ:……………..
+Có:……………...
+- Họ và tên người thanh toán:……………………………………….
+- Bộ phận (hoặc địa chỉ):……………………………………………
+- Số tiền tạm ứng được thanh toán theo bảng dưới đây:
+Diễn giải
+Số tiền
+A
+1
+I. Số tiền tạm ứng
+1. Số tạm ứng các kỳ trước chưa chi hết
+…………………………
+2. Số tạm ứng kỳ này:
+………………………….
+- Phiếu chi số………….ngày………
+…………………………
+- Phiếu chi số………….ngày……….
+…………………………
+- ….
+…………………………
+II. Số tiền đã chi
+…………………………
+1. Chứng từ số……………….ngày…………
+…………………………
+2. ...
+…………………………
+III. Chênh lệch
+1. Số tạm ứng chi không hết (I - II)
+…………………………
+2. Chi quá số tạm ứng (II - I)
+…………………………
+GIÁM ĐỐC(Ký, họ tên)
+KẾ TOÁNTRƯỞNG(Ký, họ tên)
+KẾ TOÁN THANHTOÁN(Ký, họ tên)
+NGƯỜI ĐỀ NGHỊ THANH TOÁN(Ký, họ tên)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 05 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+GIẤY ĐỀ NGHỊ THANH TOÁN
+Ngày……tháng……năm……
+Kính gửi:…………………………………………………………………………...
+Họ và tên người đề nghị thanh toán:…………………………………..
+Bộ phận (Hoặc địa chỉ):………………………………………………..
+Nội dung thanh toán:…………………………………………………..
+Số tiền:……………………………(Viết bằng chữ):…………………..
+(Kèm theo…………..chứng từ gốc).
+NGƯỜI ĐỀ NGHỊ THANH TOÁN(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Địa chỉ:……………..
+Mẫu số 06 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN LAI THU TIỀN
+Ngày…… tháng ..… năm …..
+Quyển số:……………
+Số:……………….
+- Họ và tên người nộp:…………………………………………………….
+- Địa chỉ:…………………………………………………………………..
+- Nội dung thu:……………………………………………………………
+- Số tiền thu:……………………………. (Viết bằng chữ):………………..
+……………………………………………………………………………..
+NGƯỜI NỘP TIỀN(Ký, họ tên)
+NGƯỜI THU TIỀN(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 07 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KÊ VÀNG BẠC, KIM KHÍ QUÝ, ĐÁ QUÝ
+(Đính kèm phiếu…………………..Ngày…..tháng……..năm……..)
+Quyển số:…………Số:…………………
+STT
+Tên, loại, qui cách phẩm chất
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+Ghi chú
+A
+B
+C
+1
+2
+3
+D
+Cộng
+x
+x
+x
+Ngày……..tháng…….năm……
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+NGƯỜI NỘP(NHẬN)(Ký, họ tên)
+THỦ QUỸ(Ký, họ tên)
+NGƯỜI KIỂM NGHIỆM(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 08a - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KIỂM KÊ QUỸ(Dùng cho VNĐ)
+Số:…………
+Hôm nay, vào……giờ……ngày…….tháng……..năm………
+Chúng tôi gồm:
+- Ông/Bà:…………………………………………đại diện kế toán
+- Ông/Bà:…………………………………………đại diện thủ quỹ
+- Ông/Bà:…………………………………………đại diện……….
+Cùng tiến hành kiểm kê quỹ tiền mặt kết quả như sau:
+STT
+Diễn giải
+Số lượng (tờ)
+Số tiền
+A
+B
+1
+2
+I
+Số dư theo số quỹ:
+x
+…………….
+II
+Số kiểm kê thực tế:
+x
+…………….
+1
+Trong đó: - Loại
+…………….
+…………….
+2
+- Loại
+…………….
+…………….
+3
+- Loại
+…………….
+…………….
+4
+- Loại
+…………….
+…………….
+5
+- …
+…………….
+…………….
+III
+Chênh lệch (III = I - II):
+x
+…………….
+- Lý do: + Thừa:………………………………………………………………
++ Thiếu:…………………………...…………………………………
+- Kết luận sau khi kiểm kê quỹ:………………………………………………
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+THỦ QUỸ(Ký, họ tên)
+NGƯỜI CHỊU TRÁCH NHIỆMKIỂM KÊ QUỸ(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 08 b - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KIỂM KÊ VÀNG BẠC, KIM KHÍ QUÝ, ĐÁ QUÝ
+Số:………………
+Hôm nay, vào…….giờ…….ngày…….tháng……..năm……...
+Chúng tôi gồm:
+- Ông/Bà:………………………………….đại diện kế toán
+- Ông/Bà:………………………………….đại diện thủ quỹ
+- Ông/Bà:………………………………….đại diện……….
+Cùng tiến hành kiểm kê quỹ ngoại tệ, vàng bạc ... kết quả như sau:
+Số TT
+Diễn giải
+Đơn vị tính
+Số lượng
+Đơn giá
+Tính ra VNĐ
+Ghi chú
+Tỷ giá
+VNĐ
+A
+B
+C
+1
+2
+3
+4
+D
+I
+Số dư theo sổ kế toán
+x
+x
+…….
+…….
+…….
+…….
+II
+Số kiểm kê thực tế (*)
+x
+x
+…….
+…….
+…….
+…….
+1
+- Loại
+…….
+…….
+…….
+…….
+…….
+…….
+2
+- Loại
+…….
+…….
+…….
+…….
+…….
+…….
+3
+- …
+…….
+…….
+…….
+…….
+…….
+…….
+III
+Chênh lệch (III = I - II)
+x
+x
+…….
+…….
+…….
+…….
+- Lý do : + Thừa:…………………………………………………………
++ Thiếu:………………………………………………………...
+- Kết luận sau khi kiểm kê ngoại tệ, vàng bạc, kim khí quý, đá quý:……….
+………………………………………………………………………………..
+THỦ QUỸ(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+NGƯỜI CHỊU TRÁCH NHIỆMKIỂM KÊ QUỸ(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 09 - TT(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KÊ CHI TIỀNNgày..... tháng..... năm.....
+Họ và tên người chi:…………………………………………………….
+Bộ phận (hoặc địa chỉ): …………………………………………………
+Chi cho công việc:……………………………………………………….
+STT
+Chứng từ
+Nội dung chi
+Số tiền
+Số hiệu
+Ngày, tháng
+A
+B
+C
+D
+1
+Cộng
+Số tiền bằng chữ:…………………………………………………
+(Kèm theo.... chứng từ gốc).
+NGƯỜI LẬP BẢNG KÊ(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 01 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN GIAO NHẬN TSCĐ
+Ngày…...tháng…...năm…...
+Số:………………
+Nợ:…………..
+Có:…………..
+Căn cứ Quyết định số:…………ngày…….tháng………năm…….của …….
+………………………………….……về việc bàn giao TSCĐ…………..
+Ban giao nhận TSCĐ gồm:
+- Ông/Bà ……………….chức vụ ……………………..Đại diện bên giao
+- Ông/Bà ……………….chức vụ ……………………..Đại diện bên nhận
+- Ông/Bà ……………….chức vụ ……………………..Đại diện…………
+Địa điểm giao nhận TSCĐ :………………………………………………..
+Xác nhận việc giao nhận TSCĐ như sau:
+STT
+Tên, ký hiệu quy cách (cấp hạng TSCĐ)
+Số hiệu TSCĐ
+Nước sản xuất (XD)
+Năm sản xuất
+Năm đưa vào sử dụng
+Công suất (diện tích thiết kế)
+Tính nguyên giá tài sản cố định
+Giá mua (ZSX)
+Chi phí vận chuyển
+Chi phí chạy thử
+…
+Nguyên giá TSCĐ
+Tài liệu kỹ thuật kèm theo
+A
+B
+C
+D
+1
+2
+3
+4
+5
+6
+7
+8
+E
+Cộng
+x
+x
+x
+x
+x
+x
+DỤNG CỤ, PHỤ TÙNG KÈM THEO
+Số thứ tự
+Tên, qui cách dụng cụ, phụ tùng
+Đơn vị tính
+Số lượng
+Giá trị
+A
+B
+C
+1
+2
+GIÁM ĐỐC BÊN NHẬN(Ký, họ tên, đóng dấu)
+KẾ TOÁN TRƯỞNGBÊN NHẬN(Ký, họ tên)
+NGƯỜI NHẬN(Ký, họ tên)
+NGƯỜI GIAO(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 02 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN THANH LÝ TSCĐ
+Ngày……tháng……..năm……
+Số:……….
+Nợ:…………
+Có:…………
+Căn cứ Quyết định số :………ngày ……tháng …….năm …….của…………
+……………………………Về việc thanh lý tài sản cố định.
+I. Ban thanh lý TSCĐ gồm:
+Ông/Bà:……………………Chức vụ………………Đại diện…………….Trưởng ban
+Ông/Bà:……………………Chức vụ………………Đại diện……………….Ủy viên
+Ông/Bà:……………………Chức vụ………………Đại diện……………….Ủy viên
+II. Tiến hành thanh lý TSCĐ:
+- Tên, ký mã hiệu, qui cách (cấp hạng) TSCĐ……………………………….
+- Số hiệu TSCĐ……………………………………………………………….
+- Nước sản xuất (xây dựng)…………………………………………………
+- Năm sản xuất…………………………………………………………….
+- Năm đưa vào sử dụng…………………….Số thẻ TSCĐ……………….
+- Nguyên giá TSCĐ……………………………………………………….
+- Giá trị hao mòn đã trích đến thời điểm thanh lý…………………………
+- Giá trị còn lại của TSCĐ………………………………………………..
+III. Kết luận của Ban thanh lý TSCĐ:
+…………………………………………………………………………………
+Ngày…….tháng…….năm……TRƯỞNG BAN THANH LÝ(Ký, họ tên)
+IV. Kết quả thanh lý TSCĐ:
+- Chi phí thanh lý TSCĐ :……………………(viết bằng chữ)……………
+- Giá trị thu hồi :………………………..…….(viết bằng chữ)……………
+- Đã ghi giảm sổ TSCĐ ngày………tháng………năm………
+GIÁM ĐỐC(Ký, họ tên, đóng dấu)
+Ngày …….tháng……năm……KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 03 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN BÀN GIAO TSCĐSỬA CHỮA LỚN HOÀN THÀNHNgày…tháng…năm…
+Số:…………Nợ:…………Có:…………
+Căn cứ Quyết định số:…………..ngày ... tháng ... năm ... của………
+Chúng tôi gồm:
+- Ông /Bà ………….Chức vụ……….Đại diện…………….đơn vị sửa chữa
+- Ông /Bà ………….Chức vụ……….Đại diện…………….đơn vị có TSCĐ.
+Đã kiểm nhận việc sửa chữa TSCĐ như sau:
+- Tên, ký mã hiệu, quy cách (cấp hạng) TSCĐ………………………………
+- Số hiệu TSCĐ…………………….Số thẻ TSCĐ: ………………………..
+- Bộ phận quản lý, sử dụng:…………………………………………………
+- Thời gian sửa chữa từ ngày…..tháng……năm……đến ngày……tháng….. năm…….
+Các bộ phận sửa chữa gồm có:
+Tên bộ phận sửa chữa
+Nội dung (mức độ) công việc sửa chữa
+Giá dự toán
+Chi phí thực tế
+Kết quả kiểm tra
+A
+B
+1
+2
+3
+Cộng
+Kết luận:…………………………………………………….
+…………………………………………………….
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+ĐẠI DIỆN ĐƠN VỊ NHẬN(Ký, họ tên)
+ĐẠI DIỆN ĐƠN VỊ GIAO(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 04 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN ĐÁNH GIÁ LẠI TSCĐNgày…tháng…năm…
+Số:…………Nợ:…………Có:…………
+- Căn cứ Quyết định số:…….ngày ……tháng………năm…….
+Của…………………………………………Về việc đánh giá lại TSCĐ
+- Ông/Bà………….Chức vụ…………..Đại diện…………. Chủ tịch Hội đồng
+- Ông/Bà………….Chức vụ…………..Đại diện……………………...Ủy viên
+- Ông/Bà………….Chức vụ…………..Đại diện…………………..….Ủy viên
+Đã thực hiện đánh giá lại giá trị các TSCĐ sau đây:
+STT
+Tên, ký mã hiệu, qui cách (cấp hạng) TSCĐ
+Số hiệu TSCĐ
+Số thẻ TSCĐ
+Giá trị đang ghi sổ
+Giá trị còn lại theo đánh giá lại
+Chênh lệch
+Nguyên giá
+Hao mòn
+Giá trị còn lại
+Tăng
+Giảm
+A
+B
+C
+D
+1
+2
+3
+4
+5
+6
+Cộng
+X
+X
+Ghi chú: Cột 4 “Giá trị còn lại theo đánh giá lại”. Nếu đánh giá lại cả giá trị hao mòn thì Cột 4 phải tách ra 3 cột tương ứng cột 1,2,3.
+Kết luận:…………………………………………………………………………..
+……………………………………………………………………………………..
+ỦY VIÊN/NGƯỜI LẬP(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày…tháng…nămCHỦ TỊCH HỘI ĐỒNG(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 05 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BIÊN BẢN KIỂM KÊ TÀI SẢN CỐ ĐỊNH
+Thời điểm kiểm kê ……….giờ…….ngày……tháng…..năm……
+Ban kiểm kê gồm:
+- Ông/Bà……………………………..Chức vụ……………….Đại diện……………Trưởng ban
+- Ông/Bà……………………………..Chức vụ……………….Đại diện……………..Ủy viên
+- Ông/Bà……………………………..Chức vụ……………….Đại diện………………..Ủy viên
+Đã kiểm kê TSCĐ, kết quả như sau:
+Số TT
+Tên TSCĐ
+Mã số
+Nơi sử dụng
+Theo sổ kế toán
+Theo kiểm kê
+Chênh lệch
+Ghi chú
+Số lượng
+Nguyên giá
+Giá trị còn lại
+Số lượng
+Nguyên giá
+Giá trị còn lại
+Số lượng
+Nguyên giá
+Giá trị còn lại
+A
+B
+C
+D
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Cộng
+x
+x
+x
+x
+x
+x
+GIÁM ĐỐC(Ghi ý kiến giải quyết số chênh lệch)(Ký, họ tên, đóng dấu)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày……tháng…..năm…….TRƯỞNG BAN KIỂM KÊ(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số 06 - TSCĐ(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+Số:………………
+BẢNG TÍNH VÀ PHÂN BỔ KHẤU HAO TSCĐ
+Tháng……năm………
+Số TT
+Chỉ tiêu
+Tỷ lệ khấu hao (%) hoặc thời gian sử dụng
+Nơi sử dụng
+Toàn DN
+TK 154 - Chi phí sản xuất kinh doanh dở dang
+TK 642 Chi phí quản lý kinh doanh
+TK 2421 Chi phí trả trước
+…
+Hoạt động ……
+Hoạt động ……
+Hoạt động ……
+Hoạt động ……
+Nguyên giá TSCĐ
+Số khấu hao
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+...
+1
+I. Số khấu hao trích tháng trước
+2
+II. Số KH TSCĐ tăng trong tháng
+-
+3
+III. Số KH TSCĐ giảm trong tháng
+-
+4
+IV. Số KH trích tháng này (I + II - III)
+Cộng
+x
+NGƯỜI LẬP BẢNG(Ký, họ tên)
+Ngày ….. tháng …. năm…KẾ TOÁN TRƯỞNG(Ký, họ tên)
+III. BIỂU MẪU CHỨNG TỪ KẾ TOÁN
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 01a - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG CHẤM CÔNG
+Tháng ....năm…..
+STT
+Họ và tên
+Ngạch bậc lương hoặc cấp bậc chức vụ
+Ngày trong tháng
+Quy ra công
+1
+2
+3
+...
+31
+Số công hưởng lương sản phẩm
+Số công hưởng lương thời gian
+Số công nghỉ việc, ngừng việc hưởng 100% lương
+Số công nghỉ việc, ngừng việc hưởng ....% lương
+Số công hưởng BHXH
+A
+B
+C
+1
+2
+3
+....
+31
+32
+33
+34
+35
+36
+Cộng
+NGƯỜI CHẤM CÔNG(Ký, họ tên)
+PHỤ TRÁCH BỘ PHẬN(Ký, họ tên)
+Ngày…tháng…năm…NGƯỜI DUYỆT(Ký, họ tên)
+Ký hiệu chấm công:
+- Lương SP:
+SP
+- Nghỉ phép:
+P
+- Lương thời gian:
++
+- Hội nghị, học tập:
+H
+- Ốm, điều dưỡng:
+Ô
+- Nghỉ bù:
+NB
+- Con ốm:
+Cô
+- Nghỉ không lương:
+KL
+- Thai sản:
+TS
+- Ngừng việc:
+N
+- Tai nạn:
+T
+- Lao động nghĩa vụ:
+LĐ
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 01b - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+Số:………………
+BẢNG CHẤM CÔNG LÀM THÊM GIỜ
+Tháng…….năm…….
+Số TT
+Họ và tên
+Ngày trong tháng
+Cộng giờ làm thêm
+1
+2
+...
+31
+Ngày làm việc
+Ngày thứ bảy, chủ nhật
+Ngày lễ, tết
+Làm đêm
+A
+B
+1
+2
+...
+31
+32
+33
+34
+35
+Cộng
+Ký hiệu chấm công
+NT: Làm thêm ngày làm việc (Từ giờ……đến giờ)
+NN: Làm thêm ngày thứ bảy, chủ nhật (Từ giờ……đến giờ)
+NL: Làm thêm ngày lễ, tết (Từ giờ……đến giờ)
+Đ: Làm thêm buổi đêm
+Ngày…tháng…năm…XÁC NHẬN CỦA BỘ PHẬN (PHÒNGBAN) CÓ NGƯỜI LÀM THÊM(Ký, họ tên)
+NGƯỜI CHẤM CÔNG(Ký, họ tên)
+NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 02 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+Số:………………………
+BẢNG THANH TOÁN TIỀN LƯƠNGTháng……..năm…….
+Số TT
+Họ và tên
+Bậc lương
+Hệ số
+Lương sản phẩm
+Lương thời gian
+Nghỉ việc ngừng việc hưởng...% lương
+Phụ cấp thuộc quỹ lương
+Phụ cấp khác
+Tổng số
+Tạm ứng kỳ I
+Các khoản phải khấu trừ vào lương
+Kỳ II được lĩnh
+Số SP
+Số tiền
+Số công
+Số tiền
+Số công
+Số tiền
+BHXH
+...
+Thuế TNCN phải nộp
+Cộng
+Số tiền
+Ký nhận
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+C
+Cộng
+Tổng số tiền (viết bằng chữ):……………………………………………………
+NGƯỜI LẬP BIỂU(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày….tháng…..năm…GIÁM ĐỐC(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 03 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG THANH TOÁN TIỀN THƯỞNGQuý……năm….
+Số:………………..
+STT
+Họ và tên
+Chức vụ
+Bậc lương
+Mức thưởng
+Ghi chú
+Xếp loại thưởng
+Số tiền
+Ký nhận
+A
+B
+C
+1
+2
+3
+D
+E
+Cộng
+x
+x
+x
+x
+Tổng số tiền (Viết bằng chữ):…………………………………………..
+NGƯỜI LẬP BIỂU(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày….tháng…..năm…GIÁM ĐỐC(Ký, họ tên)
+Đơn vị: …….Bộ phận:……
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAMĐộc lập - Tự do - Hạnh phúc ---------------
+Mẫu số: 04 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+GIẤY ĐI ĐƯỜNG
+Số:…………………
+Cấp cho:……………………………………………………………………
+Chức vụ: :…………………………………………………………………..
+Được cử đi công tác tại: :…………………………………………………..
+Theo công lệnh (hoặc giấy giới thiệu) số…….ngày……tháng…..năm……
+Từ ngày……..tháng…….năm…….đến ngày……..tháng…….năm……..
+Ngày….tháng….năm…..Người duyệt(Ký, họ tên, đóng dấu)
+Tiền ứng trước
+Lương…………………..đ
+Công tác phí……………đ
+Cộng……………………đ
+Nơi đi Nơi đến
+Ngày
+Phương tiện sử dụng
+Độ dài chặng đường
+Số ngày công tác
+Lý do lưu trú
+Chứng nhận của cơ quan (Ký tên, đóng dấu)
+1
+2
+3
+4
+5
+6
+7
+Nơi đi...Nơi đến...
+Nơi đi...Nơi đến...
+- Vé người……………………………..vé         x……………….đ = ………………..đ
+- Vé cước……………………………....vé         x……………….đ = ………………..đ
+- Phụ phí lấy vé bằng điện thoại……….vé         x……………….đ = ………………..đ
+- Phòng nghỉ…………………………...vé         x……………….đ = ………………..đ
+1- Phụ cấp đi đường: cộng…………………….đ
+2- Phụ cấp lưu trú:
+Tổng cộng ngày công tác:……………………..đ
+Ngày…tháng…năm…DuyệtSố tiền được thanh toán là:……………...
+NGƯỜI ĐI CÔNG TÁC(Ký, họ tên)
+PHỤ TRÁCH BỘ PHẬN(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 05 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+PHIẾU XÁC NHẬN SẢN PHẨM HOẶCCÔNG VIỆC HOÀN THÀNH
+Ngày... tháng… năm…
+Tên đơn vị (hoặc cá nhân):……………………………………….
+Theo Hợp đồng số:…………… ngày…….tháng……….năm……
+STT
+Tên sản phẩm (công việc)
+Đơn vị tính
+Số lượng
+Đơn giá
+Thành tiền
+Ghi chú
+A
+B
+B
+1
+2
+3
+D
+Cộng
+Tổng số tiền (viết bằng chữ):…………………………………..
+Ngày…tháng…năm….
+NGƯỜI GIAOVIỆC(Ký, họ tên)
+NGƯỜI NHẬNVIỆC(Ký, họ tên)
+NGƯỜI KIỂM TRACHẤT LƯỢNG(Ký, họ tên)
+NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 06 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG THANH TOÁN TIỀN LÀM THÊM GIỜ
+Tháng……..năm………
+Số:…………………..
+TT
+Họ và tên
+Hệ số lương
+Hệ số phụ cấp chức vụ
+Cộng hệ số
+Tiền lương tháng
+Mức lương
+Làm thêm ngày làm việc
+Làm thêm ngày thứ bảy, chủ nhật
+Làm thêm ngày lễ, ngày tết
+Làm thêm buổi đêm
+Tổng cộng tiền
+Số ngày nghỉ bù
+Số tiền thực được thanh toán
+Người nhận tiền ký tên
+Ngày
+Giờ
+Số giờ
+Thành tiền
+Số giờ
+Thành tiền
+Số giờ
+Thành tiền
+Số giờ
+Thành tiền
+Số giờ
+Thành tiền
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+C
+Cộng
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+x
+Tổng số tiền (Viết bằng chữ):…………………………………………..
+(Kèm theo.... chứng từ gốc: Bảng chấm công làm thêm ngoài giờ tháng.....năm.....)
+NGƯỜI ĐỀ NGHỊ THANH TOÁN(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày….tháng….năm…NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 07 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG THANH TOÁN TIỀN THUÊ NGOÀI
+(Dùng cho thuê nhân công, thuê khoán việc)
+Số:………………
+Họ và tên người thuê:……………………………………………………………
+Bộ phận (hoặc địa chỉ):………………………………………………………….
+Đã thuê những công việc sau để:…………………….. tại địa điểm…………… từ ngày.../.../... đến ngày.../.../…
+STT
+Họ và tên người được thuê
+Địa chỉ hoặc số CMT/thẻ căn cước
+Nội dung hoặc tên công việc thuê
+Số công hoặc khối lượng công việc đã làm
+Đơn giá thanh toán
+Thành tiền
+Tiền thuế khấu trừ
+Số tiền còn lại được nhận
+Ký nhận
+A
+B
+C
+D
+1
+2
+3
+4
+5 = 3-4
+E
+Cộng
+Đề nghị………..cho thanh toán số tiền:……………………………………………….
+Số tiền (Viết bằng chữ):……………………………………………………………….
+(Kèm theo … chứng từ kế toán khác)
+NGƯỜI ĐỀ NGHỊ THANH TOÁN(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+Ngày…tháng…năm…NGƯỜI DUYỆT(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 08 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+HỢP ĐỒNG GIAO KHOÁN
+Ngày... tháng... năm...
+Số:…………….
+Họ và tên:…………………Chức vụ……………………………………………..
+Đại diện…………………...bên giao khoán……………………………………...
+Họ và tên:…………………Chức vụ..…………………………………………….
+Đại diện…………………...bên nhận khoán………………………………………
+CÙNG KÝ KẾT HỢP ĐỒNG GIAO KHOÁN NHƯ SAU:
+I- Điều khoản chung:
+- Phương thức giao khoán:…………………………………………
+- Điều kiện thực hiện hợp đồng:……………………………………
+- Thời gian thực hiện hợp đồng:……………………………………
+- Các điều kiện khác:………………………………………………
+II- Điều khoản cụ thể:
+1. Nội dung công việc khoán:
+- ………………………………………………………………………
+- ………………………………………………………………………
+2. Trách nhiệm, quyền lợi và nghĩa vụ của người nhận khoán:
+- ………………………………………………………………………
+- ………………………………………………………………………
+3. Trách nhiệm, quyền lợi và nghĩa vụ của bên giao khoán:
+- ………………………………………………………………………
+- ………………………………………………………………………
+ĐẠI DIỆN BÊN NHẬN KHOÁN(Ký, họ tên)
+ĐẠI DIỆN BÊN GIAO KHOÁN(Ký, họ tên)
+Ngày…tháng…năm…
+NGƯỜI LẬP(Ký, họ tên)
+KẾ TOÁN TRƯỞNG BÊN GIAO KHOÁN(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 09 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+Số:……………
+BIÊN BẢN THANH LÝ (NGHIỆM THU) HỢP ĐỒNG GIAO KHOÁN
+Ngày ... tháng ... năm ...
+Họ và tên:…………..Chức vụ…………Đại diện………..Bên giao khoán………..
+Họ và tên:…………..Chức vụ…………Đại diện………..Bên nhận khoán……….
+Cùng thanh lý Hợp đồng số ... ngày... tháng ... năm ...
+Nội dung công việc (ghi trong hợp đồng) đã được thực hiện:……………..
+Giá trị hợp đồng đã thực hiện:……………………………………………..
+Bên……đã thanh toán cho bên…….số tiền là……….đồng (viết bằng chữ)……
+Số tiền bị phạt do bên…..vi phạm hợp đồng:………...đồng (viết bằng chữ)……
+Số tiền bên .....còn phải thanh toán cho bên……là…...đồng (viết bằng chữ)……
+Kết luận:………………………………………………………………….
+ĐẠI DIỆN BÊN NHẬN KHOÁN(Ký, họ tên)
+ĐẠI DIỆN BÊN GIAO KHOÁN(Ký, họ tên, đóng dấu)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 10 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG KÊ TRÍCH NỘP CÁC KHOẢN THEO LƯƠNG
+Tháng…. năm...
+Đơn vị tính…………
+STT
+Số tháng trích BHXH, BHYT, BHTN, BHTNLĐ, KPCĐ
+Tổng quỹ lương trích BHXH, BHYT, BHTN, BHTNLĐ, KPCĐ
+Bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp, bảo hiểm tai nạn lao động
+Kinh phí công đoàn
+Tổng số
+Trong đó:
+Tổng số
+Trong đó:
+Số phải nộp công đoàn cấp trên
+Số được để lại chi tại đơn vị
+Trích vào chi phí
+Trừ vào lương
+Trích vào chi phí
+Trừ vào lương
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+Cộng
+Ngày…tháng…năm…NGƯỜI LẬP BẢNG(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)
+GIÁM ĐỐC(Ký, họ tên)
+Đơn vị: ………………Bộ phận:……………..
+Mẫu số: 11 - LĐTL(Kèm theo Thông tư số 71/2024/TT-BTC ngày 07 tháng 10 năm 2024 của Bộ trưởng Bộ Tài chính)
+BẢNG PHÂN BỔ TIỀN LƯƠNG VÀ BẢO HIỂM XÃ HỘITháng... năm...
+Số TT
+Ghi Có Tài khoản
+Đối tượng sử dụng (Ghi Nợ các Tài khoản)
+TK 334 - Phải trả người lao động
+TK 335 - Các khoản phải nộp theo lương
+TK 338 Chi phí phải trả
+Tổng cộng
+Lương
+Các khoản khác
+Cộng Có TK 334
+Kinh phí công đoàn
+Bảo hiểm xã hội
+Bảo hiểm y tế
+Bảo hiểm thất nghiệp
+Bảo hiểm tai nạn lao động
+Cộng Có TK 335
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+1
+TK 154- Chi phí sản xuất, kinh doanh dở dang
+2
+TK 642- Chi phí quản lý kinh doanh
+3
+TK 2421 - Chi phí trả trước
+4
+TK 338- Phải trả khác
+5
+TK 2422- Xây dựng cơ bản dở dang
+6
+TK 334- Phải trả người lao động
+7
+8
+……………………………..
+Cộng:
+Ngày……tháng…..nămNGƯỜI LẬP BẢNG(Ký, họ tên)
+KẾ TOÁN TRƯỞNG(Ký, họ tên)

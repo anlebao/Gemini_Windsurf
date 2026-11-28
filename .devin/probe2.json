@@ -1,0 +1,1 @@
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"$.customerNote":["The JSON value could not be converted to VanAn.Gateway.Controllers.UpdateTenantBookingRequest. Path: $.customerNote | LineNumber: 0 | BytePositionInLine: 32."]},"traceId":"00-c779e45121deb2af4813e9c420271db6-b9f644534a9de949-00"}

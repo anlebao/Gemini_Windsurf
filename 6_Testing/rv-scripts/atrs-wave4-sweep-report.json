@@ -1,0 +1,145 @@
+{
+  "ts": "2026-11-17T04:14:54.078Z",
+  "base": "https://api2.khachvip.online/api/v1/account-trust",
+  "total": 34,
+  "pass": 34,
+  "fail": [],
+  "results": [
+    {
+      "name": "L1 health direct :5080",
+      "pass": true
+    },
+    {
+      "name": "auth-neg personal-evidence-get no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg personal-evidence-put no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg consents-get no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg consents-post no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg recovery-mine no-token=401",
+      "pass": true
+    },
+    {
+      "name": "auth-neg dispute-attachments no-token=401",
+      "pass": true
+    },
+    {
+      "name": "GET /me 200",
+      "pass": true
+    },
+    {
+      "name": "GET personal-evidence 200 array",
+      "pass": true
+    },
+    {
+      "name": "PUT personal-evidence → 200",
+      "pass": true
+    },
+    {
+      "name": "self-declared → UNVERIFIED (không bao giờ VERIFIED)",
+      "pass": true
+    },
+    {
+      "name": "source = USER_DECLARED",
+      "pass": true
+    },
+    {
+      "name": "PUT fieldKey lạ → 400",
+      "pass": true
+    },
+    {
+      "name": "phone masked (không lộ full digits)",
+      "pass": true
+    },
+    {
+      "name": "grant consent → 200",
+      "pass": true
+    },
+    {
+      "name": "GET consents 200 array",
+      "pass": true
+    },
+    {
+      "name": "withdraw consent → 200",
+      "pass": true
+    },
+    {
+      "name": "GET recovery-requests/mine 200 array",
+      "pass": true
+    },
+    {
+      "name": "submit recovery (string requestType) → 200",
+      "pass": true
+    },
+    {
+      "name": "submit requestType lạ → 400",
+      "pass": true
+    },
+    {
+      "name": "/mine chứa request vừa submit",
+      "pass": true
+    },
+    {
+      "name": "cancel recovery → 200",
+      "pass": true
+    },
+    {
+      "name": "status sau cancel = CANCELLED/terminal",
+      "pass": true
+    },
+    {
+      "name": "cancel replay → 200/404 (không 500)",
+      "pass": true
+    },
+    {
+      "name": "cancel fake id → 404 (anti-enum)",
+      "pass": true
+    },
+    {
+      "name": "submit dispute → 200",
+      "pass": true
+    },
+    {
+      "name": "upload attachment png → 200",
+      "pass": true
+    },
+    {
+      "name": "downloadUrl là presigned https",
+      "pass": true
+    },
+    {
+      "name": "presigned GET → 200 binary",
+      "pass": true
+    },
+    {
+      "name": "upload contentType lạ → 400",
+      "pass": true
+    },
+    {
+      "name": "upload base64 hỏng → 400",
+      "pass": true
+    },
+    {
+      "name": "list attachments → 200 array",
+      "pass": true
+    },
+    {
+      "name": "list attachments fake case → 404",
+      "pass": true
+    },
+    {
+      "name": "withdraw case → 200",
+      "pass": true
+    }
+  ]
+}

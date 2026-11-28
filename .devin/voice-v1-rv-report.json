@@ -1,0 +1,75 @@
+{
+  "when": "2026-11-28T06:44:25.974Z",
+  "results": [
+    {
+      "n": "S1 mic button render (KL /stores)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S1 watchdog: no-result → error \"Không nghe thấy\" ≤12s",
+      "p": true,
+      "d": "Shop AI\n Tìm cửa hàng gần bạn\n\nKhám phá các cửa hàng trong khu vực của bạn\n\nTìm kiếm\n Dùng vị trí của tôi\n Tất cả cửa hà"
+    },
+    {
+      "n": "S1 watchdog: mic state off sau abort",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S3 silence → submit transcript \"an tam\"",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=an%20tam"
+    },
+    {
+      "n": "S4 isRecording/listening reset sau final",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S4b re-tap mic starts session 2 (listening on)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S2 noise hard-cap: session end ≤36s",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S5 lazy-race: vananVoiceInput.isSupported callable ≤8s",
+      "p": true,
+      "d": "waited=990ms"
+    },
+    {
+      "n": "S5 vananWhenLazyReady function exists",
+      "p": true,
+      "d": "function"
+    },
+    {
+      "n": "S6 session active trước nav",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "S6 SPA nav → session abort (isActive=false)",
+      "p": true,
+      "d": "link=true isActive=false"
+    },
+    {
+      "n": "Dir StoreFinder mic render (SSR)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "Dir voice submit → transcript/search chạy (SSR roundtrip)",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "no pageerror",
+      "p": true,
+      "d": ""
+    }
+  ]
+}

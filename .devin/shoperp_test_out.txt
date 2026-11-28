@@ -1,0 +1,34 @@
+Test run for C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.ShopERP.Tests\bin\Debug\net8.0\VanAn.ShopERP.Tests.dll (.NETCoreApp,Version=v8.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.26]     W6-HUB-3: Page renders link to Income Statement [FAIL]
+  Failed W6-HUB-3: Page renders link to Income Statement [189 ms]
+  Error Message:
+   Expected cut.Markup "<div class="report-hub-page default"><header class="page-header"><h1>Báo Cáo Tài Chính</h1></header>
+
+    <div class="vanan-card vanan-card--shadow"><div class="vanan-card__header"><h5 class="vanan-card__title">Bộ Báo Cáo Tài Chính năm (TT 99/2025/TT-BTC)</h5></div><div class="vanan-card__body"><div class="report-links-grid"><a href="/accounting/balance-sheet" class="report-link-card">
+                📊 Báo Cáo Tình Hình Tài Chính (B 01-DN)
+            </a>
+            <a href="/accounting/income-statement" class="report-link-card">
+                📈 Báo Cáo Kết Quả Hoạt Động (B 02-DN)
+            </a><a href="/accounting/cash-flow-statement" class="report-link-card">
+                    💰 Báo Cáo Lưu Chuyển Tiền Tệ (B 03-DN)
+                </a><a href="/accounting/financial-statement-notes" class="report-link-card">
+                📝 Thuyết Minh Báo Cáo Tài Chính (B 09-DN)
+            </a></div></div></div>
+
+    <div class="vanan-card vanan-card--shadow"><div class="vanan-card__header"><h5 class="vanan-card__title">Báo cáo hỗ trợ (không thuộc bộ BCTC năm)</h5></div><div class="vanan-card__body"><div class="report-links-grid"><a href="/accounting/trial-balance" class="report-link-card">
+                ⚖️ Bảng Cân Đối Số Phát Sinh
+            </a></div></div></div></div>" to contain "Báo Cáo Kết Quả Hoạt Động Kinh Doanh".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at VanAn.ShopERP.Tests.Components.VasReports.FinancialReportsHubPageTests.Page_Renders_IncomeStatementLink() in C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.ShopERP.Tests\Components\VasReports\FinancialReportsHubPageTests.cs:line 39
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     1, Passed:   115, Skipped:     0, Total:   116, Duration: 1 s - VanAn.ShopERP.Tests.dll (net8.0)
