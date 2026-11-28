@@ -176,28 +176,25 @@
                                             </a>
                                         }
                                     </div>
-                                    <div class="mt-2 d-flex gap-2">
-                                        @if (!string.IsNullOrEmpty(store.Slug))
-                                        {
-                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
-                                                         OnClick="@(() => Navigation.NavigateTo($"/store/{store.Slug}"))">
-                                                <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
-                                            </VanAnButton>
-                                        }
-                                        else
-                                        {
-                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
-                                                         OnClick="@(() => Navigation.NavigateTo($"/store/by-id/{store.Id}"))">
-                                                <i class="bi bi-eye me-1"></i> Xem trang cửa hàng
-                                            </VanAnButton>
-                                        }
+                                    <div class="mt-2 d-flex gap-2 flex-wrap">
+                                        @* Store-context Fix-1 (2026-11-28): same-origin luôn là đường chính —
+                                           storefront render mọi tenant trên domain này, ghi context đúng portal
+                                           khách đang dùng ("Cửa Hàng Của Bạn" hiện được). Cross-domain chỉ là
+                                           option phụ vì localStorage không qua được origin khác. *@
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                                                     OnClick="@(() => Navigation.NavigateTo(
+                                                         !string.IsNullOrEmpty(store.Slug)
+                                                             ? $"/store/{store.Slug}"
+                                                             : $"/store/by-id/{store.Id}"))">
+                                            <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                        </VanAnButton>
                                         @if (!string.IsNullOrEmpty(store.KhachLinkDomain))
                                         {
-                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                          OnClick="@(() => Navigation.NavigateTo(
                                                              $"https://{store.KhachLinkDomain}/store/{store.Slug ?? store.Id.ToString()}",
                                                              forceLoad: true))">
-                                                <i class="bi bi-box-arrow-up-right me-1"></i> Tìm hiểu
+                                                <i class="bi bi-box-arrow-up-right me-1"></i> Portal riêng
                                             </VanAnButton>
                                         }
                                     </div>

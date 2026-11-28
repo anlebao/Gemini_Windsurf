@@ -152,16 +152,19 @@
             <div class="row g-3">
                 @foreach (var member in FilteredMembers)
                 {
-                    var href = !string.IsNullOrEmpty(member.KhachLinkDomain)
-                        ? $"https://{member.KhachLinkDomain}"
-                        : "/stores";
+                    // Fix-1 (2026-11-28): main link = same-origin storefront — portal render
+                    // được mọi tenant và ghi context đúng domain ("Cửa Hàng Của Bạn" hiện).
+                    // KhachLinkDomain chỉ còn là link phụ "portal riêng" (cross-domain).
+                    var href = !string.IsNullOrEmpty(member.Slug)
+                        ? $"/store/{member.Slug}"
+                        : $"/store/by-id/{member.TenantId}";
                     // W3-1 (FR-V10): contextual entries — chỉ khi tenant bật toggle + có context (FR-V7).
                     var showAi = VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(member.AiChatEnabled, member.TenantId != Guid.Empty);
                     var showCall = VanAn.KhachLink.Services.FeatureContextService.ShouldRenderFeature(member.VoiceCallEnabled, member.TenantId != Guid.Empty);
                     var storeBase = MemberStoreBaseUrl(member);
                     <div class="col-6 col-md-4 col-lg-3">
                         <div class="htx-member-card" data-tenant-id="@member.TenantId">
-                            <a href="@href" class="htx-member-main text-decoration-none" target="@(!string.IsNullOrEmpty(member.KhachLinkDomain) ? "_blank" : "")" rel="noopener">
+                            <a href="@href" class="htx-member-main text-decoration-none">
                                 @if (!string.IsNullOrEmpty(member.LogoUrl))
                                 {
                                     <img src="@member.LogoUrl" alt="@member.Name" class="htx-member-logo" loading="lazy" />
@@ -171,11 +174,14 @@
                                     <span class="htx-member-logo htx-member-logo-fallback"><i class="bi bi-shop"></i></span>
                                 }
                                 <div class="htx-member-name">@member.Name</div>
-                                @if (!string.IsNullOrEmpty(member.KhachLinkDomain))
-                                {
-                                    <div class="htx-member-domain">@member.KhachLinkDomain</div>
-                                }
                             </a>
+                            @if (!string.IsNullOrEmpty(member.KhachLinkDomain))
+                            {
+                                <a href="https://@member.KhachLinkDomain" target="_blank" rel="noopener"
+                                   class="htx-member-domain text-decoration-none" title="Portal riêng của cửa hàng">
+                                    @member.KhachLinkDomain <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            }
                             @if (showAi || showCall)
                             {
                                 <div class="htx-member-actions">
@@ -289,14 +295,9 @@
     }
 
     /// <summary>W3-1: storefront URL cho contextual deep-link — slug nếu có, else by-id.
-    /// Member có KhachLinkDomain riêng → domain đó; không có → relative path trên portal
-    /// domain hiện tại (/store/by-id resolve qua Gateway store-info, domain-agnostic).
+    /// Fix-1 (2026-11-28): luôn same-origin — portal render mọi tenant; đi cross-domain
+    /// thì context ghi trên domain kia, "Cửa Hàng Của Bạn" ở đây không thấy được.
     /// KHÔNG fallback khachvip.online — apex DNS đã chết (fix 2026-10-09).</summary>
     private static string MemberStoreBaseUrl(CooperativeMemberDto m)
-    {
-        var path = !string.IsNullOrEmpty(m.Slug) ? $"/store/{m.Slug}" : $"/store/by-id/{m.TenantId}";
-        return !string.IsNullOrEmpty(m.KhachLinkDomain)
-            ? $"https://{m.KhachLinkDomain}{path}"
-            : path;
-    }
+        => !string.IsNullOrEmpty(m.Slug) ? $"/store/{m.Slug}" : $"/store/by-id/{m.TenantId}";
 }

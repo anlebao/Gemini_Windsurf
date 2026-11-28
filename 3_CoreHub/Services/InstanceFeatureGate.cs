@@ -32,9 +32,10 @@ namespace VanAn.CoreHub.Services
         ShopFeatureSettingsDto ApplyOverrides(ShopFeatureSettingsDto settings, KhachLinkNavFlags? flags);
 
         /// <summary>AND kill-switch for the GLOBAL KhachLinkHomeSettings (home page sections).
+        /// Only Campaign is gated — "Cửa Hàng Của Bạn" reflects an existing customer↔store
+        /// relationship that the discovery kill-switch (ShowStores) must not hide (2026-11-28).
         /// Primitives — KhachLinkHomeSettingsDto is not a shared type (duplicated per app).</summary>
-        (bool CampaignEnabled, bool StoreEnabled) ApplyHomeOverrides(
-            bool campaignEnabled, bool storeEnabled, KhachLinkNavFlags? flags);
+        bool ApplyHomeOverrides(bool campaignEnabled, KhachLinkNavFlags? flags);
     }
 
     public sealed class InstanceFeatureGate(
@@ -92,10 +93,7 @@ namespace VanAn.CoreHub.Services
             return settings;
         }
 
-        public (bool CampaignEnabled, bool StoreEnabled) ApplyHomeOverrides(
-            bool campaignEnabled, bool storeEnabled, KhachLinkNavFlags? flags)
-            => flags is null
-                ? (campaignEnabled, storeEnabled)
-                : (campaignEnabled && flags.ShowCampaigns, storeEnabled && flags.ShowStores);
+        public bool ApplyHomeOverrides(bool campaignEnabled, KhachLinkNavFlags? flags)
+            => campaignEnabled && (flags?.ShowCampaigns ?? true);
     }
 }

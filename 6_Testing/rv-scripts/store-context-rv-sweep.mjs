@@ -37,13 +37,22 @@ try {
     check('L1 home-settings gated: home campaign OFF under gated domain', gated.ok &&
         (eff.home_CampaignSection_Enabled ?? eff.Home_CampaignSection_Enabled) === false,
         `domain=${GATED_DOMAIN} resp=${JSON.stringify(eff)}`);
-    // Untouched fields must equal base row (gate chỉ AND campaign+store).
+    // Untouched fields must equal base row (gate chỉ AND campaign; store = passthrough).
     check('L1 home-settings gated: featured/social/nav unchanged vs base', gated.ok &&
         (eff.home_FeaturedSection_Enabled ?? eff.Home_FeaturedSection_Enabled) ===
             (base.home_FeaturedSection_Enabled ?? base.Home_FeaturedSection_Enabled) &&
         (eff.home_SocialHub_Enabled ?? eff.Home_SocialHub_Enabled) ===
             (base.home_SocialHub_Enabled ?? base.Home_SocialHub_Enabled) &&
         (eff.showNavMenu ?? eff.ShowNavMenu) === (base.showNavMenu ?? base.ShowNavMenu));
+
+    // Fix-3 (2026-11-28): timlathay.com có ShowStores=false nhưng home_StoreSection
+    // PHẢI giữ true — kill-switch không giấu "Cửa Hàng Của Bạn" (quan hệ đã tồn tại).
+    const tl = await fetch(`${API}/api/platform/khachlink-home-settings`,
+        { headers: { 'X-KhachLink-Domain': 'timlathay.com' } });
+    const tlj = await tl.json();
+    check('L1 Fix-3: ShowStores=false domain → home_StoreSection vẫn true', tl.ok &&
+        (tlj.home_StoreSection_Enabled ?? tlj.Home_StoreSection_Enabled) === true,
+        `resp=${JSON.stringify(tlj)}`);
 } catch (e) { check('L1 home-settings fetch', false, e.message); }
 
 // ── L2: WASM markers — string literals trong .NET asm là UTF-16LE; type names là ASCII

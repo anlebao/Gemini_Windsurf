@@ -63,10 +63,15 @@ test.describe('W3-2b storefront fixes', () => {
       test.skip(true, 'Chưa có HTX nào có KhachLinkDomain trên prod');
       return;
     }
-    // Card self phải link tới domain HTX + có actions theo flags
+    // Card self → storefront same-origin (Fix-1 2026-11-28: context ghi đúng portal).
+    // Domain riêng vẫn hiện nhưng chỉ là link phụ .htx-member-domain.
     const first = selfCards.first();
     const href = await first.locator('.htx-member-main').getAttribute('href');
-    expect(href).toMatch(/^https:\/\//);
+    expect(href).toMatch(/^\/store\//);
+    const domainLink = first.locator('a.htx-member-domain');
+    if (await domainLink.count() > 0) {
+      expect(await domainLink.getAttribute('href')).toMatch(/^https:\/\//);
+    }
     // Actions chỉ hiện khi flags ON — không assert cứng, chỉ check không có action mồ côi:
     // mọi .htx-member-action phải có href hợp lệ.
     const actions = first.locator('.htx-member-action');

@@ -31,6 +31,8 @@ namespace VanAn.Gateway.Controllers
         /// If no row exists (fresh deployment), returns default values (all sections ON).
         /// Store-context wave: instance NavFlags applied via InstanceFeatureGate
         /// (AND semantics — instance OFF wins; instance ON does not force ON).
+        /// 2026-11-28: only Campaign section is gated — "Cửa Hàng Của Bạn" shows an
+        /// existing customer↔store relationship, ShowStores must not hide it.
         /// </summary>
         [HttpGet]
         [AllowAnonymous]
@@ -49,9 +51,8 @@ namespace VanAn.Gateway.Controllers
                 : ToDto(settings);
 
             var flags = await _instanceGate.GetNavFlagsAsync();
-            (dto.Home_CampaignSection_Enabled, dto.Home_StoreSection_Enabled) =
-                _instanceGate.ApplyHomeOverrides(
-                    dto.Home_CampaignSection_Enabled, dto.Home_StoreSection_Enabled, flags);
+            dto.Home_CampaignSection_Enabled =
+                _instanceGate.ApplyHomeOverrides(dto.Home_CampaignSection_Enabled, flags);
 
             return Ok(dto);
         }
