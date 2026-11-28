@@ -1,5 +1,5 @@
 {
-  "when": "2026-11-28T08:19:07.956Z",
+  "when": "2026-11-28T08:52:19.685Z",
   "results": [
     {
       "n": "S1 mic button render (KL /stores)",
@@ -29,7 +29,7 @@
     {
       "n": "S3 V2a adaptive silence: request <2400ms sau isFinal",
       "p": true,
-      "d": "reqMs=2524 sinceFinal=1024ms"
+      "d": "reqMs=2500 sinceFinal=1000ms"
     },
     {
       "n": "S4 isRecording/listening reset sau final",
@@ -49,7 +49,7 @@
     {
       "n": "S5 lazy-race: vananVoiceInput.isSupported callable ≤8s",
       "p": true,
-      "d": "waited=995ms"
+      "d": "waited=897ms"
     },
     {
       "n": "S5 vananWhenLazyReady function exists",
@@ -77,7 +77,7 @@
       "d": ""
     },
     {
-      "n": "Dir voice submit → transcript/search chạy (SSR)",
+      "n": "Dir voice submit → results RENDER (search chạy THẬT, SSR)",
       "p": true,
       "d": ""
     },
@@ -123,6 +123,16 @@
     },
     {
       "n": "commienphi/stores listening off",
+      "p": true,
+      "d": ""
+    },
+    {
+      "n": "commienphi/stores nomatch: request name=zzqqxx",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=zzqqxx"
+    },
+    {
+      "n": "commienphi/stores nomatch: results RENDER (StateHasChanged)",
       "p": true,
       "d": ""
     },
@@ -182,6 +192,16 @@
       "d": ""
     },
     {
+      "n": "shopai/stores nomatch: request name=zzqqxx",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=zzqqxx"
+    },
+    {
+      "n": "shopai/stores nomatch: results RENDER (StateHasChanged)",
+      "p": true,
+      "d": ""
+    },
+    {
       "n": "shopai/products mic render",
       "p": true,
       "d": ""
@@ -237,6 +257,16 @@
       "d": ""
     },
     {
+      "n": "vanan/stores nomatch: request name=zzqqxx",
+      "p": true,
+      "d": "https://api2.khachvip.online/api/tenants/search?name=zzqqxx"
+    },
+    {
+      "n": "vanan/stores nomatch: results RENDER (StateHasChanged)",
+      "p": true,
+      "d": ""
+    },
+    {
       "n": "vanan/products mic render",
       "p": true,
       "d": ""
@@ -287,7 +317,7 @@
       "d": ""
     },
     {
-      "n": "Dir/ voice submit → search chạy (SSR, user-reported page)",
+      "n": "Dir/ voice submit → results RENDER (search chạy THẬT)",
       "p": true,
       "d": ""
     },

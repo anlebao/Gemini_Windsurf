@@ -1,6 +1,6 @@
 # TASK CARD: Voice Search Input Hardening — "Treo" (V1) + "Chậm" (V2) ✅ DONE
 
-> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — V1 `b2ca71ed`+`6bef02f4` · V2b `9e9c7a43` · V2a/c `abd82648` · commit-path hardening `eac0c36e` — RV prod 75/75 PASS**
+> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — V1 `b2ca71ed`+`6bef02f4` · V2b `9e9c7a43` · V2a/c `abd82648` · commit-path `eac0c36e` · **ROOT CAUSE render fix `e37a5343`** — RV prod 81/81 PASS**
 > **Manual-test RCA (2026-11-28):** timlathay.com SSR treo sau V1 — mỗi interim
 > `onresult` (~3–5/s) = 1 JS→.NET invoke + full page render qua websocket
 > (Blazor Server) → render backlog → hang. WASM invoke là local nên KhachLink
@@ -154,9 +154,34 @@ mới — interim noise không re-arm được) · `onspeechend` handler · sile
 fallback + 30s hard cap. Thêm `stop(cause)` param + `__vananVoiceLog`
 ring-buffer diagnostic (đọc event sequence thật trên browser user).
 
+## ROOT CAUSE THẬT — "transcript fill nhưng search không chạy" ✅ `e37a5343`
+
+**`[JSInvokable] OnVoiceFinal` thiếu `StateHasChanged()`** trên 4/5 page
+(Dir Home, Dir StoreFinder, KL StoreFinder, KL Products). JSInvokable KHÔNG
+auto-render — khác EventCallback/DOM events. OnVoiceFinal → SearchStores chạy
+xong, request ra network, `_stores` set — nhưng không render → UI giữ nguyên
+→ user thấy "treo". Race chi tiết: `OnVoiceEnd` render `_loading` state lúc
+search còn chạy → kết quả đến sau → không còn ai render nữa.
+
+Bằng chứng prod (probe trước fix): voice "zzqqxx" → `REQ name=zzqqxx` ĐÃ bắn
+ra api2 nhưng DOM không đổi. Typed cùng query → render ngay 500ms.
+Correlation: KL Home — page duy nhất user thấy hoạt động — là chỗ duy nhất
+có `StateHasChanged()` sẵn + nav flow.
+
+**Tại sao sweep trước không bắt được:** check `submit` assert request capture
+(request bắn = PASS dù không render) + `domProof` match 'An Tâm' nằm sẵn trong
+featured/default listing (false-positive). Sweep giờ dùng `nomatch` mode
+(transcript "zzqqxx") + assert `phù hợp "zzqqxx"`/`Không tìm thấy` — text chỉ
+tồn tại sau render thật.
+
+Bonus hardening cùng deploy (`29215ce1`): `safeInvoke` log invoke-ok/err vào
+`__vananVoiceLog` (đã chứng minh `invoke-ok OnVoiceFinal` trên prod) · Dir
+Home+StoreFinder `SearchStores`/`SearchAsync` try/catch/finally — `_loading`
+không thể kẹt spinner vĩnh viễn.
+
 ## RV kết quả (2026-11-28, prod — sweep mở rộng)
 
-**75/75 PASS, 0 FAIL** — full coverage mọi voice surface:
+**81/81 PASS, 0 FAIL** — full coverage mọi voice surface + render-proof:
 
 - **S1–S9 regression:** watchdog ≤12s · noise cap ≤36s · adaptive ~1s sau
   isFinal · reset+re-tap · lazy-race ~1s · SPA nav abort · continuous=false ·

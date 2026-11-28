@@ -267,11 +267,14 @@ const isListening = async (page) =>
             // silence 2.5s + search + SSR render xong (poll đầu ≤2.5s sau click)
             if (inp.includes('zzqqxx') && i <= 4) earlyFill = true;
             const body = await page.locator('body').innerText().catch(() => '');
-            if (body.includes('Không tìm thấy')) found = true;
+            // Render-proof: 'N cửa hàng phù hợp với "zzqqxx"' hoặc empty-state —
+            // cả 2 chỉ tồn tại sau khi OnVoiceFinal→SearchAsync RENDER xong
+            if ((body.includes('phù hợp với') && body.includes('zzqqxx'))
+                || body.includes('Không tìm thấy')) found = true;
             if (found && (earlyFill || i > 4)) break;
         }
         check('Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)', earlyFill);
-        check('Dir voice submit → empty-state (search chạy THẬT, SSR)', found);
+        check('Dir voice submit → results RENDER (search chạy THẬT, SSR)', found);
     }
     await ctx.close();
 }
@@ -400,15 +403,17 @@ for (const host of KL_HOSTS) {
     }
     // nomatch render-proof: request fire ≠ render (JSInvokable thiếu
     // StateHasChanged → request ra network nhưng DOM không đổi — bug "transcript
-    // fill nhưng search không chạy" user report). Assert empty-state XUẤT HIỆN.
+    // fill nhưng search không chạy" user report). Assert KẾT QUẢ render —
+    // zzqqxx fuzzy-match trả ~10 stores → header 'phù hợp "zzqqxx"', hoặc
+    // empty-state 'Không có cửa hàng phù hợp' — cả 2 đều chỉ tồn tại sau render.
     const nm = await voiceFlow({
         host, path: '/stores', inputSel: '#search-input', mode: 'nomatch',
         transcript: 'zzqqxx',
         reqFilter: u => u.includes('/api/tenants/search') && u.includes('zzqqxx'),
-        domProof: b => b.includes('Không tìm thấy cửa hàng nào'),
+        domProof: b => b.includes('phù hợp') && b.includes('zzqqxx'),
     });
     check(`${tag}/stores nomatch: request name=zzqqxx`, nm.mic !== false && nm.hit, nm.lastReq || 'no req');
-    if (nm.mic) check(`${tag}/stores nomatch: empty-state RENDER`, nm.dom);
+    if (nm.mic) check(`${tag}/stores nomatch: results RENDER (StateHasChanged)`, nm.dom);
     // /products — ProductSearchResults → request /api/catalog/search?q=
     const pr = await voiceFlow({
         host, path: '/products', inputSel: '#product-search-input',
@@ -460,12 +465,15 @@ for (const host of KL_HOSTS) {
             const inp = await page.locator('#vanan-public-search-input').first().inputValue().catch(() => '');
             if (inp.includes('zzqqxx') && i <= 5) earlyFill = true;
             const body = await page.locator('body').innerText().catch(() => '');
-            if (body.includes('Không tìm thấy') || body.includes('không có cửa hàng')) {
+            // Render-proof: 'Không tìm thấy kết quả chính xác cho "zzqqxx"' hoặc
+            // 'N cửa hàng phù hợp' — chỉ tồn tại sau render post-search
+            if (body.includes('Không tìm thấy')
+                || (body.includes('phù hợp') && body.includes('zzqqxx'))) {
                 searched = true;
             }
         }
         check('Dir/ interim→DOM-fill sớm', earlyFill);
-        check('Dir/ voice submit → empty-state render (search chạy THẬT)', searched);
+        check('Dir/ voice submit → results RENDER (search chạy THẬT)', searched);
         let off = false;
         for (let i = 0; i < 6 && !off; i++) {
             off = !(await isListening(page));
