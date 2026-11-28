@@ -55,7 +55,8 @@ namespace VanAn.Gateway.Services
                 .GroupBy(o => o.TenantId.Value)
                 .ToDictionary(g => g.Key, g =>
                 {
-                    var valid = g.Where(o => o.Status != OrderStatusId.Cancelled).ToList();
+                    var valid = g.Where(o => !string.Equals(o.Status?.Value,
+                        OrderStatusId.Cancelled.Value, StringComparison.OrdinalIgnoreCase)).ToList();
                     return (OrderCount: valid.Count,
                             LastOrderAt: (DateTime?)g.Max(o => o.OrderDate),
                             TotalSpent: valid.Sum(o => o.TotalAmount));
