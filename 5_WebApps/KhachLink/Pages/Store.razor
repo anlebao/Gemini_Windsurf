@@ -21,6 +21,7 @@
 @inject ILogger<Store> Logger
 @inject IJSRuntime JSRuntime
 @inject VanAn.KhachLink.Services.CartService CartService
+@inject VanAn.KhachLink.Services.LastInteractionService LastInteraction
 @* SF-W1: unread badge — same client the chat panel uses, polled lightly. *@
 @inject IRealtimeChatClient RealtimeChat
 @inject IConfiguration Config
@@ -1551,6 +1552,16 @@ else
                 _loading = false;
                 return;
             }
+
+            // Store-context wave: visit = interaction → record so Home "Cửa Hàng Của Bạn"
+            // + BackToStoreChip can route back. Fire-and-forget, must never block render.
+            try
+            {
+                _ = LastInteraction.RecordInteractionAsync(
+                    _store.TenantId != Guid.Empty ? _store.TenantId : _store.Id,
+                    _store.Slug ?? Slug, _store.Name);
+            }
+            catch { /* context recording is best-effort */ }
 
             // Phí nền tảng — storefront deny gate: ví tenant cạn + rate card store.visit=Deny
             // → hiện "tạm ngưng phục vụ" thay vì render. Fail-open (G9): metering lỗi → vẫn mở.

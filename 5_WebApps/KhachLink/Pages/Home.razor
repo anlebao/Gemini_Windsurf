@@ -307,6 +307,12 @@
                                         </a>
                                     </div>
                                 }
+                                @* Store-context wave: deep-link back to the storefront *@
+                                <div class="mt-2">
+                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="GoToStore">
+                                        <i class="bi bi-shop me-1"></i> Vào cửa hàng
+                                    </VanAnButton>
+                                </div>
                             </div>
                         </div>
                     </VanAnCard>
@@ -566,6 +572,7 @@
     private StoreInfoDto? _store;
     private bool _storeLoading = true;
     private Guid? _lastTenantId;
+    private VanAn.KhachLink.Services.LastStoreVisit? _lastStoreVisit;
     // W2-2: true khi instance Profile=Hoptacxa → render portal landing thay commerce home
     private bool _isHoptacxa;
     // W2-4: new-user hero chỉ hiện sau khi lastTenant resolve xong (tránh flash cho returning user)
@@ -801,9 +808,20 @@
     /// <summary>
     /// Falls back to empty state with CTA if no interaction recorded (new user).
     /// </summary>
+    /// <summary>Store-context wave: deep-link to the storefront of the last visited/bought shop.</summary>
+    private void GoToStore()
+    {
+        if (_lastTenantId == null || _lastTenantId.Value == Guid.Empty) return;
+        var url = !string.IsNullOrWhiteSpace(_lastStoreVisit?.Slug)
+            ? $"/store/{_lastStoreVisit.Slug}"
+            : $"/store/by-id/{_lastTenantId.Value}";
+        Navigation.NavigateTo(url);
+    }
+
     private async Task LoadLastTenantDataAsync()
     {
-        _lastTenantId = await LastInteractionService.GetLastTenantIdAsync();
+        _lastStoreVisit = await LastInteractionService.GetLastStoreVisitAsync();
+        _lastTenantId = _lastStoreVisit?.TenantId ?? Guid.Empty;
         _lastTenantLoaded = true; // W2-4: hero strip gate — chỉ quyết định sau khi resolve xong
 
         if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)

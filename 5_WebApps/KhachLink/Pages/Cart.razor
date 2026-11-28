@@ -19,6 +19,9 @@
     <div class="container py-4">
         <h2 class="mb-4">🛒 Giỏ hàng của bạn</h2>
 
+        @* Store-context wave: back to the storefront the customer last visited/ordered from *@
+        <BackToStoreChip CssClass="mb-3" />
+
         @if (cartState.GetTotalItems() > 0)
         {
             <!-- #100.1: Sticky mobile action bar — visible only on mobile, fixed at top of viewport -->

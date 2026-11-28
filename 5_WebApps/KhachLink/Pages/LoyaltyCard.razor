@@ -16,6 +16,8 @@
 <KhachLinkLayout>
   <ProfileGuard RequiredFlag="ShowLoyaltyHistory" FeatureName="Lịch sử tích điểm">
     <div class="container py-4">
+        @* GP-B: back to the storefront the customer last visited/ordered from *@
+        <BackToStoreChip CssClass="mb-3" />
         @if (_loading)
         {
             <div class="text-center py-5">

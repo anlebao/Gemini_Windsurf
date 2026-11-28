@@ -30,6 +30,11 @@ namespace VanAn.CoreHub.Services
         /// <summary>Apply kill-switch overrides for concepts shared between NavFlags and
         /// ShopFeatureSettings. Returns the same DTO instance with mapped flags ANDed.</summary>
         ShopFeatureSettingsDto ApplyOverrides(ShopFeatureSettingsDto settings, KhachLinkNavFlags? flags);
+
+        /// <summary>AND kill-switch for the GLOBAL KhachLinkHomeSettings (home page sections).
+        /// Primitives — KhachLinkHomeSettingsDto is not a shared type (duplicated per app).</summary>
+        (bool CampaignEnabled, bool StoreEnabled) ApplyHomeOverrides(
+            bool campaignEnabled, bool storeEnabled, KhachLinkNavFlags? flags);
     }
 
     public sealed class InstanceFeatureGate(
@@ -86,5 +91,11 @@ namespace VanAn.CoreHub.Services
             settings.QR_TableNumber_Enabled = settings.QR_TableNumber_Enabled && flags.ShowScan;
             return settings;
         }
+
+        public (bool CampaignEnabled, bool StoreEnabled) ApplyHomeOverrides(
+            bool campaignEnabled, bool storeEnabled, KhachLinkNavFlags? flags)
+            => flags is null
+                ? (campaignEnabled, storeEnabled)
+                : (campaignEnabled && flags.ShowCampaigns, storeEnabled && flags.ShowStores);
     }
 }

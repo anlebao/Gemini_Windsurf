@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers
@@ -17,35 +18,42 @@ namespace VanAn.Gateway.Controllers
     [Authorize] // Class-level auth required by W12-G7 architecture test; GET overrides with [AllowAnonymous]
     public class KhachLinkHomeSettingsController(
         IVanAnDbContext dbContext,
+        IInstanceFeatureGate instanceGate,
         ILogger<KhachLinkHomeSettingsController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IInstanceFeatureGate _instanceGate = instanceGate;
         private readonly ILogger<KhachLinkHomeSettingsController> _logger = logger;
 
         /// <summary>
         /// GET /api/platform/khachlink-home-settings — returns the single global config row.
         /// Anonymous: KhachLink PWA reads this on home page load (no auth needed).
         /// If no row exists (fresh deployment), returns default values (all sections ON).
+        /// Store-context wave: instance NavFlags applied via InstanceFeatureGate
+        /// (AND semantics — instance OFF wins; instance ON does not force ON).
         /// </summary>
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetSettings()
         {
             var settings = await _dbContext.KhachLinkHomeSettings.FirstOrDefaultAsync();
-            if (settings == null)
-            {
-                // Return defaults without persisting
-                return Ok(new KhachLinkHomeSettingsDto
+            var dto = settings == null
+                ? new KhachLinkHomeSettingsDto
                 {
                     Home_CampaignSection_Enabled = true,
                     Home_StoreSection_Enabled = true,
                     Home_FeaturedSection_Enabled = true,
                     Home_SocialHub_Enabled = true,
                     ShowNavMenu = true
-                });
-            }
+                }
+                : ToDto(settings);
 
-            return Ok(ToDto(settings));
+            var flags = await _instanceGate.GetNavFlagsAsync();
+            (dto.Home_CampaignSection_Enabled, dto.Home_StoreSection_Enabled) =
+                _instanceGate.ApplyHomeOverrides(
+                    dto.Home_CampaignSection_Enabled, dto.Home_StoreSection_Enabled, flags);
+
+            return Ok(dto);
         }
 
         /// <summary>

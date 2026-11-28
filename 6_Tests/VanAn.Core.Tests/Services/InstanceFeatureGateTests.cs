@@ -163,4 +163,44 @@ public class InstanceFeatureGateTests : IDisposable
         Assert.NotNull(flags);
         Assert.False(flags.ShowCampaigns);
     }
+
+    [Fact(DisplayName = "HomeGate: instance ShowStores=false → home store section off (kill-switch)")]
+    public async Task HomeOverrides_StoresOff_ForcesStoreSectionOff()
+    {
+        SeedInstance("portal.test", new KhachLinkNavFlags { ShowStores = false });
+        var gate = BuildGate("portal.test");
+
+        var (campaign, store) = gate.ApplyHomeOverrides(
+            campaignEnabled: true, storeEnabled: true, await gate.GetNavFlagsAsync());
+
+        Assert.False(store);
+        Assert.True(campaign); // unmapped flag untouched
+    }
+
+    [Fact(DisplayName = "HomeGate: instance ShowCampaigns=false → home campaign section off")]
+    public async Task HomeOverrides_CampaignsOff_ForcesCampaignSectionOff()
+    {
+        SeedInstance("portal.test", new KhachLinkNavFlags { ShowCampaigns = false });
+        var gate = BuildGate("portal.test");
+
+        var (campaign, store) = gate.ApplyHomeOverrides(
+            campaignEnabled: true, storeEnabled: true, await gate.GetNavFlagsAsync());
+
+        Assert.False(campaign);
+        Assert.True(store);
+    }
+
+    [Fact(DisplayName = "HomeGate: null flags → unchanged; instance ON does not force ON")]
+    public async Task HomeOverrides_NullFlagsAndGlobalOff_StaysConsistent()
+    {
+        var gate = BuildGate(domainHeader: null);
+
+        // null flags → returned as-is (including OFF values)
+        Assert.Equal((true, false), gate.ApplyHomeOverrides(true, false, null));
+
+        // instance all-ON + global OFF → stays OFF (no force-on)
+        SeedInstance("portal.test", new KhachLinkNavFlags());
+        var flags = await gate.GetNavFlagsAsync();
+        Assert.Equal((true, false), gate.ApplyHomeOverrides(true, false, flags));
+    }
 }

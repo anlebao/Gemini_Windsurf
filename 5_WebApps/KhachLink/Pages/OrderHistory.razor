@@ -17,6 +17,9 @@
             <i class="bi bi-bag text-primary"></i> Đơn hàng của tôi
         </h3>
 
+        @* Store-context wave: back to the storefront the customer last visited/ordered from *@
+        <BackToStoreChip CssClass="mb-3" />
+
         @if (_loading)
         {
             <div class="text-center py-5">

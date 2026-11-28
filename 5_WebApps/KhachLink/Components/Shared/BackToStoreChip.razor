@@ -1,0 +1,43 @@
+@* Store-context wave (task_store_context_back_to_store): "Quay lại {store}" chip —
+   renders only when a store visit was recorded (LastStoreVisit in localStorage).
+   Slug → /store/{slug}; slug null → /store/by-id/{tenantId}. Renders nothing
+   for a fresh user with no store context. *@
+@inject LastInteractionService LastInteraction
+@inject NavigationManager Navigation
+
+@if (_visit != null)
+{
+    <div class="back-to-store @CssClass" data-testid="back-to-store">
+        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="GoToStore">
+            <i class="bi bi-shop me-1"></i> @Label
+        </VanAnButton>
+    </div>
+}
+
+@code {
+    /// <summary>Extra CSS classes on the wrapper div (e.g. "mb-3", "text-center").</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private LastStoreVisit? _visit;
+    private string Label => string.IsNullOrWhiteSpace(_visit?.Name)
+        ? "Quay lại cửa hàng"
+        : $"Quay lại {_visit.Name}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _visit = await LastInteraction.GetLastStoreVisitAsync();
+            StateHasChanged();
+        }
+    }
+
+    private void GoToStore()
+    {
+        if (_visit == null) return;
+        var url = !string.IsNullOrWhiteSpace(_visit.Slug)
+            ? $"/store/{_visit.Slug}"
+            : $"/store/by-id/{_visit.TenantId}";
+        Navigation.NavigateTo(url);
+    }
+}

@@ -13,6 +13,8 @@
 <KhachLinkLayout>
   <ProfileGuard RequiredFlag="ShowRewards" FeatureName="Đổi điểm">
     <div class="container py-4">
+        @* Store-context wave: back to the storefront the customer last visited/ordered from *@
+        <BackToStoreChip CssClass="mb-3" />
         @if (_loading)
         {
             <div class="text-center py-5">

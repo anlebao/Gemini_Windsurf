@@ -14,6 +14,8 @@
 
 @inject VanAn.KhachLink.Services.CartService CartService
 
+@inject VanAn.KhachLink.Services.LastInteractionService LastInteraction
+
 @inject VanAn.KhachLink.Services.CheckoutFlowState CheckoutFlow
 
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
@@ -1640,6 +1642,14 @@
                     var ordersJson = System.Text.Json.JsonSerializer.Serialize(ordersForStorage);
 
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "created_orders", ordersJson);
+
+                    // Store-context wave: purchase = strongest interaction → record each
+                    // created order's tenant (multi-tenant cart: last write wins).
+                    foreach (var o in _createdOrders)
+                    {
+                        try { _ = LastInteraction.RecordInteractionAsync(o.TenantId, null, o.TenantName); }
+                        catch { /* context recording is best-effort */ }
+                    }
 
                 }
 

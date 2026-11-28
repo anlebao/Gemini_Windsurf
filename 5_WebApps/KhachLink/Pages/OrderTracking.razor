@@ -13,6 +13,7 @@
 @inject ILiveLocationClient LiveLocation
 @inject IRealtimeEndpointProvider Endpoints
 @inject IConfiguration Config
+@inject VanAn.KhachLink.Services.LastInteractionService LastInteraction
 @implements IAsyncDisposable
 
 <PageTitle>Theo dõi đơn hàng</PageTitle>
@@ -112,6 +113,16 @@
                         </a>
                     </div>
                 </VanAnCard>
+            }
+
+            @* GP-A: continue shopping at the store this order belongs to *@
+            @if (_orderTenantId != Guid.Empty)
+            {
+                <div class="mb-3" data-testid="continue-shopping">
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoToStore">
+                        <i class="bi bi-shop me-1"></i> Tiếp tục mua tại @(_tenantName != "" ? _tenantName : "cửa hàng")
+                    </VanAnButton>
+                </div>
             }
 
             <!-- Payment status card -->
@@ -289,6 +300,12 @@
     private string _orderStatus = "pending";
     private string _paymentStatus = "pending";
     private string _tenantName = string.Empty;
+
+    private void GoToStore()
+    {
+        if (_orderTenantId == Guid.Empty) return;
+        Navigation.NavigateTo($"/store/by-id/{_orderTenantId}");
+    }
     // VOICE SERVICE: shop tenant for per-shop chat flags (voice call/mic) — from the public order DTO.
     private Guid _orderTenantId = Guid.Empty;
     // #99-3: Loyalty points awarded (from PublicOrderTrackingDto.PointsAwarded)
@@ -381,7 +398,15 @@
                     _orderStatus = dto.Status ?? "pending";
                     _paymentStatus = (dto.PaymentStatus ?? "pending");
                     _tenantName = dto.TenantName ?? string.Empty;
+                    // Store-context wave: re-entry via /my-orders/deep-link counts as interaction
+                    // (record once per page load — this method polls).
+                    var firstTenantResolution = _orderTenantId == Guid.Empty && dto.TenantId != Guid.Empty;
                     _orderTenantId = dto.TenantId;
+                    if (firstTenantResolution)
+                    {
+                        try { _ = LastInteraction.RecordInteractionAsync(_orderTenantId, null, _tenantName); }
+                        catch { /* context recording is best-effort */ }
+                    }
                     _orderTotal = dto.TotalPrice;
                     _orderItemCount = dto.ItemCount;
                     // #99-3: Parse loyalty points awarded + tenant loyalty flag
