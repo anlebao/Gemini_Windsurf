@@ -58,8 +58,13 @@ window.SpeechRecognition = window.webkitSpeechRecognition = class {
         }
         // speech: interim×3 → final "an tam" → ngừng (silence timer xử lý)
         // misspell: voice transcript sai chính tả → verify fuzzy/didYouMean chain
+        // nomatch: transcript chắc chắn KHÔNG có trong featured/default list —
+        // phải thấy empty-state → chứng minh OnVoiceFinal→search chạy THẬT
+        // ('An Tâm' nằm sẵn featured → match mặc định là false-positive)
         const words = this._mode === 'misspell'
             ? [['anta', false], ['antaam', false], ['antaam', true]]
+            : this._mode === 'nomatch'
+            ? [['zzqq', false], ['zzqqxx', false], ['zzqqxx', true]]
             : [['an', false], ['an ta', false], ['an tam', false], ['an tam', true]];
         const emit = (txt, isFinal) => this.onresult && this.onresult({ results: [
             Object.assign([{ transcript: txt }], { isFinal })
@@ -243,8 +248,10 @@ const isListening = async (page) =>
 }
 
 // ═══ Dir SSR smoke: mic + vananVoiceInput trên timlathay ════════════════════
+// 'nomatch' → empty-state chỉ hiện khi search chạy THẬT (anti false-positive
+// 'An Tâm' nằm sẵn trong listing mặc định).
 {
-    const { ctx, page } = await newPageWithSR('speech');
+    const { ctx, page } = await newPageWithSR('nomatch');
     await page.goto(`${DIRECTORY}/stores`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4000); // SSR + interactive boot
     const mic = await micButton(page);
@@ -258,15 +265,13 @@ const isListening = async (page) =>
                 .inputValue().catch(() => '');
             // V2b: interim fill qua DOM trực tiếp — input có transcript TRƯỚC khi
             // silence 2.5s + search + SSR render xong (poll đầu ≤2.5s sau click)
-            if (inp.includes('an tam') && i <= 4) earlyFill = true;
-            if (inp.includes('an tam')) { found = true; break; }
+            if (inp.includes('zzqqxx') && i <= 4) earlyFill = true;
             const body = await page.locator('body').innerText().catch(() => '');
-            // 'An Tâm' có thể nằm sẵn trong default listing — chỉ break khi đã
-            // xác định xong earlyFill (hoặc quá cửa sổ sớm)
-            if (body.includes('An Tâm')) { found = true; if (earlyFill || i > 4) break; }
+            if (body.includes('Không tìm thấy')) found = true;
+            if (found && (earlyFill || i > 4)) break;
         }
         check('Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)', earlyFill);
-        check('Dir voice submit → transcript/search chạy (SSR)', found);
+        check('Dir voice submit → empty-state (search chạy THẬT, SSR)', found);
     }
     await ctx.close();
 }
@@ -393,6 +398,17 @@ for (const host of KL_HOSTS) {
         check(`${tag}/stores submit name=an tam`, st.hit, st.lastReq || 'no req');
         check(`${tag}/stores listening off`, st.off);
     }
+    // nomatch render-proof: request fire ≠ render (JSInvokable thiếu
+    // StateHasChanged → request ra network nhưng DOM không đổi — bug "transcript
+    // fill nhưng search không chạy" user report). Assert empty-state XUẤT HIỆN.
+    const nm = await voiceFlow({
+        host, path: '/stores', inputSel: '#search-input', mode: 'nomatch',
+        transcript: 'zzqqxx',
+        reqFilter: u => u.includes('/api/tenants/search') && u.includes('zzqqxx'),
+        domProof: b => b.includes('Không tìm thấy cửa hàng nào'),
+    });
+    check(`${tag}/stores nomatch: request name=zzqqxx`, nm.mic !== false && nm.hit, nm.lastReq || 'no req');
+    if (nm.mic) check(`${tag}/stores nomatch: empty-state RENDER`, nm.dom);
     // /products — ProductSearchResults → request /api/catalog/search?q=
     const pr = await voiceFlow({
         host, path: '/products', inputSel: '#product-search-input',
@@ -426,9 +442,11 @@ for (const host of KL_HOSTS) {
     await ctx.close();
 }
 
-// Dir Home `/` — SSR store mode: interim DOM-fill + search server-side → DOM
+// Dir Home `/` — SSR store mode: interim DOM-fill + search server-side → DOM.
+// Dùng 'nomatch' transcript (zzqqxx) — chắc chắn KHÔNG có trong featured list
+// → empty-state text chỉ xuất hiện khi OnVoiceFinal→SearchStores chạy THẬT.
 {
-    const { ctx, page } = await newPageWithSR('speech');
+    const { ctx, page } = await newPageWithSR('nomatch');
     await page.goto(`${DIRECTORY}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(5000);
     const mic = page.locator('button[aria-label*="giọng nói"]').first();
@@ -436,21 +454,18 @@ for (const host of KL_HOSTS) {
     check('Dir/ mic render (Home)', await mic.count() > 0);
     if (await mic.count() > 0) {
         await mic.click();
-        // "An Tâm" nằm sẵn trong featured listing → searched có thể true ngay
-        // lần poll đầu. KHÔNG break sớm: poll đến khi input có transcript VÀ
-        // search chạy — mới chứng minh được DOM-fill + submit thật.
         let earlyFill = false, searched = false;
         for (let i = 0; i < 16 && !(earlyFill && searched); i++) {
             await page.waitForTimeout(500);
             const inp = await page.locator('#vanan-public-search-input').first().inputValue().catch(() => '');
-            if (inp.includes('an tam') && i <= 5) earlyFill = true;
+            if (inp.includes('zzqqxx') && i <= 5) earlyFill = true;
             const body = await page.locator('body').innerText().catch(() => '');
-            if (body.includes('An Tâm') || body.includes('Không tìm thấy') || body.includes('cửa hàng phù hợp')) {
+            if (body.includes('Không tìm thấy') || body.includes('không có cửa hàng')) {
                 searched = true;
             }
         }
         check('Dir/ interim→DOM-fill sớm', earlyFill);
-        check('Dir/ voice submit → search chạy (SSR, user-reported page)', searched);
+        check('Dir/ voice submit → empty-state render (search chạy THẬT)', searched);
         let off = false;
         for (let i = 0; i < 6 && !off; i++) {
             off = !(await isListening(page));
