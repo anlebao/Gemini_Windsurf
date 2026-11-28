@@ -17,6 +17,22 @@ window.initializeSpeechRecognition = function (dotNetReference, targetId) {
     // #142-comment-fix: targetId = null means home search mode → enable interim results
     isHomeSearchMode = !voiceTargetId;
 
+    // V1c (2026-11-28): reset leftover session từ page trước — SPA navigate giữa
+    // chừng để isVoiceRecording kẹt true → startRecording page mới bị guard chặn
+    // → mic "chết" cho tới khi session cũ tự end.
+    window.isVoiceRecording = false;
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    finalTranscript = '';
+    if (recognition) {
+        try {
+            recognition.onresult = null;
+            recognition.onerror = null;
+            recognition.onend = null;
+            recognition.abort();
+        } catch (e) { /* already stopped */ }
+        recognition = null;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         console.warn('Speech Recognition API not supported in this browser.');

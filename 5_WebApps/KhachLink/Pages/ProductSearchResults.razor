@@ -185,6 +185,14 @@
                     nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
                 if (_voiceEnabled)
                 {
+                    // V1d lazy-race: voice JS inject sau window.load — đợi script sẵn
+                    // sàng (≤4s) trước khi check support; fail-open → check luôn.
+                    try
+                    {
+                        using var lazyCts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                        await JSRuntime.InvokeAsync<bool>("vananWhenLazyReady", lazyCts.Token);
+                    }
+                    catch { /* script chưa sẵn sàng — isSupported vẫn fail-open */ }
                     _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
                     StateHasChanged();
                 }

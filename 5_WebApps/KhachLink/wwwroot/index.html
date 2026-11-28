@@ -132,11 +132,28 @@
             '/js/onboarding-ocr.js',
             '/js/onboarding-wizard.js'
         ];
+        // V1d (2026-11-28): voice/feature scripts lazy-load sau window.load nhưng
+        // WASM firstRender có thể thắng race (cache ấm) → isSupported check quá sớm
+        // → mic không bao giờ hiện. vananWhenLazyReady() trả Promise resolve khi
+        // toàn bộ lazy scripts đã load xong — page await nó trước khi check.
+        window.__vananLazyResolve = null;
+        window.__vananLazyReadyPromise = new Promise(function (r) {
+            window.__vananLazyResolve = r;
+        });
+        window.vananWhenLazyReady = function () { return window.__vananLazyReadyPromise; };
+
         function vananLoadLazyJs() {
+            var remaining = window.__vananLazyJs.length;
+            if (remaining === 0 && window.__vananLazyResolve) { window.__vananLazyResolve(true); return; }
             window.__vananLazyJs.forEach(function (src) {
                 var s = document.createElement('script');
                 s.src = src;
                 s.async = false; // dynamic scripts: async=false → chạy đúng thứ tự chèn
+                s.onload = s.onerror = function () {
+                    if (--remaining === 0 && window.__vananLazyResolve) {
+                        window.__vananLazyResolve(true); // resolve dù script lỗi — fail-open
+                    }
+                };
                 document.body.appendChild(s);
             });
         }

@@ -693,6 +693,14 @@
                 nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.Voice_Note_Enabled));
             if (_homeVoiceEnabled)
             {
+                // V1d lazy-race: voice-note.js inject sau window.load — đợi script
+                // sẵn sàng (≤4s) trước khi check support; fail-open → check luôn.
+                try
+                {
+                    using var lazyCts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                    await JSRuntime.InvokeAsync<bool>("vananWhenLazyReady", lazyCts.Token);
+                }
+                catch { /* script chưa sẵn sàng — isSupported vẫn fail-open */ }
                 _homeSpeechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
                 if (_homeSpeechSupported)
                 {

@@ -246,4 +246,82 @@ public class StoreFinderTests : TestContext
                 "undo → re-search câu gốc");
         }, timeout: TimeSpan.FromSeconds(5));
     }
+
+    // ── Voice input hardening V1a: migrate voice-note.js → vananVoiceInput ────
+
+    [Fact]
+    public async Task VoiceToggle_StartsVananVoiceInput_NotVoiceNoteJs()
+    {
+        var (cut, _) = RenderPage();
+        JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);
+
+        await cut.InvokeAsync(() => cut.Instance.ToggleVoiceSearch());
+
+        JSInterop.Invocations.Should().Contain(i => i.Identifier == "vananVoiceInput.start",
+            "V1a: mic phải dùng vananVoiceInput (contract OnVoiceInterim/Final/Error/End)");
+        JSInterop.Invocations.Should().NotContain(i =>
+            i.Identifier == "startRecording" || i.Identifier == "initializeSpeechRecognition",
+            "không còn dùng voice-note.js — contract cũ gây isRecording kẹt (A1)");
+    }
+
+    [Fact]
+    public async Task VoiceFinal_SearchesTranscript_AndResetsListening()
+    {
+        var (cut, http) = RenderPage();
+        JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);
+        await cut.InvokeAsync(() => cut.Instance.ToggleVoiceSearch());
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceFinal("cafe"));
+
+        cut.WaitForAssertion(() =>
+            http.NameSearches.Should().Contain(u =>
+                Uri.UnescapeDataString(u).Contains("name=cafe"),
+                "OnVoiceFinal → search transcript ngay (không qua debounce)"),
+            timeout: TimeSpan.FromSeconds(5));
+        // _listening reset → mic không còn trạng thái "listening" trên markup
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button.listening").Should().BeEmpty("OnVoiceFinal reset _listening"));
+    }
+
+    [Fact]
+    public async Task VoiceInterim_FillsInput_WithoutTriggeringSearch()
+    {
+        var (cut, http) = RenderPage();
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceInterim("ca"));
+        await Task.Delay(500); // qua debounce window — interim KHÔNG được trigger search
+
+        http.NameSearches.Count.Should().Be(0,
+            "interim chỉ fill input — search chỉ chạy trên OnVoiceFinal (tránh request mỗi interim)");
+        cut.Find("#search-input").GetAttribute("value").Should().Be("ca");
+    }
+
+    [Fact]
+    public async Task VoiceError_ResetsListening_AndShowsMessage()
+    {
+        var (cut, _) = RenderPage();
+        JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);
+        await cut.InvokeAsync(() => cut.Instance.ToggleVoiceSearch());
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceError("Quyền micro bị từ chối"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("button.listening").Should().BeEmpty("error → _listening=false");
+            cut.Markup.Should().Contain("Quyền micro bị từ chối", "error message hiển thị");
+        });
+    }
+
+    [Fact]
+    public async Task VoiceEnd_ResetsListening()
+    {
+        var (cut, _) = RenderPage();
+        JSInterop.Setup<bool>("vananVoiceInput.start", _ => true).SetResult(true);
+        await cut.InvokeAsync(() => cut.Instance.ToggleVoiceSearch());
+
+        await cut.InvokeAsync(() => cut.Instance.OnVoiceEnd());
+
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button.listening").Should().BeEmpty("OnVoiceEnd → _listening=false"));
+    }
 }

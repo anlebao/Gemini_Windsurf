@@ -39,12 +39,12 @@
                                       SearchText="Tìm kiếm"
                                       Loading="_loading"
                                       ShowVoiceButton="@(_voiceSearchEnabled && _speechSupported)"
-                                      IsListening="isRecording"
+                                      IsListening="_listening"
                                       OnVoiceToggle="ToggleVoiceSearch"
                                       OnSearch="OnSearchSubmit"
                                       OnValueChanged="OnSearchValueChanged"
                                       OnCleared="ClearSearch" />
-                @if (isRecording)
+                @if (_listening)
                 {
                     <div class="voice-recording-hint text-danger small mt-2">
                         <span class="recording-dot-inline"></span> Đang ghi âm... nói tên cửa hàng hoặc sản phẩm
@@ -297,10 +297,10 @@
     private bool _lastSearchWasVoice;
     private System.Threading.CancellationTokenSource? _searchDebounce;
     private System.Threading.CancellationTokenSource? _loadCts;
-    // Voice search — reuses wwwroot/js/voice-note.js (loaded via index.html)
+    // Voice search — vananVoiceInput (UI.Platform voice-input.js, lazy-loaded index.html)
     private bool _voiceSearchEnabled = false;
     private bool _speechSupported = false;
-    private bool isRecording = false;
+    private bool _listening = false;
     private DotNetObjectReference<StoreFinder>? _voiceDotNetRef;
 
     protected override async Task OnInitializedAsync()
@@ -349,7 +349,8 @@
                 // User denied geolocation or not supported — show all stores
             }
 
-            // Voice search: check feature flag + browser support, init speech recognition
+            // Voice search: feature flag + browser support (vananVoiceInput — shared stack,
+            // V1a migrate khỏi voice-note.js: contract cũ thiếu OnRecordingEnd → isRecording kẹt)
             try
             {
                 _voiceSearchEnabled = await FeatureSettings.IsEnabledAsync(
@@ -357,12 +358,18 @@
                     nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
                 if (_voiceSearchEnabled)
                 {
-                    _speechSupported = await JSRuntime.InvokeAsync<bool>("isSpeechRecognitionSupported");
+                    // V1d lazy-race: voice JS inject sau window.load — đợi script sẵn sàng
+                    // (≤4s) trước khi check support; fail-open → check luôn.
+                    try
+                    {
+                        using var lazyCts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                        await JSRuntime.InvokeAsync<bool>("vananWhenLazyReady", lazyCts.Token);
+                    }
+                    catch { /* script chưa sẵn sàng — isSupported vẫn fail-open */ }
+                    _speechSupported = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.isSupported");
                     if (_speechSupported)
                     {
                         _voiceDotNetRef = DotNetObjectReference.Create(this);
-                        // targetId = "search-input" → transcript fills the search box directly
-                        await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", _voiceDotNetRef, "search-input");
                     }
                 }
                 StateHasChanged();
@@ -374,43 +381,63 @@
         }
     }
 
-    private async Task ToggleVoiceSearch()
+    public async Task ToggleVoiceSearch()
     {
-        if (isRecording)
+        if (_listening)
         {
-            isRecording = false;
-            await JSRuntime.InvokeVoidAsync("stopRecording");
+            _listening = false; // JS onend → OnVoiceEnd re-confirms
+            await JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
         }
         else
         {
             // Clear previous keyword before recording so transcript starts fresh
             _searchKeyword = "";
-            _lastInputWasVoice = true;
-            isRecording = true;
-            await JSRuntime.InvokeVoidAsync("startRecording");
+            _voiceDotNetRef ??= DotNetObjectReference.Create(this);
+            _listening = await JSRuntime.InvokeAsync<bool>("vananVoiceInput.start", _voiceDotNetRef);
         }
         StateHasChanged();
     }
 
+    /// <summary>Live transcript while speaking — chỉ fill input, KHÔNG trigger search.</summary>
     [JSInvokable]
-    public async Task OnVoiceRecordingEnd()
+    public void OnVoiceInterim(string text)
     {
-        isRecording = false;
-        // Trigger search with the transcribed keyword
-        await LoadStores();
+        _searchKeyword = text;
         StateHasChanged();
+    }
+
+    /// <summary>Silence/manual stop → final transcript → search ngay (không qua debounce).</summary>
+    [JSInvokable]
+    public async Task OnVoiceFinal(string text)
+    {
+        _searchKeyword = text;
+        _lastInputWasVoice = true;
+        _listening = false;
+        await OnSearchSubmit();
     }
 
     [JSInvokable]
     public void OnVoiceError(string errorMessage)
     {
-        isRecording = false;
+        _listening = false;
         _error = errorMessage;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnVoiceEnd()
+    {
+        _listening = false;
         StateHasChanged();
     }
 
     public void Dispose()
     {
+        try
+        {
+            if (_listening) _ = JSRuntime.InvokeVoidAsync("vananVoiceInput.stop");
+        }
+        catch { /* JS gone during teardown */ }
         _voiceDotNetRef?.Dispose();
         _searchDebounce?.Dispose();
         _loadCts?.Dispose();

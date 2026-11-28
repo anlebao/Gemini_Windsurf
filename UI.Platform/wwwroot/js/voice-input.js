@@ -20,11 +20,19 @@
 
 window.vananVoiceInput = (function () {
     const SILENCE_DELAY_MS = 2500; // 2.5s without new results → auto-submit
+    // V1b watchdog (2026-11-28): mọi session phải có đường thoát — trước đây
+    // silenceTimer chỉ arm trong onresult → nếu onresult không bao giờ fire
+    // (service stall, lỗi network không trả) thì session nghe VÔ HẠN → "treo".
+    const FIRST_RESULT_TIMEOUT_MS = 8000; // không result nào sau start → error + abort
+    const MAX_SESSION_MS = 30000;         // hard cap — noise không kéo session sống mãi
 
     let recognition = null;
     let dotNetRef = null;
     let silenceTimer = null;
+    let firstResultTimer = null;
+    let maxSessionTimer = null;
     let latestDisplay = ''; // complete transcript — final segments + current interim
+    let prevDisplay = '';   // noise-guard: silence chỉ re-arm khi transcript đổi
     let active = false;
     let finalSent = false;
 
@@ -43,6 +51,18 @@ window.vananVoiceInput = (function () {
         }
     }
 
+    function clearTimers() {
+        clearSilence();
+        if (firstResultTimer) {
+            clearTimeout(firstResultTimer);
+            firstResultTimer = null;
+        }
+        if (maxSessionTimer) {
+            clearTimeout(maxSessionTimer);
+            maxSessionTimer = null;
+        }
+    }
+
     // Deliver the transcript to Blazor exactly once per session.
     function finalize() {
         if (finalSent) return;
@@ -54,7 +74,7 @@ window.vananVoiceInput = (function () {
     }
 
     function abortInternal() {
-        clearSilence();
+        clearTimers();
         if (recognition) {
             const r = recognition;
             recognition = null;
@@ -78,6 +98,7 @@ window.vananVoiceInput = (function () {
 
         dotNetRef = ref || null;
         latestDisplay = '';
+        prevDisplay = '';
         finalSent = false;
 
         recognition = new SR();
@@ -87,6 +108,11 @@ window.vananVoiceInput = (function () {
         recognition.maxAlternatives = 1;
 
         recognition.onresult = function (event) {
+            // V1b: result đầu tiên đến → huỷ watchdog first-result.
+            if (firstResultTimer) {
+                clearTimeout(firstResultTimer);
+                firstResultTimer = null;
+            }
             // Rebuild the whole transcript every event — results[] carries all
             // segments since session start; a result flips interim→final in
             // place. Immune to resultIndex quirks and stop()-flush duplicates.
@@ -118,8 +144,13 @@ window.vananVoiceInput = (function () {
             }
 
             // Silence → end the session; onend delivers OnVoiceFinal.
-            clearSilence();
-            silenceTimer = setTimeout(stop, SILENCE_DELAY_MS);
+            // V1b noise-guard: chỉ re-arm khi transcript ĐỔI — ambient noise sinh
+            // interim giống hệt nhau không kéo dài session vô hạn (A3).
+            if (latestDisplay !== prevDisplay) {
+                prevDisplay = latestDisplay;
+                clearSilence();
+                silenceTimer = setTimeout(stop, SILENCE_DELAY_MS);
+            }
         };
 
         recognition.onerror = function (event) {
@@ -141,7 +172,7 @@ window.vananVoiceInput = (function () {
 
         recognition.onend = function () {
             active = false;
-            clearSilence();
+            clearTimers();
             finalize(); // flush whatever transcript we have (manual stop / browser end)
             if (dotNetRef) {
                 dotNetRef.invokeMethodAsync('OnVoiceEnd');
@@ -151,6 +182,18 @@ window.vananVoiceInput = (function () {
         try {
             recognition.start();
             active = true;
+            // V1b watchdog: không result nào trong 8s → báo lỗi + abort (thay vì
+            // nghe vô hạn); hard cap 30s chặn mọi session sống mãi.
+            firstResultTimer = setTimeout(function () {
+                const ref = dotNetRef;
+                abortInternal();
+                if (ref) {
+                    ref.invokeMethodAsync('OnVoiceError',
+                        'Không nghe thấy gì — thử nói lại nhé.');
+                    ref.invokeMethodAsync('OnVoiceEnd');
+                }
+            }, FIRST_RESULT_TIMEOUT_MS);
+            maxSessionTimer = setTimeout(stop, MAX_SESSION_MS);
             return true;
         } catch (e) {
             console.error('vananVoiceInput.start error:', e);
@@ -161,6 +204,12 @@ window.vananVoiceInput = (function () {
     }
 
     function stop() {
+        // Manual/silence/max-cap stop → không cần first-result watchdog nữa
+        // (edge: nếu onend không fire, tránh error giả bắn ra sau).
+        if (firstResultTimer) {
+            clearTimeout(firstResultTimer);
+            firstResultTimer = null;
+        }
         if (recognition && active) {
             try {
                 // Browser flushes pending interim segments as finals before
@@ -172,6 +221,10 @@ window.vananVoiceInput = (function () {
         }
         active = false;
     }
+
+    // V1c (2026-11-28): session phải chết khi rời page — trước đây navigate giữa
+    // chừng để session chạy nền + DotNetRef cũ disposed → mic kẹt ở page mới.
+    window.addEventListener('pagehide', abortInternal);
 
     return { isSupported: isSupported, isActive: isActive, start: start, stop: stop };
 })();
