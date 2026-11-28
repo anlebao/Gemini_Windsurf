@@ -94,11 +94,23 @@ window.vananVoiceInput = (function () {
     // reject với ArgumentException → unhandled pageerror. Nuốt lặng: component
     // chết rồi thì transcript đến cũng vô nghĩa.
     function safeInvoke(name, arg) {
-        if (!dotNetRef) return;
+        if (!dotNetRef) { vlog('invoke-skip', name); return; }
         try {
             const p = dotNetRef.invokeMethodAsync(name, arg);
-            if (p && typeof p.catch === 'function') p.catch(() => {});
-        } catch (e) { /* ref disposed / circuit dead */ }
+            if (p && typeof p.catch === 'function') {
+                p.then(function () { vlog('invoke-ok', name); })
+                 .catch(function (e) {
+                     // Diag: server-side throw / ref disposed / circuit dead —
+                     // lý do "transcript fill nhưng search không chạy" trên máy
+                     // thật đọc được từ __vananVoiceLog.
+                     vlog('invoke-err', name + '|' +
+                         String(e && e.message ? e.message : e).slice(0, 150));
+                 });
+            }
+        } catch (e) {
+            vlog('invoke-err', name + '|' +
+                String(e && e.message ? e.message : e).slice(0, 150));
+        }
     }
 
     // Deliver the transcript to Blazor exactly once per session.

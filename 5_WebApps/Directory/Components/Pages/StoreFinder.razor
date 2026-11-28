@@ -280,10 +280,23 @@
             }
             catch { _resolvedFrom = null; _resolvedName = null; }
         }
-        var result = await CatalogService.SearchStoresAsync(keyword);
-        _stores = result.Results;
-        _didYouMean = result.DidYouMean;
-        _loading = false;
+        // Fail-closed về _loading — API throw trước đây kẹt spinner vĩnh viễn
+        // (voice invoke reject bị JS nuốt → "fill được nhưng search không chạy").
+        try
+        {
+            var result = await CatalogService.SearchStoresAsync(keyword);
+            _stores = result.Results;
+            _didYouMean = result.DidYouMean;
+        }
+        catch
+        {
+            _stores = new();
+            _voiceError = "Không tìm được kết quả lúc này — thử lại nhé.";
+        }
+        finally
+        {
+            _loading = false;
+        }
         await RenderMapAsync();
     }
 

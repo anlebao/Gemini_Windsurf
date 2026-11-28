@@ -465,28 +465,43 @@
             }
             catch { _resolvedFrom = null; _resolvedName = null; }
         }
-        if (_searchMode == "product")
+        // API call phải fail-closed về _loading — trước đây throw → spinner kẹt
+        // vĩnh viễn + invoke reject bị JS nuốt → user thấy "voice fill nhưng
+        // search không chạy".
+        try
         {
-            // Product search — calls /api/catalog/search?q= (Search Unification v2:
-            // fuzzy + DidYouMean giống tenant search — chip consume bên dưới)
-            var result = await CatalogService.SearchProductsAsync(keyword);
-            _products = result?.Products ?? new();
+            if (_searchMode == "product")
+            {
+                // Product search — calls /api/catalog/search?q= (Search Unification v2:
+                // fuzzy + DidYouMean giống tenant search — chip consume bên dưới)
+                var result = await CatalogService.SearchProductsAsync(keyword);
+                _products = result?.Products ?? new();
+                _stores = new();
+                _suggestedKeywords = new();
+                _didYouMean = result?.DidYouMean;
+                _matchStrategy = result?.MatchStrategy ?? "all";
+            }
+            else
+            {
+                // Store search — existing behavior (unchanged)
+                var result = await CatalogService.SearchStoresAsync(keyword);
+                _stores = result.Results;
+                _suggestedKeywords = result.SuggestedKeywords;
+                _matchStrategy = result.MatchStrategy;
+                _didYouMean = result.DidYouMean;
+                _products = new();
+            }
+        }
+        catch
+        {
             _stores = new();
-            _suggestedKeywords = new();
-            _didYouMean = result?.DidYouMean;
-            _matchStrategy = result?.MatchStrategy ?? "all";
-        }
-        else
-        {
-            // Store search — existing behavior (unchanged)
-            var result = await CatalogService.SearchStoresAsync(keyword);
-            _stores = result.Results;
-            _suggestedKeywords = result.SuggestedKeywords;
-            _matchStrategy = result.MatchStrategy;
-            _didYouMean = result.DidYouMean;
             _products = new();
+            _voiceError = "Không tìm được kết quả lúc này — thử lại nhé.";
         }
-        _loading = false;
+        finally
+        {
+            _loading = false;
+        }
         await SaveRecentKeywordAsync();
 
         // Phí nền tảng P4 (hook c): directory.search — platform tenant, kw hashed (privacy),
