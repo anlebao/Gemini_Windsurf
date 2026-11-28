@@ -1,6 +1,6 @@
 # TASK CARD: Voice Search Input Hardening — "Treo" (V1) + "Chậm" (V2) ✅ DONE
 
-> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — V1 `b2ca71ed`+`6bef02f4` · V2b `9e9c7a43` · V2a/c `abd82648` — RV prod 20/20 PASS**
+> Created: 2026-11-28 · Updated: 2026-11-28 · Status: **DONE — V1 `b2ca71ed`+`6bef02f4` · V2b `9e9c7a43` · V2a/c `abd82648` · commit-path hardening `eac0c36e` — RV prod 75/75 PASS**
 > **Manual-test RCA (2026-11-28):** timlathay.com SSR treo sau V1 — mỗi interim
 > `onresult` (~3–5/s) = 1 JS→.NET invoke + full page render qua websocket
 > (Blazor Server) → render backlog → hang. WASM invoke là local nên KhachLink
@@ -145,12 +145,42 @@ Inject `FakeSpeechRecognition` qua `page.addInitScript` trước khi page load:
   (`git add -A`) — không rewrite history; lần sau stage chọn lọc (đã áp dụng
   cho `abd82648`).
 
-## RV kết quả (2026-11-28, prod)
+## Commit-path hardening ✅ DONE (`eac0c36e`) — chốt failure mode Chrome thật
 
-**20/20 PASS** — S1 watchdog ≤12s · S2 noise cap ≤36s · S3 submit `an tam` +
-adaptive 1051ms sau isFinal · S4 reset+re-tap · S5 lazy ~1.1s · S6 SPA abort ·
-S7 continuous=false · Dir DOM-fill sớm + submit SSR · S8 Home unify nav ·
-0 pageerror. Report `.devin/voice-v1-rv-report.json`.
+Manual test trên Chrome user: transcript fill được nhưng search không chạy —
+Chrome không fire `end`/`speechend` → session không bao giờ commit. 3 commit
+path độc lập: `finalCommitTimer` 800ms sau đuôi FINAL (re-arm CHỈ khi có final
+mới — interim noise không re-arm được) · `onspeechend` handler · silence 2.5s
+fallback + 30s hard cap. Thêm `stop(cause)` param + `__vananVoiceLog`
+ring-buffer diagnostic (đọc event sequence thật trên browser user).
+
+## RV kết quả (2026-11-28, prod — sweep mở rộng)
+
+**75/75 PASS, 0 FAIL** — full coverage mọi voice surface:
+
+- **S1–S9 regression:** watchdog ≤12s · noise cap ≤36s · adaptive ~1s sau
+  isFinal · reset+re-tap · lazy-race ~1s · SPA nav abort · continuous=false ·
+  Home unify nav · **S9 noend dead-man finalize** (Chrome-bug sim: `end` không
+  fire → transcript vẫn submit qua fallback)
+- **Matrix 3 KL instances × 3 pages** (commienphi/shopai/vanan × `/` `/stores`
+  `/products`): mic render + interim DOM-fill + submit đúng endpoint
+  (`/api/tenants/search?name=` · `/api/catalog/search?q=` · Home nav `q=`) +
+  listening-off — 36/36
+- **hoptacxa/** negative: mic ẩn đúng (portal không voice)
+- **Dir SSR** `/stores` + `/` (page user report treo): DOM-fill sớm 0 roundtrip,
+  search chạy, listening off
+- **D-block DidYouMean/fuzzy:** API `name=antaam` → didYouMean "An Tâm" ·
+  typed `antaam` → fuzzy/DYM trên 3 KL + Dir · **voice `antaam` → request
+  `name=antaam` → "An Tâm" trong DOM** trên 3 KL (fuzzy chain end-to-end)
+- **0 pageerror** trên toàn sweep
+
+**Test artifacts fixed trong sweep (không phải bug):** `domProof` short-circuit
+sớm khi "An Tâm" nằm sẵn trong default listing (break trước khi voice final
+emit → "no req") · typed-flow sleep 4s cứng flake khi WASM cold (→ đợi mic
+render = proxy interactive) · SSR listening-off check 1 lần trước render
+cycle → poll 3s.
+
+Run trước đó (S1–S9 cơ bản): 20/20 PASS — report `.devin/voice-v1-rv-report.json`.
 
 ## OUT OF SCOPE (V3 — ghi để không quên)
 

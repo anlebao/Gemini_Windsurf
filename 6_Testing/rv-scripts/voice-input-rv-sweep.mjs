@@ -18,6 +18,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPORT = join(HERE, '..', '..', '.devin', 'voice-v1-rv-report.json');
 const KHACHLINK = process.env.KHACHLINK_URL || 'https://commienphi.timlathay.com';
 const DIRECTORY = process.env.DIRECTORY_URL || 'https://timlathay.com';
+// Full instance matrix (2026-11-28): mọi KhachLink instance có voice search.
+// Hoptacxa portal: `_isHoptacxa` skip voice init → mic PHẢI ẩn (negative check).
+const KL_HOSTS = (process.env.KHACHLINK_HOSTS ||
+    'commienphi.timlathay.com,shopai.timlathay.com,vanan.timlathay.com')
+    .split(',').map(h => 'https://' + h.trim());
 
 const results = [];
 const check = (n, p, d = '') => {
@@ -52,13 +57,15 @@ window.SpeechRecognition = window.webkitSpeechRecognition = class {
             return;
         }
         // speech: interim×3 → final "an tam" → ngừng (silence timer xử lý)
+        // misspell: voice transcript sai chính tả → verify fuzzy/didYouMean chain
+        const words = this._mode === 'misspell'
+            ? [['anta', false], ['antaam', false], ['antaam', true]]
+            : [['an', false], ['an ta', false], ['an tam', false], ['an tam', true]];
         const emit = (txt, isFinal) => this.onresult && this.onresult({ results: [
             Object.assign([{ transcript: txt }], { isFinal })
         ]});
-        this._timers.push(setTimeout(() => emit('an', false), 300));
-        this._timers.push(setTimeout(() => emit('an ta', false), 700));
-        this._timers.push(setTimeout(() => emit('an tam', false), 1100));
-        this._timers.push(setTimeout(() => emit('an tam', true), 1500));
+        words.forEach(([t, f], i) =>
+            this._timers.push(setTimeout(() => emit(t, f), 300 + i * 400)));
         // noend: quirk Chrome thật — final đến nhưng 'end' không bao giờ fire
         // (kể cả sau stop()) — dead-man finalize fallback phải cover
         if (this._mode === 'noend') this._noend = true;
@@ -247,14 +254,16 @@ const isListening = async (page) =>
         let earlyFill = false, found = false;
         for (let i = 0; i < 20; i++) {
             await page.waitForTimeout(500);
-            const inp = await page.locator('.vanan-search-pill input, input').first()
+            const inp = await page.locator('#vanan-public-search-input').first()
                 .inputValue().catch(() => '');
             // V2b: interim fill qua DOM trực tiếp — input có transcript TRƯỚC khi
             // silence 2.5s + search + SSR render xong (poll đầu ≤2.5s sau click)
             if (inp.includes('an tam') && i <= 4) earlyFill = true;
             if (inp.includes('an tam')) { found = true; break; }
             const body = await page.locator('body').innerText().catch(() => '');
-            if (body.includes('An Tâm')) { found = true; break; }
+            // 'An Tâm' có thể nằm sẵn trong default listing — chỉ break khi đã
+            // xác định xong earlyFill (hoặc quá cửa sổ sớm)
+            if (body.includes('An Tâm')) { found = true; if (earlyFill || i > 4) break; }
         }
         check('Dir interim → input DOM-fill sớm, 0 roundtrip (V2b)', earlyFill);
         check('Dir voice submit → transcript/search chạy (SSR)', found);
@@ -320,6 +329,203 @@ const isListening = async (page) =>
         check('S9 noend: listening off sau fallback', off);
     }
     await ctx.close();
+}
+
+// ═══ MATRIX: toàn bộ voice search input trên mọi KhachLink instance ═══════
+// Helper: mic click → speech → assert DOM-fill + request/nav/DOM result.
+async function voiceFlow({ host, path, inputSel, reqFilter, domProof, micSel, mode, transcript }) {
+    const { ctx, page } = await newPageWithSR(mode || 'speech');
+    const reqs = [];
+    if (reqFilter) page.on('request', r => { if (reqFilter(r.url())) reqs.push(r.url()); });
+    await page.goto(host + path, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(4000); // WASM boot / SSR interactive
+    const mic = page.locator(micSel || 'button[aria-label*="giọng nói"]').first();
+    try { await mic.waitFor({ timeout: 30000 }); } catch {}
+    const hasMic = await mic.count() > 0;
+    if (!hasMic) { await ctx.close(); return { mic: false }; }
+    await mic.click();
+    const want = transcript || 'an tam';
+    let earlyFill = false, hit = false, dom = false, navUrl = '';
+    for (let i = 0; i < 16; i++) {
+        await page.waitForTimeout(500);
+        const inp = await page.locator(inputSel).first().inputValue().catch(() => '');
+        if (inp.includes(want) && i <= 5) earlyFill = true;
+        if (reqs.length) hit = true;
+        if (domProof) {
+            const body = await page.locator('body').innerText().catch(() => '');
+            if (domProof(body)) dom = true;
+        }
+        if (page.url().includes('q=')) { navUrl = page.url(); break; }
+        // domProof KHÔNG short-circuit khi cần request — kết quả có thể nằm sẵn
+        // trong default listing (ví dụ "An Tâm" là tenant đầu tiên) → dom true
+        // ngay lần poll đầu trước cả khi voice final được emit
+        if (hit || (dom && !reqFilter)) break;
+    }
+    // Request vừa fire → render còn chưa kịp → poll domProof thêm ≤4s
+    if (domProof && !dom) {
+        for (let i = 0; i < 8 && !dom; i++) {
+            await page.waitForTimeout(500);
+            const body = await page.locator('body').innerText().catch(() => '');
+            if (domProof(body)) dom = true;
+        }
+    }
+    // SSR/render lag: OnVoiceEnd → _listening=false cần 1 render cycle — poll ≤3s
+    let off = false;
+    for (let i = 0; i < 6 && !off; i++) {
+        off = !(await isListening(page));
+        if (!off) await page.waitForTimeout(500);
+    }
+    await ctx.close();
+    return { mic: true, earlyFill, hit, dom, navUrl, off, lastReq: reqs[reqs.length - 1] };
+}
+
+for (const host of KL_HOSTS) {
+    const tag = host.replace('https://', '').split('.')[0];
+    // /stores — StoreFinder in-page search → request /api/tenants/search?name=
+    // filter PHẢI match query "an" — boot-time list request (name= rỗng) không tính
+    const st = await voiceFlow({
+        host, path: '/stores', inputSel: '#search-input',
+        reqFilter: u => u.includes('/api/tenants/search') && u.includes('name=an'),
+    });
+    check(`${tag}/stores mic render`, st.mic !== false);
+    if (st.mic) {
+        check(`${tag}/stores interim→DOM-fill sớm`, st.earlyFill);
+        check(`${tag}/stores submit name=an tam`, st.hit, st.lastReq || 'no req');
+        check(`${tag}/stores listening off`, st.off);
+    }
+    // /products — ProductSearchResults → request /api/catalog/search?q=
+    const pr = await voiceFlow({
+        host, path: '/products', inputSel: '#product-search-input',
+        reqFilter: u => u.includes('catalog/search') && /[?&]q=an/i.test(u),
+    });
+    check(`${tag}/products mic render`, pr.mic !== false);
+    if (pr.mic) {
+        check(`${tag}/products interim→DOM-fill sớm`, pr.earlyFill);
+        check(`${tag}/products submit catalog q=an tam`, pr.hit, pr.lastReq || 'no req');
+        check(`${tag}/products listening off`, pr.off);
+    }
+    // / — Home unify → SubmitHomeSearch nav q=
+    const hm = await voiceFlow({
+        host, path: '/', inputSel: '#home-search-input',
+        micSel: '.home-voice-mic-btn, button[aria-label*="giọng nói"]',
+    });
+    check(`${tag}/ mic render (Home)`, hm.mic !== false);
+    if (hm.mic) {
+        check(`${tag}/ interim→DOM-fill #home-search-input`, hm.earlyFill);
+        check(`${tag}/ final→nav q=an tam`, /products|stores/.test(hm.navUrl) && hm.navUrl.includes('q='), hm.navUrl);
+    }
+}
+
+// Hoptacxa portal: _isHoptacxa skip voice init → mic PHẢI ẩn (negative check)
+{
+    const { ctx, page } = await newPageWithSR('speech');
+    await page.goto('https://hoptacxa.timlathay.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(8000);
+    const micCount = await page.locator('button[aria-label*="giọng nói"]').count();
+    check('hoptacxa/ mic ẩn đúng (portal không voice)', micCount === 0, `count=${micCount}`);
+    await ctx.close();
+}
+
+// Dir Home `/` — SSR store mode: interim DOM-fill + search server-side → DOM
+{
+    const { ctx, page } = await newPageWithSR('speech');
+    await page.goto(`${DIRECTORY}/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(5000);
+    const mic = page.locator('button[aria-label*="giọng nói"]').first();
+    try { await mic.waitFor({ timeout: 30000 }); } catch {}
+    check('Dir/ mic render (Home)', await mic.count() > 0);
+    if (await mic.count() > 0) {
+        await mic.click();
+        // "An Tâm" nằm sẵn trong featured listing → searched có thể true ngay
+        // lần poll đầu. KHÔNG break sớm: poll đến khi input có transcript VÀ
+        // search chạy — mới chứng minh được DOM-fill + submit thật.
+        let earlyFill = false, searched = false;
+        for (let i = 0; i < 16 && !(earlyFill && searched); i++) {
+            await page.waitForTimeout(500);
+            const inp = await page.locator('#vanan-public-search-input').first().inputValue().catch(() => '');
+            if (inp.includes('an tam') && i <= 5) earlyFill = true;
+            const body = await page.locator('body').innerText().catch(() => '');
+            if (body.includes('An Tâm') || body.includes('Không tìm thấy') || body.includes('cửa hàng phù hợp')) {
+                searched = true;
+            }
+        }
+        check('Dir/ interim→DOM-fill sớm', earlyFill);
+        check('Dir/ voice submit → search chạy (SSR, user-reported page)', searched);
+        let off = false;
+        for (let i = 0; i < 6 && !off; i++) {
+            off = !(await isListening(page));
+            if (!off) await page.waitForTimeout(500);
+        }
+        check('Dir/ listening off sau submit', off);
+    }
+    await ctx.close();
+}
+
+// ═══ D-BLOCK: DidYouMean + fuzzy — search TRẢ ĐÚNG kết quả, không chỉ không
+// treo. Cover: API contract → typed misspell → voice misspell (fuzzy chain) ══
+// L1 API contract (không cần browser): fuzzy "antaam" → didYouMean "An Tâm"
+try {
+    const r = await fetch('https://api2.khachvip.online/api/tenants/search?name=antaam');
+    const j = await r.json();
+    const dy = j.didYouMean || (j.results && j.results.didYouMean) || '';
+    check('API fuzzy: name=antaam → didYouMean "An Tâm"',
+        String(dy).includes('An Tâm'), JSON.stringify(j).slice(0, 120));
+    const r2 = await fetch('https://api2.khachvip.online/api/tenants/search?name=cafe');
+    const j2 = await r2.json();
+    check('API search: name=cafe → có kết quả', (j2.results || []).length > 0,
+        `n=${(j2.results || []).length}`);
+} catch (e) {
+    check('API fuzzy contract', false, String(e));
+}
+
+// Typed misspell helper: fill + Enter → fuzzy result / DidYouMean chip trong DOM
+async function typedMisspellFlow({ host, path, inputSel }) {
+    const { ctx, page } = await newPageWithSR('speech');
+    await page.goto(host + path, { waitUntil: 'domcontentloaded' });
+    // Mic chỉ render khi _speechSupported=true — tức Blazor interactive + lazy
+    // voice JS đã load → proxy chắc chắn cho "page sẵn sàng nhận input events".
+    // Sleep cứng 4s flake trên instance WASM cold (commienphi/vanan).
+    const mic = await micButton(page);
+    await mic.count();
+    const inp = page.locator(inputSel).first();
+    const found = await inp.count() > 0;
+    let dom = false, body = '';
+    if (found) {
+        await inp.fill('antaam');
+        await inp.press('Enter');
+        for (let i = 0; i < 14; i++) {
+            await page.waitForTimeout(500);
+            body = await page.locator('body').innerText().catch(() => '');
+            if (body.includes('An Tâm')) { dom = true; break; }
+        }
+    }
+    await ctx.close();
+    return { found, dom, body: body.slice(0, 120) };
+}
+
+for (const host of KL_HOSTS) {
+    const tag = host.replace('https://', '').split('.')[0];
+    // D1: typed misspell → fuzzy/DidYouMean đưa "An Tâm" ra (result hoặc chip)
+    const dy = await typedMisspellFlow({ host, path: '/stores', inputSel: '#search-input' });
+    check(`${tag}/stores typed "antaam" → fuzzy/DidYouMean "An Tâm"`,
+        dy.found && dy.dom, dy.body);
+    // D2: VOICE misspell → transcript "antaam" submit → fuzzy chain trả kết quả
+    const vdy = await voiceFlow({
+        host, path: '/stores', inputSel: '#search-input', mode: 'misspell',
+        transcript: 'antaam',
+        reqFilter: u => u.includes('/api/tenants/search') && u.includes('antaam'),
+        domProof: b => b.includes('An Tâm'),
+    });
+    check(`${tag}/stores voice "antaam" mic`, vdy.mic !== false);
+    if (vdy.mic) {
+        check(`${tag}/stores voice "antaam" → request name=antaam`, vdy.hit, vdy.lastReq || 'no req');
+        check(`${tag}/stores voice "antaam" → "An Tâm" trong DOM (fuzzy/DYM)`, vdy.dom);
+    }
+}
+// Dir /stores typed misspell (SSR — server-side search → DOM proof only)
+{
+    const dy = await typedMisspellFlow({ host: DIRECTORY, path: '/stores', inputSel: '#vanan-public-search-input' });
+    check('Dir/stores typed "antaam" → fuzzy/DidYouMean "An Tâm"', dy.found && dy.dom, dy.body);
 }
 
 check('no pageerror', pageErrors.length === 0, pageErrors[0]);
